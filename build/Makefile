@@ -138,6 +138,54 @@ src/driver/main.cpp.s:
 	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/driver/main.cpp.s
 .PHONY : src/driver/main.cpp.s
 
+src/functions/process.o: src/functions/process.cpp.o
+.PHONY : src/functions/process.o
+
+# target to build an object file
+src/functions/process.cpp.o:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o
+.PHONY : src/functions/process.cpp.o
+
+src/functions/process.i: src/functions/process.cpp.i
+.PHONY : src/functions/process.i
+
+# target to preprocess a source file
+src/functions/process.cpp.i:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/process.cpp.i
+.PHONY : src/functions/process.cpp.i
+
+src/functions/process.s: src/functions/process.cpp.s
+.PHONY : src/functions/process.s
+
+# target to generate assembly for a file
+src/functions/process.cpp.s:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/process.cpp.s
+.PHONY : src/functions/process.cpp.s
+
+src/functions/spmd.o: src/functions/spmd.cpp.o
+.PHONY : src/functions/spmd.o
+
+# target to build an object file
+src/functions/spmd.cpp.o:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/spmd.cpp.o
+.PHONY : src/functions/spmd.cpp.o
+
+src/functions/spmd.i: src/functions/spmd.cpp.i
+.PHONY : src/functions/spmd.i
+
+# target to preprocess a source file
+src/functions/spmd.cpp.i:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/spmd.cpp.i
+.PHONY : src/functions/spmd.cpp.i
+
+src/functions/spmd.s: src/functions/spmd.cpp.s
+.PHONY : src/functions/spmd.s
+
+# target to generate assembly for a file
+src/functions/spmd.cpp.s:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/spmd.cpp.s
+.PHONY : src/functions/spmd.cpp.s
+
 src/objects/body.o: src/objects/body.cpp.o
 .PHONY : src/objects/body.o
 
@@ -174,6 +222,12 @@ help:
 	@echo "... src/driver/main.o"
 	@echo "... src/driver/main.i"
 	@echo "... src/driver/main.s"
+	@echo "... src/functions/process.o"
+	@echo "... src/functions/process.i"
+	@echo "... src/functions/process.s"
+	@echo "... src/functions/spmd.o"
+	@echo "... src/functions/spmd.i"
+	@echo "... src/functions/spmd.s"
 	@echo "... src/objects/body.o"
 	@echo "... src/objects/body.i"
 	@echo "... src/objects/body.s"

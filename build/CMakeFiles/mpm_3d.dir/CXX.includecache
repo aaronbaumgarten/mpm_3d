@@ -22,6 +22,12 @@ vector
 
 ../include/particle.hpp
 
+../include/process.hpp
+vector
+-
+
+../include/spmd.hpp
+
 /home/aaron/Desktop/mpm_3d/include/body.hpp
 vector
 -
@@ -47,6 +53,24 @@ body.hpp
 /home/aaron/Desktop/mpm_3d/src/driver/body.hpp
 element.hpp
 /home/aaron/Desktop/mpm_3d/src/driver/element.hpp
+process.hpp
+/home/aaron/Desktop/mpm_3d/src/driver/process.hpp
+
+/home/aaron/Desktop/mpm_3d/src/functions/process.cpp
+iostream
+-
+stdlib.h
+-
+process.hpp
+/home/aaron/Desktop/mpm_3d/src/functions/process.hpp
+
+/home/aaron/Desktop/mpm_3d/src/functions/spmd.cpp
+stdlib.h
+-
+stdio.h
+-
+spmd.hpp
+/home/aaron/Desktop/mpm_3d/src/functions/spmd.hpp
 
 /home/aaron/Desktop/mpm_3d/src/objects/body.cpp
 stdlib.h

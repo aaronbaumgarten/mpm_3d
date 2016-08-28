@@ -9,6 +9,10 @@
 #include "../../include/particle.hpp"
 #include "../../include/node.hpp"
 
+#define WHICH_ELEMENT WHICH_ELEMENT9
+//very ugly but it should work
+#define WHICH_ELEMENT9(px,py,pz,Nx,Ny,Nz,Lx,Ly,Lz,hx,hy,hz) \
+    ((int)(((px)<Lx && (px)>=0 && (py)<Ly && (py)>=0 && (pz)<Lz && (pz)>=0)?((floor((px)/(hx)) + floor((py)/(hy))*((Nx)-1) + floor((pz)/(hz))*((Nx*Ny)-1)):(-1))))
 
 Body::Body(size_t numNodes, size_t numParticles, size_t bodyID):
         n(numParticles),
@@ -101,7 +105,10 @@ Body::Body(size_t numNodes, size_t numParticles, size_t bodyID):
         //displacements
         particle_ux(p),
         particle_uy(p),
-        particle_uz(p)
+        particle_uz(p),
+
+        //active
+        particle_active(p)
 { }
 
 //Body::~Body(){

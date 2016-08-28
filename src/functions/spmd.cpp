@@ -8,45 +8,27 @@
 
 #include "spmd.hpp"
 
-double spmd_slow_get(const struct sparsematrix_double *sp, size_t i, size_t j);
-
-struct sparsematrix_double *spmd_create(size_t nnz, size_t rows, size_t columns)
+sparsematrix_double::sparsematrix_double(size_t nnzIn, size_t rowsIn, size_t columnsIn):
+        nnz(nnzIn),
+        capacity(nnzIn),
+        rows(rowsIn),
+        columns(columnsIn),
+        vals(new double[nnzIn]),
+        column_index(new size_t[nnzIn]),
+        row_pointer(new size_t[rowsIn+1])
 {
-    struct sparsematrix_double *sp = malloc(sizeof(struct sparsematrix_double));
-    if (sp == NULL) {
-        return NULL;
-    }
-    sp->nnz = nnz;
-    sp->capacity = nnz;
-    sp->rows = rows;
-    sp->columns = columns;
-    sp->vals = calloc(nnz, sizeof(double));
-    if (sp->vals == NULL) {
-        free(sp);
-        return NULL;
-    }
-    sp->column_index = calloc(nnz, sizeof(size_t));
-    if (sp->column_index == NULL) {
-        free(sp->vals);
-        free(sp);
-        return NULL;
-    }
-
-    sp->row_pointer = calloc(rows + 1, sizeof(size_t));
-    if (sp->row_pointer == NULL) {
-        free(sp->column_index);
-        free(sp->vals);
-        free(sp);
-        return NULL;
-    }
-    sp->row_pointer[rows] = nnz;
-
-    return sp;
+    row_pointer[rowsIn] = nnzIn;
 }
 
-struct sparsematrix_double *spmd_transpose(struct sparsematrix_double *sp)
+sparsematrix_double::~sparsematrix_double(){
+    delete(vals);
+    delete(column_index);
+    delete(row_pointer);
+}
+
+sparsematrix_double sparsematrix_double::spmd_transpose(sparsematrix_double *sp)
 {
-    struct sparsematrix_double *spt = spmd_create(sp->nnz, sp->columns, sp->rows);
+    sparsematrix_double *spt  = new sparsematrix_double(sp->nnz, sp->columns, sp->rows);
 
     for (size_t i = 0; i < spt->rows; i++) {
         spt->row_pointer[i] = 0;
@@ -61,7 +43,7 @@ struct sparsematrix_double *spmd_transpose(struct sparsematrix_double *sp)
         spt->row_pointer[i] += spt->row_pointer[i - 1];
     }
 
-    for (size_t i = 0; i < sp->rows; i++) {
+    for (size_t i = 0; i < rows; i++) {
         for (size_t p = sp->row_pointer[i]; p < sp->row_pointer[i+1]; p++) {
             size_t transpose_row = sp->column_index[p];
             size_t transpose_linear_index = spt->row_pointer[transpose_row];
@@ -78,23 +60,10 @@ struct sparsematrix_double *spmd_transpose(struct sparsematrix_double *sp)
     spt->row_pointer[0] = 0;
     spt->row_pointer[spt->rows] = spt->nnz;
 
-    return spt;
+    return *spt;
 }
 
-void spmd_delete(struct sparsematrix_double *sp)
-{
-    if (sp == NULL) {
-        return;
-    }
-
-    free(sp->row_pointer);
-    free(sp->column_index);
-    free(sp->vals);
-    free(sp);
-    return;
-}
-
-void spmd_print(const struct sparsematrix_double *sp, int full)
+void sparsematrix_double::spmd_print(const sparsematrix_double *sp, int full)
 {
     if (sp == NULL) {
         return;
@@ -118,7 +87,7 @@ void spmd_print(const struct sparsematrix_double *sp, int full)
     } else {
         for (size_t i = 0; i < sp->rows; i++) {
             for (size_t j = 0; j < sp->columns; j++) {
-                printf("%4.4g ", spmd_slow_get(sp, i, j));
+                printf("%4.4g ", sparsematrix_double::spmd_slow_get(sp, i, j));
             }
             printf("\n");
         }
@@ -127,7 +96,7 @@ void spmd_print(const struct sparsematrix_double *sp, int full)
     return;
 }
 
-double spmd_slow_get(const struct sparsematrix_double *sp, size_t i, size_t j)
+double sparsematrix_double::spmd_slow_get(const sparsematrix_double *sp, size_t i, size_t j)
 {
     if (sp == NULL) {
         return 0xdeadbeef;
@@ -143,7 +112,7 @@ double spmd_slow_get(const struct sparsematrix_double *sp, size_t i, size_t j)
     return ret;
 }
 
-void spmd_gaxpy(const struct sparsematrix_double * restrict A, const double * restrict x, double * restrict y)
+void sparsematrix_double::spmd_gaxpy(const sparsematrix_double * A, const double * x, double * y)
 {
     // does y <- A * x + y
     if (A == NULL || x == NULL || y == NULL) {
@@ -160,7 +129,7 @@ void spmd_gaxpy(const struct sparsematrix_double * restrict A, const double * re
     return;
 }
 
-void spmd_gatxpy(const struct sparsematrix_double * restrict A, const double * restrict x, double * restrict y)
+void sparsematrix_double::spmd_gatxpy(const sparsematrix_double * A, const double * x, double * y)
 {
     // does y <- A^T * x + y
     if (A == NULL || x == NULL || y == NULL) {

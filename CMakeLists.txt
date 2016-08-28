@@ -4,7 +4,10 @@ project(mpm_3d)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 set(SOURCE_FILES src/driver/main.cpp)
-set(SOURCE_FILES ${SOURCE_FILES} src/objects/body.cpp)
+set(SOURCE_FILES ${SOURCE_FILES}
+        src/objects/body.cpp
+        src/functions/process.cpp
+        src/functions/spmd)
 
 include_directories(include)
 

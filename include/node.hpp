@@ -12,6 +12,9 @@ inline size_t get_global_index(size_t body, size_t local_index, size_t blocksize
 
 class Node{
 public:
+    //unique id
+    size_t id;
+
     //filled element neighbors
     int num_filled_element_neighbors;
     double mass_filled_element_neighbors;

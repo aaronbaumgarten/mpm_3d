@@ -112,10 +112,20 @@ public:
     std::vector<double> particle_uy;
     std::vector<double> particle_uz;
 
+    //active
+    std::vector<int> particle_active;
+
     //construcors
     Body(size_t,size_t,size_t);
     //destructors
     //~Body();
+
+    //functions
+    void createParticle();
+    void createNode();
+    void createElement();
+    void mapParticles2Elements();
+    void mapParticles2Nodes();
 };
 
 #endif //MPM_3D_BODY_HPP
