@@ -3,6 +3,9 @@
 // particle.hpp (heavily borrows from mpm-2d-legacy)
 //
 
+#include <iostream>
+#include <stdlib.h>
+
 #ifndef MPM_3D_PARTICLE_HPP
 #define MPM_3D_PARTICLE_HPP
 
@@ -28,9 +31,11 @@
 #define ZY (NDIM * S_ZIDX + S_YIDX)
 #define ZZ (NDIM * S_ZIDX + S_ZIDX)
 
-class Particle{
+class Particle {
 public:
+    //much of this would double up memory with Body object
     //position
+    /*
     double x;
     double y;
     double z;
@@ -55,21 +60,24 @@ public:
     double bx;
     double by;
     double bz;
+     */
 
     //full 3d stress tensor
     /* CAUTION: T is also used for templates */
-    double T[NDIM*NDIM];
+    double T[NDIM * NDIM];
 
     //full 3d deformation gradient
-    double F[NDIM*NDIM];
+    double F[NDIM * NDIM];
 
     //full 3d plastic deformation gradient
-    double Fp[NDIM*NDIM];
+    double Fp[NDIM * NDIM];
 
     //displacements
+    /*
     double ux;
     double uy;
     double uz;
+     */
 
     //state variables (used for constitutive laws)
     double state[DEPVAR];
@@ -97,9 +105,15 @@ public:
     size_t blocksize;
 
     //construcors
-    Particle() {}
+    template<class T>
+    Particle(T* bd, size_t idIn):
+            id(id),
+            active(bd->particle_active[idIn])
+    {};
+
+    Particle() { }
     //destructors
-    ~Particle() {}
+    //~Particle() {}
 };
 
 #endif //MPM_3D_PARTICLE_HPP

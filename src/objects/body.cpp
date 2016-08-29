@@ -2,7 +2,7 @@
 // Created by aaron on 8/26/16.
 // body.cpp
 //
-
+#include <iostream>
 #include <stdlib.h>
 
 #include "../../include/body.hpp"
@@ -20,8 +20,8 @@ Body::Body(size_t numNodes, size_t numParticles, size_t bodyID):
         id(bodyID),
 
         //objects
-        particle(p),
-        node(n),
+        particles(p),
+        nodes(n),
 
         //mass
         node_m(n),
@@ -110,6 +110,47 @@ Body::Body(size_t numNodes, size_t numParticles, size_t bodyID):
         //active
         particle_active(p)
 { }
+
+void Body::addParticle(double mIn,double vIn,double xIn,double yIn,double zIn,double x_tIn,double y_tIn,double z_tIn, size_t idIn){
+    //Add particle from file. Zero out unset terms.
+    //position
+    particle_x[idIn] = xIn;
+    particle_y[idIn] = yIn;
+    particle_z[idIn] = zIn;
+
+    //volume
+    particle_v[idIn] = vIn;
+    particle_v0[idIn] = vIn;
+    particle_v_averaging[idIn] = vIn;
+
+    //half side length
+    particle_a[idIn] = 0.25; //from Sachith's code
+
+    //mass
+    particle_m[idIn] = mIn;
+
+    //velocity
+    particle_x_t[idIn] = x_tIn;
+    particle_y_t[idIn] = y_tIn;
+    particle_z_t[idIn] = z_tIn;
+
+    //body forces
+    particle_bx[idIn] = 0;
+    particle_by[idIn] = 0;
+    particle_bz[idIn] = 0;
+
+    //displacements
+    particle_ux[idIn] = 0;
+    particle_uy[idIn] = 0;
+    particle_uz[idIn] = 0;
+
+    //active
+    particle_active[idIn] = 0;
+
+    //create references in Particle object
+    //must be written this way to ensure that particle.hpp doesn't reference body.hpp
+    this->particles[idIn] = Particle(this,idIn);
+}
 
 //Body::~Body(){
 //

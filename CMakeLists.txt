@@ -7,7 +7,7 @@ set(SOURCE_FILES src/driver/main.cpp)
 set(SOURCE_FILES ${SOURCE_FILES}
         src/objects/body.cpp
         src/functions/process.cpp
-        src/functions/spmd)
+        src/functions/spmd.cpp)
 
 include_directories(include)
 

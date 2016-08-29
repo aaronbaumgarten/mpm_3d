@@ -49,12 +49,12 @@ print "point array created"
 
 # add arrays to mpm dictionary
 mpm_points = []
-nb1 = 0 #number of material points in body 1
+nb1 = len(block_point_array) #number of material points in body 1
 nb2 = 0
 
 grid.write_grid_file(grid_filename)
 with open(particle_filename, 'w') as f:
-    f.write("\n")
+    f.write("%d %d %d\n" % (nb1+nb2,nb1,nb2))
     for p in block_point_array:
     #    mpm_point = {
     #                    'body': 1,
@@ -67,10 +67,6 @@ with open(particle_filename, 'w') as f:
     #    if (mpm_point['body'] == 1):
     #        nb1 += 1
     #    mpm_points.append(mpm_point)
-        f.write("%g %g %g %g %g %g %g %g %g\n" % (1, block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 0, 0, 0))
-        nb1 += 1
+        f.write("%g %g %g %g %g %g %g %g %g\n" % (0, block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 0, 0, 0))
 
-# write file header
-with open(particle_filename, 'rw') as f:
-    f.write("%d %d %d\n" % (nb1+nb2,nb1,nb2))
 print "file written"

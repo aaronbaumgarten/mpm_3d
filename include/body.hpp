@@ -23,8 +23,8 @@ public:
     size_t id;
 
     //***** objects *****
-    std::vector<Particle> particle;
-    std::vector<Node> node;
+    std::vector<Particle> particles;
+    std::vector<Node> nodes;
 
     //***** nodal vectors *****
     //mass
@@ -121,9 +121,9 @@ public:
     //~Body();
 
     //functions
-    void createParticle();
-    void createNode();
-    void createElement();
+    void addParticle(double,double,double,double,double,double,double,double,size_t);
+    void addNode();
+    void addElement();
     void mapParticles2Elements();
     void mapParticles2Nodes();
 };

@@ -6,7 +6,9 @@
 #ifndef MPM_3D_PROCESS_HPP
 #define MPM_3D_PROCESS_HPP
 
+#include <stdlib.h>
 #include <vector>
+#include "body.hpp"
 
 class job_t{
 public:
@@ -48,14 +50,18 @@ public:
     int step_number;
     double step_start_time;
 
+    //object vector
+    std::vector<Body> bodies;
+
     //threading
     //pthread_barrier_t *step_barrier;
     //pthread_barrier_t *serialize_barrier;
     //size_t num_threads;
 
     //functions
-    int readParticles(const char*);
-    int readNodes(const char*);
+    job_t();
+    int importNodesandParticles(const char*,const char*);
+    void createBody(Body*,size_t,size_t,size_t);
 };
 
 class threadtask_t{

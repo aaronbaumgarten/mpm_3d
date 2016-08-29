@@ -13,11 +13,12 @@ int main(int argc, char *argv[]) {
     std::cout << "Hello, World!" << std::endl;
 
     //initialize job
-    job_t *job;
+    job_t *job(new job_t);
 
     //parse configuration files
     char *fileParticle = "s.particles";
-    job->readParticles(fileParticle);
+    char *fileNodes = "s.grid";
+    job->importNodesandParticles(fileNodes,fileParticle);
 
     //initialize and allocate memory
 
