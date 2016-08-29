@@ -23,8 +23,12 @@ vector
 ../include/particle.hpp
 
 ../include/process.hpp
+stdlib.h
+-
 vector
 -
+body.hpp
+../include/body.hpp
 
 ../include/spmd.hpp
 
@@ -63,6 +67,8 @@ stdlib.h
 -
 process.hpp
 /home/aaron/Desktop/mpm_3d/src/functions/process.hpp
+body.hpp
+/home/aaron/Desktop/mpm_3d/src/functions/body.hpp
 
 /home/aaron/Desktop/mpm_3d/src/functions/spmd.cpp
 stdlib.h

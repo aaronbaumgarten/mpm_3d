@@ -9,6 +9,9 @@ CMakeFiles/mpm_3d.dir/src/driver/main.cpp.o
  ../include/process.hpp
  /home/aaron/Desktop/mpm_3d/src/driver/main.cpp
 CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o
+ ../include/body.hpp
+ ../include/node.hpp
+ ../include/particle.hpp
  ../include/process.hpp
  /home/aaron/Desktop/mpm_3d/src/functions/process.cpp
 CMakeFiles/mpm_3d.dir/src/functions/spmd.cpp.o

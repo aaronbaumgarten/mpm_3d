@@ -8,6 +8,9 @@ CMakeFiles/mpm_3d.dir/src/driver/main.cpp.o: ../include/particle.hpp
 CMakeFiles/mpm_3d.dir/src/driver/main.cpp.o: ../include/process.hpp
 CMakeFiles/mpm_3d.dir/src/driver/main.cpp.o: ../src/driver/main.cpp
 
+CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o: ../include/body.hpp
+CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o: ../include/node.hpp
+CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o: ../include/particle.hpp
 CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o: ../include/process.hpp
 CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o: ../src/functions/process.cpp
 
