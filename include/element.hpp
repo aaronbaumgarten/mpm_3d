@@ -24,6 +24,18 @@ public:
     //element color (for threading)
     //int color;
 
+    Element() {}
+
+    Element(size_t nn, size_t* nodeIDs, size_t idIn):
+            id(idIn),
+            numNodes(nn),
+            nodeID(nn)
+    {
+        for (int i=0;i<nn;i++){
+            nodeID[i] = nodeIDs[i];
+        }
+    }
+
 };
 
 #endif //MPM_3D_ELEMENT_HPP

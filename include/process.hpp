@@ -61,7 +61,9 @@ public:
     //functions
     job_t();
     int importNodesandParticles(const char*,const char*);
-    void createBody(Body*,size_t,size_t,size_t);
+    void createBody(Body*,size_t,size_t,size_t,size_t);
+    inline void node_number_to_coords(double *, double *, double *, size_t, size_t, double);
+    inline int ijkton_safe(int,int,int,int,int,int);
 };
 
 class threadtask_t{

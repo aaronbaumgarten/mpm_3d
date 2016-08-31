@@ -33,34 +33,36 @@
 
 class Particle {
 public:
-    //much of this would double up memory with Body object
+    //dummy variables
+    double rmDouble = 0.0;
+    int rmInt = 0;
+
     //position
-    /*
-    double x;
-    double y;
-    double z;
+
+    double* x;
+    double* y;
+    double* z;
 
     //volume
-    double v;
-    double v0;
-    double v_averaging;
+    double* v;
+    double* v0;
+    double* v_averaging;
 
     //half side length
-    double a;
+    double* a;
 
     //mass
-    double m;
+    double* m;
 
     //velocity
-    double x_t;
-    double y_t;
-    double z_t;
+    double* x_t;
+    double* y_t;
+    double* z_t;
 
     //body forces
-    double bx;
-    double by;
-    double bz;
-     */
+    double* bx;
+    double* by;
+    double* bz;
 
     //full 3d stress tensor
     /* CAUTION: T is also used for templates */
@@ -73,17 +75,16 @@ public:
     double Fp[NDIM * NDIM];
 
     //displacements
-    /*
-    double ux;
-    double uy;
-    double uz;
-     */
+    double* ux;
+    double* uy;
+    double* uz;
+
 
     //state variables (used for constitutive laws)
     double state[DEPVAR];
 
     //flag for whether particle is active or not
-    int active;
+    int* active;
 
     //body type (for contact models)?
     //size_t body;
@@ -107,13 +108,41 @@ public:
     //construcors
     template<class T>
     Particle(T* bd, size_t idIn):
-            id(id),
-            active(bd->particle_active[idIn])
+            id(idIn),
+            active(&(bd->particle_active[idIn])),
+
+            x(&(bd->particle_x[idIn])),
+            y(&(bd->particle_y[idIn])),
+            z(&(bd->particle_z[idIn])),
+
+            //volume
+            v(&(bd->particle_v[idIn])),
+            v0(&(bd->particle_v0[idIn])),
+            v_averaging(&(bd->particle_v_averaging[idIn])),
+
+            //half side length
+            a(&(bd->particle_a[idIn])),
+
+            //mass
+            m(&(bd->particle_m[idIn])),
+
+            //velocity
+            x_t(&(bd->particle_x_t[idIn])),
+            y_t(&(bd->particle_y_t[idIn])),
+            z_t(&(bd->particle_z_t[idIn])),
+
+            //body forces
+            bx(&(bd->particle_bx[idIn])),
+            by(&(bd->particle_by[idIn])),
+            bz(&(bd->particle_bz[idIn])),
+
+            //displacements
+            ux(&(bd->particle_ux[idIn])),
+            uy(&(bd->particle_uy[idIn])),
+            uz(&(bd->particle_uz[idIn]))
     {};
 
-    Particle() { }
-    //destructors
-    //~Particle() {}
+    Particle() {}
 };
 
 #endif //MPM_3D_PARTICLE_HPP

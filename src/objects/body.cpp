@@ -14,14 +14,16 @@
 #define WHICH_ELEMENT9(px,py,pz,Nx,Ny,Nz,Lx,Ly,Lz,hx,hy,hz) \
     ((int)(((px)<Lx && (px)>=0 && (py)<Ly && (py)>=0 && (pz)<Lz && (pz)>=0)?((floor((px)/(hx)) + floor((py)/(hy))*((Nx)-1) + floor((pz)/(hz))*((Nx*Ny)-1)):(-1))))
 
-Body::Body(size_t numNodes, size_t numParticles, size_t bodyID):
-        n(numParticles),
+Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t bodyID):
+        n(numNodes),
         p(numParticles),
+        e(numElements),
         id(bodyID),
 
         //objects
         particles(p),
         nodes(n),
+        elements(e),
 
         //mass
         node_m(n),
@@ -147,9 +149,71 @@ void Body::addParticle(double mIn,double vIn,double xIn,double yIn,double zIn,do
     //active
     particle_active[idIn] = 0;
 
-    //create references in Particle object
-    //must be written this way to ensure that particle.hpp doesn't reference body.hpp
+    //create Particle object
     this->particles[idIn] = Particle(this,idIn);
+}
+
+void Body::addNode(double xIn, double yIn, double zIn, size_t idIn) {
+    //Add node from job. Zero out unset terms
+    //mass
+    node_m[idIn] = 0;
+
+    //position
+    node_x[idIn] = xIn;
+    node_y[idIn] = yIn;
+    node_z[idIn] = zIn;
+
+    //displacement
+    node_ux[idIn] = 0;
+    node_uy[idIn] = 0;
+    node_uz[idIn] = 0;
+
+    //velocity
+    node_x_t[idIn] = 0;
+    node_y_t[idIn] = 0;
+    node_z_t[idIn] = 0;
+
+    //velocity difference
+    node_diff_x_t[idIn] = 0;
+    node_diff_y_t[idIn] = 0;
+    node_diff_z_t[idIn] = 0;
+
+    //momentum
+    node_mx_t[idIn] = 0;
+    node_my_t[idIn] = 0;
+    node_mz_t[idIn] = 0;
+
+    //force
+    node_fx[idIn] = 0;
+    node_fy[idIn] = 0;
+    node_fz[idIn] = 0;
+
+    //density
+    node_rho[idIn] = 0;
+
+    //body contact resolution
+    node_contact_x_t[idIn] = 0;
+    node_contact_y_t[idIn] = 0;
+    node_contact_z_t[idIn] = 0;
+
+    node_contact_fx[idIn] = 0;
+    node_contact_fy[idIn] = 0;
+    node_contact_fz[idIn] = 0;
+
+    node_real_contact_fx[idIn] = 0;
+    node_real_contact_fy[idIn] = 0;
+    node_real_contact_fz[idIn] = 0;
+
+    node_contact_normal_x[idIn] = 0;
+    node_contact_normal_y[idIn] = 0;
+    node_contact_normal_z[idIn] = 0;
+
+    //create Nodes object
+    this->nodes[idIn] = Node(this,idIn);
+}
+
+void Body::addElement(size_t * nodeIDs, size_t idIn) {
+    this->elements[idIn] = Element(8,nodeIDs,idIn);
 }
 
 //Body::~Body(){

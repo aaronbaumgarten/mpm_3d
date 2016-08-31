@@ -10,6 +10,7 @@
 
 #include "particle.hpp"
 #include "node.hpp"
+#include "element.hpp"
 
 class Body{
 public:
@@ -19,12 +20,16 @@ public:
     //particles
     size_t p;
 
+    //elements
+    size_t e;
+
     //body id
     size_t id;
 
     //***** objects *****
     std::vector<Particle> particles;
     std::vector<Node> nodes;
+    std::vector<Element> elements;
 
     //***** nodal vectors *****
     //mass
@@ -116,14 +121,14 @@ public:
     std::vector<int> particle_active;
 
     //construcors
-    Body(size_t,size_t,size_t);
+    Body(size_t,size_t,size_t,size_t);
     //destructors
     //~Body();
 
     //functions
     void addParticle(double,double,double,double,double,double,double,double,size_t);
-    void addNode();
-    void addElement();
+    void addNode(double,double,double,size_t);
+    void addElement(size_t[8],size_t);
     void mapParticles2Elements();
     void mapParticles2Nodes();
 };
