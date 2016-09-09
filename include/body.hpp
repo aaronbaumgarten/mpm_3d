@@ -11,9 +11,13 @@
 #include "particle.hpp"
 #include "node.hpp"
 #include "element.hpp"
+#include "material.hpp"
 
 class Body{
 public:
+    //material
+    Material material;
+
     //nodes
     size_t n;
 
@@ -129,6 +133,7 @@ public:
     void addParticle(double,double,double,double,double,double,double,double,size_t);
     void addNode(double,double,double,size_t);
     void addElement(size_t[8],size_t);
+    void defineMaterial(double*,int*);
     void mapParticles2Elements();
     void mapParticles2Nodes();
 };

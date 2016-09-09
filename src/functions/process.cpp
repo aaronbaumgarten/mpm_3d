@@ -9,9 +9,11 @@
 #include "process.hpp"
 #include "body.hpp"
 
+
 //hard coded for now. need to change
-job_t::job_t()//:
-        //bodies(2,Body(0,0,0))
+job_t::job_t():
+        use_cpdi(1),
+        dt(1e-6)
 { std::cout << "Job created.\n";}
 
 
@@ -80,6 +82,8 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
     r = sscanf(s,"%i",&numLinearNodes);
     numElements = (numLinearNodes-1)*(numLinearNodes-1)*(numLinearNodes-1); //(number of linear nodes - 1) ^3
     numNodes = numLinearNodes*numLinearNodes*numLinearNodes; //3d domain
+    num_nodes = numNodes;
+    num_elements = numElements;
     if (r == 1) {
         fgets(s,sizeof(s)/sizeof(char), fp);
         r = sscanf(s,"%g",&Lx);
@@ -107,10 +111,11 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
     }
 
     r = sscanf(s,"%i %i %i",&numParticles,&numParticles1,&numParticles2);
+    num_particles = numParticles;
     if (r!=3){
         std::cout << "Cannot parse particle file: " << pfilename << "\n";
         std::cout << "Expected 3 particle counts at file header." << "\n";
-        std::cout << "Got: " << r << "\n";
+        std::cout << "Got: z" << r << "\n";
         return -1;
     }
     //std::cout << "Number of particles: " << numParticles << "\n";
@@ -129,6 +134,7 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
     } else {
         return -1;
     }
+    num_bodies = numBodies;
     std::cout << "Bodies created (" << numBodies << ").\n";
 
     //assign particle to bodies for each particle in particle file
@@ -186,4 +192,26 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
     }
 
     std::cout << "Elements created (" << numElements << ").\n";
+    return 1;
+}
+
+int job_t::assignMaterials() {
+    for (size_t i=0;i<num_bodies;i++){
+        if (i==0) {
+            this->bodies[i].material.calculate_stress = material1::calculate_stress;
+            this->bodies[i].material.calculate_stress_threaded = material1::calculate_stress_threaded;
+            this->bodies[i].material.material_init = material1::material_init;
+        } else {
+            this->bodies[i].material.calculate_stress = material2::calculate_stress;
+            this->bodies[i].material.calculate_stress_threaded = material2::calculate_stress_threaded;
+            this->bodies[i].material.material_init = material2::material_init;
+        }
+    }
+    std::cout << "Materials assigned (" << num_bodies << ").\n";
+    return 1;
+}
+
+int job_t::assignMaterials(const char* matFile1, const char* matFile2){
+    // for defining material based on .so files (not implemented as of 9/8/16
+    return -1;
 }

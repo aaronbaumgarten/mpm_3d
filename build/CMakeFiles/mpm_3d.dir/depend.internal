@@ -4,6 +4,7 @@
 CMakeFiles/mpm_3d.dir/src/driver/main.cpp.o
  ../include/body.hpp
  ../include/element.hpp
+ ../include/material.hpp
  ../include/node.hpp
  ../include/particle.hpp
  ../include/process.hpp
@@ -11,6 +12,7 @@ CMakeFiles/mpm_3d.dir/src/driver/main.cpp.o
 CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o
  ../include/body.hpp
  ../include/element.hpp
+ ../include/material.hpp
  ../include/node.hpp
  ../include/particle.hpp
  ../include/process.hpp
@@ -18,9 +20,34 @@ CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o
 CMakeFiles/mpm_3d.dir/src/functions/spmd.cpp.o
  ../include/spmd.hpp
  /home/aaron/Desktop/mpm_3d/src/functions/spmd.cpp
+CMakeFiles/mpm_3d.dir/src/functions/tensor.cpp.o
+ ../include/particle.hpp
+ ../include/tensor.hpp
+ /home/aaron/Desktop/mpm_3d/src/functions/tensor.cpp
 CMakeFiles/mpm_3d.dir/src/objects/body.cpp.o
- /home/aaron/Desktop/mpm_3d/include/body.hpp
- /home/aaron/Desktop/mpm_3d/include/element.hpp
- /home/aaron/Desktop/mpm_3d/include/node.hpp
- /home/aaron/Desktop/mpm_3d/include/particle.hpp
+ ../include/body.hpp
+ ../include/element.hpp
+ ../include/material.hpp
+ ../include/node.hpp
+ ../include/particle.hpp
  /home/aaron/Desktop/mpm_3d/src/objects/body.cpp
+CMakeFiles/mpm_3d.dir/src/objects/material1.cpp.o
+ ../include/body.hpp
+ ../include/element.hpp
+ ../include/material.hpp
+ ../include/node.hpp
+ ../include/particle.hpp
+ ../include/process.hpp
+ ../include/tensor.hpp
+ ../src/materials/isolin.cpp
+ /home/aaron/Desktop/mpm_3d/src/objects/material1.cpp
+CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.o
+ ../include/body.hpp
+ ../include/element.hpp
+ ../include/material.hpp
+ ../include/node.hpp
+ ../include/particle.hpp
+ ../include/process.hpp
+ ../include/tensor.hpp
+ ../src/materials/isolin.cpp
+ /home/aaron/Desktop/mpm_3d/src/objects/material2.cpp

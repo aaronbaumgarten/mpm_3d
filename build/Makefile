@@ -186,6 +186,30 @@ src/functions/spmd.cpp.s:
 	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/spmd.cpp.s
 .PHONY : src/functions/spmd.cpp.s
 
+src/functions/tensor.o: src/functions/tensor.cpp.o
+.PHONY : src/functions/tensor.o
+
+# target to build an object file
+src/functions/tensor.cpp.o:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/tensor.cpp.o
+.PHONY : src/functions/tensor.cpp.o
+
+src/functions/tensor.i: src/functions/tensor.cpp.i
+.PHONY : src/functions/tensor.i
+
+# target to preprocess a source file
+src/functions/tensor.cpp.i:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/tensor.cpp.i
+.PHONY : src/functions/tensor.cpp.i
+
+src/functions/tensor.s: src/functions/tensor.cpp.s
+.PHONY : src/functions/tensor.s
+
+# target to generate assembly for a file
+src/functions/tensor.cpp.s:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/tensor.cpp.s
+.PHONY : src/functions/tensor.cpp.s
+
 src/objects/body.o: src/objects/body.cpp.o
 .PHONY : src/objects/body.o
 
@@ -210,6 +234,54 @@ src/objects/body.cpp.s:
 	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/body.cpp.s
 .PHONY : src/objects/body.cpp.s
 
+src/objects/material1.o: src/objects/material1.cpp.o
+.PHONY : src/objects/material1.o
+
+# target to build an object file
+src/objects/material1.cpp.o:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/material1.cpp.o
+.PHONY : src/objects/material1.cpp.o
+
+src/objects/material1.i: src/objects/material1.cpp.i
+.PHONY : src/objects/material1.i
+
+# target to preprocess a source file
+src/objects/material1.cpp.i:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/material1.cpp.i
+.PHONY : src/objects/material1.cpp.i
+
+src/objects/material1.s: src/objects/material1.cpp.s
+.PHONY : src/objects/material1.s
+
+# target to generate assembly for a file
+src/objects/material1.cpp.s:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/material1.cpp.s
+.PHONY : src/objects/material1.cpp.s
+
+src/objects/material2.o: src/objects/material2.cpp.o
+.PHONY : src/objects/material2.o
+
+# target to build an object file
+src/objects/material2.cpp.o:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.o
+.PHONY : src/objects/material2.cpp.o
+
+src/objects/material2.i: src/objects/material2.cpp.i
+.PHONY : src/objects/material2.i
+
+# target to preprocess a source file
+src/objects/material2.cpp.i:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.i
+.PHONY : src/objects/material2.cpp.i
+
+src/objects/material2.s: src/objects/material2.cpp.s
+.PHONY : src/objects/material2.s
+
+# target to generate assembly for a file
+src/objects/material2.cpp.s:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.s
+.PHONY : src/objects/material2.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -228,9 +300,18 @@ help:
 	@echo "... src/functions/spmd.o"
 	@echo "... src/functions/spmd.i"
 	@echo "... src/functions/spmd.s"
+	@echo "... src/functions/tensor.o"
+	@echo "... src/functions/tensor.i"
+	@echo "... src/functions/tensor.s"
 	@echo "... src/objects/body.o"
 	@echo "... src/objects/body.i"
 	@echo "... src/objects/body.s"
+	@echo "... src/objects/material1.o"
+	@echo "... src/objects/material1.i"
+	@echo "... src/objects/material1.s"
+	@echo "... src/objects/material2.o"
+	@echo "... src/objects/material2.i"
+	@echo "... src/objects/material2.s"
 .PHONY : help
 
 

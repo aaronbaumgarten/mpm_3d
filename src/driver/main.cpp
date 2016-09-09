@@ -21,6 +21,13 @@ int main(int argc, char *argv[]) {
     job->importNodesandParticles(fileNodes,fileParticle);
 
     //initialize and allocate memory
+    /* hard-coding material properties for initial run */
+    double fp64_props[2] = {1e7,0.3};
+    int *int_props = NULL;
+    job->assignMaterials();
+    for (size_t i=0;i<job->num_bodies;i++){
+        job->bodies[i].defineMaterial(fp64_props,int_props);
+    }
 
     //colorize for threading
 

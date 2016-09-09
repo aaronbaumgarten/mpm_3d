@@ -68,6 +68,9 @@ public:
     /* CAUTION: T is also used for templates */
     double T[NDIM * NDIM];
 
+    //velocity gradient
+    double L[NDIM*NDIM];
+
     //full 3d deformation gradient
     double F[NDIM * NDIM];
 
@@ -106,8 +109,8 @@ public:
     size_t blocksize;
 
     //construcors
-    template<class T>
-    Particle(T* bd, size_t idIn):
+    template<class bodyT>
+    Particle(bodyT* bd, size_t idIn):
             id(idIn),
             active(&(bd->particle_active[idIn])),
 
@@ -140,7 +143,31 @@ public:
             ux(&(bd->particle_ux[idIn])),
             uy(&(bd->particle_uy[idIn])),
             uz(&(bd->particle_uz[idIn]))
-    {};
+    {
+        for (int i=0; i<NDIM*NDIM; i++){
+            T[i] = 0;
+            L[i] = 0;
+            F[i] = 0;
+            Fp[i] = 0;
+        }
+        F[XX] = 1;
+        F[YY] = 1;
+        F[ZZ] = 1;
+
+        Fp[XX] = 1;
+        Fp[YY] = 1;
+        Fp[ZZ] = 1;
+
+        state[9] = 0;
+        state[10] = 0;
+
+        for (int i=0; i<8; i++){
+            for (int j=0; j<3; j++){
+                corner[i][j] = 0;
+            }
+        }
+
+    };
 
     Particle() {}
 };

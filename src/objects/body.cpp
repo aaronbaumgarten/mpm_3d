@@ -4,10 +4,11 @@
 //
 #include <iostream>
 #include <stdlib.h>
+#include <math.h>
 
-#include "../../include/body.hpp"
-#include "../../include/particle.hpp"
-#include "../../include/node.hpp"
+#include "body.hpp"
+#include "particle.hpp"
+#include "node.hpp"
 
 #define WHICH_ELEMENT WHICH_ELEMENT9
 //very ugly but it should work
@@ -111,7 +112,9 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
 
         //active
         particle_active(p)
-{ }
+{
+    material = Material();
+}
 
 void Body::addParticle(double mIn,double vIn,double xIn,double yIn,double zIn,double x_tIn,double y_tIn,double z_tIn, size_t idIn){
     //Add particle from file. Zero out unset terms.
@@ -123,10 +126,10 @@ void Body::addParticle(double mIn,double vIn,double xIn,double yIn,double zIn,do
     //volume
     particle_v[idIn] = vIn;
     particle_v0[idIn] = vIn;
-    particle_v_averaging[idIn] = vIn;
+    particle_v_averaging[idIn] = 0.25*vIn; //from Sachith's code
 
     //half side length
-    particle_a[idIn] = 0.25; //from Sachith's code
+    particle_a[idIn] = 0.5*sqrt(0.25*vIn); //from Sachith's code
 
     //mass
     particle_m[idIn] = mIn;
@@ -214,6 +217,14 @@ void Body::addNode(double xIn, double yIn, double zIn, size_t idIn) {
 
 void Body::addElement(size_t * nodeIDs, size_t idIn) {
     this->elements[idIn] = Element(8,nodeIDs,idIn);
+}
+
+void Body::defineMaterial(double * fp64_props, int * int_props) {
+    //this->material = Material();
+    this->material.fp64_props = fp64_props;
+    this->material.int_props = int_props;
+    this->material.num_fp64_props = sizeof(fp64_props)/sizeof(double);
+    this->material.num_int_props = sizeof(int_props)/sizeof(int);
 }
 
 //Body::~Body(){

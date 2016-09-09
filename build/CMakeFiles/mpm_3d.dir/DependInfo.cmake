@@ -7,7 +7,10 @@ set(CMAKE_DEPENDS_CHECK_CXX
   "/home/aaron/Desktop/mpm_3d/src/driver/main.cpp" "/home/aaron/Desktop/mpm_3d/build/CMakeFiles/mpm_3d.dir/src/driver/main.cpp.o"
   "/home/aaron/Desktop/mpm_3d/src/functions/process.cpp" "/home/aaron/Desktop/mpm_3d/build/CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o"
   "/home/aaron/Desktop/mpm_3d/src/functions/spmd.cpp" "/home/aaron/Desktop/mpm_3d/build/CMakeFiles/mpm_3d.dir/src/functions/spmd.cpp.o"
+  "/home/aaron/Desktop/mpm_3d/src/functions/tensor.cpp" "/home/aaron/Desktop/mpm_3d/build/CMakeFiles/mpm_3d.dir/src/functions/tensor.cpp.o"
   "/home/aaron/Desktop/mpm_3d/src/objects/body.cpp" "/home/aaron/Desktop/mpm_3d/build/CMakeFiles/mpm_3d.dir/src/objects/body.cpp.o"
+  "/home/aaron/Desktop/mpm_3d/src/objects/material1.cpp" "/home/aaron/Desktop/mpm_3d/build/CMakeFiles/mpm_3d.dir/src/objects/material1.cpp.o"
+  "/home/aaron/Desktop/mpm_3d/src/objects/material2.cpp" "/home/aaron/Desktop/mpm_3d/build/CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 
@@ -18,6 +21,7 @@ set(CMAKE_TARGET_LINKED_INFO_FILES
 # The include file search paths:
 set(CMAKE_C_TARGET_INCLUDE_PATH
   "../include"
+  "../src/materials"
   )
 set(CMAKE_CXX_TARGET_INCLUDE_PATH ${CMAKE_C_TARGET_INCLUDE_PATH})
 set(CMAKE_Fortran_TARGET_INCLUDE_PATH ${CMAKE_C_TARGET_INCLUDE_PATH})
