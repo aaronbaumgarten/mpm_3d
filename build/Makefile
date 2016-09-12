@@ -162,30 +162,6 @@ src/functions/process.cpp.s:
 	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/process.cpp.s
 .PHONY : src/functions/process.cpp.s
 
-src/functions/spmd.o: src/functions/spmd.cpp.o
-.PHONY : src/functions/spmd.o
-
-# target to build an object file
-src/functions/spmd.cpp.o:
-	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/spmd.cpp.o
-.PHONY : src/functions/spmd.cpp.o
-
-src/functions/spmd.i: src/functions/spmd.cpp.i
-.PHONY : src/functions/spmd.i
-
-# target to preprocess a source file
-src/functions/spmd.cpp.i:
-	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/spmd.cpp.i
-.PHONY : src/functions/spmd.cpp.i
-
-src/functions/spmd.s: src/functions/spmd.cpp.s
-.PHONY : src/functions/spmd.s
-
-# target to generate assembly for a file
-src/functions/spmd.cpp.s:
-	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/spmd.cpp.s
-.PHONY : src/functions/spmd.cpp.s
-
 src/functions/tensor.o: src/functions/tensor.cpp.o
 .PHONY : src/functions/tensor.o
 
@@ -297,9 +273,6 @@ help:
 	@echo "... src/functions/process.o"
 	@echo "... src/functions/process.i"
 	@echo "... src/functions/process.s"
-	@echo "... src/functions/spmd.o"
-	@echo "... src/functions/spmd.i"
-	@echo "... src/functions/spmd.s"
 	@echo "... src/functions/tensor.o"
 	@echo "... src/functions/tensor.i"
 	@echo "... src/functions/tensor.s"

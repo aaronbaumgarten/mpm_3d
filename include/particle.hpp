@@ -166,7 +166,6 @@ public:
                 corner[i][j] = 0;
             }
         }
-
     };
 
     Particle() {}

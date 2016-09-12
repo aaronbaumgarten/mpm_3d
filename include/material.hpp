@@ -3,6 +3,9 @@
 // material.hpp
 //
 
+#include <stdlib.h>
+#include <functional>
+
 #ifndef MPM_3D_MATERIAL_HPP
 #define MPM_3D_MATERIAL_HPP
 
@@ -17,9 +20,13 @@ public:
     int use_builtin;
 
     //template <class bodyT, class taskT>
-    void (*material_init)(Body *);
+    /*void (*material_init)(Body *);
     void (*calculate_stress)(Body *, double);
-    void (*calculate_stress_threaded)(threadtask_t *, Body *);
+    void (*calculate_stress_threaded)(threadtask_t *, Body *);*/
+
+    std::function<void(Body *)> material_init;
+    std::function<void(Body *, double)> calculate_stress;
+    std::function<void(threadtask_t *, Body *)> calculate_stress_threaded;
 
     double *fp64_props;
     int *int_props;
@@ -33,9 +40,9 @@ public:
         int_props = NULL;
         material_filename = NULL;
 
-        material_init = NULL;
+        /*material_init = NULL;
         calculate_stress = NULL;
-        calculate_stress_threaded = NULL;
+        calculate_stress_threaded = NULL;*/
     }
 };
 

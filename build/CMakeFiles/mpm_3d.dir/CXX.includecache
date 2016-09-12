@@ -23,6 +23,10 @@ vector
 -
 
 ../include/material.hpp
+stdlib.h
+-
+functional
+-
 
 ../include/node.hpp
 
@@ -39,8 +43,6 @@ vector
 -
 body.hpp
 ../include/body.hpp
-
-../include/spmd.hpp
 
 ../include/tensor.hpp
 
@@ -69,6 +71,8 @@ iostream
 -
 stdlib.h
 -
+memory
+-
 particle.hpp
 /home/aaron/Desktop/mpm_3d/src/driver/particle.hpp
 node.hpp
@@ -83,20 +87,16 @@ process.hpp
 /home/aaron/Desktop/mpm_3d/src/functions/process.cpp
 iostream
 -
+fstream
+-
+sstream
+-
 stdlib.h
 -
 process.hpp
 /home/aaron/Desktop/mpm_3d/src/functions/process.hpp
 body.hpp
 /home/aaron/Desktop/mpm_3d/src/functions/body.hpp
-
-/home/aaron/Desktop/mpm_3d/src/functions/spmd.cpp
-stdlib.h
--
-stdio.h
--
-spmd.hpp
-/home/aaron/Desktop/mpm_3d/src/functions/spmd.hpp
 
 /home/aaron/Desktop/mpm_3d/src/functions/tensor.cpp
 stdio.h

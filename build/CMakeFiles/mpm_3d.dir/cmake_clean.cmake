@@ -4,7 +4,6 @@ file(REMOVE_RECURSE
   "CMakeFiles/mpm_3d.dir/src/objects/material1.cpp.o"
   "CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.o"
   "CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o"
-  "CMakeFiles/mpm_3d.dir/src/functions/spmd.cpp.o"
   "CMakeFiles/mpm_3d.dir/src/functions/tensor.cpp.o"
   "mpm_3d.pdb"
   "mpm_3d"

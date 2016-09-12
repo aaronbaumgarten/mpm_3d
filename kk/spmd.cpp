@@ -26,7 +26,7 @@ sparsematrix_double::~sparsematrix_double(){
     delete(row_pointer);
 }
 
-sparsematrix_double sparsematrix_double::spmd_transpose(sparsematrix_double *sp)
+sparsematrix_double * sparsematrix_double::spmd_transpose(sparsematrix_double *sp)
 {
     sparsematrix_double *spt  = new sparsematrix_double(sp->nnz, sp->columns, sp->rows);
 
@@ -60,7 +60,7 @@ sparsematrix_double sparsematrix_double::spmd_transpose(sparsematrix_double *sp)
     spt->row_pointer[0] = 0;
     spt->row_pointer[spt->rows] = spt->nnz;
 
-    return *spt;
+    return spt;
 }
 
 void sparsematrix_double::spmd_print(const sparsematrix_double *sp, int full)

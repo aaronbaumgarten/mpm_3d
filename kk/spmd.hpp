@@ -22,7 +22,7 @@ public:
     ~sparsematrix_double();
     void spmd_print(const sparsematrix_double*, int);
 
-    sparsematrix_double spmd_transpose(sparsematrix_double*);
+    sparsematrix_double * spmd_transpose(sparsematrix_double*);
 
     void spmd_gaxpy(const sparsematrix_double*, const double*, double*);
     void spmd_gatxpy(const sparsematrix_double*, const double*, double*);

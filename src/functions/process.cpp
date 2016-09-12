@@ -4,6 +4,8 @@
 //
 
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <stdlib.h>
 
 #include "process.hpp"
@@ -17,9 +19,9 @@ job_t::job_t():
 { std::cout << "Job created.\n";}
 
 
-void job_t::createBody(Body *bd, size_t nn, size_t np, size_t ne, size_t id) {
+/*void job_t::createBody(Body *bd, size_t nn, size_t np, size_t ne, size_t id) {
     bd = new Body(nn,np,ne,id);
-}
+}*/
 
 inline void job_t::node_number_to_coords(
         double * x, double * y, double * z,
@@ -53,7 +55,7 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
     //only reads particle file for 2 bodies
 
     FILE *fp;
-    int r;
+    int r = 0;
 
     size_t numNodes;
     size_t numElements;
@@ -68,6 +70,36 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
     char s[16384]; //#from mpm-2d-legacy
 
     //open grid file and parse
+    std::ifstream fin(nfilename);
+    if (fin.is_open()){
+        std::string line;
+        if (std::getline(fin,line)){
+            std::stringstream ss(line);
+            if (!(ss >> numLinearNodes)){
+                std::cout << "Cannot parse grid file: " << nfilename << "\n";
+                return -1;
+            }
+            numElements = (numLinearNodes-1)*(numLinearNodes-1)*(numLinearNodes-1); //(number of linear nodes - 1) ^3
+            numNodes = numLinearNodes*numLinearNodes*numLinearNodes; //3d domain
+            num_nodes = numNodes;
+            num_elements = numElements;
+        }
+        if (std::getline(fin,line)) {
+            std::stringstream ss(line);
+            if (!(ss >> Lx)) {
+                std::cout << "Cannot parse grid file: " << nfilename << "\n";
+                return -1;
+            }
+            hx = Lx / (numLinearNodes - 1);
+        }
+    } else {
+        std::cout << "Cannot parse grid file: " << nfilename << "\n";
+        return -1;
+    }
+
+    fin.close();
+
+    /*//open grid file and parse
     fp = fopen(nfilename, "r");
     if (fp == NULL){
         std::cout << "Cannot parse grid file: " << nfilename << "\n";
@@ -85,7 +117,10 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
     num_nodes = numNodes;
     num_elements = numElements;
     if (r == 1) {
-        fgets(s,sizeof(s)/sizeof(char), fp);
+        if (NULL==fgets(s,sizeof(s)/sizeof(char), fp)){
+            std::cout << "Cannot parse grid file: " << nfilename << "\n";
+            return -1;
+        }
         r = sscanf(s,"%g",&Lx);
         hx = Lx/(numLinearNodes-1);
     }
@@ -96,9 +131,67 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
     //std::cout << "Number of nodes: " << numNodes << "\n";
     //std::cout << "Number of elements: " << numElements << "\n";
 
-    fclose(fp);
+    fclose(fp);*/
 
-    //open particle file and parse header
+    //open particle file
+    fin.open(pfilename);
+    if (fin.is_open()){
+        std::string line;
+
+        //parse header
+        if (getline(fin,line)){
+            std::stringstream ss(line);
+            if (!(ss >> numParticles >> numParticles1 >> numParticles2)){
+                std::cout << "Cannot parse particle file: " << pfilename << "\n";
+                std::cout << "Expected 3 particle counts at file header." << "\n";
+                return -1;
+            }
+        }
+        //create body objects
+        numBodies = 0;
+        if (numParticles != 0){
+            if (numParticles1 != 0){
+                this->bodies.push_back(Body(numNodes,numParticles1,numElements,++numBodies));
+            }
+            if (numParticles2 != 0){
+                this->bodies.push_back(Body(numNodes,numParticles1,numElements,++numBodies));
+            }
+        } else {
+            return -1;
+        }
+        num_particles = numParticles;
+        num_bodies = numBodies;
+        std::cout << "Bodies created (" << numBodies << ").\n";
+
+        //assign particle to bodies for each particle in particle file
+        size_t pb1 = 0;
+        size_t pb2 = 0;
+        while(getline(fin,line)){
+            std::stringstream ss(line);
+            double b, m, v, x, y, z, x_t, y_t, z_t;
+            size_t idOut;
+
+            if (!(ss >> b >> m >> v >> x >> y >> z >> x_t >> y_t >> z_t)){
+                std::cout << "Cannot parse particle file: " << pfilename << "\n";
+                return -1;
+            }
+            //currently assumes that bodies are 1-indexed
+            if (b==1){
+                idOut = pb1;
+                pb1+=1;
+            } else {
+                idOut = pb2;
+                pb2+=1;
+            }
+            this->bodies[b-1].addParticle(m,v,x,y,z,x_t,y_t,z_t,idOut); //0-index particles
+        }
+    } else {
+        std::cout << "Cannot parse particle file: " << pfilename << "\n";
+        return -1;
+    }
+    fin.close();
+
+    /*//open particle file and parse header
     fp = fopen(pfilename, "r");
     if (fp == NULL){
         std::cout << "Cannot parse particle file: " << pfilename << "\n";
@@ -153,7 +246,7 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
         pb1+=1;
     }
     //close file
-    fclose(fp);
+    fclose(fp);*/
 
     std::cout << "Particles created (" << numParticles << ").\n";
 

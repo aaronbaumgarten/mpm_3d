@@ -17,9 +17,6 @@ CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o
  ../include/particle.hpp
  ../include/process.hpp
  /home/aaron/Desktop/mpm_3d/src/functions/process.cpp
-CMakeFiles/mpm_3d.dir/src/functions/spmd.cpp.o
- ../include/spmd.hpp
- /home/aaron/Desktop/mpm_3d/src/functions/spmd.cpp
 CMakeFiles/mpm_3d.dir/src/functions/tensor.cpp.o
  ../include/particle.hpp
  ../include/tensor.hpp
