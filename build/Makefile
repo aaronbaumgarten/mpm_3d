@@ -258,6 +258,30 @@ src/objects/material2.cpp.s:
 	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.s
 .PHONY : src/objects/material2.cpp.s
 
+src/tests/test.o: src/tests/test.cpp.o
+.PHONY : src/tests/test.o
+
+# target to build an object file
+src/tests/test.cpp.o:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o
+.PHONY : src/tests/test.cpp.o
+
+src/tests/test.i: src/tests/test.cpp.i
+.PHONY : src/tests/test.i
+
+# target to preprocess a source file
+src/tests/test.cpp.i:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/tests/test.cpp.i
+.PHONY : src/tests/test.cpp.i
+
+src/tests/test.s: src/tests/test.cpp.s
+.PHONY : src/tests/test.s
+
+# target to generate assembly for a file
+src/tests/test.cpp.s:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/tests/test.cpp.s
+.PHONY : src/tests/test.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -285,6 +309,9 @@ help:
 	@echo "... src/objects/material2.o"
 	@echo "... src/objects/material2.i"
 	@echo "... src/objects/material2.s"
+	@echo "... src/tests/test.o"
+	@echo "... src/tests/test.i"
+	@echo "... src/tests/test.s"
 .PHONY : help
 
 

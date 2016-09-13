@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <memory>
 
+#include "test.hpp"
+
 #include "particle.hpp"
 #include "node.hpp"
 #include "body.hpp"
@@ -39,16 +41,7 @@ int main(int argc, char *argv[]) {
     //serialize??
 
     //testing
-    double sumX = 0;
-    for (size_t i=0; i<job->num_nodes; i++){
-        sumX += job->bodies[0].nodes[i].x[0];
-    }
-    std::cout << "test: " << sumX << " =? 515150\n";
-    sumX = 0;
-    for (size_t i=0; i<job->num_particles; i++){
-        sumX += job->bodies[0].particles[i].id;
-    }
-    std::cout << "test: " << sumX << " =? " << 7999*8000/2 <<"\n";
+
 
     //kill threads and cleanup
     delete(job);

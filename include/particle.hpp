@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <stdlib.h>
+#include <math.h>
 
 #ifndef MPM_3D_PARTICLE_HPP
 #define MPM_3D_PARTICLE_HPP
@@ -30,6 +31,11 @@
 #define ZX (NDIM * S_ZIDX + S_XIDX)
 #define ZY (NDIM * S_ZIDX + S_YIDX)
 #define ZZ (NDIM * S_ZIDX + S_ZIDX)
+
+#define WHICH_ELEMENT WHICH_ELEMENT9
+//very ugly but it should work
+#define WHICH_ELEMENT9(px,py,pz,Nx,Ny,Nz,Lx,Ly,Lz,hx,hy,hz) \
+    ((int)(((px)<Lx && (px)>=0 && (py)<Ly && (py)>=0 && (pz)<Lz && (pz)>=0)?(floor((px)/(hx)) + floor((py)/(hy))*((Nx)-1) + floor((pz)/(hz))*((Nx-1)*(Ny-1))):(-1)))
 
 class Particle {
 public:
@@ -169,6 +175,33 @@ public:
     };
 
     Particle() {}
+
+    //functions
+    template<class jobT>
+    void updateCorners(jobT* job){
+        int sx = 1;
+        int sy = 1;
+        int sz = 1;
+        ///implement corner math really just to be clever
+        for (size_t i=0;i<8;i++){
+            if (i%4 == 0){
+                sx *= -1;
+            }
+            if (i%2 == 0){
+                sy *= -1;
+            }
+            sz *= -1;
+            corner[i][0] = x[0]+sx*a[0];
+            corner[i][1] = y[0]+sy*a[0];
+            corner[i][2] = z[0]+sz*a[0];
+
+            //assumes regular cartesian grid
+            corner_elements[i] = WHICH_ELEMENT9(corner[i][0],corner[i][1],corner[i][2],
+                                                job->Nx,job->Ny,job->Nz,
+                                                job->Lx,job->Ly,job->Lz,
+                                                job->hx,job->hy,job->hz);
+        }
+    }
 };
 
 #endif //MPM_3D_PARTICLE_HPP

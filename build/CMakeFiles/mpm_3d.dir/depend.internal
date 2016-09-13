@@ -8,6 +8,7 @@ CMakeFiles/mpm_3d.dir/src/driver/main.cpp.o
  ../include/node.hpp
  ../include/particle.hpp
  ../include/process.hpp
+ ../include/test.hpp
  /home/aaron/Desktop/mpm_3d/src/driver/main.cpp
 CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o
  ../include/body.hpp
@@ -48,3 +49,12 @@ CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.o
  ../include/tensor.hpp
  ../src/materials/isolin.cpp
  /home/aaron/Desktop/mpm_3d/src/objects/material2.cpp
+CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o
+ ../include/body.hpp
+ ../include/element.hpp
+ ../include/material.hpp
+ ../include/node.hpp
+ ../include/particle.hpp
+ ../include/process.hpp
+ ../include/test.hpp
+ /home/aaron/Desktop/mpm_3d/src/tests/test.cpp

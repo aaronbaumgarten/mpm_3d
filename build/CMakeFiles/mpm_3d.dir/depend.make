@@ -7,6 +7,7 @@ CMakeFiles/mpm_3d.dir/src/driver/main.cpp.o: ../include/material.hpp
 CMakeFiles/mpm_3d.dir/src/driver/main.cpp.o: ../include/node.hpp
 CMakeFiles/mpm_3d.dir/src/driver/main.cpp.o: ../include/particle.hpp
 CMakeFiles/mpm_3d.dir/src/driver/main.cpp.o: ../include/process.hpp
+CMakeFiles/mpm_3d.dir/src/driver/main.cpp.o: ../include/test.hpp
 CMakeFiles/mpm_3d.dir/src/driver/main.cpp.o: ../src/driver/main.cpp
 
 CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o: ../include/body.hpp
@@ -47,4 +48,13 @@ CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.o: ../include/process.hpp
 CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.o: ../include/tensor.hpp
 CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.o: ../src/materials/isolin.cpp
 CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.o: ../src/objects/material2.cpp
+
+CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o: ../include/body.hpp
+CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o: ../include/element.hpp
+CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o: ../include/material.hpp
+CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o: ../include/node.hpp
+CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o: ../include/particle.hpp
+CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o: ../include/process.hpp
+CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o: ../include/test.hpp
+CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o: ../src/tests/test.cpp
 

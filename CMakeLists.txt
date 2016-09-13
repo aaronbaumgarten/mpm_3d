@@ -9,7 +9,8 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/objects/material1.cpp
         src/objects/material2.cpp
         src/functions/process.cpp
-        src/functions/tensor.cpp)
+        src/functions/tensor.cpp
+        src/tests/test.cpp)
 
 include_directories(include)
 include_directories(src/materials)

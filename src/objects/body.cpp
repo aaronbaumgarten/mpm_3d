@@ -10,10 +10,11 @@
 #include "particle.hpp"
 #include "node.hpp"
 
-#define WHICH_ELEMENT WHICH_ELEMENT9
+/*#define WHICH_ELEMENT WHICH_ELEMENT9
 //very ugly but it should work
 #define WHICH_ELEMENT9(px,py,pz,Nx,Ny,Nz,Lx,Ly,Lz,hx,hy,hz) \
     ((int)(((px)<Lx && (px)>=0 && (py)<Ly && (py)>=0 && (pz)<Lz && (pz)>=0)?((floor((px)/(hx)) + floor((py)/(hy))*((Nx)-1) + floor((pz)/(hz))*((Nx*Ny)-1)):(-1))))
+*/
 
 Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t bodyID):
         n(numNodes),
@@ -154,6 +155,7 @@ void Body::addParticle(double mIn,double vIn,double xIn,double yIn,double zIn,do
 
     //create Particle object
     this->particles[idIn] = Particle(this,idIn);
+
 }
 
 void Body::addNode(double xIn, double yIn, double zIn, size_t idIn) {

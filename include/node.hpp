@@ -85,8 +85,8 @@ public:
 
     //construcors
 
-    template <class T>
-    Node(T* bd, size_t idIn):
+    template <class bodyT>
+    Node(bodyT* bd, size_t idIn):
             id(idIn),
             //mass
             m(&(bd->node_m[idIn])),

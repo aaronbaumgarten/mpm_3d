@@ -30,7 +30,7 @@ inline void job_t::node_number_to_coords(
 ) {
     size_t i = node_number % Nx;
     size_t j = (node_number/Nx) % Nx;
-    size_t k = node_number % (Nx*Nx);
+    size_t k = node_number / (Nx*Nx);
 
     *x = i*hx;
     *y = j*hx;
@@ -48,7 +48,8 @@ inline int job_t::ijkton_safe(int i, int j, int k,
     if (k>kmax || k<0){
         return -1;
     }
-    return i*jmax*kmax + j*kmax + k;
+    //return i*jmax*kmax + j*kmax + k;
+    return i + j*imax + k*jmax*imax;
 }
 
 int job_t::importNodesandParticles(const char *nfilename, const char *pfilename){
@@ -60,8 +61,8 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
     size_t numNodes;
     size_t numElements;
     size_t numLinearNodes;
-    double Lx;
-    double hx;
+    //double Lx;
+    //double hx;
     size_t numParticles;
     size_t numParticles1;
     size_t numParticles2;
@@ -79,18 +80,25 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
                 std::cout << "Cannot parse grid file: " << nfilename << "\n";
                 return -1;
             }
+            this->Nx = numLinearNodes;
+            this->Ny = numLinearNodes;
+            this->Nz = numLinearNodes;
             numElements = (numLinearNodes-1)*(numLinearNodes-1)*(numLinearNodes-1); //(number of linear nodes - 1) ^3
             numNodes = numLinearNodes*numLinearNodes*numLinearNodes; //3d domain
-            num_nodes = numNodes;
-            num_elements = numElements;
+            this->num_nodes = numNodes;
+            this->num_elements = numElements;
         }
         if (std::getline(fin,line)) {
             std::stringstream ss(line);
-            if (!(ss >> Lx)) {
+            if (!(ss >> this->Lx)) {
                 std::cout << "Cannot parse grid file: " << nfilename << "\n";
                 return -1;
             }
-            hx = Lx / (numLinearNodes - 1);
+            this->Ly = this->Lx;
+            this->Lz = this->Lx;
+            this->hx = this->Lx / (numLinearNodes - 1);
+            this->hy = this->hx;
+            this->hz = this->hx;
         }
     } else {
         std::cout << "Cannot parse grid file: " << nfilename << "\n";
@@ -159,8 +167,8 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
         } else {
             return -1;
         }
-        num_particles = numParticles;
-        num_bodies = numBodies;
+        this->num_particles = numParticles;
+        this->num_bodies = numBodies;
         std::cout << "Bodies created (" << numBodies << ").\n";
 
         //assign particle to bodies for each particle in particle file
@@ -254,7 +262,7 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
     for (size_t i=0; i<numBodies; i++){
         for (size_t nn=0; nn<numNodes; nn++){
             double x, y, z;
-            job_t::node_number_to_coords(&x,&y,&z,nn,numLinearNodes,hx);
+            job_t::node_number_to_coords(&x,&y,&z,nn,numLinearNodes,this->hx);
             this->bodies[i].addNode(x,y,z,nn);
         }
 
@@ -266,19 +274,19 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
     for (size_t i=0; i<numBodies;i++){
         for(size_t ne=0; ne<numElements; ne++){
             size_t nodeIDs[8];
-            size_t c = ne % (numLinearNodes-1);
-            size_t r = (ne/(numLinearNodes-1)) % (numLinearNodes-1);
-            size_t l = ne / ((numLinearNodes-1)*(numLinearNodes-1));
-            size_t n = ijkton_safe(c,r,l,numLinearNodes-1,numLinearNodes-1,numLinearNodes-1);
+            size_t c = ne % (numLinearNodes);
+            size_t r = (ne/(numLinearNodes)) % (numLinearNodes);
+            size_t l = ne / ((numLinearNodes)*(numLinearNodes));
+            size_t n = ijkton_safe(c,r,l,numLinearNodes,numLinearNodes,numLinearNodes);
 
-            nodeIDs[0] = n + ijkton_safe(0,0,0,numLinearNodes-1,numLinearNodes-1,numLinearNodes-1);
-            nodeIDs[1] = n + ijkton_safe(0,0,1,numLinearNodes-1,numLinearNodes-1,numLinearNodes-1);
-            nodeIDs[2] = n + ijkton_safe(0,1,0,numLinearNodes-1,numLinearNodes-1,numLinearNodes-1);
-            nodeIDs[3] = n + ijkton_safe(0,1,1,numLinearNodes-1,numLinearNodes-1,numLinearNodes-1);
-            nodeIDs[4] = n + ijkton_safe(1,0,0,numLinearNodes-1,numLinearNodes-1,numLinearNodes-1);
-            nodeIDs[5] = n + ijkton_safe(1,0,1,numLinearNodes-1,numLinearNodes-1,numLinearNodes-1);
-            nodeIDs[6] = n + ijkton_safe(1,1,0,numLinearNodes-1,numLinearNodes-1,numLinearNodes-1);
-            nodeIDs[7] = n + ijkton_safe(1,1,1,numLinearNodes-1,numLinearNodes-1,numLinearNodes-1);
+            nodeIDs[0] = n + ijkton_safe(0,0,0,numLinearNodes,numLinearNodes,numLinearNodes);
+            nodeIDs[1] = n + ijkton_safe(1,0,0,numLinearNodes,numLinearNodes,numLinearNodes);
+            nodeIDs[2] = n + ijkton_safe(0,1,0,numLinearNodes,numLinearNodes,numLinearNodes);
+            nodeIDs[3] = n + ijkton_safe(1,1,0,numLinearNodes,numLinearNodes,numLinearNodes);
+            nodeIDs[4] = n + ijkton_safe(0,0,1,numLinearNodes,numLinearNodes,numLinearNodes);
+            nodeIDs[5] = n + ijkton_safe(1,0,1,numLinearNodes,numLinearNodes,numLinearNodes);
+            nodeIDs[6] = n + ijkton_safe(0,1,1,numLinearNodes,numLinearNodes,numLinearNodes);
+            nodeIDs[7] = n + ijkton_safe(1,1,1,numLinearNodes,numLinearNodes,numLinearNodes);
 
             this->bodies[i].addElement(nodeIDs,ne);
         }
