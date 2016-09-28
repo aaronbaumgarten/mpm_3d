@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <stdlib.h>
+#include <algorithm>
 
 #include "process.hpp"
 #include "body.hpp"
@@ -191,6 +192,7 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
                 idOut = pb2;
                 pb2+=1;
             }
+            //std::cout << "{" << x << " " << y << " " << z << "} -> " << idOut << "\n";
             this->bodies[b-1].addParticle(m,v,x,y,z,x_t,y_t,z_t,idOut); //0-index particles
         }
     } else {
@@ -315,4 +317,28 @@ int job_t::assignMaterials() {
 int job_t::assignMaterials(const char* matFile1, const char* matFile2){
     // for defining material based on .so files (not implemented as of 9/8/16
     return -1;
+}
+
+int job_t::createMappings() {
+    //loop over bodies///////////////////////////////////
+    for (size_t b = 0; b < this->num_bodies; b++) {
+        //loop over particles
+        for (size_t p = 0; p < this->bodies[b].p; p++) {
+            if((this->bodies[b].particles[p].updateActive(this))==1) {
+                this->bodies[b].particles[p].updateCorners(this);
+                //check that all corners are in domain
+                if (std::count(this->bodies[b].particles[p].corner_elements,
+                               std::end(this->bodies[b].particles[p].corner_elements), -1) > 0) {
+                    //set corners to particle position
+                    this->bodies[b].particles[p].resetCorners(this);
+                }
+
+                //use cpdi (or count center 8 times if corners reset)
+                for (size_t c=0;c<8;c++) {
+                    size_t e = this->bodies[b].particles[p].corner_elements[c];
+                    this->bodies[b].elements[e].calculateSipc(&(this->bodies[b]), &(this->bodies[b].particles[p]), c);
+                }
+            }
+        }
+    }
 }

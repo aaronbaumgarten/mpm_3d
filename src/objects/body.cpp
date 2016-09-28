@@ -5,6 +5,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <math.h>
+#include <eigen3/Eigen/Sparse>
 
 #include "body.hpp"
 #include "particle.hpp"
@@ -113,8 +114,19 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
 
         //active
         particle_active(p)
+
+        //Sip and gradSip
+        /*Sip(n,p),
+        gradSipX(n,p),
+        gradSipY(n,p),
+        gradSipZ(n,p)*/
 {
     material = Material();
+    Sip.resize(n,p);
+    gradSipX.resize(n,p);
+    gradSipY.resize(n,p);
+    gradSipZ.resize(n,p);
+
 }
 
 void Body::addParticle(double mIn,double vIn,double xIn,double yIn,double zIn,double x_tIn,double y_tIn,double z_tIn, size_t idIn){

@@ -7,6 +7,7 @@
 #define MPM_3D_BODY_HPP
 
 #include <vector>
+#include <Eigen/Sparse>
 
 #include "particle.hpp"
 #include "node.hpp"
@@ -123,6 +124,12 @@ public:
 
     //active
     std::vector<int> particle_active;
+
+    //Sip and gradSip
+    Eigen::SparseMatrix<double> Sip;
+    Eigen::SparseMatrix<double> gradSipX;
+    Eigen::SparseMatrix<double> gradSipY;
+    Eigen::SparseMatrix<double> gradSipZ;
 
     //construcors
     Body(size_t,size_t,size_t,size_t);

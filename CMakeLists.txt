@@ -14,5 +14,6 @@ set(SOURCE_FILES ${SOURCE_FILES}
 
 include_directories(include)
 include_directories(src/materials)
+include_directories(/usr/include/eigen3)
 
 add_executable(mpm_3d ${SOURCE_FILES})

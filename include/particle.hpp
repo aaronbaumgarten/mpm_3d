@@ -202,6 +202,33 @@ public:
                                                 job->hx,job->hy,job->hz);
         }
     }
+
+    template<class jobT>
+    void resetCorners(jobT* job){
+        for (size_t i=0;i<8;i++){
+            //resets corners to particle position
+            corner[i][0] = x[0];
+            corner[i][1] = y[0];
+            corner[i][2] = z[0];
+            corner_elements[i] = WHICH_ELEMENT9(corner[i][0],corner[i][1],corner[i][2],
+                                                job->Nx,job->Ny,job->Nz,
+                                                job->Lx,job->Ly,job->Lz,
+                                                job->hx,job->hy,job->hz);
+        }
+    }
+
+    template<class jobT>
+    int updateActive(jobT* job){
+        if (WHICH_ELEMENT9(x[0],y[0],z[0],
+                       job->Nx,job->Ny,job->Nz,
+                       job->Lx,job->Ly,job->Lz,
+                       job->hx,job->hy,job->hz) == -1) {
+            active[0] = 0;
+        } else {
+            active[0] = 1;
+        }
+        return active[0];
+    }
 };
 
 #endif //MPM_3D_PARTICLE_HPP

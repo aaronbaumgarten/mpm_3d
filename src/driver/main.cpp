@@ -32,6 +32,8 @@ int main(int argc, char *argv[]) {
         job->bodies[i].defineMaterial(fp64_props,int_props);
     }
 
+    job->createMappings();
+
     //colorize for threading
 
     //pre-run setup
@@ -41,7 +43,7 @@ int main(int argc, char *argv[]) {
     //serialize??
 
     //testing
-
+    std::cout << "Mapping created (" << job->bodies[0].Sip.nonZeros() << ").\n";
 
     //kill threads and cleanup
     delete(job);
