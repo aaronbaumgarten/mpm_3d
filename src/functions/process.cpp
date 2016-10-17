@@ -320,8 +320,18 @@ int job_t::assignMaterials(const char* matFile1, const char* matFile2){
 }
 
 int job_t::createMappings() {
-    //loop over bodies///////////////////////////////////
+    //loop over bodies
     for (size_t b = 0; b < this->num_bodies; b++) {
+        //reset previous maps
+        this->bodies[b].Sip.setZero();
+        this->bodies[b].gradSipX.setZero();
+        this->bodies[b].gradSipY.setZero();
+        this->bodies[b].gradSipZ.setZero();
+        //reset triplets
+        this->bodies[b].SipTriplets.clear();
+        this->bodies[b].gradSipXTriplets.clear();
+        this->bodies[b].gradSipYTriplets.clear();
+        this->bodies[b].gradSipZTriplets.clear();
         //loop over particles
         for (size_t p = 0; p < this->bodies[b].p; p++) {
             if((this->bodies[b].particles[p].updateActive(this))==1) {
@@ -337,8 +347,15 @@ int job_t::createMappings() {
                 for (size_t c=0;c<8;c++) {
                     size_t e = this->bodies[b].particles[p].corner_elements[c];
                     this->bodies[b].elements[e].calculateSipc(&(this->bodies[b]), &(this->bodies[b].particles[p]), c);
+                    //std::cout << "b:" << b << " p:" << p << " c:" << c << "\r";
                 }
             }
         }
+        //build Sipc from triples
+        //std::cout << "complete map\n";
+        this->bodies[b].Sip.setFromTriplets(this->bodies[b].SipTriplets.begin(),this->bodies[b].SipTriplets.end());
+        this->bodies[b].gradSipX.setFromTriplets(this->bodies[b].gradSipXTriplets.begin(),this->bodies[b].gradSipXTriplets.end());
+        this->bodies[b].gradSipY.setFromTriplets(this->bodies[b].gradSipYTriplets.begin(),this->bodies[b].gradSipYTriplets.end());
+        this->bodies[b].gradSipZ.setFromTriplets(this->bodies[b].gradSipZTriplets.begin(),this->bodies[b].gradSipZTriplets.end());
     }
 }

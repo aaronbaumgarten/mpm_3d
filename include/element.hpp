@@ -7,6 +7,7 @@
 #define MPM_3D_ELEMENT_HPP
 
 #include <vector>
+#include <Eigen/Sparse>
 
 class Element{
 public:
@@ -54,7 +55,43 @@ public:
             sp = (particle->y[0] - body->nodes[nodeID[0]].y[0])/dx;
             tp = (particle->z[0] - body->nodes[nodeID[0]].z[0])/dx;
 
-            body->Sip.coeffRef(nodeID[0],particle->id) += 1.0/8.0*(1-r)*(1-s)*(1-t);
+            body->SipTriplets.emplace_back(Eigen::Triplet<double>(nodeID[0],particle->id,1.0/8.0*(1-r)*(1-s)*(1-t)));
+            body->SipTriplets.emplace_back(Eigen::Triplet<double>(nodeID[1],particle->id,1.0/8.0*(1+r)*(1-s)*(1-t)));
+            body->SipTriplets.emplace_back(Eigen::Triplet<double>(nodeID[2],particle->id,1.0/8.0*(1-r)*(1+s)*(1-t)));
+            body->SipTriplets.emplace_back(Eigen::Triplet<double>(nodeID[3],particle->id,1.0/8.0*(1+r)*(1+s)*(1-t)));
+            body->SipTriplets.emplace_back(Eigen::Triplet<double>(nodeID[4],particle->id,1.0/8.0*(1-r)*(1-s)*(1+t)));
+            body->SipTriplets.emplace_back(Eigen::Triplet<double>(nodeID[5],particle->id,1.0/8.0*(1+r)*(1-s)*(1+t)));
+            body->SipTriplets.emplace_back(Eigen::Triplet<double>(nodeID[6],particle->id,1.0/8.0*(1-r)*(1+s)*(1+t)));
+            body->SipTriplets.emplace_back(Eigen::Triplet<double>(nodeID[7],particle->id,1.0/8.0*(1+r)*(1+s)*(1+t)));
+
+            body->gradSipXTriplets.emplace_back(Eigen::Triplet<double>(nodeID[0],particle->id , -dx*dx*dx/8.0*(1-r)*(1-s)*(1-t)*(1-sp)*(1-tp)));
+            body->gradSipXTriplets.emplace_back(Eigen::Triplet<double>(nodeID[1],particle->id , dx*dx*dx/8.0*(1+r)*(1-s)*(1-t)*(1-sp)*(1-tp)));
+            body->gradSipXTriplets.emplace_back(Eigen::Triplet<double>(nodeID[2],particle->id , -dx*dx*dx/8.0*(1-r)*(1+s)*(1-t)*(1+sp)*(1-tp)));
+            body->gradSipXTriplets.emplace_back(Eigen::Triplet<double>(nodeID[3],particle->id , dx*dx*dx/8.0*(1+r)*(1+s)*(1-t)*(1+sp)*(1-tp)));
+            body->gradSipXTriplets.emplace_back(Eigen::Triplet<double>(nodeID[4],particle->id , -dx*dx*dx/8.0*(1-r)*(1-s)*(1+t)*(1-sp)*(1+tp)));
+            body->gradSipXTriplets.emplace_back(Eigen::Triplet<double>(nodeID[5],particle->id , dx*dx*dx/8.0*(1+r)*(1-s)*(1+t)*(1-sp)*(1+tp)));
+            body->gradSipXTriplets.emplace_back(Eigen::Triplet<double>(nodeID[6],particle->id , -dx*dx*dx/8.0*(1-r)*(1+s)*(1+t)*(1+sp)*(1+tp)));
+            body->gradSipXTriplets.emplace_back(Eigen::Triplet<double>(nodeID[7],particle->id , dx*dx*dx/8.0*(1+r)*(1+s)*(1+t)*(1+sp)*(1+tp)));
+
+            body->gradSipYTriplets.emplace_back(Eigen::Triplet<double>(nodeID[0],particle->id , dx*dx*dx/8.0*(1-r)*(1-s)*(1-t)*(1-rp)*(1-tp)));
+            body->gradSipYTriplets.emplace_back(Eigen::Triplet<double>(nodeID[1],particle->id , dx*dx*dx/8.0*(1+r)*(1-s)*(1-t)*(1+rp)*(1-tp)));
+            body->gradSipYTriplets.emplace_back(Eigen::Triplet<double>(nodeID[2],particle->id , -dx*dx*dx/8.0*(1-r)*(1+s)*(1-t)*(1-rp)*(1-tp)));
+            body->gradSipYTriplets.emplace_back(Eigen::Triplet<double>(nodeID[3],particle->id , -dx*dx*dx/8.0*(1+r)*(1+s)*(1-t)*(1+rp)*(1-tp)));
+            body->gradSipYTriplets.emplace_back(Eigen::Triplet<double>(nodeID[4],particle->id , dx*dx*dx/8.0*(1-r)*(1-s)*(1+t)*(1-rp)*(1+tp)));
+            body->gradSipYTriplets.emplace_back(Eigen::Triplet<double>(nodeID[5],particle->id , dx*dx*dx/8.0*(1+r)*(1-s)*(1+t)*(1+rp)*(1+tp)));
+            body->gradSipYTriplets.emplace_back(Eigen::Triplet<double>(nodeID[6],particle->id , -dx*dx*dx/8.0*(1-r)*(1+s)*(1+t)*(1-rp)*(1+tp)));
+            body->gradSipYTriplets.emplace_back(Eigen::Triplet<double>(nodeID[7],particle->id , -dx*dx*dx/8.0*(1+r)*(1+s)*(1+t)*(1+rp)*(1+tp)));
+
+            body->gradSipZTriplets.emplace_back(Eigen::Triplet<double>(nodeID[0],particle->id , dx*dx*dx/8.0*(1-r)*(1-s)*(1-t)*(1-sp)*(1-rp)));
+            body->gradSipZTriplets.emplace_back(Eigen::Triplet<double>(nodeID[1],particle->id , dx*dx*dx/8.0*(1+r)*(1-s)*(1-t)*(1-sp)*(1+rp)));
+            body->gradSipZTriplets.emplace_back(Eigen::Triplet<double>(nodeID[2],particle->id , dx*dx*dx/8.0*(1-r)*(1+s)*(1-t)*(1+sp)*(1-rp)));
+            body->gradSipZTriplets.emplace_back(Eigen::Triplet<double>(nodeID[3],particle->id , dx*dx*dx/8.0*(1+r)*(1+s)*(1-t)*(1+sp)*(1+rp)));
+            body->gradSipZTriplets.emplace_back(Eigen::Triplet<double>(nodeID[4],particle->id , -dx*dx*dx/8.0*(1-r)*(1-s)*(1+t)*(1-sp)*(1-rp)));
+            body->gradSipZTriplets.emplace_back(Eigen::Triplet<double>(nodeID[5],particle->id , -dx*dx*dx/8.0*(1+r)*(1-s)*(1+t)*(1-sp)*(1+rp)));
+            body->gradSipZTriplets.emplace_back(Eigen::Triplet<double>(nodeID[6],particle->id , -dx*dx*dx/8.0*(1-r)*(1+s)*(1+t)*(1+sp)*(1-rp)));
+            body->gradSipZTriplets.emplace_back(Eigen::Triplet<double>(nodeID[7],particle->id , -dx*dx*dx/8.0*(1+r)*(1+s)*(1+t)*(1+sp)*(1+rp)));
+
+            /*body->Sip.coeffRef(nodeID[0],particle->id) += 1.0/8.0*(1-r)*(1-s)*(1-t);
             body->Sip.coeffRef(nodeID[1],particle->id) += 1.0/8.0*(1+r)*(1-s)*(1-t);
             body->Sip.coeffRef(nodeID[2],particle->id) += 1.0/8.0*(1-r)*(1+s)*(1-t);
             body->Sip.coeffRef(nodeID[3],particle->id) += 1.0/8.0*(1+r)*(1+s)*(1-t);
@@ -88,7 +125,7 @@ public:
             body->gradSipZ.coeffRef(nodeID[4],particle->id) += -dx*dx*dx/8.0*(1-r)*(1-s)*(1+t)*(1-sp)*(1-rp);
             body->gradSipZ.coeffRef(nodeID[5],particle->id) += -dx*dx*dx/8.0*(1+r)*(1-s)*(1+t)*(1-sp)*(1+rp);
             body->gradSipZ.coeffRef(nodeID[6],particle->id) += -dx*dx*dx/8.0*(1-r)*(1+s)*(1+t)*(1+sp)*(1-rp);
-            body->gradSipZ.coeffRef(nodeID[7],particle->id) += -dx*dx*dx/8.0*(1+r)*(1+s)*(1+t)*(1+sp)*(1+rp);
+            body->gradSipZ.coeffRef(nodeID[7],particle->id) += -dx*dx*dx/8.0*(1+r)*(1+s)*(1+t)*(1+sp)*(1+rp);*/
         }
     };
 

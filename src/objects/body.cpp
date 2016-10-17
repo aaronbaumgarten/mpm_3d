@@ -127,6 +127,12 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
     gradSipY.resize(n,p);
     gradSipZ.resize(n,p);
 
+    //Sip and gradSip
+    SipTriplets.reserve(8*8*p);
+    gradSipXTriplets.reserve(8*8*p);
+    gradSipYTriplets.reserve(8*8*p);
+    gradSipZTriplets.reserve(8*8*p);
+
 }
 
 void Body::addParticle(double mIn,double vIn,double xIn,double yIn,double zIn,double x_tIn,double y_tIn,double z_tIn, size_t idIn){

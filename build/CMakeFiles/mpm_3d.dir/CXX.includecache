@@ -23,6 +23,8 @@ material.hpp
 ../include/element.hpp
 vector
 -
+Eigen/Sparse
+-
 
 ../include/material.hpp
 stdlib.h

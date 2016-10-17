@@ -125,6 +125,12 @@ public:
     //active
     std::vector<int> particle_active;
 
+    //S and gradS triplets
+    std::vector<Eigen::Triplet<double>> SipTriplets;
+    std::vector<Eigen::Triplet<double>> gradSipXTriplets;
+    std::vector<Eigen::Triplet<double>> gradSipYTriplets;
+    std::vector<Eigen::Triplet<double>> gradSipZTriplets;
+
     //Sip and gradSip
     Eigen::SparseMatrix<double> Sip;
     Eigen::SparseMatrix<double> gradSipX;
@@ -141,8 +147,6 @@ public:
     void addNode(double,double,double,size_t);
     void addElement(size_t[8],size_t);
     void defineMaterial(double*,int*);
-    void mapParticles2Elements();
-    void mapParticles2Nodes();
 };
 
 #endif //MPM_3D_BODY_HPP
