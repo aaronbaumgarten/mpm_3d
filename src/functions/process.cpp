@@ -12,7 +12,6 @@
 #include "process.hpp"
 #include "body.hpp"
 
-
 //hard coded for now. need to change
 job_t::job_t():
         use_cpdi(1),
@@ -359,3 +358,33 @@ int job_t::createMappings() {
         this->bodies[b].gradSipZ.setFromTriplets(this->bodies[b].gradSipZTriplets.begin(),this->bodies[b].gradSipZTriplets.end());
     }
 }
+
+
+int job_t::mapParticles2Grid() {
+    for (size_t b=0; b<this->num_bodies; b++) {
+        //use Eigen Map to point to particle array
+        size_t numRowsP = this->bodies[b].p;
+        size_t numColsP = 1;
+        Eigen::Map<Eigen::MatrixXd> p_m(this->bodies[b].particle_m.data(),numRowsP,numColsP);
+        Eigen::Map<Eigen::MatrixXd> p_x_t(this->bodies[b].particle_x_t.data(),numRowsP,numColsP);
+        Eigen::Map<Eigen::MatrixXd> p_y_t(this->bodies[b].particle_y_t.data(),numRowsP,numColsP);
+        Eigen::Map<Eigen::MatrixXd> p_z_t(this->bodies[b].particle_z_t.data(),numRowsP,numColsP);
+        Eigen::Map<Eigen::MatrixXd> p_bx(this->bodies[b].particle_bx.data(),numRowsP,numColsP);
+        Eigen::Map<Eigen::MatrixXd> p_by(this->bodies[b].particle_by.data(),numRowsP,numColsP);
+        Eigen::Map<Eigen::MatrixXd> p_bz(this->bodies[b].particle_bz.data(),numRowsP,numColsP);
+
+        Eigen::MatrixXd p_m_x_t(numRowsP,numColsP);
+        Eigen::MatrixXd p_m_y_t(numRowsP,numColsP);
+        Eigen::MatrixXd p_m_z_t(numRowsP,numColsP);
+        p_m_x_t = p_m.array()*p_x_t.array();
+        p_m_x_t = p_m.array()*p_y_t.array();
+        p_m_x_t = p_m.array()*p_z_t.array();
+        //use Eigen Map to point to node array
+    }
+}
+/*int job_t::addContactForces();
+int job_t::addBoundaryConditions();
+int job_t::moveGrid();
+int job_t::moveParticles();
+int job_t::mapGrid2Particles();
+int job_t::updateStressLast();*/

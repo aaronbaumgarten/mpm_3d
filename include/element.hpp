@@ -8,6 +8,7 @@
 
 #include <vector>
 #include <Eigen/Sparse>
+#include <Eigen/StdVector>
 
 class Element{
 public:

@@ -11,6 +11,8 @@ vector
 -
 Eigen/Sparse
 -
+Eigen/StdVector
+-
 particle.hpp
 ../include/particle.hpp
 node.hpp
@@ -24,6 +26,8 @@ material.hpp
 vector
 -
 Eigen/Sparse
+-
+Eigen/StdVector
 -
 
 ../include/material.hpp
@@ -690,6 +694,14 @@ src/SparseQR/SparseQR.h
 src/Core/util/ReenableStupidWarnings.h
 /usr/include/eigen3/Eigen/src/Core/util/ReenableStupidWarnings.h
 
+/usr/include/eigen3/Eigen/StdVector
+Core
+/usr/include/eigen3/Eigen/Core
+vector
+-
+src/StlSupport/StdVector.h
+/usr/include/eigen3/Eigen/src/StlSupport/StdVector.h
+
 /usr/include/eigen3/Eigen/src/Core/Array.h
 
 /usr/include/eigen3/Eigen/src/Core/ArrayBase.h
@@ -1069,6 +1081,12 @@ Eigen_Colamd.h
 /usr/include/eigen3/Eigen/src/SparseLU/SparseLU_relax_snode.h
 
 /usr/include/eigen3/Eigen/src/SparseQR/SparseQR.h
+
+/usr/include/eigen3/Eigen/src/StlSupport/StdVector.h
+details.h
+/usr/include/eigen3/Eigen/src/StlSupport/details.h
+
+/usr/include/eigen3/Eigen/src/StlSupport/details.h
 
 /usr/include/eigen3/Eigen/src/misc/Solve.h
 

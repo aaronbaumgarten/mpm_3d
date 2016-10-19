@@ -8,6 +8,7 @@
 
 #include <vector>
 #include <Eigen/Sparse>
+#include <Eigen/StdVector>
 
 #include "particle.hpp"
 #include "node.hpp"
@@ -126,10 +127,10 @@ public:
     std::vector<int> particle_active;
 
     //S and gradS triplets
-    std::vector<Eigen::Triplet<double>> SipTriplets;
-    std::vector<Eigen::Triplet<double>> gradSipXTriplets;
-    std::vector<Eigen::Triplet<double>> gradSipYTriplets;
-    std::vector<Eigen::Triplet<double>> gradSipZTriplets;
+    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> SipTriplets;
+    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> gradSipXTriplets;
+    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> gradSipYTriplets;
+    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> gradSipZTriplets;
 
     //Sip and gradSip
     Eigen::SparseMatrix<double> Sip;
