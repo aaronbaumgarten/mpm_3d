@@ -57,3 +57,15 @@ void testParticleCorners(job_t *job) {
 void testSipSize(job_t *job) {
     std::cout << job->bodies[0].n << ", " << job->bodies[0].p << " ?= " << job->bodies[0].Sip.rows() << ", " << job->bodies[0].Sip.cols() << "\n";
 }
+
+void testElementCorners(job_t *job) {
+    int elementID = job->bodies[0].particles[0].corner_elements[0];
+    job->bodies[0].particles[0].updateCorners(job);
+    std::cout << "element number: " << elementID << "\n";
+    std::cout << "particle x,y,z: " << job->bodies[0].particles[0].corner[0][0] << ", " << job->bodies[0].particles[0].corner[0][1] << ", " << job->bodies[0].particles[0].corner[0][2] << "\n";
+    for (size_t i = 0; i < 8; i++) {
+        std::cout << "node x,y,z: " << job->bodies[0].nodes[job->bodies[0].elements[elementID].nodeID[i]].x[0] << " , ";
+        std::cout << job->bodies[0].nodes[job->bodies[0].elements[elementID].nodeID[i]].y[0] << " , ";
+        std::cout << job->bodies[0].nodes[job->bodies[0].elements[elementID].nodeID[i]].z[0] << "\n";
+    }
+}

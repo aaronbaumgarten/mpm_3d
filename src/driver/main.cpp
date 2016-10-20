@@ -33,17 +33,20 @@ int main(int argc, char *argv[]) {
     }
 
     job->createMappings();
+    std::cout << "Mapping created (" << job->bodies[0].Sip.nonZeros() << ").\n";
 
     //colorize for threading
 
     //pre-run setup
 
     //process_usl
+    std::cout << "node[515151].m: " << job->bodies[0].nodes[515151].m[0] << "\n";
+    job->mapParticles2Grid();
+    std::cout << "node[515151].m: " << job->bodies[0].nodes[515151].m[0] << "\n";
 
     //serialize??
 
     //testing
-    std::cout << "Mapping created (" << job->bodies[0].Sip.nonZeros() << ").\n";
 
     //kill threads and cleanup
     delete(job);

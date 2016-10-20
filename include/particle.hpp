@@ -35,7 +35,7 @@
 #define WHICH_ELEMENT WHICH_ELEMENT9
 //very ugly but it should work
 #define WHICH_ELEMENT9(px,py,pz,Nx,Ny,Nz,Lx,Ly,Lz,hx,hy,hz) \
-    ((int)(((px)<Lx && (px)>=0 && (py)<Ly && (py)>=0 && (pz)<Lz && (pz)>=0)?(floor((px)/(hx)) + floor((py)/(hy))*((Nx)-1) + floor((pz)/(hz))*((Nx-1)*(Ny-1))):(-1)))
+    ((int)(((px)<Lx && (px)>=0 && (py)<Ly && (py)>=0 && (pz)<Lz && (pz)>=0)?(floor((px)/(hx)) + floor((py)/(hy))*((Nx)) + floor((pz)/(hz))*((Nx)*(Ny))):(-1)))
 
 class Particle {
 public:
@@ -185,12 +185,12 @@ public:
         ///implement corner math really just to be clever
         for (size_t i=0;i<8;i++){
             if (i%4 == 0){
-                sx *= -1;
+                sz *= -1;
             }
             if (i%2 == 0){
                 sy *= -1;
             }
-            sz *= -1;
+            sx *= -1;
             corner[i][0] = x[0]+sx*a[0];
             corner[i][1] = y[0]+sy*a[0];
             corner[i][2] = z[0]+sz*a[0];

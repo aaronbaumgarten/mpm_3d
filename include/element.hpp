@@ -52,9 +52,17 @@ public:
             s = (particle->corner[idc][1] - body->nodes[nodeID[0]].y[0])/dx;
             t = (particle->corner[idc][2] - body->nodes[nodeID[0]].z[0])/dx;
 
+            if (r<0 || s<0 || t<0) {
+                std::cout << "Error! <r,s,t> has negative component!\n";
+            }
+
             rp = (particle->x[0] - body->nodes[nodeID[0]].x[0])/dx;
             sp = (particle->y[0] - body->nodes[nodeID[0]].y[0])/dx;
             tp = (particle->z[0] - body->nodes[nodeID[0]].z[0])/dx;
+
+            if (rp<0 || sp<0 || tp<0) {
+                std::cout << "Error! <rp,sp,tp> has negative component!\n";
+            }
 
             body->SipTriplets.emplace_back(Eigen::Triplet<double>(nodeID[0],particle->id,1.0/8.0*(1-r)*(1-s)*(1-t)));
             body->SipTriplets.emplace_back(Eigen::Triplet<double>(nodeID[1],particle->id,1.0/8.0*(1+r)*(1-s)*(1-t)));
