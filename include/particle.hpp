@@ -18,6 +18,13 @@
 #define S_YIDX 1
 #define S_ZIDX 2
 
+//degress of freedom
+#define NODAL_DOF 3
+#define XDOF_IDX 0
+#define YDOF_IDX 1
+#define ZDOF_IDX 2
+
+
 //dimensions of the stress/strain tensors
 #define NDIM 3
 

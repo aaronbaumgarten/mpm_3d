@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <vector>
 #include "body.hpp"
+#include "boundary.hpp"
 
 class job_t{
 public:
@@ -43,8 +44,9 @@ public:
     int *inv_node_u_map;
 
     //which DOF are bc controlled
-    double *u_dirichlet;
-    double *u_dirichlet_mask;
+    std::vector<double> u_dirichlet;
+    std::vector<double> u_dirichlet_mask;
+    std::vector<int> node_number_override;
 
     //step number
     int step_number;
@@ -52,6 +54,9 @@ public:
 
     //object vector
     std::vector<Body> bodies;
+
+    //boundary condition
+    Boundary boundary;
 
     //threading
     //pthread_barrier_t *step_barrier;
@@ -68,6 +73,8 @@ public:
     void createBody(Body*,size_t,size_t,size_t,size_t);
     int assignMaterials();
     int assignMaterials(const char*, const char*);
+    int assignBoundaryConditions();
+    int assignBoundaryConditions(const char*);
 
     int mpmStepUSLExplicit();
     //usl step

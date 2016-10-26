@@ -22,6 +22,12 @@ element.hpp
 material.hpp
 ../include/material.hpp
 
+../include/boundary.hpp
+stdlib.h
+-
+functional
+-
+
 ../include/element.hpp
 vector
 -
@@ -53,12 +59,36 @@ vector
 -
 body.hpp
 ../include/body.hpp
+boundary.hpp
+../include/boundary.hpp
 
 ../include/tensor.hpp
 
 ../include/test.hpp
 process.hpp
 ../include/process.hpp
+
+../src/boundaries/floorBC.cpp
+stdio.h
+-
+stdlib.h
+-
+string.h
+-
+math.h
+-
+particle.hpp
+../src/boundaries/particle.hpp
+node.hpp
+../src/boundaries/node.hpp
+body.hpp
+../src/boundaries/body.hpp
+process.hpp
+../src/boundaries/process.hpp
+tensor.hpp
+../src/boundaries/tensor.hpp
+element.hpp
+../src/boundaries/element.hpp
 
 ../src/materials/isolin.cpp
 stdio.h
@@ -149,6 +179,28 @@ particle.hpp
 /home/aaron/Desktop/mpm_3d/src/objects/particle.hpp
 node.hpp
 /home/aaron/Desktop/mpm_3d/src/objects/node.hpp
+
+/home/aaron/Desktop/mpm_3d/src/objects/boundary.cpp
+stdio.h
+-
+stdlib.h
+-
+string.h
+-
+math.h
+-
+particle.hpp
+/home/aaron/Desktop/mpm_3d/src/objects/particle.hpp
+node.hpp
+/home/aaron/Desktop/mpm_3d/src/objects/node.hpp
+body.hpp
+/home/aaron/Desktop/mpm_3d/src/objects/body.hpp
+process.hpp
+/home/aaron/Desktop/mpm_3d/src/objects/process.hpp
+tensor.hpp
+/home/aaron/Desktop/mpm_3d/src/objects/tensor.hpp
+floorBC.cpp
+/home/aaron/Desktop/mpm_3d/src/objects/floorBC.cpp
 
 /home/aaron/Desktop/mpm_3d/src/objects/material1.cpp
 stdio.h

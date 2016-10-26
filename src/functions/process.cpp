@@ -16,7 +16,10 @@
 job_t::job_t():
         use_cpdi(1),
         dt(1e-6)
-{ std::cout << "Job created.\n";}
+{
+    std::cout << "Job created.\n";
+    boundary = Boundary();
+}
 
 
 /*void job_t::createBody(Body *bd, size_t nn, size_t np, size_t ne, size_t id) {
@@ -87,6 +90,10 @@ int job_t::importNodesandParticles(const char *nfilename, const char *pfilename)
             numNodes = numLinearNodes*numLinearNodes*numLinearNodes; //3d domain
             this->num_nodes = numNodes;
             this->num_elements = numElements;
+
+            this->u_dirichlet.resize(numNodes*NODAL_DOF);
+            this->u_dirichlet_mask.resize(numNodes*NODAL_DOF);
+            this->node_number_override.resize(numNodes);
         }
         if (std::getline(fin,line)) {
             std::stringstream ss(line);
@@ -318,6 +325,26 @@ int job_t::assignMaterials(const char* matFile1, const char* matFile2){
     return -1;
 }
 
+
+int job_t::assignBoundaryConditions(){
+    this->boundary.bc_init = boundary::bc_init;
+    this->boundary.bc_validate = boundary::bc_validate;
+    this->boundary.bc_time_varying = boundary::bc_time_varying;
+    this->boundary.generate_dirichlet_bcs = boundary::generate_dirichlet_bcs;
+    this->boundary.generate_node_number_override = boundary::generate_node_number_override;
+    this->boundary.bc_momentum = boundary::bc_momentum;
+    this->boundary.bc_force = boundary::bc_force;
+
+    std::cout << "Boundary Conditions assigned (1).\n";
+
+    return 1;
+}
+
+int job_t::assignBoundaryConditions(const char* bcFile){
+    // for defining boundary condition based on .so files (not implemented as of 10/26/16)
+    return -1;
+}
+
 int job_t::createMappings() {
     //loop over bodies
     for (size_t b = 0; b < this->num_bodies; b++) {
@@ -357,6 +384,7 @@ int job_t::createMappings() {
         this->bodies[b].gradSipY.setFromTriplets(this->bodies[b].gradSipYTriplets.begin(),this->bodies[b].gradSipYTriplets.end());
         this->bodies[b].gradSipZ.setFromTriplets(this->bodies[b].gradSipZTriplets.begin(),this->bodies[b].gradSipZTriplets.end());
     }
+    return 1;
 }
 
 
@@ -419,43 +447,52 @@ int job_t::mapParticles2Grid() {
         n_nz = this->bodies[b].gradSipZ*p_m;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XX];
+            pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XX];
         }
         n_fx -= this->bodies[b].gradSipX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XY];
+            pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XY];
         }
         n_fx -= this->bodies[b].gradSipY*pvec;
         n_fy -= this->bodies[b].gradSipX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XZ];
+            pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XZ];
         }
         n_fx -= this->bodies[b].gradSipZ*pvec;
         n_fz -= this->bodies[b].gradSipX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[YY];
+            pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[YY];
         }
         n_fy -= this->bodies[b].gradSipY*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[YZ];
+            pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[YZ];
         }
         n_fy -= this->bodies[b].gradSipZ*pvec;
         n_fz -= this->bodies[b].gradSipY*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[ZZ];
+            pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[ZZ];
         }
         n_fz -= this->bodies[b].gradSipZ*pvec;
 
     }
+
+    return 1;
 }
-/*int job_t::addContactForces();
-int job_t::addBoundaryConditions();
-int job_t::moveGrid();
-int job_t::moveParticles();
-int job_t::mapGrid2Particles();
-int job_t::updateStressLast();*/
+
+int job_t::addContactForces(){
+    //resolve conflicts between grid velocites
+    //implement later 10/21/16
+
+    return -1;
+}
+
+//int job_t::addBoundaryConditions();
+//int job_t::moveGrid();
+//int job_t::moveParticles();
+//int job_t::mapGrid2Particles();
+//int job_t::updateStressLast();

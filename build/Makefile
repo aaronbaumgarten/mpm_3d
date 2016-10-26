@@ -210,6 +210,30 @@ src/objects/body.cpp.s:
 	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/body.cpp.s
 .PHONY : src/objects/body.cpp.s
 
+src/objects/boundary.o: src/objects/boundary.cpp.o
+.PHONY : src/objects/boundary.o
+
+# target to build an object file
+src/objects/boundary.cpp.o:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/boundary.cpp.o
+.PHONY : src/objects/boundary.cpp.o
+
+src/objects/boundary.i: src/objects/boundary.cpp.i
+.PHONY : src/objects/boundary.i
+
+# target to preprocess a source file
+src/objects/boundary.cpp.i:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/boundary.cpp.i
+.PHONY : src/objects/boundary.cpp.i
+
+src/objects/boundary.s: src/objects/boundary.cpp.s
+.PHONY : src/objects/boundary.s
+
+# target to generate assembly for a file
+src/objects/boundary.cpp.s:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/boundary.cpp.s
+.PHONY : src/objects/boundary.cpp.s
+
 src/objects/material1.o: src/objects/material1.cpp.o
 .PHONY : src/objects/material1.o
 
@@ -303,6 +327,9 @@ help:
 	@echo "... src/objects/body.o"
 	@echo "... src/objects/body.i"
 	@echo "... src/objects/body.s"
+	@echo "... src/objects/boundary.o"
+	@echo "... src/objects/boundary.i"
+	@echo "... src/objects/boundary.s"
 	@echo "... src/objects/material1.o"
 	@echo "... src/objects/material1.i"
 	@echo "... src/objects/material1.s"

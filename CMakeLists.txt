@@ -8,12 +8,14 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/objects/body.cpp
         src/objects/material1.cpp
         src/objects/material2.cpp
+        src/objects/boundary.cpp
         src/functions/process.cpp
         src/functions/tensor.cpp
         src/tests/test.cpp)
 
 include_directories(include)
 include_directories(src/materials)
+include_directories(src/boundaries)
 include_directories(/usr/include/eigen3)
 
 add_executable(mpm_3d ${SOURCE_FILES})
