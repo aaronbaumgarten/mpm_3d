@@ -572,6 +572,7 @@ void tensor_symeig3(double *  P, double *  D, const double *  A)
         q[2]   /= mq;
         q[3]   /= mq;
     }
+    return;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -583,4 +584,5 @@ void tensor_symeig3(double *  P, double *  D, const double *  A)
 void tensor_det3(double *  detA, const double *  A)
 {
     *detA = A[0]*A[4]*A[8] + A[1]*A[5]*A[6] + A[2]*A[3]*A[7] - A[2]*A[4]*A[6] - A[1]*A[3]*A[8] - A[0]*A[5]*A[7];
+    return;
 }

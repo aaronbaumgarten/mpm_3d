@@ -14,5 +14,6 @@ void testNodeandParticleSum(job_t *job);
 void testParticleCorners(job_t *job);
 void testSipSize(job_t *job);
 void testElementCorners(job_t *job);
+void testMappingP2G(job_t *job);
 
 #endif //MPM_3D_TEST_HPP

@@ -210,9 +210,32 @@ CMakeFiles/mpm_3d.dir/src/functions/tensor.cpp.o.provides: CMakeFiles/mpm_3d.dir
 
 CMakeFiles/mpm_3d.dir/src/functions/tensor.cpp.o.provides.build: CMakeFiles/mpm_3d.dir/src/functions/tensor.cpp.o
 
+CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o: CMakeFiles/mpm_3d.dir/flags.make
+CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o: ../src/functions/loading.cpp
+	$(CMAKE_COMMAND) -E cmake_progress_report /home/aaron/Desktop/mpm_3d/build/CMakeFiles $(CMAKE_PROGRESS_8)
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Building CXX object CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o"
+	/usr/bin/c++   $(CXX_DEFINES) $(CXX_FLAGS) -o CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o -c /home/aaron/Desktop/mpm_3d/src/functions/loading.cpp
+
+CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.i"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_FLAGS) -E /home/aaron/Desktop/mpm_3d/src/functions/loading.cpp > CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.i
+
+CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.s"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_FLAGS) -S /home/aaron/Desktop/mpm_3d/src/functions/loading.cpp -o CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.s
+
+CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o.requires:
+.PHONY : CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o.requires
+
+CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o.provides: CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o.requires
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o.provides.build
+.PHONY : CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o.provides
+
+CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o.provides.build: CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o
+
 CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o: CMakeFiles/mpm_3d.dir/flags.make
 CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o: ../src/tests/test.cpp
-	$(CMAKE_COMMAND) -E cmake_progress_report /home/aaron/Desktop/mpm_3d/build/CMakeFiles $(CMAKE_PROGRESS_8)
+	$(CMAKE_COMMAND) -E cmake_progress_report /home/aaron/Desktop/mpm_3d/build/CMakeFiles $(CMAKE_PROGRESS_9)
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Building CXX object CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o"
 	/usr/bin/c++   $(CXX_DEFINES) $(CXX_FLAGS) -o CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o -c /home/aaron/Desktop/mpm_3d/src/tests/test.cpp
 
@@ -242,6 +265,7 @@ mpm_3d_OBJECTS = \
 "CMakeFiles/mpm_3d.dir/src/objects/boundary.cpp.o" \
 "CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o" \
 "CMakeFiles/mpm_3d.dir/src/functions/tensor.cpp.o" \
+"CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o" \
 "CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o"
 
 # External object files for target mpm_3d
@@ -254,6 +278,7 @@ mpm_3d: CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.o
 mpm_3d: CMakeFiles/mpm_3d.dir/src/objects/boundary.cpp.o
 mpm_3d: CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o
 mpm_3d: CMakeFiles/mpm_3d.dir/src/functions/tensor.cpp.o
+mpm_3d: CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o
 mpm_3d: CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o
 mpm_3d: CMakeFiles/mpm_3d.dir/build.make
 mpm_3d: CMakeFiles/mpm_3d.dir/link.txt
@@ -271,6 +296,7 @@ CMakeFiles/mpm_3d.dir/requires: CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.
 CMakeFiles/mpm_3d.dir/requires: CMakeFiles/mpm_3d.dir/src/objects/boundary.cpp.o.requires
 CMakeFiles/mpm_3d.dir/requires: CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o.requires
 CMakeFiles/mpm_3d.dir/requires: CMakeFiles/mpm_3d.dir/src/functions/tensor.cpp.o.requires
+CMakeFiles/mpm_3d.dir/requires: CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o.requires
 CMakeFiles/mpm_3d.dir/requires: CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o.requires
 .PHONY : CMakeFiles/mpm_3d.dir/requires
 

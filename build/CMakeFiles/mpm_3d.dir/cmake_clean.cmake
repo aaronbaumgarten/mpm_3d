@@ -6,6 +6,7 @@ file(REMOVE_RECURSE
   "CMakeFiles/mpm_3d.dir/src/objects/boundary.cpp.o"
   "CMakeFiles/mpm_3d.dir/src/functions/process.cpp.o"
   "CMakeFiles/mpm_3d.dir/src/functions/tensor.cpp.o"
+  "CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o"
   "CMakeFiles/mpm_3d.dir/src/tests/test.cpp.o"
   "mpm_3d.pdb"
   "mpm_3d"

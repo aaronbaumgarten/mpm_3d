@@ -24,7 +24,6 @@
 #define YDOF_IDX 1
 #define ZDOF_IDX 2
 
-
 //dimensions of the stress/strain tensors
 #define NDIM 3
 
@@ -208,6 +207,7 @@ public:
                                                 job->Lx,job->Ly,job->Lz,
                                                 job->hx,job->hy,job->hz);
         }
+        return;
     }
 
     template<class jobT>
@@ -222,6 +222,7 @@ public:
                                                 job->Lx,job->Ly,job->Lz,
                                                 job->hx,job->hy,job->hz);
         }
+        return;
     }
 
     template<class jobT>

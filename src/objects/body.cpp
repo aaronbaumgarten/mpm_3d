@@ -65,6 +65,10 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
         node_rho(n),
 
         //body contact resolution
+        node_contact_mx_t(n),
+        node_contact_my_t(n),
+        node_contact_mz_t(n),
+
         node_contact_x_t(n),
         node_contact_y_t(n),
         node_contact_z_t(n),
@@ -215,6 +219,10 @@ void Body::addNode(double xIn, double yIn, double zIn, size_t idIn) {
     node_rho[idIn] = 0;
 
     //body contact resolution
+    node_contact_mx_t[idIn] = 0;
+    node_contact_my_t[idIn] = 0;
+    node_contact_mz_t[idIn] = 0;
+
     node_contact_x_t[idIn] = 0;
     node_contact_y_t[idIn] = 0;
     node_contact_z_t[idIn] = 0;
@@ -237,6 +245,7 @@ void Body::addNode(double xIn, double yIn, double zIn, size_t idIn) {
 
 void Body::addElement(size_t * nodeIDs, size_t idIn) {
     this->elements[idIn] = Element(8,nodeIDs,idIn);
+    return;
 }
 
 void Body::defineMaterial(double * fp64_props, int * int_props) {
@@ -245,6 +254,7 @@ void Body::defineMaterial(double * fp64_props, int * int_props) {
     this->material.int_props = int_props;
     this->material.num_fp64_props = sizeof(fp64_props)/sizeof(double);
     this->material.num_int_props = sizeof(int_props)/sizeof(int);
+    return;
 }
 
 //Body::~Body(){

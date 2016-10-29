@@ -75,6 +75,10 @@ public:
     std::vector<double> node_rho;
 
     //body contact resolution
+    std::vector<double> node_contact_mx_t;
+    std::vector<double> node_contact_my_t;
+    std::vector<double> node_contact_mz_t;
+
     std::vector<double> node_contact_x_t;
     std::vector<double> node_contact_y_t;
     std::vector<double> node_contact_z_t;

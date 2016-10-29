@@ -67,6 +67,10 @@ public:
     double* contact_y_t;
     double* contact_z_t;
 
+    double* contact_mx_t;
+    double* contact_my_t;
+    double* contact_mz_t;
+
     double* contact_fx;
     double* contact_fy;
     double* contact_fz;
@@ -125,6 +129,10 @@ public:
             rho(&(bd->node_rho[idIn])),
 
             //body contact resolution
+            contact_mx_t(&(bd->node_contact_mx_t[idIn])),
+            contact_my_t(&(bd->node_contact_my_t[idIn])),
+            contact_mz_t(&(bd->node_contact_mz_t[idIn])),
+
             contact_x_t(&(bd->node_contact_x_t[idIn])),
             contact_y_t(&(bd->node_contact_y_t[idIn])),
             contact_z_t(&(bd->node_contact_z_t[idIn])),

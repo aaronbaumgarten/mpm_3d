@@ -85,11 +85,11 @@ void bc_momentum(job_t *job)
                 if (job->u_dirichlet[m] == 0) {
                     for (size_t b = 0; b < job->num_bodies; b++) {
                         if (j == XDOF_IDX) {
-                            job->bodies[b].node_mx_t[i] = 0;
+                            job->bodies[b].node_contact_mx_t[i] = 0;
                         } else if (j == YDOF_IDX) {
-                            job->bodies[b].node_my_t[i] = 0;
+                            job->bodies[b].node_contact_my_t[i] = 0;
                         } else if (j == ZDOF_IDX) {
-                            job->bodies[b].node_mz_t[i] = 0;
+                            job->bodies[b].node_contact_mz_t[i] = 0;
                         }
                     }
                 }

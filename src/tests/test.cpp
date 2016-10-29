@@ -13,6 +13,7 @@ void testParticlePositions(job_t *job){
     std::cout << "particles[0].{x,y,x} : particles[1].{x,y,z}\n";
     std::cout << "{" << job->bodies[0].particles[0].x[0] << " " << job->bodies[0].particles[0].y[0] << " " << job->bodies[0].particles[0].z[0] << "} : ";
     std::cout << "{" << job->bodies[0].particles[1].x[0] << " " << job->bodies[0].particles[1].y[0] << " " << job->bodies[0].particles[1].z[0] << "}\n";
+    return;
 }
 
 void testNodePositions(job_t *job){
@@ -29,6 +30,7 @@ void testNodePositions(job_t *job){
     std::cout << "nodes[0].{x,y,x} : nodes[N*N].{x,y,z}\n";
     std::cout << "{" << job->bodies[0].nodes[0].x[0] << " " << job->bodies[0].nodes[0].y[0] << " " << job->bodies[0].nodes[0].z[0] << "} : ";
     std::cout << "{" << job->bodies[0].nodes[N*N].x[0] << " " << job->bodies[0].nodes[N*N].y[0] << " " << job->bodies[0].nodes[N*N].z[0] << "}\n";
+    return;
 }
 
 void testNodeandParticleSums(job_t *job) {
@@ -42,6 +44,7 @@ void testNodeandParticleSums(job_t *job) {
         sumX += job->bodies[0].particles[i].id;
     }
     std::cout << "test: " << sumX << " =? " << 7999 * 8000 / 2 << "\n";
+    return;
 }
 
 void testParticleCorners(job_t *job) {
@@ -52,10 +55,12 @@ void testParticleCorners(job_t *job) {
     for (size_t i = 0; i < 8; i++) {
         std::cout << "node x: " << job->bodies[0].nodes[job->bodies[0].elements[elementID].nodeID[i]].x[0] << "\n";
     }
+    return;
 }
 
 void testSipSize(job_t *job) {
     std::cout << job->bodies[0].n << ", " << job->bodies[0].p << " ?= " << job->bodies[0].Sip.rows() << ", " << job->bodies[0].Sip.cols() << "\n";
+    return;
 }
 
 void testElementCorners(job_t *job) {
@@ -68,4 +73,13 @@ void testElementCorners(job_t *job) {
         std::cout << job->bodies[0].nodes[job->bodies[0].elements[elementID].nodeID[i]].y[0] << " , ";
         std::cout << job->bodies[0].nodes[job->bodies[0].elements[elementID].nodeID[i]].z[0] << "\n";
     }
+    return;
+}
+
+void testMappingP2G(job_t *job) {
+    size_t n = floor(job->bodies[0].n/2);
+    std::cout << "node[515151].m: " << job->bodies[0].nodes[n].m[0] << "\n";
+    job->mapParticles2Grid();
+    std::cout << "node[515151].m: " << job->bodies[0].nodes[n].m[0] << "\n";
+    return;
 }

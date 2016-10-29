@@ -79,13 +79,14 @@ public:
     int mpmStepUSLExplicit();
     //usl step
     int createMappings();
-    int mapParticles2Grid();
-    int addContactForces();
-    int addBoundaryConditions();
-    int moveGrid();
-    int moveParticles();
-    int mapGrid2Particles();
-    int updateStressLast();
+    void mapParticles2Grid();
+    void addContactForces();
+    void addBoundaryConditions();
+    void moveGridExplicit();
+    void moveParticlesExplicit();
+    void calculateStrainRate();
+    void updateDensity();
+    void updateStress();
 
 
 };

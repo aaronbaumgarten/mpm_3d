@@ -11,6 +11,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/objects/boundary.cpp
         src/functions/process.cpp
         src/functions/tensor.cpp
+        src/functions/loading.cpp
         src/tests/test.cpp)
 
 include_directories(include)

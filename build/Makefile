@@ -138,6 +138,30 @@ src/driver/main.cpp.s:
 	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/driver/main.cpp.s
 .PHONY : src/driver/main.cpp.s
 
+src/functions/loading.o: src/functions/loading.cpp.o
+.PHONY : src/functions/loading.o
+
+# target to build an object file
+src/functions/loading.cpp.o:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.o
+.PHONY : src/functions/loading.cpp.o
+
+src/functions/loading.i: src/functions/loading.cpp.i
+.PHONY : src/functions/loading.i
+
+# target to preprocess a source file
+src/functions/loading.cpp.i:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.i
+.PHONY : src/functions/loading.cpp.i
+
+src/functions/loading.s: src/functions/loading.cpp.s
+.PHONY : src/functions/loading.s
+
+# target to generate assembly for a file
+src/functions/loading.cpp.s:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/functions/loading.cpp.s
+.PHONY : src/functions/loading.cpp.s
+
 src/functions/process.o: src/functions/process.cpp.o
 .PHONY : src/functions/process.o
 
@@ -318,6 +342,9 @@ help:
 	@echo "... src/driver/main.o"
 	@echo "... src/driver/main.i"
 	@echo "... src/driver/main.s"
+	@echo "... src/functions/loading.o"
+	@echo "... src/functions/loading.i"
+	@echo "... src/functions/loading.s"
 	@echo "... src/functions/process.o"
 	@echo "... src/functions/process.i"
 	@echo "... src/functions/process.s"

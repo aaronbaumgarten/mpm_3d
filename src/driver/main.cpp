@@ -31,6 +31,7 @@ int main(int argc, char *argv[]) {
     for (size_t i=0;i<job->num_bodies;i++){
         job->bodies[i].defineMaterial(fp64_props,int_props);
     }
+    job->assignBoundaryConditions();
 
     job->createMappings();
     std::cout << "Mapping created (" << job->bodies[0].Sip.nonZeros() << ").\n";
@@ -40,9 +41,8 @@ int main(int argc, char *argv[]) {
     //pre-run setup
 
     //process_usl
-    std::cout << "node[515151].m: " << job->bodies[0].nodes[515151].m[0] << "\n";
-    job->mapParticles2Grid();
-    std::cout << "node[515151].m: " << job->bodies[0].nodes[515151].m[0] << "\n";
+    job->mpmStepUSLExplicit();
+    std::cout << "Step completed (1).\n";
 
     //serialize??
 
