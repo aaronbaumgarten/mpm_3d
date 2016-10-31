@@ -1,6 +1,8 @@
 #include <iostream>
 #include <stdlib.h>
+#include <string>
 #include <memory>
+#include <Eigen/Core>
 
 #include "test.hpp"
 
@@ -9,18 +11,25 @@
 #include "body.hpp"
 #include "element.hpp"
 #include "process.hpp"
+#include "mpmio.hpp"
 
-//using namespace std;
+#define T_STOP 1.0
 
 int main(int argc, char *argv[]) {
+
+    //set threads for eigen
+    Eigen::setNbThreads(4);
+
     std::cout << "Hello, World!" << std::endl;
 
     //initialize job
     job_t *job(new job_t);
 
     //parse configuration files
-    char *fileParticle = "s.particles";
-    char *fileNodes = "s.grid";
+    //char *fileParticle = "s.particles";
+    //char *fileNodes = "s.grid";
+    std::string fileParticle = "s.particles";
+    std::string fileNodes = "s.grid";
     job->importNodesandParticles(fileNodes,fileParticle);
 
     //initialize and allocate memory
@@ -39,10 +48,20 @@ int main(int argc, char *argv[]) {
     //colorize for threading
 
     //pre-run setup
+    MPMio mpmOut;
+    mpmOut.setDefaultFiles();
+    mpmOut.setJob(job);
+    mpmOut.writeFrameOutputHeader();
 
     //process_usl
-    job->mpmStepUSLExplicit();
-    std::cout << "Step completed (1).\n";
+    /*job->mpmStepUSLExplicit();
+    std::cout << "Step completed (1).\n";*/
+    while (job->t < T_STOP) {
+        job->mpmStepUSLExplicit();
+        mpmOut.writeFrame();
+        std::cout << "Step completed (" << job->stepcount << ").\r" << std::flush;
+    }
+    std::cout << "\n";
 
     //serialize??
 

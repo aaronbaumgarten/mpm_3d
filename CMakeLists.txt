@@ -9,6 +9,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/objects/material1.cpp
         src/objects/material2.cpp
         src/objects/boundary.cpp
+        src/objects/mpmio.cpp
         src/functions/process.cpp
         src/functions/tensor.cpp
         src/functions/loading.cpp

@@ -7,6 +7,7 @@
 #define MPM_3D_PROCESS_HPP
 
 #include <stdlib.h>
+#include <string>
 #include <vector>
 #include "body.hpp"
 #include "boundary.hpp"
@@ -69,7 +70,8 @@ public:
     inline int ijkton_safe(int,int,int,int,int,int);
 
     //initialization
-    int importNodesandParticles(const char*,const char*);
+    //int importNodesandParticles(const char*,const char*);
+    int importNodesandParticles(std::string ,std::string);
     void createBody(Body*,size_t,size_t,size_t,size_t);
     int assignMaterials();
     int assignMaterials(const char*, const char*);

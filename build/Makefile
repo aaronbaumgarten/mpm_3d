@@ -306,6 +306,30 @@ src/objects/material2.cpp.s:
 	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/material2.cpp.s
 .PHONY : src/objects/material2.cpp.s
 
+src/objects/mpmio.o: src/objects/mpmio.cpp.o
+.PHONY : src/objects/mpmio.o
+
+# target to build an object file
+src/objects/mpmio.cpp.o:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/mpmio.cpp.o
+.PHONY : src/objects/mpmio.cpp.o
+
+src/objects/mpmio.i: src/objects/mpmio.cpp.i
+.PHONY : src/objects/mpmio.i
+
+# target to preprocess a source file
+src/objects/mpmio.cpp.i:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/mpmio.cpp.i
+.PHONY : src/objects/mpmio.cpp.i
+
+src/objects/mpmio.s: src/objects/mpmio.cpp.s
+.PHONY : src/objects/mpmio.s
+
+# target to generate assembly for a file
+src/objects/mpmio.cpp.s:
+	$(MAKE) -f CMakeFiles/mpm_3d.dir/build.make CMakeFiles/mpm_3d.dir/src/objects/mpmio.cpp.s
+.PHONY : src/objects/mpmio.cpp.s
+
 src/tests/test.o: src/tests/test.cpp.o
 .PHONY : src/tests/test.o
 
@@ -363,6 +387,9 @@ help:
 	@echo "... src/objects/material2.o"
 	@echo "... src/objects/material2.i"
 	@echo "... src/objects/material2.s"
+	@echo "... src/objects/mpmio.o"
+	@echo "... src/objects/mpmio.i"
+	@echo "... src/objects/mpmio.s"
 	@echo "... src/tests/test.o"
 	@echo "... src/tests/test.i"
 	@echo "... src/tests/test.s"

@@ -7,7 +7,6 @@
 #include <fstream>
 #include <sstream>
 #include <stdlib.h>
-#include <string>
 #include <algorithm>
 
 #include "tensor.hpp"
@@ -65,8 +64,7 @@ inline int job_t::ijkton_safe(int i, int j, int k,
     return i + j*imax + k*jmax*imax;
 }
 
-//int job_t::importNodesandParticles(const char *nfilename, const char *pfilename){
-int job_t::importNodesandParticles(std::string nfilename, std::string pfilename){
+int job_t::importNodesandParticles(const char *nfilename, const char *pfilename){
     //only reads particle file for 2 bodies
 
     FILE *fp;
@@ -401,77 +399,94 @@ int job_t::createMappings() {
 
 void job_t::mapParticles2Grid() {
     for (size_t b=0; b<this->num_bodies; b++) {
-        //use Eigen Map to point to particle array
-        size_t numRowsP = this->bodies[b].p;
-        size_t numColsP = 1;
-        
-        Eigen::MatrixXd p_m_x_t(numRowsP,numColsP);
-        Eigen::MatrixXd p_m_y_t(numRowsP,numColsP);
-        Eigen::MatrixXd p_m_z_t(numRowsP,numColsP);
-        p_m_x_t = this->bodies[b].particle_m.array()*this->bodies[b].particle_x_t.array();
-        p_m_y_t = this->bodies[b].particle_m.array()*this->bodies[b].particle_y_t.array();
-        p_m_z_t = this->bodies[b].particle_m.array()*this->bodies[b].particle_z_t.array();
+            //use Eigen Map to point to particle array
+            size_t numRowsP = this->bodies[b].p;
+            size_t numColsP = 1;
+            Eigen::Map<Eigen::MatrixXd> p_m(this->bodies[b].particle_m.data(),numRowsP,numColsP);
+            Eigen::Map<Eigen::MatrixXd> p_x_t(this->bodies[b].particle_x_t.data(),numRowsP,numColsP);
+            Eigen::Map<Eigen::MatrixXd> p_y_t(this->bodies[b].particle_y_t.data(),numRowsP,numColsP);
+            Eigen::Map<Eigen::MatrixXd> p_z_t(this->bodies[b].particle_z_t.data(),numRowsP,numColsP);
+            Eigen::Map<Eigen::MatrixXd> p_bx(this->bodies[b].particle_bx.data(),numRowsP,numColsP);
+            Eigen::Map<Eigen::MatrixXd> p_by(this->bodies[b].particle_by.data(),numRowsP,numColsP);
+            Eigen::Map<Eigen::MatrixXd> p_bz(this->bodies[b].particle_bz.data(),numRowsP,numColsP);
 
-        Eigen::MatrixXd p_m_bx(numRowsP,numColsP);
-        Eigen::MatrixXd p_m_by(numRowsP,numColsP);
-        Eigen::MatrixXd p_m_bz(numRowsP,numColsP);
-        p_m_bx = this->bodies[b].particle_m.array()*this->bodies[b].particle_bx.array();
-        p_m_by = this->bodies[b].particle_m.array()*this->bodies[b].particle_by.array();
-        p_m_bz = this->bodies[b].particle_m.array()*this->bodies[b].particle_bz.array();
+            Eigen::MatrixXd p_m_x_t(numRowsP,numColsP);
+            Eigen::MatrixXd p_m_y_t(numRowsP,numColsP);
+            Eigen::MatrixXd p_m_z_t(numRowsP,numColsP);
+            p_m_x_t = p_m.array()*p_x_t.array();
+            p_m_y_t = p_m.array()*p_y_t.array();
+            p_m_z_t = p_m.array()*p_z_t.array();
 
-        //use Eigen Map to point to node array
-        size_t numRowsN = this->bodies[b].n;
-        size_t numColsN = 1;
-        
-        //use to create dummy pvec
-        Eigen::MatrixXd pvec(numRowsP,numColsP);
+            Eigen::MatrixXd p_m_bx(numRowsP,numColsP);
+            Eigen::MatrixXd p_m_by(numRowsP,numColsP);
+            Eigen::MatrixXd p_m_bz(numRowsP,numColsP);
+            p_m_bx = p_m.array()*p_bx.array();
+            p_m_by = p_m.array()*p_by.array();
+            p_m_bz = p_m.array()*p_bz.array();
+
+            //use Eigen Map to point to node array
+            size_t numRowsN = this->bodies[b].n;
+            size_t numColsN = 1;
+            Eigen::Map<Eigen::MatrixXd> n_m(this->bodies[b].node_m.data(),numRowsN,numColsN);
+            Eigen::Map<Eigen::MatrixXd> n_m_x_t(this->bodies[b].node_mx_t.data(),numRowsN,numColsN);
+            Eigen::Map<Eigen::MatrixXd> n_m_y_t(this->bodies[b].node_my_t.data(),numRowsN,numColsN);
+            Eigen::Map<Eigen::MatrixXd> n_m_z_t(this->bodies[b].node_mz_t.data(),numRowsN,numColsN);
+            Eigen::Map<Eigen::MatrixXd> n_fx(this->bodies[b].node_contact_fx.data(),numRowsN,numColsN);
+            Eigen::Map<Eigen::MatrixXd> n_fy(this->bodies[b].node_contact_fy.data(),numRowsN,numColsN);
+            Eigen::Map<Eigen::MatrixXd> n_fz(this->bodies[b].node_contact_fz.data(),numRowsN,numColsN);
+            Eigen::Map<Eigen::MatrixXd> n_nx(this->bodies[b].node_contact_normal_x.data(),numRowsN,numColsN);
+            Eigen::Map<Eigen::MatrixXd> n_ny(this->bodies[b].node_contact_normal_y.data(),numRowsN,numColsN);
+            Eigen::Map<Eigen::MatrixXd> n_nz(this->bodies[b].node_contact_normal_z.data(),numRowsN,numColsN);
+
+            //use to create dummy pvec
+            Eigen::MatrixXd pvec(numRowsP,numColsP);
 
         //use Sip to map particles to nodes
-        this->bodies[b].node_m = this->bodies[b].Sip*this->bodies[b].particle_m;
-        this->bodies[b].node_mx_t = this->bodies[b].Sip*p_m_x_t;
-        this->bodies[b].node_my_t = this->bodies[b].Sip*p_m_y_t;
-        this->bodies[b].node_mz_t = this->bodies[b].Sip*p_m_z_t;
-        this->bodies[b].node_fx = this->bodies[b].Sip*p_m_bx; //need to add stress
-        this->bodies[b].node_fy = this->bodies[b].Sip*p_m_by; //need to add stress
-        this->bodies[b].node_fz = this->bodies[b].Sip*p_m_bz; //need to add stress
+        n_m = this->bodies[b].Sip*p_m;
+        n_m_x_t = this->bodies[b].Sip*p_m_x_t;
+        n_m_y_t = this->bodies[b].Sip*p_m_y_t;
+        n_m_z_t = this->bodies[b].Sip*p_m_z_t;
+        n_fx = this->bodies[b].Sip*p_m_bx; //need to add stress
+        n_fy = this->bodies[b].Sip*p_m_by; //need to add stress
+        n_fz = this->bodies[b].Sip*p_m_bz; //need to add stress
 
         //use gradSip to map particles to nodes
-        this->bodies[b].node_contact_normal_x = this->bodies[b].gradSipX*this->bodies[b].particle_m;
-        this->bodies[b].node_contact_normal_y = this->bodies[b].gradSipY*this->bodies[b].particle_m;
-        this->bodies[b].node_contact_normal_z = this->bodies[b].gradSipZ*this->bodies[b].particle_m;
+        n_nx = this->bodies[b].gradSipX*p_m;
+        n_ny = this->bodies[b].gradSipY*p_m;
+        n_nz = this->bodies[b].gradSipZ*p_m;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XX];
         }
-        this->bodies[b].node_fx -= this->bodies[b].gradSipX*pvec;
+        n_fx -= this->bodies[b].gradSipX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XY];
         }
-        this->bodies[b].node_fx -= this->bodies[b].gradSipY*pvec;
-        this->bodies[b].node_fy -= this->bodies[b].gradSipX*pvec;
+        n_fx -= this->bodies[b].gradSipY*pvec;
+        n_fy -= this->bodies[b].gradSipX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XZ];
         }
-        this->bodies[b].node_fx -= this->bodies[b].gradSipZ*pvec;
-        this->bodies[b].node_fz -= this->bodies[b].gradSipX*pvec;
+        n_fx -= this->bodies[b].gradSipZ*pvec;
+        n_fz -= this->bodies[b].gradSipX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[YY];
         }
-        this->bodies[b].node_fy -= this->bodies[b].gradSipY*pvec;
+        n_fy -= this->bodies[b].gradSipY*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[YZ];
         }
-        this->bodies[b].node_fy -= this->bodies[b].gradSipZ*pvec;
-        this->bodies[b].node_fz -= this->bodies[b].gradSipY*pvec;
+        n_fy -= this->bodies[b].gradSipZ*pvec;
+        n_fz -= this->bodies[b].gradSipY*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[ZZ];
         }
-        this->bodies[b].node_fz -= this->bodies[b].gradSipZ*pvec;
+        n_fz -= this->bodies[b].gradSipZ*pvec;
 
     }
     return;
@@ -481,18 +496,20 @@ void job_t::addContactForces(){
     //resolve conflicts between grid velocites
     //implement later 10/21/16
     for (size_t b=0;b<this->num_bodies;b++){
-        this->bodies[b].node_contact_mx_t = this->bodies[b].node_mx_t;
-        this->bodies[b].node_contact_my_t = this->bodies[b].node_my_t;
-        this->bodies[b].node_contact_mz_t = this->bodies[b].node_mz_t;
+        for (size_t i=0;i<this->bodies[b].n;i++){
+            this->bodies[b].node_contact_mx_t[i] = this->bodies[b].node_mx_t[i];
+            this->bodies[b].node_contact_my_t[i] = this->bodies[b].node_my_t[i];
+            this->bodies[b].node_contact_mz_t[i] = this->bodies[b].node_mz_t[i];
 
-        //the following appear unused
-        this->bodies[b].node_contact_x_t = this->bodies[b].node_x_t;
-        this->bodies[b].node_contact_y_t = this->bodies[b].node_y_t;
-        this->bodies[b].node_contact_z_t = this->bodies[b].node_z_t;
+            //the following appear unused
+            this->bodies[b].node_contact_x_t[i] = this->bodies[b].node_x_t[i];
+            this->bodies[b].node_contact_y_t[i] = this->bodies[b].node_y_t[i];
+            this->bodies[b].node_contact_z_t[i] = this->bodies[b].node_z_t[i];
 
-        this->bodies[b].node_contact_fx = this->bodies[b].node_fx;
-        this->bodies[b].node_contact_fy = this->bodies[b].node_fy;
-        this->bodies[b].node_contact_fz = this->bodies[b].node_fz;
+            this->bodies[b].node_contact_fx[i] = this->bodies[b].node_fx[i];
+            this->bodies[b].node_contact_fy[i] = this->bodies[b].node_fy[i];
+            this->bodies[b].node_contact_fz[i] = this->bodies[b].node_fz[i];
+        }
     }
     return;
 }
@@ -533,11 +550,26 @@ void job_t::moveParticlesExplicit(){
         //use Eigen Map to point to particle array
         size_t numRowsP = this->bodies[b].p;
         size_t numColsP = 1;
-        
+        Eigen::Map<Eigen::MatrixXd> p_x(this->bodies[b].particle_x_t.data(), numRowsP, numColsP);
+        Eigen::Map<Eigen::MatrixXd> p_y(this->bodies[b].particle_y_t.data(), numRowsP, numColsP);
+        Eigen::Map<Eigen::MatrixXd> p_z(this->bodies[b].particle_z_t.data(), numRowsP, numColsP);
+        Eigen::Map<Eigen::MatrixXd> p_x_t(this->bodies[b].particle_x_t.data(), numRowsP, numColsP);
+        Eigen::Map<Eigen::MatrixXd> p_y_t(this->bodies[b].particle_y_t.data(), numRowsP, numColsP);
+        Eigen::Map<Eigen::MatrixXd> p_z_t(this->bodies[b].particle_z_t.data(), numRowsP, numColsP);
+        Eigen::Map<Eigen::MatrixXd> p_ux(this->bodies[b].particle_ux.data(), numRowsP, numColsP);
+        Eigen::Map<Eigen::MatrixXd> p_uy(this->bodies[b].particle_uy.data(), numRowsP, numColsP);
+        Eigen::Map<Eigen::MatrixXd> p_uz(this->bodies[b].particle_uz.data(), numRowsP, numColsP);
+
         //use Eigen Map to point to node array
         size_t numRowsN = this->bodies[b].n;
         size_t numColsN = 1;
-        
+        Eigen::Map<Eigen::MatrixXd> n_ux(this->bodies[b].node_ux.data(), numRowsN, numColsN);
+        Eigen::Map<Eigen::MatrixXd> n_uy(this->bodies[b].node_uy.data(), numRowsN, numColsN);
+        Eigen::Map<Eigen::MatrixXd> n_uz(this->bodies[b].node_uz.data(), numRowsN, numColsN);
+        Eigen::Map<Eigen::MatrixXd> n_dx_t(this->bodies[b].node_diff_x_t.data(), numRowsN, numColsN);
+        Eigen::Map<Eigen::MatrixXd> n_dy_t(this->bodies[b].node_diff_y_t.data(), numRowsN, numColsN);
+        Eigen::Map<Eigen::MatrixXd> n_dz_t(this->bodies[b].node_diff_z_t.data(), numRowsN, numColsN);
+
         //use to create dummy pvec
         Eigen::MatrixXd pvec(numRowsP, numColsP);
 
@@ -563,17 +595,17 @@ void job_t::moveParticlesExplicit(){
         }
 
         //map back to particles using S transpose
-        this->bodies[b].particle_x += this->bodies[b].Sip.transpose()*this->bodies[b].node_ux;
-        this->bodies[b].particle_y += this->bodies[b].Sip.transpose()*this->bodies[b].node_uy;
-        this->bodies[b].particle_z += this->bodies[b].Sip.transpose()*this->bodies[b].node_uz;
+        p_x += this->bodies[b].Sip.transpose()*n_ux;
+        p_y += this->bodies[b].Sip.transpose()*n_uy;
+        p_z += this->bodies[b].Sip.transpose()*n_uz;
 
-        this->bodies[b].particle_ux += this->bodies[b].Sip.transpose()*this->bodies[b].node_ux;
-        this->bodies[b].particle_uy += this->bodies[b].Sip.transpose()*this->bodies[b].node_uy;
-        this->bodies[b].particle_uz += this->bodies[b].Sip.transpose()*this->bodies[b].node_uz;
+        p_ux += this->bodies[b].Sip.transpose()*n_ux;
+        p_uy += this->bodies[b].Sip.transpose()*n_uy;
+        p_uz += this->bodies[b].Sip.transpose()*n_uz;
 
-        this->bodies[b].particle_x_t += this->bodies[b].Sip.transpose()*this->bodies[b].node_diff_x_t;
-        this->bodies[b].particle_y_t += this->bodies[b].Sip.transpose()*this->bodies[b].node_diff_y_t;
-        this->bodies[b].particle_z_t += this->bodies[b].Sip.transpose()*this->bodies[b].node_diff_z_t;
+        p_x_t += this->bodies[b].Sip.transpose()*n_dx_t;
+        p_y_t += this->bodies[b].Sip.transpose()*n_dy_t;
+        p_z_t += this->bodies[b].Sip.transpose()*n_dz_t;
 
     }
     return;
@@ -584,11 +616,18 @@ void job_t::calculateStrainRate() {
         //map nodal velocities with Eigen
         size_t numRowsN = this->bodies[b].n;
         size_t numColsN = 1;
+        Eigen::Map<Eigen::MatrixXd> n_m(this->bodies[b].node_m.data(), numRowsN, numColsN);
+        Eigen::Map<Eigen::MatrixXd> n_c_mx_t(this->bodies[b].node_contact_mx_t.data(), numRowsN, numColsN);
+        Eigen::Map<Eigen::MatrixXd> n_c_my_t(this->bodies[b].node_contact_my_t.data(), numRowsN, numColsN);
+        Eigen::Map<Eigen::MatrixXd> n_c_mz_t(this->bodies[b].node_contact_mz_t.data(), numRowsN, numColsN);
+        Eigen::Map<Eigen::MatrixXd> n_c_x_t(this->bodies[b].node_contact_x_t.data(), numRowsN, numColsN);
+        Eigen::Map<Eigen::MatrixXd> n_c_y_t(this->bodies[b].node_contact_y_t.data(), numRowsN, numColsN);
+        Eigen::Map<Eigen::MatrixXd> n_c_z_t(this->bodies[b].node_contact_z_t.data(), numRowsN, numColsN);
 
         //nodal velocities
-        this->bodies[b].node_contact_x_t = this->bodies[b].node_contact_mx_t.array()/this->bodies[b].node_m.array();
-        this->bodies[b].node_contact_y_t = this->bodies[b].node_contact_my_t.array()/this->bodies[b].node_m.array();
-        this->bodies[b].node_contact_z_t = this->bodies[b].node_contact_mz_t.array()/this->bodies[b].node_m.array();
+        n_c_x_t = n_c_mx_t.array()/n_m.array();
+        n_c_y_t = n_c_my_t.array()/n_m.array();
+        n_c_z_t = n_c_mz_t.array()/n_m.array();
 
         //use to create dummy pvec
         size_t numRowsP = this->bodies[b].p;
@@ -596,47 +635,47 @@ void job_t::calculateStrainRate() {
         Eigen::MatrixXd pvec(numRowsP,numColsP);
 
         //calculate particle[i].L[9]
-        pvec = this->bodies[b].gradSipX.transpose()*this->bodies[b].node_contact_x_t;
+        pvec = this->bodies[b].gradSipX.transpose()*n_c_x_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[XX] = pvec(i,0);
         }
 
-        pvec = this->bodies[b].gradSipY.transpose()*this->bodies[b].node_contact_x_t;
+        pvec = this->bodies[b].gradSipY.transpose()*n_c_x_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[XY] = pvec(i,0);
         }
 
-        pvec = this->bodies[b].gradSipZ.transpose()*this->bodies[b].node_contact_x_t;
+        pvec = this->bodies[b].gradSipZ.transpose()*n_c_x_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[XZ] = pvec(i,0);
         }
 
-        pvec = this->bodies[b].gradSipX.transpose()*this->bodies[b].node_contact_y_t;
+        pvec = this->bodies[b].gradSipX.transpose()*n_c_y_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[YX] = pvec(i,0);
         }
 
-        pvec = this->bodies[b].gradSipY.transpose()*this->bodies[b].node_contact_y_t;
+        pvec = this->bodies[b].gradSipY.transpose()*n_c_y_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[YY] = pvec(i,0);
         }
 
-        pvec = this->bodies[b].gradSipZ.transpose()*this->bodies[b].node_contact_y_t;
+        pvec = this->bodies[b].gradSipZ.transpose()*n_c_y_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[YZ] = pvec(i,0);
         }
 
-        pvec = this->bodies[b].gradSipX.transpose()*this->bodies[b].node_contact_z_t;
+        pvec = this->bodies[b].gradSipX.transpose()*n_c_z_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[ZX] = pvec(i,0);
         }
 
-        pvec = this->bodies[b].gradSipY.transpose()*this->bodies[b].node_contact_z_t;
+        pvec = this->bodies[b].gradSipY.transpose()*n_c_z_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[ZY] = pvec(i,0);
         }
 
-        pvec = this->bodies[b].gradSipZ.transpose()*this->bodies[b].node_contact_z_t;
+        pvec = this->bodies[b].gradSipZ.transpose()*n_c_z_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[ZZ] = pvec(i,0);
         }
@@ -678,8 +717,6 @@ int job_t::mpmStepUSLExplicit() {
 
     //map particles to grid
     this->mapParticles2Grid();
-
-    std::cout << this->bodies[0].nodes[515150].contact_fz[0] << "\n";
 
     //add contact forces
     this->addContactForces();

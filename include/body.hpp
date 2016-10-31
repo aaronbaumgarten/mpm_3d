@@ -39,96 +39,96 @@ public:
 
     //***** nodal vectors *****
     //mass
-    std::vector<double> node_m;
+    Eigen::VectorXd node_m;
 
     //position
-    std::vector<double> node_x;
-    std::vector<double> node_y;
-    std::vector<double> node_z;
+    Eigen::VectorXd node_x;
+    Eigen::VectorXd node_y;
+    Eigen::VectorXd node_z;
 
     //displacement
-    std::vector<double> node_ux;
-    std::vector<double> node_uy;
-    std::vector<double> node_uz;
+    Eigen::VectorXd node_ux;
+    Eigen::VectorXd node_uy;
+    Eigen::VectorXd node_uz;
 
     //velocity
-    std::vector<double> node_x_t;
-    std::vector<double> node_y_t;
-    std::vector<double> node_z_t;
+    Eigen::VectorXd node_x_t;
+    Eigen::VectorXd node_y_t;
+    Eigen::VectorXd node_z_t;
 
     //velocity difference
-    std::vector<double> node_diff_x_t;
-    std::vector<double> node_diff_y_t;
-    std::vector<double> node_diff_z_t;
+    Eigen::VectorXd node_diff_x_t;
+    Eigen::VectorXd node_diff_y_t;
+    Eigen::VectorXd node_diff_z_t;
 
     //momentum
-    std::vector<double> node_mx_t;
-    std::vector<double> node_my_t;
-    std::vector<double> node_mz_t;
+    Eigen::VectorXd node_mx_t;
+    Eigen::VectorXd node_my_t;
+    Eigen::VectorXd node_mz_t;
 
     //force
-    std::vector<double> node_fx;
-    std::vector<double> node_fy;
-    std::vector<double> node_fz;
+    Eigen::VectorXd node_fx;
+    Eigen::VectorXd node_fy;
+    Eigen::VectorXd node_fz;
 
     //density
-    std::vector<double> node_rho;
+    Eigen::VectorXd node_rho;
 
     //body contact resolution
-    std::vector<double> node_contact_mx_t;
-    std::vector<double> node_contact_my_t;
-    std::vector<double> node_contact_mz_t;
+    Eigen::VectorXd node_contact_mx_t;
+    Eigen::VectorXd node_contact_my_t;
+    Eigen::VectorXd node_contact_mz_t;
 
-    std::vector<double> node_contact_x_t;
-    std::vector<double> node_contact_y_t;
-    std::vector<double> node_contact_z_t;
+    Eigen::VectorXd node_contact_x_t;
+    Eigen::VectorXd node_contact_y_t;
+    Eigen::VectorXd node_contact_z_t;
 
-    std::vector<double> node_contact_fx;
-    std::vector<double> node_contact_fy;
-    std::vector<double> node_contact_fz;
+    Eigen::VectorXd node_contact_fx;
+    Eigen::VectorXd node_contact_fy;
+    Eigen::VectorXd node_contact_fz;
 
-    std::vector<double> node_real_contact_fx;
-    std::vector<double> node_real_contact_fy;
-    std::vector<double> node_real_contact_fz;
+    Eigen::VectorXd node_real_contact_fx;
+    Eigen::VectorXd node_real_contact_fy;
+    Eigen::VectorXd node_real_contact_fz;
 
-    std::vector<double> node_contact_normal_x;
-    std::vector<double> node_contact_normal_y;
-    std::vector<double> node_contact_normal_z;
+    Eigen::VectorXd node_contact_normal_x;
+    Eigen::VectorXd node_contact_normal_y;
+    Eigen::VectorXd node_contact_normal_z;
 
     //***** particle values *****
     //position
-    std::vector<double> particle_x;
-    std::vector<double> particle_y;
-    std::vector<double> particle_z;
+    Eigen::VectorXd particle_x;
+    Eigen::VectorXd particle_y;
+    Eigen::VectorXd particle_z;
 
     //volume
-    std::vector<double> particle_v;
-    std::vector<double> particle_v0;
-    std::vector<double> particle_v_averaging;
+    Eigen::VectorXd particle_v;
+    Eigen::VectorXd particle_v0;
+    Eigen::VectorXd particle_v_averaging;
 
     //half side length
-    std::vector<double> particle_a;
+    Eigen::VectorXd particle_a;
 
     //mass
-    std::vector<double> particle_m;
+    Eigen::VectorXd particle_m;
 
     //velocity
-    std::vector<double> particle_x_t;
-    std::vector<double> particle_y_t;
-    std::vector<double> particle_z_t;
+    Eigen::VectorXd particle_x_t;
+    Eigen::VectorXd particle_y_t;
+    Eigen::VectorXd particle_z_t;
 
     //body forces
-    std::vector<double> particle_bx;
-    std::vector<double> particle_by;
-    std::vector<double> particle_bz;
+    Eigen::VectorXd particle_bx;
+    Eigen::VectorXd particle_by;
+    Eigen::VectorXd particle_bz;
 
     //displacements
-    std::vector<double> particle_ux;
-    std::vector<double> particle_uy;
-    std::vector<double> particle_uz;
+    Eigen::VectorXd particle_ux;
+    Eigen::VectorXd particle_uy;
+    Eigen::VectorXd particle_uz;
 
     //active
-    std::vector<int> particle_active;
+    Eigen::VectorXi particle_active;
 
     //S and gradS triplets
     std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> SipTriplets;
