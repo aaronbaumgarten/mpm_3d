@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     job->createMappings();
     std::cout << "Mapping created (" << job->bodies[0].Phi.nonZeros() << ").\n";
 
-    //testMappingGradient(job);
+    testMappingP2G(job);
 
     //colorize for threading
 
