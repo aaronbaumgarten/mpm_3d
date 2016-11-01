@@ -48,6 +48,7 @@ void material_init(Body *body) {
     }
 
     if (body->material.num_fp64_props < 2) {
+        std::cout << body->material.num_fp64_props << "\n";
         fprintf(stderr,
                 "%s:%s: Need at least 2 properties defined (E, nu).\n",
                 __FILE__, __func__);

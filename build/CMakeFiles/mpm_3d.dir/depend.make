@@ -1394,6 +1394,7 @@ CMakeFiles/mpm_3d.dir/src/objects/mpmio.cpp.o: ../include/mpmio.hpp
 CMakeFiles/mpm_3d.dir/src/objects/mpmio.cpp.o: ../include/node.hpp
 CMakeFiles/mpm_3d.dir/src/objects/mpmio.cpp.o: ../include/particle.hpp
 CMakeFiles/mpm_3d.dir/src/objects/mpmio.cpp.o: ../include/process.hpp
+CMakeFiles/mpm_3d.dir/src/objects/mpmio.cpp.o: ../include/tensor.hpp
 CMakeFiles/mpm_3d.dir/src/objects/mpmio.cpp.o: ../include/test.hpp
 CMakeFiles/mpm_3d.dir/src/objects/mpmio.cpp.o: ../src/objects/mpmio.cpp
 CMakeFiles/mpm_3d.dir/src/objects/mpmio.cpp.o: /usr/include/eigen3/Eigen/Core

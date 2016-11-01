@@ -248,12 +248,14 @@ void Body::addElement(size_t * nodeIDs, size_t idIn) {
     return;
 }
 
-void Body::defineMaterial(double * fp64_props, int * int_props) {
+void Body::defineMaterial(double * fp64_props, size_t num_fp64_props , int * int_props, size_t num_int_props) {
     //this->material = Material();
     this->material.fp64_props = fp64_props;
     this->material.int_props = int_props;
-    this->material.num_fp64_props = sizeof(fp64_props)/sizeof(double);
-    this->material.num_int_props = sizeof(int_props)/sizeof(int);
+    this->material.num_fp64_props = num_fp64_props;
+    this->material.num_int_props = num_int_props;
+
+    this->material.material_init(this);
     return;
 }
 

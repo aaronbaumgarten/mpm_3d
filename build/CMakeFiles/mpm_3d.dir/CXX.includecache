@@ -29,11 +29,15 @@ functional
 -
 
 ../include/element.hpp
+stdlib.h
+-
 vector
 -
 Eigen/Sparse
 -
 Eigen/StdVector
+-
+cmath
 -
 
 ../include/loading.hpp
@@ -321,6 +325,8 @@ isolin.cpp
 /home/aaron/Desktop/mpm_3d/src/objects/mpmio.cpp
 iostream
 -
+iomanip
+-
 fstream
 -
 sstream
@@ -343,6 +349,8 @@ element.hpp
 /home/aaron/Desktop/mpm_3d/src/objects/element.hpp
 process.hpp
 /home/aaron/Desktop/mpm_3d/src/objects/process.hpp
+tensor.hpp
+/home/aaron/Desktop/mpm_3d/src/objects/tensor.hpp
 
 /home/aaron/Desktop/mpm_3d/src/tests/test.cpp
 stdlib.h

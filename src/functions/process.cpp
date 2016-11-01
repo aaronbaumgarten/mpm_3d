@@ -550,7 +550,7 @@ void job_t::moveParticlesExplicit(){
 
                 this->bodies[b].nodes[i].diff_x_t[0] = this->dt * this->bodies[b].nodes[i].contact_fx[0] / m;
                 this->bodies[b].nodes[i].diff_y_t[0] = this->dt * this->bodies[b].nodes[i].contact_fy[0] / m;
-                this->bodies[b].nodes[i].diff_y_t[0] = this->dt * this->bodies[b].nodes[i].contact_fz[0] / m;
+                this->bodies[b].nodes[i].diff_z_t[0] = this->dt * this->bodies[b].nodes[i].contact_fz[0] / m;
             } else {
                 this->bodies[b].nodes[i].ux[0] = 0;
                 this->bodies[b].nodes[i].uy[0] = 0;
@@ -558,7 +558,7 @@ void job_t::moveParticlesExplicit(){
 
                 this->bodies[b].nodes[i].diff_x_t[0] = 0;
                 this->bodies[b].nodes[i].diff_y_t[0] = 0;
-                this->bodies[b].nodes[i].diff_y_t[0] = 0;
+                this->bodies[b].nodes[i].diff_z_t[0] = 0;
             }
         }
 
@@ -678,8 +678,6 @@ int job_t::mpmStepUSLExplicit() {
 
     //map particles to grid
     this->mapParticles2Grid();
-
-    std::cout << this->bodies[0].nodes[515150].contact_fz[0] << "\n";
 
     //add contact forces
     this->addContactForces();

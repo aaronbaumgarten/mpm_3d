@@ -27,7 +27,12 @@ public:
     //files for reading and writing
     std::string inputFile; //read state
     std::string outputFile; //write state
+    std::string frameDirectory; //output directory
     std::string frameFile; //write output frame for visualizers
+
+    //sampling info
+    double sampleRate;
+    size_t sampledFrames;
 
     //job
     job_t* job;
@@ -46,6 +51,9 @@ public:
     void defineOutputFile(std::string);
     void defineInputFile(std::string);
     void defineFrameFile(std::string);
+    void defineFrameDirectory(std::string);
+
+    void setSampleRate(double);
 
     void setJob(job_t*);
 
@@ -53,9 +61,6 @@ public:
     void readInput(job_t*);
     void writeOutput(); //write state to file
     void writeOutput(job_t*);
-
-    void writeFrameOutputHeader(); //write header for frame file
-    void writeFrameOutputHeader(job_t*);
 
     void writeFrame(); //write frame to file
     void writeFrame(job_t*);

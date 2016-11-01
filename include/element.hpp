@@ -6,9 +6,14 @@
 #ifndef MPM_3D_ELEMENT_HPP
 #define MPM_3D_ELEMENT_HPP
 
+#include <stdlib.h>
 #include <vector>
 #include <Eigen/Sparse>
 #include <Eigen/StdVector>
+#include <cmath>
+
+#define B_r(x) ((std::abs(x)<=1.0)?(1.0-std::abs(x)):0.0) //right hand shape function
+#define B_l(x) ((std::abs(x-1.0)<=1.0)?(1.0-std::abs(x-1.0)):0.0) //left hand shape function
 
 class Element{
 public:
@@ -44,6 +49,7 @@ public:
         //gSipc = hx^3/8*A_i(r^p_c)*gradA_i(r*^p)
         double r,s,t;
         double rp,sp,tp;
+        double r1,r2,s1,s2,t1,t2;
         double dx = body->nodes[nodeID[1]].x[0] - body->nodes[nodeID[0]].x[0];
         if (dx <= 0){
             std::cout << "Error! dx <= 0 in element.calculateSipc()\n";
@@ -60,81 +66,53 @@ public:
             sp = (particle->y[0] - body->nodes[nodeID[0]].y[0])/dx;
             tp = (particle->z[0] - body->nodes[nodeID[0]].z[0])/dx;
 
-            if (rp<0 || sp<0 || tp<0) {
-                std::cout << "Error! <rp,sp,tp> has negative component!\n";
-            }
+            r1 = std::fmin(r,2.0*rp-r);
+            r2 = std::fmax(r,2.0*rp-r);
+            s1 = std::fmin(s,2.0*sp-s);
+            s2 = std::fmax(s,2.0*sp-s);
+            t1 = std::fmin(t,2.0*tp-t);
+            t2 = std::fmax(t,2.0*tp-t);
 
-            body->SipTriplets.emplace_back(nodeID[0],particle->id,1.0/8.0*(1-r)*(1-s)*(1-t));
-            body->SipTriplets.emplace_back(nodeID[1],particle->id,1.0/8.0*(1+r)*(1-s)*(1-t));
-            body->SipTriplets.emplace_back(nodeID[2],particle->id,1.0/8.0*(1-r)*(1+s)*(1-t));
-            body->SipTriplets.emplace_back(nodeID[3],particle->id,1.0/8.0*(1+r)*(1+s)*(1-t));
-            body->SipTriplets.emplace_back(nodeID[4],particle->id,1.0/8.0*(1-r)*(1-s)*(1+t));
-            body->SipTriplets.emplace_back(nodeID[5],particle->id,1.0/8.0*(1+r)*(1-s)*(1+t));
-            body->SipTriplets.emplace_back(nodeID[6],particle->id,1.0/8.0*(1-r)*(1+s)*(1+t));
-            body->SipTriplets.emplace_back(nodeID[7],particle->id,1.0/8.0*(1+r)*(1+s)*(1+t));
+            //if (rp<0 || sp<0 || tp<0) {
+            //    std::cout << "Error! <rp,sp,tp> has negative component!\n";
+            //}
 
-            body->gradSipXTriplets.emplace_back(nodeID[0],particle->id , -dx*dx*dx/8.0*(1-r)*(1-s)*(1-t)*(1-sp)*(1-tp));
-            body->gradSipXTriplets.emplace_back(nodeID[1],particle->id , dx*dx*dx/8.0*(1+r)*(1-s)*(1-t)*(1-sp)*(1-tp));
-            body->gradSipXTriplets.emplace_back(nodeID[2],particle->id , -dx*dx*dx/8.0*(1-r)*(1+s)*(1-t)*(1+sp)*(1-tp));
-            body->gradSipXTriplets.emplace_back(nodeID[3],particle->id , dx*dx*dx/8.0*(1+r)*(1+s)*(1-t)*(1+sp)*(1-tp));
-            body->gradSipXTriplets.emplace_back(nodeID[4],particle->id , -dx*dx*dx/8.0*(1-r)*(1-s)*(1+t)*(1-sp)*(1+tp));
-            body->gradSipXTriplets.emplace_back(nodeID[5],particle->id , dx*dx*dx/8.0*(1+r)*(1-s)*(1+t)*(1-sp)*(1+tp));
-            body->gradSipXTriplets.emplace_back(nodeID[6],particle->id , -dx*dx*dx/8.0*(1-r)*(1+s)*(1+t)*(1+sp)*(1+tp));
-            body->gradSipXTriplets.emplace_back(nodeID[7],particle->id , dx*dx*dx/8.0*(1+r)*(1+s)*(1+t)*(1+sp)*(1+tp));
+            body->SipTriplets.emplace_back(nodeID[0],particle->id,1.0/8.0*B_l(r)*B_l(s)*B_l(t));//(1-r)*(1-s)*(1-t));
+            body->SipTriplets.emplace_back(nodeID[1],particle->id,1.0/8.0*B_r(r)*B_l(s)*B_l(t));//(1+r)*(1-s)*(1-t));
+            body->SipTriplets.emplace_back(nodeID[2],particle->id,1.0/8.0*B_l(r)*B_r(s)*B_l(t));//(1-r)*(1+s)*(1-t));
+            body->SipTriplets.emplace_back(nodeID[3],particle->id,1.0/8.0*B_r(r)*B_r(s)*B_l(t));//(1+r)*(1+s)*(1-t));
+            body->SipTriplets.emplace_back(nodeID[4],particle->id,1.0/8.0*B_l(r)*B_l(s)*B_r(t));//(1-r)*(1-s)*(1+t));
+            body->SipTriplets.emplace_back(nodeID[5],particle->id,1.0/8.0*B_r(r)*B_l(s)*B_r(t));//(1+r)*(1-s)*(1+t));
+            body->SipTriplets.emplace_back(nodeID[6],particle->id,1.0/8.0*B_l(r)*B_r(s)*B_r(t));//(1-r)*(1+s)*(1+t));
+            body->SipTriplets.emplace_back(nodeID[7],particle->id,1.0/8.0*B_r(r)*B_r(s)*B_r(t));//(1+r)*(1+s)*(1+t));
 
-            body->gradSipYTriplets.emplace_back(nodeID[0],particle->id , dx*dx*dx/8.0*(1-r)*(1-s)*(1-t)*(1-rp)*(1-tp));
-            body->gradSipYTriplets.emplace_back(nodeID[1],particle->id , dx*dx*dx/8.0*(1+r)*(1-s)*(1-t)*(1+rp)*(1-tp));
-            body->gradSipYTriplets.emplace_back(nodeID[2],particle->id , -dx*dx*dx/8.0*(1-r)*(1+s)*(1-t)*(1-rp)*(1-tp));
-            body->gradSipYTriplets.emplace_back(nodeID[3],particle->id , -dx*dx*dx/8.0*(1+r)*(1+s)*(1-t)*(1+rp)*(1-tp));
-            body->gradSipYTriplets.emplace_back(nodeID[4],particle->id , dx*dx*dx/8.0*(1-r)*(1-s)*(1+t)*(1-rp)*(1+tp));
-            body->gradSipYTriplets.emplace_back(nodeID[5],particle->id , dx*dx*dx/8.0*(1+r)*(1-s)*(1+t)*(1+rp)*(1+tp));
-            body->gradSipYTriplets.emplace_back(nodeID[6],particle->id , -dx*dx*dx/8.0*(1-r)*(1+s)*(1+t)*(1-rp)*(1+tp));
-            body->gradSipYTriplets.emplace_back(nodeID[7],particle->id , -dx*dx*dx/8.0*(1+r)*(1+s)*(1+t)*(1+rp)*(1+tp));
+            body->gradSipXTriplets.emplace_back(nodeID[0],particle->id , -dx*dx*dx/8.0*B_l(r)*B_l(s)*B_l(t)*(1.0/4.0)*(B_l(r1)-B_l(r2))*(B_l(s1)+B_l(s2))*(B_l(t1)+B_l(t2)));//(1-r)*(1-s)*(1-t)*(1-sp)*(1-tp));
+            body->gradSipXTriplets.emplace_back(nodeID[1],particle->id , -dx*dx*dx/8.0*B_r(r)*B_l(s)*B_l(t)*(1.0/4.0)*(B_r(r1)-B_r(r2))*(B_l(s1)+B_l(s2))*(B_l(t1)+B_l(t2)));//(1+r)*(1-s)*(1-t)*(1-sp)*(1-tp));
+            body->gradSipXTriplets.emplace_back(nodeID[2],particle->id , -dx*dx*dx/8.0*B_l(r)*B_r(s)*B_l(t)*(1.0/4.0)*(B_l(r1)-B_l(r2))*(B_r(s1)+B_r(s2))*(B_l(t1)+B_l(t2)));//(1-r)*(1+s)*(1-t)*(1+sp)*(1-tp));
+            body->gradSipXTriplets.emplace_back(nodeID[3],particle->id , -dx*dx*dx/8.0*B_r(r)*B_r(s)*B_l(t)*(1.0/4.0)*(B_r(r1)-B_r(r2))*(B_r(s1)+B_r(s2))*(B_l(t1)+B_l(t2)));//(1+r)*(1+s)*(1-t)*(1+sp)*(1-tp));
+            body->gradSipXTriplets.emplace_back(nodeID[4],particle->id , -dx*dx*dx/8.0*B_l(r)*B_l(s)*B_r(t)*(1.0/4.0)*(B_l(r1)-B_l(r2))*(B_l(s1)+B_l(s2))*(B_r(t1)+B_r(t2)));//(1-r)*(1-s)*(1+t)*(1-sp)*(1+tp));
+            body->gradSipXTriplets.emplace_back(nodeID[5],particle->id , -dx*dx*dx/8.0*B_r(r)*B_l(s)*B_r(t)*(1.0/4.0)*(B_r(r1)-B_r(r2))*(B_l(s1)+B_l(s2))*(B_r(t1)+B_r(t2)));//(1+r)*(1-s)*(1+t)*(1-sp)*(1+tp));
+            body->gradSipXTriplets.emplace_back(nodeID[6],particle->id , -dx*dx*dx/8.0*B_l(r)*B_r(s)*B_r(t)*(1.0/4.0)*(B_l(r1)-B_l(r2))*(B_r(s1)+B_r(s2))*(B_r(t1)+B_r(t2)));//(1-r)*(1+s)*(1+t)*(1+sp)*(1+tp));
+            body->gradSipXTriplets.emplace_back(nodeID[7],particle->id , -dx*dx*dx/8.0*B_r(r)*B_r(s)*B_r(t)*(1.0/4.0)*(B_r(r1)-B_r(r2))*(B_r(s1)+B_r(s2))*(B_r(t1)+B_r(t2)));//(1+r)*(1+s)*(1+t)*(1+sp)*(1+tp));
 
-            body->gradSipZTriplets.emplace_back(nodeID[0],particle->id , dx*dx*dx/8.0*(1-r)*(1-s)*(1-t)*(1-sp)*(1-rp));
-            body->gradSipZTriplets.emplace_back(nodeID[1],particle->id , dx*dx*dx/8.0*(1+r)*(1-s)*(1-t)*(1-sp)*(1+rp));
-            body->gradSipZTriplets.emplace_back(nodeID[2],particle->id , dx*dx*dx/8.0*(1-r)*(1+s)*(1-t)*(1+sp)*(1-rp));
-            body->gradSipZTriplets.emplace_back(nodeID[3],particle->id , dx*dx*dx/8.0*(1+r)*(1+s)*(1-t)*(1+sp)*(1+rp));
-            body->gradSipZTriplets.emplace_back(nodeID[4],particle->id , -dx*dx*dx/8.0*(1-r)*(1-s)*(1+t)*(1-sp)*(1-rp));
-            body->gradSipZTriplets.emplace_back(nodeID[5],particle->id , -dx*dx*dx/8.0*(1+r)*(1-s)*(1+t)*(1-sp)*(1+rp));
-            body->gradSipZTriplets.emplace_back(nodeID[6],particle->id , -dx*dx*dx/8.0*(1-r)*(1+s)*(1+t)*(1+sp)*(1-rp));
-            body->gradSipZTriplets.emplace_back(nodeID[7],particle->id , -dx*dx*dx/8.0*(1+r)*(1+s)*(1+t)*(1+sp)*(1+rp));
+            body->gradSipYTriplets.emplace_back(nodeID[0],particle->id , -dx*dx*dx/8.0*B_l(r)*B_l(s)*B_l(t)*(1.0/4.0)*(B_l(r1)+B_l(r2))*(B_l(s1)-B_l(s2))*(B_l(t1)+B_l(t2)));//(1-r)*(1-s)*(1-t)*(1-rp)*(1-tp));
+            body->gradSipYTriplets.emplace_back(nodeID[1],particle->id , -dx*dx*dx/8.0*B_r(r)*B_l(s)*B_l(t)*(1.0/4.0)*(B_r(r1)+B_r(r2))*(B_l(s1)-B_l(s2))*(B_l(t1)+B_l(t2)));//(1+r)*(1-s)*(1-t)*(1+rp)*(1-tp));
+            body->gradSipYTriplets.emplace_back(nodeID[2],particle->id , -dx*dx*dx/8.0*B_l(r)*B_r(s)*B_l(t)*(1.0/4.0)*(B_l(r1)+B_l(r2))*(B_r(s1)-B_r(s2))*(B_l(t1)+B_l(t2)));//(1-r)*(1+s)*(1-t)*(1-rp)*(1-tp));
+            body->gradSipYTriplets.emplace_back(nodeID[3],particle->id , -dx*dx*dx/8.0*B_r(r)*B_r(s)*B_l(t)*(1.0/4.0)*(B_r(r1)+B_r(r2))*(B_r(s1)-B_r(s2))*(B_l(t1)+B_l(t2)));//(1+r)*(1+s)*(1-t)*(1+rp)*(1-tp));
+            body->gradSipYTriplets.emplace_back(nodeID[4],particle->id , -dx*dx*dx/8.0*B_l(r)*B_l(s)*B_r(t)*(1.0/4.0)*(B_l(r1)+B_l(r2))*(B_l(s1)-B_l(s2))*(B_r(t1)+B_r(t2)));//(1-r)*(1-s)*(1+t)*(1-rp)*(1+tp));
+            body->gradSipYTriplets.emplace_back(nodeID[5],particle->id , -dx*dx*dx/8.0*B_r(r)*B_l(s)*B_r(t)*(1.0/4.0)*(B_r(r1)+B_r(r2))*(B_l(s1)-B_l(s2))*(B_r(t1)+B_r(t2)));//(1+r)*(1-s)*(1+t)*(1+rp)*(1+tp));
+            body->gradSipYTriplets.emplace_back(nodeID[6],particle->id , -dx*dx*dx/8.0*B_l(r)*B_r(s)*B_r(t)*(1.0/4.0)*(B_l(r1)+B_l(r2))*(B_r(s1)-B_r(s2))*(B_r(t1)+B_r(t2)));//(1-r)*(1+s)*(1+t)*(1-rp)*(1+tp));
+            body->gradSipYTriplets.emplace_back(nodeID[7],particle->id , -dx*dx*dx/8.0*B_r(r)*B_r(s)*B_r(t)*(1.0/4.0)*(B_r(r1)+B_r(r2))*(B_r(s1)-B_r(s2))*(B_r(t1)+B_r(t2)));//(1+r)*(1+s)*(1+t)*(1+rp)*(1+tp));
 
-            /*body->Sip.coeffRef(nodeID[0],particle->id) += 1.0/8.0*(1-r)*(1-s)*(1-t);
-            body->Sip.coeffRef(nodeID[1],particle->id) += 1.0/8.0*(1+r)*(1-s)*(1-t);
-            body->Sip.coeffRef(nodeID[2],particle->id) += 1.0/8.0*(1-r)*(1+s)*(1-t);
-            body->Sip.coeffRef(nodeID[3],particle->id) += 1.0/8.0*(1+r)*(1+s)*(1-t);
-            body->Sip.coeffRef(nodeID[4],particle->id) += 1.0/8.0*(1-r)*(1-s)*(1+t);
-            body->Sip.coeffRef(nodeID[5],particle->id) += 1.0/8.0*(1+r)*(1-s)*(1+t);
-            body->Sip.coeffRef(nodeID[6],particle->id) += 1.0/8.0*(1-r)*(1+s)*(1+t);
-            body->Sip.coeffRef(nodeID[7],particle->id) += 1.0/8.0*(1+r)*(1+s)*(1+t);
+            body->gradSipZTriplets.emplace_back(nodeID[0],particle->id , -dx*dx*dx/8.0*B_l(r)*B_l(s)*B_l(t)*(1.0/4.0)*(B_l(r1)+B_l(r2))*(B_l(s1)+B_l(s2))*(B_l(t1)-B_l(t2)));//(1-r)*(1-s)*(1-t)*(1-sp)*(1-rp));
+            body->gradSipZTriplets.emplace_back(nodeID[1],particle->id , -dx*dx*dx/8.0*B_r(r)*B_l(s)*B_l(t)*(1.0/4.0)*(B_r(r1)+B_r(r2))*(B_l(s1)+B_l(s2))*(B_l(t1)-B_l(t2)));//(1+r)*(1-s)*(1-t)*(1-sp)*(1+rp));
+            body->gradSipZTriplets.emplace_back(nodeID[2],particle->id , -dx*dx*dx/8.0*B_l(r)*B_r(s)*B_l(t)*(1.0/4.0)*(B_l(r1)+B_l(r2))*(B_r(s1)+B_r(s2))*(B_l(t1)-B_l(t2)));//(1-r)*(1+s)*(1-t)*(1+sp)*(1-rp));
+            body->gradSipZTriplets.emplace_back(nodeID[3],particle->id , -dx*dx*dx/8.0*B_r(r)*B_r(s)*B_l(t)*(1.0/4.0)*(B_r(r1)+B_r(r2))*(B_r(s1)+B_r(s2))*(B_l(t1)-B_l(t2)));//(1+r)*(1+s)*(1-t)*(1+sp)*(1+rp));
+            body->gradSipZTriplets.emplace_back(nodeID[4],particle->id , -dx*dx*dx/8.0*B_l(r)*B_l(s)*B_r(t)*(1.0/4.0)*(B_l(r1)+B_l(r2))*(B_l(s1)+B_l(s2))*(B_r(t1)-B_r(t2)));//(1-r)*(1-s)*(1+t)*(1-sp)*(1-rp));
+            body->gradSipZTriplets.emplace_back(nodeID[5],particle->id , -dx*dx*dx/8.0*B_r(r)*B_l(s)*B_r(t)*(1.0/4.0)*(B_r(r1)+B_r(r2))*(B_l(s1)+B_l(s2))*(B_r(t1)-B_r(t2)));//(1+r)*(1-s)*(1+t)*(1-sp)*(1+rp));
+            body->gradSipZTriplets.emplace_back(nodeID[6],particle->id , -dx*dx*dx/8.0*B_l(r)*B_r(s)*B_r(t)*(1.0/4.0)*(B_l(r1)+B_l(r2))*(B_r(s1)+B_r(s2))*(B_r(t1)-B_r(t2)));//(1-r)*(1+s)*(1+t)*(1+sp)*(1-rp));
+            body->gradSipZTriplets.emplace_back(nodeID[7],particle->id , -dx*dx*dx/8.0*B_r(r)*B_r(s)*B_r(t)*(1.0/4.0)*(B_r(r1)+B_r(r2))*(B_r(s1)+B_r(s2))*(B_r(t1)-B_r(t2)));//(1+r)*(1+s)*(1+t)*(1+sp)*(1+rp));
 
-            body->gradSipX.coeffRef(nodeID[0],particle->id) += -dx*dx*dx/8.0*(1-r)*(1-s)*(1-t)*(1-sp)*(1-tp);
-            body->gradSipX.coeffRef(nodeID[1],particle->id) += dx*dx*dx/8.0*(1+r)*(1-s)*(1-t)*(1-sp)*(1-tp);
-            body->gradSipX.coeffRef(nodeID[2],particle->id) += -dx*dx*dx/8.0*(1-r)*(1+s)*(1-t)*(1+sp)*(1-tp);
-            body->gradSipX.coeffRef(nodeID[3],particle->id) += dx*dx*dx/8.0*(1+r)*(1+s)*(1-t)*(1+sp)*(1-tp);
-            body->gradSipX.coeffRef(nodeID[4],particle->id) += -dx*dx*dx/8.0*(1-r)*(1-s)*(1+t)*(1-sp)*(1+tp);
-            body->gradSipX.coeffRef(nodeID[5],particle->id) += dx*dx*dx/8.0*(1+r)*(1-s)*(1+t)*(1-sp)*(1+tp);
-            body->gradSipX.coeffRef(nodeID[6],particle->id) += -dx*dx*dx/8.0*(1-r)*(1+s)*(1+t)*(1+sp)*(1+tp);
-            body->gradSipX.coeffRef(nodeID[7],particle->id) += dx*dx*dx/8.0*(1+r)*(1+s)*(1+t)*(1+sp)*(1+tp);
-
-            body->gradSipY.coeffRef(nodeID[0],particle->id) += dx*dx*dx/8.0*(1-r)*(1-s)*(1-t)*(1-rp)*(1-tp);
-            body->gradSipY.coeffRef(nodeID[1],particle->id) += dx*dx*dx/8.0*(1+r)*(1-s)*(1-t)*(1+rp)*(1-tp);
-            body->gradSipY.coeffRef(nodeID[2],particle->id) += -dx*dx*dx/8.0*(1-r)*(1+s)*(1-t)*(1-rp)*(1-tp);
-            body->gradSipY.coeffRef(nodeID[3],particle->id) += -dx*dx*dx/8.0*(1+r)*(1+s)*(1-t)*(1+rp)*(1-tp);
-            body->gradSipY.coeffRef(nodeID[4],particle->id) += dx*dx*dx/8.0*(1-r)*(1-s)*(1+t)*(1-rp)*(1+tp);
-            body->gradSipY.coeffRef(nodeID[5],particle->id) += dx*dx*dx/8.0*(1+r)*(1-s)*(1+t)*(1+rp)*(1+tp);
-            body->gradSipY.coeffRef(nodeID[6],particle->id) += -dx*dx*dx/8.0*(1-r)*(1+s)*(1+t)*(1-rp)*(1+tp);
-            body->gradSipY.coeffRef(nodeID[7],particle->id) += -dx*dx*dx/8.0*(1+r)*(1+s)*(1+t)*(1+rp)*(1+tp);
-
-            body->gradSipZ.coeffRef(nodeID[0],particle->id) += dx*dx*dx/8.0*(1-r)*(1-s)*(1-t)*(1-sp)*(1-rp);
-            body->gradSipZ.coeffRef(nodeID[1],particle->id) += dx*dx*dx/8.0*(1+r)*(1-s)*(1-t)*(1-sp)*(1+rp);
-            body->gradSipZ.coeffRef(nodeID[2],particle->id) += dx*dx*dx/8.0*(1-r)*(1+s)*(1-t)*(1+sp)*(1-rp);
-            body->gradSipZ.coeffRef(nodeID[3],particle->id) += dx*dx*dx/8.0*(1+r)*(1+s)*(1-t)*(1+sp)*(1+rp);
-            body->gradSipZ.coeffRef(nodeID[4],particle->id) += -dx*dx*dx/8.0*(1-r)*(1-s)*(1+t)*(1-sp)*(1-rp);
-            body->gradSipZ.coeffRef(nodeID[5],particle->id) += -dx*dx*dx/8.0*(1+r)*(1-s)*(1+t)*(1-sp)*(1+rp);
-            body->gradSipZ.coeffRef(nodeID[6],particle->id) += -dx*dx*dx/8.0*(1-r)*(1+s)*(1+t)*(1+sp)*(1-rp);
-            body->gradSipZ.coeffRef(nodeID[7],particle->id) += -dx*dx*dx/8.0*(1+r)*(1+s)*(1+t)*(1+sp)*(1+rp);*/
         }
         return;
     };

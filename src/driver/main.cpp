@@ -24,6 +24,7 @@ int main(int argc, char *argv[]) {
 
     //initialize job
     job_t *job(new job_t);
+    job->dt = 5e-5;
 
     //parse configuration files
     //char *fileParticle = "s.particles";
@@ -38,7 +39,7 @@ int main(int argc, char *argv[]) {
     int *int_props = NULL;
     job->assignMaterials();
     for (size_t i=0;i<job->num_bodies;i++){
-        job->bodies[i].defineMaterial(fp64_props,int_props);
+        job->bodies[i].defineMaterial(fp64_props,2,int_props,0);
     }
     job->assignBoundaryConditions();
 
@@ -51,15 +52,17 @@ int main(int argc, char *argv[]) {
     MPMio mpmOut;
     mpmOut.setDefaultFiles();
     mpmOut.setJob(job);
-    mpmOut.writeFrameOutputHeader();
+    mpmOut.setSampleRate(120.0);
 
     //process_usl
-    /*job->mpmStepUSLExplicit();
-    std::cout << "Step completed (1).\n";*/
     while (job->t < T_STOP) {
         job->mpmStepUSLExplicit();
-        mpmOut.writeFrame();
-        std::cout << "Step completed (" << job->stepcount << ").\r" << std::flush;
+        std::cout << "\rStep completed (" << job->stepcount << ")." << std::flush;
+        if (job->t * mpmOut.sampleRate > mpmOut.sampledFrames) {
+            mpmOut.writeFrame();
+            mpmOut.sampledFrames += 1;
+            std::cout << " Frame captured (" << mpmOut.sampledFrames << ")." << std::flush;
+        }
     }
     std::cout << "\n";
 
