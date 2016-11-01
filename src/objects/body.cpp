@@ -119,23 +119,23 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
         //active
         particle_active(p)
 
-        //Sip and gradSip
-        /*Sip(n,p),
-        gradSipX(n,p),
-        gradSipY(n,p),
-        gradSipZ(n,p)*/
+        //Phi and gradPhi
+        /*Phi(n,p),
+        gradPhiX(n,p),
+        gradPhiY(n,p),
+        gradPhiZ(n,p)*/
 {
     material = Material();
-    Sip.resize(n,p);
-    gradSipX.resize(n,p);
-    gradSipY.resize(n,p);
-    gradSipZ.resize(n,p);
+    Phi.resize(n,p);
+    gradPhiX.resize(n,p);
+    gradPhiY.resize(n,p);
+    gradPhiZ.resize(n,p);
 
-    //Sip and gradSip
-    SipTriplets.reserve(8*8*p);
-    gradSipXTriplets.reserve(8*8*p);
-    gradSipYTriplets.reserve(8*8*p);
-    gradSipZTriplets.reserve(8*8*p);
+    //Phi and gradPhi
+    PhiTriplets.reserve(8*8*p);
+    gradPhiXTriplets.reserve(8*8*p);
+    gradPhiYTriplets.reserve(8*8*p);
+    gradPhiZTriplets.reserve(8*8*p);
 
 }
 
@@ -149,10 +149,10 @@ void Body::addParticle(double mIn,double vIn,double xIn,double yIn,double zIn,do
     //volume
     particle_v[idIn] = vIn;
     particle_v0[idIn] = vIn;
-    particle_v_averaging[idIn] = 0.25*vIn; //from Sachith's code
+    particle_v_averaging[idIn] = 0.125*vIn; //from Sachith's code
 
     //half side length
-    particle_a[idIn] = 0.5*sqrt(0.25*vIn); //from Sachith's code
+    particle_a[idIn] = 0.5*cbrt(0.125*vIn); //from Sachith's code
 
     //mass
     particle_m[idIn] = mIn;

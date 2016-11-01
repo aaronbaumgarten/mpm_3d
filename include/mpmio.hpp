@@ -64,6 +64,7 @@ public:
 
     void writeFrame(); //write frame to file
     void writeFrame(job_t*);
+    void writeCorner(job_t*,size_t);
 
 };
 

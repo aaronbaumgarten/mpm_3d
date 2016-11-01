@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <math.h>
+#include <Eigen/Core>
 
 #include "test.hpp"
 #include "process.hpp"
@@ -58,8 +59,8 @@ void testParticleCorners(job_t *job) {
     return;
 }
 
-void testSipSize(job_t *job) {
-    std::cout << job->bodies[0].n << ", " << job->bodies[0].p << " ?= " << job->bodies[0].Sip.rows() << ", " << job->bodies[0].Sip.cols() << "\n";
+void testPhiSize(job_t *job) {
+    std::cout << job->bodies[0].n << ", " << job->bodies[0].p << " ?= " << job->bodies[0].Phi.rows() << ", " << job->bodies[0].Phi.cols() << "\n";
     return;
 }
 
@@ -81,5 +82,19 @@ void testMappingP2G(job_t *job) {
     std::cout << "node[515151].m: " << job->bodies[0].nodes[n].m[0] << "\n";
     job->mapParticles2Grid();
     std::cout << "node[515151].m: " << job->bodies[0].nodes[n].m[0] << "\n";
+    return;
+}
+
+void testMappingGradient(job_t *job){
+    Eigen::VectorXd cstOnes(job->bodies[0].n);
+    Eigen::VectorXd pvec(job->bodies[0].p);
+
+    for (size_t i=0;i<job->bodies[0].n;i++){
+        cstOnes[i] = i;//i;
+    }
+
+    pvec = job->bodies[0].gradPhiX.transpose() * cstOnes;
+    std::cout << "non-zero gradients: 0 =? " << pvec.nonZeros() << "\n";
+    std::cout << pvec << "\n";
     return;
 }

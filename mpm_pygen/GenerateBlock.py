@@ -16,7 +16,7 @@ print "files named"
 
 #grid properties
 Ly = Lx = Lz = 1.0
-Ne = 100
+Ne = 10
 lmpp = 2
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Ne, lmpp)
 print "grid created"

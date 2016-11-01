@@ -44,7 +44,9 @@ int main(int argc, char *argv[]) {
     job->assignBoundaryConditions();
 
     job->createMappings();
-    std::cout << "Mapping created (" << job->bodies[0].Sip.nonZeros() << ").\n";
+    std::cout << "Mapping created (" << job->bodies[0].Phi.nonZeros() << ").\n";
+
+    //testMappingGradient(job);
 
     //colorize for threading
 

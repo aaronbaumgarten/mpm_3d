@@ -131,16 +131,16 @@ public:
     Eigen::VectorXi particle_active;
 
     //S and gradS triplets
-    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> SipTriplets;
-    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> gradSipXTriplets;
-    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> gradSipYTriplets;
-    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> gradSipZTriplets;
+    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> PhiTriplets;
+    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> gradPhiXTriplets;
+    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> gradPhiYTriplets;
+    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> gradPhiZTriplets;
 
-    //Sip and gradSip
-    Eigen::SparseMatrix<double> Sip;
-    Eigen::SparseMatrix<double> gradSipX;
-    Eigen::SparseMatrix<double> gradSipY;
-    Eigen::SparseMatrix<double> gradSipZ;
+    //Phi and gradPhi
+    Eigen::SparseMatrix<double> Phi;
+    Eigen::SparseMatrix<double> gradPhiX;
+    Eigen::SparseMatrix<double> gradPhiY;
+    Eigen::SparseMatrix<double> gradPhiZ;
 
     //construcors
     Body(size_t,size_t,size_t,size_t);

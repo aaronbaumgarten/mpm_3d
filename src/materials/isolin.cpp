@@ -113,7 +113,7 @@ void calculate_stress_threaded(threadtask_t *task, Body *body) {
         double dsj[9]; //this formulation may be wrong. Second two terms are confusing
         dsj[XX] = lambda * trD + 2.0 * G * e_t[XX]
                   + 2.0 * w_t[XY] * body->particles[i].T[XY]
-                  - 2.0 * w_t[XZ] * body->particles[i].T[XZ];
+                  - 2.0 * w_t[ZX] * body->particles[i].T[XZ];
 
         dsj[YY] = lambda * trD + 2.0 * G * e_t[YY]
                   - 2.0 * w_t[XY] * body->particles[i].T[XY]
@@ -121,7 +121,7 @@ void calculate_stress_threaded(threadtask_t *task, Body *body) {
 
         dsj[ZZ] = lambda * trD + 2.0 * G * e_t[ZZ]
                   - 2.0 * w_t[YZ] * body->particles[i].T[YZ]
-                  + 2.0 * w_t[XZ] * body->particles[i].T[XZ];
+                  + 2.0 * w_t[ZX] * body->particles[i].T[XZ];
 
         dsj[XY] = 2.0 * G * e_t[XY]
                   - w_t[XY] * (body->particles[i].T[XX] - body->particles[i].T[YY]);
