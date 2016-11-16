@@ -38,6 +38,7 @@ public:
     double hx, hy, hz;
 
     //mpm type
+    int use_3d;
     int use_cpdi;
 
     //node positions
@@ -72,6 +73,7 @@ public:
     //initialization
     //int importNodesandParticles(const char*,const char*);
     int importNodesandParticles(std::string ,std::string);
+    int importNodesandParticles2D(std::string, std::string);
     void createBody(Body*,size_t,size_t,size_t,size_t);
     int assignMaterials();
     int assignMaterials(const char*, const char*);
@@ -79,14 +81,19 @@ public:
     int assignBoundaryConditions(const char*);
 
     int mpmStepUSLExplicit();
+    int mpmStepUSLExplicitDebug();
     //usl step
     int createMappings();
     void mapParticles2Grid();
     void addContactForces();
+    void addContactForces2D();
     void addBoundaryConditions();
     void moveGridExplicit();
+    void moveGridExplicit2D();
     void moveParticlesExplicit();
+    void moveParticlesExplicit2D();
     void calculateStrainRate();
+    void calculateStrainRate2D();
     void updateDensity();
     void updateStress();
 

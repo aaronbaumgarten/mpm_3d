@@ -21,6 +21,7 @@
 //hard coded for now. need to change
 job_t::job_t():
         use_cpdi(1),
+        use_3d(1),
         dt(1e-3),
         t(0.0),
         step_start_time(0.0),
@@ -69,18 +70,281 @@ inline int job_t::ijkton_safe(int i, int j, int k,
 int job_t::importNodesandParticles(std::string nfilename, std::string pfilename){
     //only reads particle file for 2 bodies
 
-    FILE *fp;
-    int r = 0;
+    if (this->use_3d == 1) {
+        FILE *fp;
 
-    size_t numNodes;
-    size_t numElements;
-    size_t numLinearNodes;
+        size_t numNodes = 0;
+        size_t numElements = 0;
+        size_t numLinearNodes = 0;
+        //double Lx;
+        //double hx;
+        size_t numParticles = 0;
+        size_t numParticles1 = 0;
+        size_t numParticles2 = 0;
+        size_t numBodies = 0;
+
+        char s[16384]; //#from mpm-2d-legacy
+
+        //open grid file and parse
+        std::ifstream fin(nfilename);
+        if (fin.is_open()) {
+            std::string line;
+            if (std::getline(fin, line)) {
+                std::stringstream ss(line);
+                if (!(ss >> numLinearNodes)) {
+                    std::cout << "Cannot parse grid file: " << nfilename << "\n";
+                    return -1;
+                }
+                this->Nx = numLinearNodes;
+                this->Ny = numLinearNodes;
+                this->Nz = numLinearNodes;
+                numElements = (numLinearNodes - 1) * (numLinearNodes - 1) *
+                              (numLinearNodes - 1); //(number of linear nodes - 1) ^3
+                numNodes = numLinearNodes * numLinearNodes * numLinearNodes; //3d domain
+                this->num_nodes = numNodes;
+                this->num_elements = numElements;
+
+                this->u_dirichlet.resize(numNodes * NODAL_DOF);
+                this->u_dirichlet_mask.resize(numNodes * NODAL_DOF);
+                this->node_number_override.resize(numNodes * NODAL_DOF);
+            }
+            if (std::getline(fin, line)) {
+                std::stringstream ss(line);
+                if (!(ss >> this->Lx)) {
+                    std::cout << "Cannot parse grid file: " << nfilename << "\n";
+                    return -1;
+                }
+                this->Ly = this->Lx;
+                this->Lz = this->Lx;
+                this->hx = this->Lx / (numLinearNodes - 1);
+                this->hy = this->hx;
+                this->hz = this->hx;
+            }
+        } else {
+            std::cout << "Cannot parse grid file: " << nfilename << "\n";
+            return -1;
+        }
+
+        fin.close();
+
+        /*//open grid file and parse
+        fp = fopen(nfilename, "r");
+        if (fp == NULL){
+            std::cout << "Cannot parse grid file: " << nfilename << "\n";
+            return -1;
+        }
+
+        if (NULL==fgets(s, sizeof(s)/sizeof(char), fp)){
+            std::cout << "Cannot parse grid file: " << nfilename << "\n";
+            return -1;
+        }
+
+        r = sscanf(s,"%i",&numLinearNodes);
+        numElements = (numLinearNodes-1)*(numLinearNodes-1)*(numLinearNodes-1); //(number of linear nodes - 1) ^3
+        numNodes = numLinearNodes*numLinearNodes*numLinearNodes; //3d domain
+        num_nodes = numNodes;
+        num_elements = numElements;
+        if (r == 1) {
+            if (NULL==fgets(s,sizeof(s)/sizeof(char), fp)){
+                std::cout << "Cannot parse grid file: " << nfilename << "\n";
+                return -1;
+            }
+            r = sscanf(s,"%g",&Lx);
+            hx = Lx/(numLinearNodes-1);
+        }
+        if (r!=1){
+            std::cout << "Cannot parse grid file: " << nfilename << "\n";
+            return -1;
+        }
+        //std::cout << "Number of nodes: " << numNodes << "\n";
+        //std::cout << "Number of elements: " << numElements << "\n";
+
+        fclose(fp);*/
+
+        //open particle file
+        fin.open(pfilename);
+        if (fin.is_open()) {
+            std::string line;
+
+            //parse header
+            if (getline(fin, line)) {
+                std::stringstream ss(line);
+                if (!(ss >> numParticles >> numParticles1 >> numParticles2)) {
+                    std::cout << "Cannot parse particle file: " << pfilename << "\n";
+                    std::cout << "Expected 3 particle counts at file header." << "\n";
+                    return -1;
+                }
+            }
+            //create body objects
+            numBodies = 0;
+            if (numParticles != 0) {
+                if (numParticles1 != 0) {
+                    this->bodies.push_back(Body(numNodes, numParticles1, numElements, ++numBodies));
+                }
+                if (numParticles2 != 0) {
+                    this->bodies.push_back(Body(numNodes, numParticles1, numElements, ++numBodies));
+                }
+            } else {
+                return -1;
+            }
+            this->num_particles = numParticles;
+            this->num_bodies = numBodies;
+            std::cout << "Bodies created (" << numBodies << ").\n";
+
+            //assign particle to bodies for each particle in particle file
+            size_t pb1 = 0;
+            size_t pb2 = 0;
+            while (getline(fin, line)) {
+                std::stringstream ss(line);
+                double b, m, v, x, y, z, x_t, y_t, z_t;
+                size_t idOut;
+
+                if (!(ss >> b >> m >> v >> x >> y >> z >> x_t >> y_t >> z_t)) {
+                    std::cout << "Cannot parse particle file: " << pfilename << "\n";
+                    return -1;
+                }
+                //currently assumes that bodies are 1-indexed
+                if (b == 1) {
+                    idOut = pb1;
+                    pb1 += 1;
+                } else {
+                    idOut = pb2;
+                    pb2 += 1;
+                }
+                //std::cout << "{" << x << " " << y << " " << z << "} -> " << idOut << "\n";
+                this->bodies[b - 1].addParticle(m, v, x, y, z, x_t, y_t, z_t, idOut); //0-index particles
+            }
+        } else {
+            std::cout << "Cannot parse particle file: " << pfilename << "\n";
+            return -1;
+        }
+        fin.close();
+
+        /*//open particle file and parse header
+        fp = fopen(pfilename, "r");
+        if (fp == NULL){
+            std::cout << "Cannot parse particle file: " << pfilename << "\n";
+            return -1;
+        }
+
+        if (NULL==fgets(s, sizeof(s)/sizeof(char), fp)){
+            std::cout << "Cannot parse particle file: " << pfilename << "\n";
+            return -1;
+        }
+
+        r = sscanf(s,"%i %i %i",&numParticles,&numParticles1,&numParticles2);
+        num_particles = numParticles;
+        if (r!=3){
+            std::cout << "Cannot parse particle file: " << pfilename << "\n";
+            std::cout << "Expected 3 particle counts at file header." << "\n";
+            std::cout << "Got: z" << r << "\n";
+            return -1;
+        }
+        //std::cout << "Number of particles: " << numParticles << "\n";
+
+        //create body objects
+        numBodies = 0;
+        if (numParticles != 0){
+            if (numParticles1 != 0){
+                this->bodies.push_back(Body(numNodes,numParticles1,numElements,++numBodies));
+                //job_t::createBody(&(this->bodies[0]),numNodes,numParticles1,++numBodies);
+            }
+            if (numParticles2 != 0){
+                this->bodies.push_back(Body(numNodes,numParticles1,numElements,++numBodies));
+                //job_t::createBody(&(this->bodies[1]),numNodes,numParticles2,++numBodies);
+            }
+        } else {
+            return -1;
+        }
+        num_bodies = numBodies;
+        std::cout << "Bodies created (" << numBodies << ").\n";
+
+        //assign particle to bodies for each particle in particle file
+        size_t pb1 = 0;
+        size_t pb2 = 0;
+        for (size_t i=0; i<numParticles; i++){
+            double b, m, v, x, y, z, x_t, y_t, z_t;
+            if (NULL==fgets(s, sizeof(s)/sizeof(char), fp)){
+                std::cout << "Mismatch! Numbers of particles do not match!\n";
+                continue;
+            }
+            sscanf(s, "%lg %lg %lg %lg %lg %lg %lg %lg %lg", &b, &m, &v, &x, &y, &z, &x_t, &y_t, &z_t);
+
+            //currently assumes that bodies are 1-indexed
+            this->bodies[b-1].addParticle(m,v,x,y,z,x_t,y_t,z_t,pb1); //0-index particles
+            pb1+=1;
+        }
+        //close file
+        fclose(fp);*/
+
+        std::cout << "Particles created (" << numParticles << ").\n";
+
+        //assign nodes to bodies
+        for (size_t i = 0; i < numBodies; i++) {
+            for (size_t nn = 0; nn < numNodes; nn++) {
+                double x, y, z;
+                job_t::node_number_to_coords(&x, &y, &z, nn, numLinearNodes, this->hx);
+                this->bodies[i].addNode(x, y, z, nn);
+            }
+
+        }
+
+        std::cout << "Nodes created (" << numNodes << ").\n";
+
+        //assign elements to bodies and nodes to elements
+        for (size_t i = 0; i < numBodies; i++) {
+            for (size_t ne = 0; ne < numElements; ne++) {
+                size_t nodeIDs[8];
+                size_t c = ne % (numLinearNodes - 1);
+                size_t r = (ne / (numLinearNodes - 1)) % (numLinearNodes - 1);
+                size_t l = ne / ((numLinearNodes - 1) * (numLinearNodes - 1));
+                size_t n = ijkton_safe(c, r, l, numLinearNodes, numLinearNodes, numLinearNodes);
+
+                nodeIDs[0] = n + ijkton_safe(0, 0, 0, numLinearNodes, numLinearNodes, numLinearNodes);
+                nodeIDs[1] = n + ijkton_safe(1, 0, 0, numLinearNodes, numLinearNodes, numLinearNodes);
+                nodeIDs[2] = n + ijkton_safe(0, 1, 0, numLinearNodes, numLinearNodes, numLinearNodes);
+                nodeIDs[3] = n + ijkton_safe(1, 1, 0, numLinearNodes, numLinearNodes, numLinearNodes);
+                nodeIDs[4] = n + ijkton_safe(0, 0, 1, numLinearNodes, numLinearNodes, numLinearNodes);
+                nodeIDs[5] = n + ijkton_safe(1, 0, 1, numLinearNodes, numLinearNodes, numLinearNodes);
+                nodeIDs[6] = n + ijkton_safe(0, 1, 1, numLinearNodes, numLinearNodes, numLinearNodes);
+                nodeIDs[7] = n + ijkton_safe(1, 1, 1, numLinearNodes, numLinearNodes, numLinearNodes);
+
+                //check uniqueness of element
+                //for(size_t c1=0;c1<8;c1++){
+                //    for(size_t c2;c2<8;c2++){
+                //        if(c2!=c1 && nodeIDs[c1]==nodeIDs[c2]){
+                //            std::cout << "Error: node " << c1 << " and node " << c2 << " identical in element " << ne << ".\n";
+                //        }
+                //    }
+                //}
+
+                this->bodies[i].addElement(nodeIDs, ne);
+            }
+        }
+
+        std::cout << "Elements created (" << numElements << ").\n";
+        return 1;
+    } else {
+        return this->importNodesandParticles2D(nfilename,pfilename);
+    }
+}
+
+int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilename){
+    //only reads particle file for 2 bodies
+
+    std::cout << "Setting up 2D simulation.\n";
+
+    FILE *fp;
+
+    size_t numNodes = 0;
+    size_t numElements = 0;
+    size_t numLinearNodes = 0;
     //double Lx;
     //double hx;
-    size_t numParticles;
-    size_t numParticles1;
-    size_t numParticles2;
-    size_t numBodies;
+    size_t numParticles = 0;
+    size_t numParticles1 = 0;
+    size_t numParticles2 = 0;
+    size_t numBodies = 0;
 
     char s[16384]; //#from mpm-2d-legacy
 
@@ -96,9 +360,9 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
             }
             this->Nx = numLinearNodes;
             this->Ny = numLinearNodes;
-            this->Nz = numLinearNodes;
-            numElements = (numLinearNodes-1)*(numLinearNodes-1)*(numLinearNodes-1); //(number of linear nodes - 1) ^3
-            numNodes = numLinearNodes*numLinearNodes*numLinearNodes; //3d domain
+            this->Nz = 2;//numLinearNodes;
+            numElements = (numLinearNodes-1)*(numLinearNodes-1); //(number of linear nodes - 1) ^2
+            numNodes = numLinearNodes*numLinearNodes*2; //2d domain
             this->num_nodes = numNodes;
             this->num_elements = numElements;
 
@@ -113,10 +377,11 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
                 return -1;
             }
             this->Ly = this->Lx;
-            this->Lz = this->Lx;
+            //this->Lz = this->Lx;
             this->hx = this->Lx / (numLinearNodes - 1);
             this->hy = this->hx;
             this->hz = this->hx;
+            this->Lz = this->hz; //1 element
         }
     } else {
         std::cout << "Cannot parse grid file: " << nfilename << "\n";
@@ -124,40 +389,6 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
     }
 
     fin.close();
-
-    /*//open grid file and parse
-    fp = fopen(nfilename, "r");
-    if (fp == NULL){
-        std::cout << "Cannot parse grid file: " << nfilename << "\n";
-        return -1;
-    }
-
-    if (NULL==fgets(s, sizeof(s)/sizeof(char), fp)){
-        std::cout << "Cannot parse grid file: " << nfilename << "\n";
-        return -1;
-    }
-
-    r = sscanf(s,"%i",&numLinearNodes);
-    numElements = (numLinearNodes-1)*(numLinearNodes-1)*(numLinearNodes-1); //(number of linear nodes - 1) ^3
-    numNodes = numLinearNodes*numLinearNodes*numLinearNodes; //3d domain
-    num_nodes = numNodes;
-    num_elements = numElements;
-    if (r == 1) {
-        if (NULL==fgets(s,sizeof(s)/sizeof(char), fp)){
-            std::cout << "Cannot parse grid file: " << nfilename << "\n";
-            return -1;
-        }
-        r = sscanf(s,"%g",&Lx);
-        hx = Lx/(numLinearNodes-1);
-    }
-    if (r!=1){
-        std::cout << "Cannot parse grid file: " << nfilename << "\n";
-        return -1;
-    }
-    //std::cout << "Number of nodes: " << numNodes << "\n";
-    //std::cout << "Number of elements: " << numElements << "\n";
-
-    fclose(fp);*/
 
     //open particle file
     fin.open(pfilename);
@@ -218,70 +449,13 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
     }
     fin.close();
 
-    /*//open particle file and parse header
-    fp = fopen(pfilename, "r");
-    if (fp == NULL){
-        std::cout << "Cannot parse particle file: " << pfilename << "\n";
-        return -1;
-    }
-
-    if (NULL==fgets(s, sizeof(s)/sizeof(char), fp)){
-        std::cout << "Cannot parse particle file: " << pfilename << "\n";
-        return -1;
-    }
-
-    r = sscanf(s,"%i %i %i",&numParticles,&numParticles1,&numParticles2);
-    num_particles = numParticles;
-    if (r!=3){
-        std::cout << "Cannot parse particle file: " << pfilename << "\n";
-        std::cout << "Expected 3 particle counts at file header." << "\n";
-        std::cout << "Got: z" << r << "\n";
-        return -1;
-    }
-    //std::cout << "Number of particles: " << numParticles << "\n";
-
-    //create body objects
-    numBodies = 0;
-    if (numParticles != 0){
-        if (numParticles1 != 0){
-            this->bodies.push_back(Body(numNodes,numParticles1,numElements,++numBodies));
-            //job_t::createBody(&(this->bodies[0]),numNodes,numParticles1,++numBodies);
-        }
-        if (numParticles2 != 0){
-            this->bodies.push_back(Body(numNodes,numParticles1,numElements,++numBodies));
-            //job_t::createBody(&(this->bodies[1]),numNodes,numParticles2,++numBodies);
-        }
-    } else {
-        return -1;
-    }
-    num_bodies = numBodies;
-    std::cout << "Bodies created (" << numBodies << ").\n";
-
-    //assign particle to bodies for each particle in particle file
-    size_t pb1 = 0;
-    size_t pb2 = 0;
-    for (size_t i=0; i<numParticles; i++){
-        double b, m, v, x, y, z, x_t, y_t, z_t;
-        if (NULL==fgets(s, sizeof(s)/sizeof(char), fp)){
-            std::cout << "Mismatch! Numbers of particles do not match!\n";
-            continue;
-        }
-        sscanf(s, "%lg %lg %lg %lg %lg %lg %lg %lg %lg", &b, &m, &v, &x, &y, &z, &x_t, &y_t, &z_t);
-
-        //currently assumes that bodies are 1-indexed
-        this->bodies[b-1].addParticle(m,v,x,y,z,x_t,y_t,z_t,pb1); //0-index particles
-        pb1+=1;
-    }
-    //close file
-    fclose(fp);*/
-
     std::cout << "Particles created (" << numParticles << ").\n";
 
     //assign nodes to bodies
     for (size_t i=0; i<numBodies; i++){
         for (size_t nn=0; nn<numNodes; nn++){
             double x, y, z;
-            job_t::node_number_to_coords(&x,&y,&z,nn,numLinearNodes,this->hx);
+            job_t::node_number_to_coords(&x,&y,&z,nn,numLinearNodes,this->hx); //ok for 2d as nodes count in x,y first
             this->bodies[i].addNode(x,y,z,nn);
         }
 
@@ -293,19 +467,19 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
     for (size_t i=0; i<numBodies;i++){
         for(size_t ne=0; ne<numElements; ne++){
             size_t nodeIDs[8];
-            size_t c = ne % (numLinearNodes);
-            size_t r = (ne/(numLinearNodes)) % (numLinearNodes);
-            size_t l = ne / ((numLinearNodes)*(numLinearNodes));
-            size_t n = ijkton_safe(c,r,l,numLinearNodes,numLinearNodes,numLinearNodes);
+            size_t c = ne % (this->Nx-1);
+            size_t r = (ne/(this->Nx-1)) % (this->Ny-1);
+            size_t l = ne / ((this->Nx-1)*(this->Ny-1));
+            size_t n = ijkton_safe(c,r,l,this->Nx,this->Ny,this->Nz);
 
-            nodeIDs[0] = n + ijkton_safe(0,0,0,numLinearNodes,numLinearNodes,numLinearNodes);
-            nodeIDs[1] = n + ijkton_safe(1,0,0,numLinearNodes,numLinearNodes,numLinearNodes);
-            nodeIDs[2] = n + ijkton_safe(0,1,0,numLinearNodes,numLinearNodes,numLinearNodes);
-            nodeIDs[3] = n + ijkton_safe(1,1,0,numLinearNodes,numLinearNodes,numLinearNodes);
-            nodeIDs[4] = n + ijkton_safe(0,0,1,numLinearNodes,numLinearNodes,numLinearNodes);
-            nodeIDs[5] = n + ijkton_safe(1,0,1,numLinearNodes,numLinearNodes,numLinearNodes);
-            nodeIDs[6] = n + ijkton_safe(0,1,1,numLinearNodes,numLinearNodes,numLinearNodes);
-            nodeIDs[7] = n + ijkton_safe(1,1,1,numLinearNodes,numLinearNodes,numLinearNodes);
+            nodeIDs[0] = n + ijkton_safe(0,0,0,this->Nx,this->Ny,this->Nz);
+            nodeIDs[1] = n + ijkton_safe(1,0,0,this->Nx,this->Ny,this->Nz);
+            nodeIDs[2] = n + ijkton_safe(0,1,0,this->Nx,this->Ny,this->Nz);
+            nodeIDs[3] = n + ijkton_safe(1,1,0,this->Nx,this->Ny,this->Nz);
+            nodeIDs[4] = n + ijkton_safe(0,0,1,this->Nx,this->Ny,this->Nz);
+            nodeIDs[5] = n + ijkton_safe(1,0,1,this->Nx,this->Ny,this->Nz);
+            nodeIDs[6] = n + ijkton_safe(0,1,1,this->Nx,this->Ny,this->Nz);
+            nodeIDs[7] = n + ijkton_safe(1,1,1,this->Nx,this->Ny,this->Nz);
 
             this->bodies[i].addElement(nodeIDs,ne);
         }
@@ -383,6 +557,9 @@ int job_t::createMappings() {
                 //use cpdi (or count center 8 times if corners reset)
                 for (size_t c=0;c<8;c++) {
                     size_t e = this->bodies[b].particles[p].corner_elements[c];
+                    if (e != this->bodies[0].elements[e].id){
+                        std::cout << "Elemend ID Error! " << e << " != " << this->bodies[0].elements[e].id << "\n";
+                    }
                     this->bodies[b].elements[e].calculatePhic(&(this->bodies[b]), &(this->bodies[b].particles[p]), c);
                     //std::cout << "b:" << b << " p:" << p << " c:" << c << "\r";
                 }
@@ -480,7 +657,31 @@ void job_t::mapParticles2Grid() {
 void job_t::addContactForces(){
     //resolve conflicts between grid velocites
     //implement later 10/21/16
-    for (size_t b=0;b<this->num_bodies;b++){
+    if (this->use_3d==1) {
+        for (size_t b = 0; b < this->num_bodies; b++) {
+            this->bodies[b].node_contact_mx_t = this->bodies[b].node_mx_t;
+            this->bodies[b].node_contact_my_t = this->bodies[b].node_my_t;
+            this->bodies[b].node_contact_mz_t = this->bodies[b].node_mz_t;
+
+            //the following appear unused
+            this->bodies[b].node_contact_x_t = this->bodies[b].node_x_t;
+            this->bodies[b].node_contact_y_t = this->bodies[b].node_y_t;
+            this->bodies[b].node_contact_z_t = this->bodies[b].node_z_t;
+
+            this->bodies[b].node_contact_fx = this->bodies[b].node_fx;
+            this->bodies[b].node_contact_fy = this->bodies[b].node_fy;
+            this->bodies[b].node_contact_fz = this->bodies[b].node_fz;
+        }
+        return;
+    } else {
+        return this->addContactForces2D();
+    }
+}
+
+void job_t::addContactForces2D(){
+    //resolve conflicts between grid velocites
+    //implement later 10/21/16
+    for (size_t b=0;b<this->num_bodies;b++) {
         this->bodies[b].node_contact_mx_t = this->bodies[b].node_mx_t;
         this->bodies[b].node_contact_my_t = this->bodies[b].node_my_t;
         this->bodies[b].node_contact_mz_t = this->bodies[b].node_mz_t;
@@ -506,17 +707,44 @@ void job_t::addBoundaryConditions(){
 }
 
 void job_t::moveGridExplicit(){
+    if (this->use_3d==1) {
+        for (size_t b = 0; b < this->num_bodies; b++) {
+            for (size_t i = 0; i < this->num_nodes; i++) {
+                double m = this->bodies[b].nodes[i].m[0];
+                if (m > TOL) {
+                    this->bodies[b].nodes[i].contact_mx_t[0] += this->dt * this->bodies[b].nodes[i].contact_fx[0];
+                    this->bodies[b].nodes[i].contact_my_t[0] += this->dt * this->bodies[b].nodes[i].contact_fy[0];
+                    this->bodies[b].nodes[i].contact_mz_t[0] += this->dt * this->bodies[b].nodes[i].contact_fz[0];
+
+                    this->bodies[b].nodes[i].contact_x_t[0] = this->bodies[b].nodes[i].contact_mx_t[0] / m;
+                    this->bodies[b].nodes[i].contact_y_t[0] = this->bodies[b].nodes[i].contact_my_t[0] / m;
+                    this->bodies[b].nodes[i].contact_z_t[0] = this->bodies[b].nodes[i].contact_mz_t[0] / m;
+                } else {
+                    this->bodies[b].nodes[i].contact_x_t[0] = 0;
+                    this->bodies[b].nodes[i].contact_y_t[0] = 0;
+                    this->bodies[b].nodes[i].contact_z_t[0] = 0;
+                }
+
+            }
+        }
+        return;
+    } else {
+        return this->moveGridExplicit2D();
+    }
+}
+
+void job_t::moveGridExplicit2D(){
     for (size_t b = 0; b < this->num_bodies; b++){
         for (size_t i = 0; i < this->num_nodes; i++){
             double m = this->bodies[b].nodes[i].m[0];
             if (m > TOL) {
                 this->bodies[b].nodes[i].contact_mx_t[0] += this->dt * this->bodies[b].nodes[i].contact_fx[0];
                 this->bodies[b].nodes[i].contact_my_t[0] += this->dt * this->bodies[b].nodes[i].contact_fy[0];
-                this->bodies[b].nodes[i].contact_mz_t[0] += this->dt * this->bodies[b].nodes[i].contact_fz[0];
+                this->bodies[b].nodes[i].contact_mz_t[0] += 0;//this->dt * this->bodies[b].nodes[i].contact_fz[0];
 
                 this->bodies[b].nodes[i].contact_x_t[0] = this->bodies[b].nodes[i].contact_mx_t[0] / m;
                 this->bodies[b].nodes[i].contact_y_t[0] = this->bodies[b].nodes[i].contact_my_t[0] / m;
-                this->bodies[b].nodes[i].contact_z_t[0] = this->bodies[b].nodes[i].contact_mz_t[0] / m;
+                this->bodies[b].nodes[i].contact_z_t[0] = 0;//this->bodies[b].nodes[i].contact_mz_t[0] / m;
             } else {
                 this->bodies[b].nodes[i].contact_x_t[0] = 0;
                 this->bodies[b].nodes[i].contact_y_t[0] = 0;
@@ -529,15 +757,70 @@ void job_t::moveGridExplicit(){
 }
 
 void job_t::moveParticlesExplicit(){
+    if (this->use_3d==1) {
+        for (size_t b = 0; b < this->num_bodies; b++) {
+            //use Eigen Map to point to particle array
+            size_t numRowsP = this->bodies[b].p;
+            size_t numColsP = 1;
+
+            //use Eigen Map to point to node array
+            size_t numRowsN = this->bodies[b].n;
+            size_t numColsN = 1;
+
+            //use to create dummy pvec
+            Eigen::MatrixXd pvec(numRowsP, numColsP);
+
+            for (size_t i = 0; i < this->bodies[b].n; i++) {
+                double m = this->bodies[b].nodes[i].m[0];
+                if (m != 0) {
+                    this->bodies[b].nodes[i].ux[0] = this->dt * this->bodies[b].nodes[i].contact_mx_t[0] / m;
+                    this->bodies[b].nodes[i].uy[0] = this->dt * this->bodies[b].nodes[i].contact_my_t[0] / m;
+                    this->bodies[b].nodes[i].uz[0] = this->dt * this->bodies[b].nodes[i].contact_mz_t[0] / m;
+
+                    this->bodies[b].nodes[i].diff_x_t[0] = this->dt * this->bodies[b].nodes[i].contact_fx[0] / m;
+                    this->bodies[b].nodes[i].diff_y_t[0] = this->dt * this->bodies[b].nodes[i].contact_fy[0] / m;
+                    this->bodies[b].nodes[i].diff_z_t[0] = this->dt * this->bodies[b].nodes[i].contact_fz[0] / m;
+                } else {
+                    this->bodies[b].nodes[i].ux[0] = 0;
+                    this->bodies[b].nodes[i].uy[0] = 0;
+                    this->bodies[b].nodes[i].uz[0] = 0;
+
+                    this->bodies[b].nodes[i].diff_x_t[0] = 0;
+                    this->bodies[b].nodes[i].diff_y_t[0] = 0;
+                    this->bodies[b].nodes[i].diff_z_t[0] = 0;
+                }
+            }
+
+            //map back to particles using S transpose
+            this->bodies[b].particle_x += this->bodies[b].Phi.transpose() * this->bodies[b].node_ux;
+            this->bodies[b].particle_y += this->bodies[b].Phi.transpose() * this->bodies[b].node_uy;
+            this->bodies[b].particle_z += this->bodies[b].Phi.transpose() * this->bodies[b].node_uz;
+
+            this->bodies[b].particle_ux += this->bodies[b].Phi.transpose() * this->bodies[b].node_ux;
+            this->bodies[b].particle_uy += this->bodies[b].Phi.transpose() * this->bodies[b].node_uy;
+            this->bodies[b].particle_uz += this->bodies[b].Phi.transpose() * this->bodies[b].node_uz;
+
+            this->bodies[b].particle_x_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_x_t;
+            this->bodies[b].particle_y_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_y_t;
+            this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_z_t;
+
+        }
+        return;
+    } else {
+        return this->moveParticlesExplicit2D();
+    }
+}
+
+void job_t::moveParticlesExplicit2D(){
     for (size_t b=0; b<this->num_bodies; b++) {
         //use Eigen Map to point to particle array
         size_t numRowsP = this->bodies[b].p;
         size_t numColsP = 1;
-        
+
         //use Eigen Map to point to node array
         size_t numRowsN = this->bodies[b].n;
         size_t numColsN = 1;
-        
+
         //use to create dummy pvec
         Eigen::MatrixXd pvec(numRowsP, numColsP);
 
@@ -546,11 +829,11 @@ void job_t::moveParticlesExplicit(){
             if (m!=0){
                 this->bodies[b].nodes[i].ux[0] = this->dt * this->bodies[b].nodes[i].contact_mx_t[0] / m;
                 this->bodies[b].nodes[i].uy[0] = this->dt * this->bodies[b].nodes[i].contact_my_t[0] / m;
-                this->bodies[b].nodes[i].uz[0] = this->dt * this->bodies[b].nodes[i].contact_mz_t[0] / m;
+                //this->bodies[b].nodes[i].uz[0] = this->dt * this->bodies[b].nodes[i].contact_mz_t[0] / m;
 
                 this->bodies[b].nodes[i].diff_x_t[0] = this->dt * this->bodies[b].nodes[i].contact_fx[0] / m;
                 this->bodies[b].nodes[i].diff_y_t[0] = this->dt * this->bodies[b].nodes[i].contact_fy[0] / m;
-                this->bodies[b].nodes[i].diff_z_t[0] = this->dt * this->bodies[b].nodes[i].contact_fz[0] / m;
+                //this->bodies[b].nodes[i].diff_z_t[0] = this->dt * this->bodies[b].nodes[i].contact_fz[0] / m;
             } else {
                 this->bodies[b].nodes[i].ux[0] = 0;
                 this->bodies[b].nodes[i].uy[0] = 0;
@@ -565,21 +848,93 @@ void job_t::moveParticlesExplicit(){
         //map back to particles using S transpose
         this->bodies[b].particle_x += this->bodies[b].Phi.transpose()*this->bodies[b].node_ux;
         this->bodies[b].particle_y += this->bodies[b].Phi.transpose()*this->bodies[b].node_uy;
-        this->bodies[b].particle_z += this->bodies[b].Phi.transpose()*this->bodies[b].node_uz;
+        //this->bodies[b].particle_z += this->bodies[b].Phi.transpose()*this->bodies[b].node_uz;
 
         this->bodies[b].particle_ux += this->bodies[b].Phi.transpose()*this->bodies[b].node_ux;
         this->bodies[b].particle_uy += this->bodies[b].Phi.transpose()*this->bodies[b].node_uy;
-        this->bodies[b].particle_uz += this->bodies[b].Phi.transpose()*this->bodies[b].node_uz;
+        //this->bodies[b].particle_uz += this->bodies[b].Phi.transpose()*this->bodies[b].node_uz;
 
         this->bodies[b].particle_x_t += this->bodies[b].Phi.transpose()*this->bodies[b].node_diff_x_t;
         this->bodies[b].particle_y_t += this->bodies[b].Phi.transpose()*this->bodies[b].node_diff_y_t;
-        this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose()*this->bodies[b].node_diff_z_t;
+        //this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose()*this->bodies[b].node_diff_z_t;
 
     }
     return;
 }
 
 void job_t::calculateStrainRate() {
+    if (this->use_3d==1) {
+        for (size_t b = 0; b < this->num_bodies; b++) {
+            //map nodal velocities with Eigen
+            size_t numRowsN = this->bodies[b].n;
+            size_t numColsN = 1;
+
+            //nodal velocities
+            this->bodies[b].node_contact_x_t =
+                    this->bodies[b].node_contact_mx_t.array() / this->bodies[b].node_m.array();
+            this->bodies[b].node_contact_y_t =
+                    this->bodies[b].node_contact_my_t.array() / this->bodies[b].node_m.array();
+            this->bodies[b].node_contact_z_t =
+                    this->bodies[b].node_contact_mz_t.array() / this->bodies[b].node_m.array();
+
+            //use to create dummy pvec
+            size_t numRowsP = this->bodies[b].p;
+            size_t numColsP = 1;
+            Eigen::MatrixXd pvec(numRowsP, numColsP);
+
+            //calculate particle[i].L[9]
+            pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].node_contact_x_t;
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                this->bodies[b].particles[i].L[XX] = pvec(i, 0);
+            }
+
+            pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].node_contact_x_t;
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                this->bodies[b].particles[i].L[XY] = pvec(i, 0);
+            }
+
+            pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].node_contact_x_t;
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                this->bodies[b].particles[i].L[XZ] = pvec(i, 0);
+            }
+
+            pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].node_contact_y_t;
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                this->bodies[b].particles[i].L[YX] = pvec(i, 0);
+            }
+
+            pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].node_contact_y_t;
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                this->bodies[b].particles[i].L[YY] = pvec(i, 0);
+            }
+
+            pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].node_contact_y_t;
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                this->bodies[b].particles[i].L[YZ] = pvec(i, 0);
+            }
+
+            pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].node_contact_z_t;
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                this->bodies[b].particles[i].L[ZX] = pvec(i, 0);
+            }
+
+            pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].node_contact_z_t;
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                this->bodies[b].particles[i].L[ZY] = pvec(i, 0);
+            }
+
+            pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].node_contact_z_t;
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                this->bodies[b].particles[i].L[ZZ] = pvec(i, 0);
+            }
+        }
+        return;
+    } else {
+        return this->calculateStrainRate2D();
+    }
+}
+
+void job_t::calculateStrainRate2D() {
     for (size_t b=0; b<this->num_bodies; b++) {
         //map nodal velocities with Eigen
         size_t numRowsN = this->bodies[b].n;
@@ -588,7 +943,7 @@ void job_t::calculateStrainRate() {
         //nodal velocities
         this->bodies[b].node_contact_x_t = this->bodies[b].node_contact_mx_t.array()/this->bodies[b].node_m.array();
         this->bodies[b].node_contact_y_t = this->bodies[b].node_contact_my_t.array()/this->bodies[b].node_m.array();
-        this->bodies[b].node_contact_z_t = this->bodies[b].node_contact_mz_t.array()/this->bodies[b].node_m.array();
+        //this->bodies[b].node_contact_z_t = this->bodies[b].node_contact_mz_t.array()/this->bodies[b].node_m.array();
 
         //use to create dummy pvec
         size_t numRowsP = this->bodies[b].p;
@@ -606,9 +961,9 @@ void job_t::calculateStrainRate() {
             this->bodies[b].particles[i].L[XY] = pvec(i,0);
         }
 
-        pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].node_contact_x_t;
+        //pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].node_contact_x_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[XZ] = pvec(i,0);
+            this->bodies[b].particles[i].L[XZ] = 0;
         }
 
         pvec = this->bodies[b].gradPhiX.transpose()*this->bodies[b].node_contact_y_t;
@@ -621,24 +976,24 @@ void job_t::calculateStrainRate() {
             this->bodies[b].particles[i].L[YY] = pvec(i,0);
         }
 
-        pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].node_contact_y_t;
+        //pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].node_contact_y_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[YZ] = pvec(i,0);
+            this->bodies[b].particles[i].L[YZ] = 0;
         }
 
-        pvec = this->bodies[b].gradPhiX.transpose()*this->bodies[b].node_contact_z_t;
+        //pvec = this->bodies[b].gradPhiX.transpose()*this->bodies[b].node_contact_z_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[ZX] = pvec(i,0);
+            this->bodies[b].particles[i].L[ZX] = 0;
         }
 
-        pvec = this->bodies[b].gradPhiY.transpose()*this->bodies[b].node_contact_z_t;
+        //pvec = this->bodies[b].gradPhiY.transpose()*this->bodies[b].node_contact_z_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[ZY] = pvec(i,0);
+            this->bodies[b].particles[i].L[ZY] = 0;
         }
 
-        pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].node_contact_z_t;
+        //pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].node_contact_z_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[ZZ] = pvec(i,0);
+            this->bodies[b].particles[i].L[ZZ] = 0;
         }
     }
     return;
@@ -672,6 +1027,50 @@ int job_t::mpmStepUSLExplicit() {
     //forward step
     this->t += this->dt;
     this->stepcount += 1;
+
+    //create particle map
+    this->createMappings();
+
+    //map particles to grid
+    this->mapParticles2Grid();
+
+    //add contact forces
+    this->addContactForces();
+
+    //enforce boundary conditions
+    this->addBoundaryConditions();
+
+    //move grid
+    this->moveGridExplicit();
+
+    //move particles
+    this->moveParticlesExplicit();
+
+    //calculate L on particles
+    this->calculateStrainRate();
+
+    //update particle densities
+    this->updateDensity();
+
+    //material stress update
+    this->updateStress();
+
+    //add boddy forces
+    time_varying_loads(this);
+
+    return 1;
+}
+
+int job_t::mpmStepUSLExplicitDebug() {
+    //forward step
+    this->t += this->dt;
+    this->stepcount += 1;
+
+    for (size_t i=0;i<this->bodies[0].e;i++){
+        if (i != this->bodies[0].elements[i].id){
+            std::cout << "Elemend ID Error! " << i << " != " << this->bodies[0].elements[i].id << "\n";
+        }
+    }
 
     //create particle map
     this->createMappings();

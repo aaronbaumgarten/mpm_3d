@@ -18,13 +18,14 @@
 int main(int argc, char *argv[]) {
 
     //set threads for eigen
-    Eigen::setNbThreads(4);
+    Eigen::setNbThreads(0);
 
     std::cout << "Hello, World!" << std::endl;
 
     //initialize job
     job_t *job(new job_t);
-    job->dt = 5e-5;
+    job->dt = 1e-4;
+    job->use_3d = 1;
 
     //parse configuration files
     //char *fileParticle = "s.particles";
@@ -35,7 +36,7 @@ int main(int argc, char *argv[]) {
 
     //initialize and allocate memory
     /* hard-coding material properties for initial run */
-    double fp64_props[2] = {1e7,0.3};
+    double fp64_props[2] = {1e6,0.3};
     int *int_props = NULL;
     job->assignMaterials();
     for (size_t i=0;i<job->num_bodies;i++){
@@ -46,7 +47,7 @@ int main(int argc, char *argv[]) {
     job->createMappings();
     std::cout << "Mapping created (" << job->bodies[0].Phi.nonZeros() << ").\n";
 
-    testMappingP2G(job);
+    //testMappingGradient(job);
 
     //colorize for threading
 
@@ -58,7 +59,8 @@ int main(int argc, char *argv[]) {
 
     //process_usl
     while (job->t < T_STOP) {
-        job->mpmStepUSLExplicit();
+        //job->mpmStepUSLExplicit();
+        job->mpmStepUSLExplicitDebug();
         std::cout << "\rStep completed (" << job->stepcount << ")." << std::flush;
         if (job->t * mpmOut.sampleRate > mpmOut.sampledFrames) {
             mpmOut.writeFrame();

@@ -49,10 +49,11 @@ public:
         //gPhic = hx^3/8*A_i(r^p_c)*gradA_i(r*^p)
         double r,s,t;
         double rp,sp,tp;
-        double r1,r2,s1,s2,t1,t2;
         double dx = body->nodes[nodeID[1]].x[0] - body->nodes[nodeID[0]].x[0];
         if (dx <= 0){
             std::cout << "Error! dx <= 0 in element.calculatePhic()\n";
+            //std::cout << "Element: " << id << "\n";
+            //std::cout << "nodeIDs: " << nodeID[0] << ", " << nodeID[1] << "\n";
         } else {
             r = (particle->corner[idc][0] - body->nodes[nodeID[0]].x[0])/dx;
             s = (particle->corner[idc][1] - body->nodes[nodeID[0]].y[0])/dx;

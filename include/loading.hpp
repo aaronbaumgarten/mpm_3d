@@ -16,5 +16,6 @@
 
 void initial_loads(job_t *job);
 void time_varying_loads(job_t *job);
+void time_varying_loads2D(job_t *job);
 
 #endif //MPM_3D_LOADING_HPP

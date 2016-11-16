@@ -14,5 +14,8 @@
 #include "tensor.hpp"
 
 namespace boundary {
-#include "floorBC.cpp"
+//#include "floorBC.cpp"
+//#include "floorBC2D.cpp"
+//#include "boxBC2d.cpp"
+#include "boxBC.cpp"
 }

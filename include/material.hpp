@@ -26,7 +26,7 @@ public:
 
     std::function<void(Body *)> material_init;
     std::function<void(Body *, double)> calculate_stress;
-    std::function<void(threadtask_t *, Body *)> calculate_stress_threaded;
+    std::function<void(threadtask_t *, Body *, double)> calculate_stress_threaded;
 
     double *fp64_props;
     int *int_props;
@@ -51,7 +51,7 @@ namespace material1 {
     //template <class taskT>
     void material_init(Body *);
     void calculate_stress(Body *, double);
-    void calculate_stress_threaded(threadtask_t *, Body *);
+    void calculate_stress_threaded(threadtask_t *, Body *, double);
 }
 
 namespace material2 {
@@ -59,5 +59,5 @@ namespace material2 {
     //template <class taskT>
     void material_init(Body *);
     void calculate_stress(Body *, double);
-    void calculate_stress_threaded(threadtask_t *, Body *);
+    void calculate_stress_threaded(threadtask_t *, Body *, double);
 }

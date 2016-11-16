@@ -586,3 +586,26 @@ void tensor_det3(double *  detA, const double *  A)
     *detA = A[0]*A[4]*A[8] + A[1]*A[5]*A[6] + A[2]*A[3]*A[7] - A[2]*A[4]*A[6] - A[1]*A[3]*A[8] - A[0]*A[5]*A[7];
     return;
 }
+
+/*----------------------------------------------------------------------------*/
+void tensor_dev3(double* C, const double* A)
+{
+    double trA;
+    tensor_trace3(&trA,A);
+    tensor_copy3(C,A);
+    C[0] -= trA/3;
+    C[4] -= trA/3;
+    C[8] -= trA/3;
+    return;
+}
+/*----------------------------------------------------------------------------*/
+
+
+void tensor_mag3(double* magA, const double* A){
+    *magA = 0;
+    for(size_t i=0;i<9;i++){
+        *magA += A[i]*A[i];
+    }
+    *magA = sqrt(*magA);
+    return;
+}

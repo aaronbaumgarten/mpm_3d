@@ -41,7 +41,7 @@
 #define WHICH_ELEMENT WHICH_ELEMENT9
 //very ugly but it should work
 #define WHICH_ELEMENT9(px,py,pz,Nx,Ny,Nz,Lx,Ly,Lz,hx,hy,hz) \
-    ((int)(((px)<Lx && (px)>=0 && (py)<Ly && (py)>=0 && (pz)<Lz && (pz)>=0)?(floor((px)/(hx)) + floor((py)/(hy))*((Nx)) + floor((pz)/(hz))*((Nx)*(Ny))):(-1)))
+    ((int)(((px)<Lx && (px)>=0 && (py)<Ly && (py)>=0 && (pz)<Lz && (pz)>=0)?(floor((px)/(hx)) + floor((py)/(hy))*((Nx-1)) + floor((pz)/(hz))*((Nx-1)*(Ny-1))):(-1)))
 
 class Particle {
 public:

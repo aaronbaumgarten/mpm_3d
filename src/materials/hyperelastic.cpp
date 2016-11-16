@@ -1,15 +1,8 @@
 //
-// Created by aaron on 9/8/16.
-// isolin.cpp
+// Created by aaron on 11/4/16.
+// hyperelastic.cpp
 //
 
-/**
-    \file isolin.c
-    \author Sachith Dunatunga
-    \date 23.10.13
-
-    The isotropic linear elastic material model.
-*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,6 +38,17 @@ void material_init(Body *body) {
         for (j = 0; j < DEPVAR; j++) {
             body->particles[i].state[j] = 0;
         }
+        for (j = 0; j < 9; j++){
+            body->particles[i].F[j] = 0;
+        }
+
+        body->particles[i].state[XX] = 1;
+        body->particles[i].state[YY] = 1;
+        body->particles[i].state[ZZ] = 1;
+
+        body->particles[i].F[XX] = 1;
+        body->particles[i].F[YY] = 1;
+        body->particles[i].F[ZZ] = 1;
     }
 
     if (body->material.num_fp64_props < 2) {
@@ -71,7 +75,7 @@ void material_init(Body *body) {
 
 /*----------------------------------------------------------------------------*/
 void calculate_stress(Body *body, double dtIn) {
-    dt = dtIn;
+    dt = dtIn; //this is dangerous
     threadtask_t t;
     t.offset = 0;
     t.blocksize = body->p;
@@ -99,68 +103,48 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
     size_t p_stop = task->offset + task->blocksize;
 
     for (size_t i = p_start; i < p_stop; i++) {
-        if (body->particle_active[i] == 0) {
+        if (body->particles[i].active[0] == 0) {
             continue;
         }
 
-        double e_t[9];
-        double w_t[9];
-        tensor_sym3(e_t,body->particles[i].L);
-        tensor_skw3(w_t,body->particles[i].L);
+        double f[9]; //finite deformation
+        double fbar[9]; //isochoric finite deformation
+        double fbarT[9];
+        double bebar[9]; //left cauchy green tensor (stored as state)
+        double s[9]; //deviatoric stress
+        double tmp[9]; //temporary tensor
+        double one[9] = {1,0,0,0,1,0,0,0,1};
 
-        double trD;
-        tensor_trace3(&trD,body->particles[i].L);
+        double J; //detF
+        double detf;
+        double p; //pressure
 
-        double dsj[9]; //this formulation may be wrong. Second two terms are confusing
-        dsj[XX] = lambda * trD + 2.0 * G * e_t[XX]
-                  + 2.0 * w_t[XY] * body->particles[i].T[XY]
-                  - 2.0 * w_t[ZX] * body->particles[i].T[XZ];
+        tensor_copy3(tmp,body->particles[i].L);
+        tensor_scale3(tmp,dt);
+        tensor_add3(f,one,tmp); //calculate f
 
-        dsj[YY] = lambda * trD + 2.0 * G * e_t[YY]
-                  - 2.0 * w_t[XY] * body->particles[i].T[XY]
-                  + 2.0 * w_t[YZ] * body->particles[i].T[YZ];
+        tensor_copy3(tmp,body->particles[i].F);
+        tensor_multiply3(body->particles[i].F,f,tmp); //update F
 
-        dsj[ZZ] = lambda * trD + 2.0 * G * e_t[ZZ]
-                  - 2.0 * w_t[YZ] * body->particles[i].T[YZ]
-                  + 2.0 * w_t[ZX] * body->particles[i].T[XZ];
+        tensor_det3(&detf,f);
+        tensor_copy3(fbar,f);
+        tensor_scale3(fbar,1/cbrt(detf)); //calculate f isochoric
 
-        dsj[XY] = 2.0 * G * e_t[XY]
-                  - w_t[XY] * (body->particles[i].T[XX] - body->particles[i].T[YY]);
+        tensor_transpose3(fbarT,fbar);
+        tensor_multiply3(tmp,body->particles[i].state,fbarT);
+        tensor_multiply3(bebar,fbar,tmp); //calculate be isochoric
 
-        dsj[XZ] = 2.0 * G * e_t[XZ]
-                  - w_t[ZX] * (body->particles[i].T[ZZ] - body->particles[i].T[XX]);
+        tensor_dev3(s,bebar);
+        tensor_scale3(s,G); //calculate deviatoric stress
 
-        dsj[YZ] = 2.0 * G * e_t[YZ]
-                  - w_t[YZ] * (body->particles[i].T[YY] - body->particles[i].T[ZZ]);
+        tensor_det3(&J,body->particles[i].F);
+        p = K/2.0 * (J*J-1) / J;
+        tensor_copy3(tmp,one);
+        tensor_scale3(tmp,J*p);
+        tensor_add3(body->particles[i].T,tmp,s); //cauchy stress
 
-        body->particles[i].T[XX] += dt * dsj[XX];
-        body->particles[i].T[XY] += dt * dsj[XY];
-        body->particles[i].T[XZ] += dt * dsj[XZ];
-        body->particles[i].T[YX] += dt * dsj[XY];//*
-        body->particles[i].T[YY] += dt * dsj[YY];
-        body->particles[i].T[YZ] += dt * dsj[YZ];
-        body->particles[i].T[ZX] += dt * dsj[XZ];//*
-        body->particles[i].T[ZY] += dt * dsj[YZ];//*
-        body->particles[i].T[ZZ] += dt * dsj[ZZ];
+        tensor_copy3(body->particles[i].state,bebar); //isochoric left cauchy-green tensor
 
-        /*const double exx_t = body->particles[i].L[XX];
-        const double exy_t = 0.5 * (job->particles[i].L[XY] + job->particles[i].L[YX]);
-        const double wxy_t = 0.5 * (job->particles[i].L[XY] - job->particles[i].L[YX]);
-        const double eyy_t = job->particles[i].L[YY];
-
-        const double trD = exx_t + eyy_t;
-        double dsjxx = lambda * trD + 2.0 * G * exx_t;
-        double dsjxy = 2.0 * G * exy_t;
-        double dsjyy = lambda * trD + 2.0 * G * eyy_t;
-        dsjxx += 2 * wxy_t * job->particles[i].T[XY];
-        dsjxy -= wxy_t * (job->particles[i].T[XX] - job->particles[i].T[YY]);
-        dsjyy -= 2 * wxy_t * job->particles[i].T[XY];
-        const double dsjzz = lambda * trD;
-
-        job->particles[i].T[XX] += job->dt * dsjxx;
-        job->particles[i].T[XY] += job->dt * dsjxy;
-        job->particles[i].T[YY] += job->dt * dsjyy;
-        job->particles[i].T[ZZ] += job->dt * dsjzz;*/
     }
 
     return;

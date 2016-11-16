@@ -46,6 +46,8 @@ void tensor_inverse3(double * restrict Ainv, const double * restrict A);
 void tensor_eig3(double * restrict P, double * restrict D, const double * restrict A);
 void tensor_symeig3(double * restrict P, double * restrict D, const double * restrict A);
 void tensor_det3(double * restrict detA, const double * restrict A);
+void tensor_dev3(double* restrict C, const double* restrict A);
+void tensor_mag3(double* restrict magA, const double* restrict A);
 
 inline void tensor_transpose3(double * restrict AT, const double * restrict A)
 {
