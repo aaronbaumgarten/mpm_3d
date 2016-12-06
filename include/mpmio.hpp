@@ -37,6 +37,11 @@ public:
     //job
     job_t* job;
 
+    //x,y,z limits
+    double xLimit;
+    double yLimit;
+    double zLimit;
+
     //functions
     MPMio(){}
     MPMio(std::string ifile,std::string ofile,std::string ffile, job_t* jobIn){
@@ -45,6 +50,10 @@ public:
         frameFile = ffile;
 
         job = jobIn;
+
+        xLimit = 2*jobIn->Lx;
+        yLimit = 2*jobIn->Ly;
+        zLimit = 2*jobIn->Lz;
     }
 
     void setDefaultFiles();
@@ -64,6 +73,8 @@ public:
 
     void writeFrame(); //write frame to file
     void writeFrame(job_t*);
+    void writeParticles(job_t*);
+    void writeNodes(job_t *);
     void writeCorner(job_t*,size_t);
 
 };

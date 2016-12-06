@@ -43,7 +43,7 @@ class CartesianPointGrid:
                     xyz_material_point_candidates.append(xyz_material_point_candidate)
                 i+=1
                 sys.stdout.write("\r" + str(i) + " / " + str(iEnd))
-        print "\ncandidate points found"
+        sys.stdout.write("\n")
 
         self.point_array = xyz_material_point_candidates
         self.material_point_volume = cs*cs*cs*dx*dy*dz

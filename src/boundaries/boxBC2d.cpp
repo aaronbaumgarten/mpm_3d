@@ -67,7 +67,7 @@ void generate_dirichlet_bcs(job_t *job)
     }
 
     // set wall value (0 + Nx*n),(Nx-1 + Nx*n)
-    for (size_t ny = 0; ny < job->Ny; ny++) {
+    for (size_t ny = 0; ny < job->Ny*job->Nz; ny++) {
         job->u_dirichlet[NODAL_DOF * (job->Nx * ny) + XDOF_IDX] = 0;
         job->u_dirichlet_mask[NODAL_DOF * (job->Nx * ny) + XDOF_IDX] = 1;
 

@@ -24,27 +24,39 @@ int main(int argc, char *argv[]) {
 
     //initialize job
     job_t *job(new job_t);
-    job->dt = 1e-4;
+    job->dt = 5e-5;
     job->use_3d = 1;
 
     //parse configuration files
     //char *fileParticle = "s.particles";
     //char *fileNodes = "s.grid";
-    std::string fileParticle = "s.particles";
-    std::string fileNodes = "s.grid";
-    job->importNodesandParticles(fileNodes,fileParticle);
+    std::string fileParticle = "kk.particles";
+    std::string fileNodes = "kk.grid";
+    if(!(job->importNodesandParticles(fileNodes,fileParticle))){
+        std::cout << "failed to import nodes and particles" << std::endl;
+        exit(0);
+    }
 
     //initialize and allocate memory
     /* hard-coding material properties for initial run */
     double fp64_props[2] = {1e6,0.3};
     int *int_props = NULL;
-    job->assignMaterials();
+    if(!(job->assignMaterials())){
+        std::cout << "failed to assign materials" << std::endl;
+        exit(0);
+    }
     for (size_t i=0;i<job->num_bodies;i++){
         job->bodies[i].defineMaterial(fp64_props,2,int_props,0);
     }
-    job->assignBoundaryConditions();
+    if(!(job->assignBoundaryConditions())){
+        std::cout << "failed to assign boundary conditions" << std::endl;
+        exit(0);
+    }
 
-    job->createMappings();
+    if(!(job->createMappings())){
+        std::cout << "failed to create mappings" << std::endl;
+        exit(0);
+    }
     std::cout << "Mapping created (" << job->bodies[0].Phi.nonZeros() << ").\n";
 
     //testMappingGradient(job);
@@ -60,7 +72,11 @@ int main(int argc, char *argv[]) {
     //process_usl
     while (job->t < T_STOP) {
         //job->mpmStepUSLExplicit();
-        job->mpmStepUSLExplicitDebug();
+        if (job->use_3d==1) {
+            job->mpmStepUSLExplicit();
+        } else {
+            job->mpmStepUSLExplicit2D();
+        }
         std::cout << "\rStep completed (" << job->stepcount << ")." << std::flush;
         if (job->t * mpmOut.sampleRate > mpmOut.sampledFrames) {
             mpmOut.writeFrame();

@@ -17,6 +17,8 @@
 
 //mass tolerance
 #define TOL 5e-11
+//contact friction
+#define MU_F 0.4
 
 //hard coded for now. need to change
 job_t::job_t():
@@ -39,15 +41,16 @@ job_t::job_t():
 inline void job_t::node_number_to_coords(
         double * x, double * y, double * z,
         size_t node_number,
-        size_t Nx, double hx
+        size_t Nx, size_t Ny, size_t Nz,
+        double hx, double hy, double hz
 ) {
     size_t i = node_number % Nx;
-    size_t j = (node_number/Nx) % Nx;
-    size_t k = node_number / (Nx*Nx);
+    size_t j = (node_number/Nx) % Ny;
+    size_t k = node_number / (Nx*Ny);
 
     *x = i*hx;
-    *y = j*hx;
-    *z = k*hx;
+    *y = j*hy;
+    *z = k*hz;
     return;
 }
 
@@ -75,7 +78,9 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
 
         size_t numNodes = 0;
         size_t numElements = 0;
-        size_t numLinearNodes = 0;
+        size_t numLinearNodesX = 0;
+        size_t numLinearNodesY = 0;
+        size_t numLinearNodesZ = 0;
         //double Lx;
         //double hx;
         size_t numParticles = 0;
@@ -91,16 +96,16 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
             std::string line;
             if (std::getline(fin, line)) {
                 std::stringstream ss(line);
-                if (!(ss >> numLinearNodes)) {
+                if (!(ss >> numLinearNodesX >> numLinearNodesY >> numLinearNodesZ)) {
                     std::cout << "Cannot parse grid file: " << nfilename << "\n";
                     return -1;
                 }
-                this->Nx = numLinearNodes;
-                this->Ny = numLinearNodes;
-                this->Nz = numLinearNodes;
-                numElements = (numLinearNodes - 1) * (numLinearNodes - 1) *
-                              (numLinearNodes - 1); //(number of linear nodes - 1) ^3
-                numNodes = numLinearNodes * numLinearNodes * numLinearNodes; //3d domain
+                this->Nx = numLinearNodesX;
+                this->Ny = numLinearNodesY;
+                this->Nz = numLinearNodesZ;
+                numElements = (numLinearNodesX - 1) * (numLinearNodesY - 1) *
+                              (numLinearNodesZ - 1); //(number of linear nodes - 1) ^3
+                numNodes = numLinearNodesX * numLinearNodesY * numLinearNodesZ; //3d domain
                 this->num_nodes = numNodes;
                 this->num_elements = numElements;
 
@@ -116,9 +121,9 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
                 }
                 this->Ly = this->Lx;
                 this->Lz = this->Lx;
-                this->hx = this->Lx / (numLinearNodes - 1);
-                this->hy = this->hx;
-                this->hz = this->hx;
+                this->hx = this->Lx / (numLinearNodesX - 1);
+                this->hy = this->Ly / (numLinearNodesY - 1);
+                this->hz = this->Lz / (numLinearNodesZ - 1);
             }
         } else {
             std::cout << "Cannot parse grid file: " << nfilename << "\n";
@@ -283,7 +288,7 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
         for (size_t i = 0; i < numBodies; i++) {
             for (size_t nn = 0; nn < numNodes; nn++) {
                 double x, y, z;
-                job_t::node_number_to_coords(&x, &y, &z, nn, numLinearNodes, this->hx);
+                job_t::node_number_to_coords(&x, &y, &z, nn, numLinearNodesX, numLinearNodesY, numLinearNodesZ, this->hx, this->hy, this->hz);
                 this->bodies[i].addNode(x, y, z, nn);
             }
 
@@ -295,19 +300,19 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
         for (size_t i = 0; i < numBodies; i++) {
             for (size_t ne = 0; ne < numElements; ne++) {
                 size_t nodeIDs[8];
-                size_t c = ne % (numLinearNodes - 1);
-                size_t r = (ne / (numLinearNodes - 1)) % (numLinearNodes - 1);
-                size_t l = ne / ((numLinearNodes - 1) * (numLinearNodes - 1));
-                size_t n = ijkton_safe(c, r, l, numLinearNodes, numLinearNodes, numLinearNodes);
+                size_t c = ne % (numLinearNodesX - 1);
+                size_t r = (ne / (numLinearNodesX - 1)) % (numLinearNodesY - 1);
+                size_t l = ne / ((numLinearNodesX - 1) * (numLinearNodesY - 1));
+                size_t n = ijkton_safe(c, r, l, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
 
-                nodeIDs[0] = n + ijkton_safe(0, 0, 0, numLinearNodes, numLinearNodes, numLinearNodes);
-                nodeIDs[1] = n + ijkton_safe(1, 0, 0, numLinearNodes, numLinearNodes, numLinearNodes);
-                nodeIDs[2] = n + ijkton_safe(0, 1, 0, numLinearNodes, numLinearNodes, numLinearNodes);
-                nodeIDs[3] = n + ijkton_safe(1, 1, 0, numLinearNodes, numLinearNodes, numLinearNodes);
-                nodeIDs[4] = n + ijkton_safe(0, 0, 1, numLinearNodes, numLinearNodes, numLinearNodes);
-                nodeIDs[5] = n + ijkton_safe(1, 0, 1, numLinearNodes, numLinearNodes, numLinearNodes);
-                nodeIDs[6] = n + ijkton_safe(0, 1, 1, numLinearNodes, numLinearNodes, numLinearNodes);
-                nodeIDs[7] = n + ijkton_safe(1, 1, 1, numLinearNodes, numLinearNodes, numLinearNodes);
+                nodeIDs[0] = n + ijkton_safe(0, 0, 0, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+                nodeIDs[1] = n + ijkton_safe(1, 0, 0, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+                nodeIDs[2] = n + ijkton_safe(0, 1, 0, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+                nodeIDs[3] = n + ijkton_safe(1, 1, 0, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+                nodeIDs[4] = n + ijkton_safe(0, 0, 1, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+                nodeIDs[5] = n + ijkton_safe(1, 0, 1, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+                nodeIDs[6] = n + ijkton_safe(0, 1, 1, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+                nodeIDs[7] = n + ijkton_safe(1, 1, 1, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
 
                 //check uniqueness of element
                 //for(size_t c1=0;c1<8;c1++){
@@ -338,7 +343,9 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
 
     size_t numNodes = 0;
     size_t numElements = 0;
-    size_t numLinearNodes = 0;
+    size_t numLinearNodesX = 0;
+    size_t numLinearNodesY = 0;
+    size_t numLinearNodesZ = 0;
     //double Lx;
     //double hx;
     size_t numParticles = 0;
@@ -354,15 +361,15 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
         std::string line;
         if (std::getline(fin,line)){
             std::stringstream ss(line);
-            if (!(ss >> numLinearNodes)){
+            if (!(ss >> numLinearNodesX >> numLinearNodesY >> numLinearNodesZ)){
                 std::cout << "Cannot parse grid file: " << nfilename << "\n";
                 return -1;
             }
-            this->Nx = numLinearNodes;
-            this->Ny = numLinearNodes;
+            this->Nx = numLinearNodesX;
+            this->Ny = numLinearNodesY;
             this->Nz = 2;//numLinearNodes;
-            numElements = (numLinearNodes-1)*(numLinearNodes-1); //(number of linear nodes - 1) ^2
-            numNodes = numLinearNodes*numLinearNodes*2; //2d domain
+            numElements = (numLinearNodesX-1)*(numLinearNodesY-1); //(number of linear nodes - 1) ^2
+            numNodes = numLinearNodesX*numLinearNodesY*2; //2d domain
             this->num_nodes = numNodes;
             this->num_elements = numElements;
 
@@ -372,16 +379,16 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
         }
         if (std::getline(fin,line)) {
             std::stringstream ss(line);
-            if (!(ss >> this->Lx)) {
+            if (!(ss >> this->Lx >> this->Ly >> this->Lz)) {
                 std::cout << "Cannot parse grid file: " << nfilename << "\n";
                 return -1;
             }
-            this->Ly = this->Lx;
+            //this->Ly = this->Lx;
             //this->Lz = this->Lx;
-            this->hx = this->Lx / (numLinearNodes - 1);
-            this->hy = this->hx;
-            this->hz = this->hx;
-            this->Lz = this->hz; //1 element
+            this->hx = this->Lx / (numLinearNodesX - 1);
+            this->hy = this->Ly / (numLinearNodesY - 1);
+            this->hz = this->Lz / 2;
+            //this->Lz = this->hz; //1 element
         }
     } else {
         std::cout << "Cannot parse grid file: " << nfilename << "\n";
@@ -455,7 +462,7 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
     for (size_t i=0; i<numBodies; i++){
         for (size_t nn=0; nn<numNodes; nn++){
             double x, y, z;
-            job_t::node_number_to_coords(&x,&y,&z,nn,numLinearNodes,this->hx); //ok for 2d as nodes count in x,y first
+            job_t::node_number_to_coords(&x,&y,&z,nn,numLinearNodesX,numLinearNodesY,numLinearNodesZ,this->hx,this->hy,this->hz); //ok for 2d as nodes count in x,y first
             this->bodies[i].addNode(x,y,z,nn);
         }
 
@@ -600,8 +607,8 @@ void job_t::mapParticles2Grid() {
         size_t numRowsN = this->bodies[b].n;
         size_t numColsN = 1;
         
-        //use to create dummy pvec
-        Eigen::MatrixXd pvec(numRowsP,numColsP);
+        //use to create dummy pvec and ones
+        Eigen::VectorXd pvec(numRowsP);
 
         //use Phi to map particles to nodes
         this->bodies[b].node_m = this->bodies[b].Phi*this->bodies[b].particle_m;
@@ -613,40 +620,50 @@ void job_t::mapParticles2Grid() {
         this->bodies[b].node_fz = this->bodies[b].Phi*p_m_bz; //need to add stress
 
         //use gradPhi to map particles to nodes
-        this->bodies[b].node_contact_normal_x = this->bodies[b].gradPhiX*this->bodies[b].particle_m;
-        this->bodies[b].node_contact_normal_y = this->bodies[b].gradPhiY*this->bodies[b].particle_m;
-        this->bodies[b].node_contact_normal_z = this->bodies[b].gradPhiZ*this->bodies[b].particle_m;
+        this->bodies[b].node_contact_normal_x = this->bodies[b].gradPhiX*Eigen::MatrixXd::Constant(numRowsP,numColsP,1);//this->bodies[b].particle_m;
+        this->bodies[b].node_contact_normal_y = this->bodies[b].gradPhiY*Eigen::MatrixXd::Constant(numRowsP,numColsP,1);//this->bodies[b].particle_m;
+        this->bodies[b].node_contact_normal_z = this->bodies[b].gradPhiZ*Eigen::MatrixXd::Constant(numRowsP,numColsP,1);//this->bodies[b].particle_m;
+
+        /*Eigen::VectorXd normMag(numRowsN);
+        normMag = this->bodies[b].node_contact_normal_x.array().square()
+                + this->bodies[b].node_contact_normal_y.array().square()
+                + this->bodies[b].node_contact_normal_z.array().square();
+
+        this->bodies[b].node_contact_normal_x = this->bodies[b].node_contact_normal_x.array()/normMag.array().sqrt();
+        this->bodies[b].node_contact_normal_y = this->bodies[b].node_contact_normal_y.array()/normMag.array().sqrt();
+        this->bodies[b].node_contact_normal_z = this->bodies[b].node_contact_normal_z.array()/normMag.array().sqrt();
+         */
 
         for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XX];
+            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XX];
         }
         this->bodies[b].node_fx -= this->bodies[b].gradPhiX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XY];
+            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XY];
         }
         this->bodies[b].node_fx -= this->bodies[b].gradPhiY*pvec;
         this->bodies[b].node_fy -= this->bodies[b].gradPhiX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XZ];
+            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XZ];
         }
         this->bodies[b].node_fx -= this->bodies[b].gradPhiZ*pvec;
         this->bodies[b].node_fz -= this->bodies[b].gradPhiX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[YY];
+            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[YY];
         }
         this->bodies[b].node_fy -= this->bodies[b].gradPhiY*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[YZ];
+            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[YZ];
         }
         this->bodies[b].node_fy -= this->bodies[b].gradPhiZ*pvec;
         this->bodies[b].node_fz -= this->bodies[b].gradPhiY*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec(i,0) = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[ZZ];
+            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[ZZ];
         }
         this->bodies[b].node_fz -= this->bodies[b].gradPhiZ*pvec;
 
@@ -655,27 +672,100 @@ void job_t::mapParticles2Grid() {
 }
 
 void job_t::addContactForces(){
-    //resolve conflicts between grid velocites
-    //implement later 10/21/16
-    if (this->use_3d==1) {
-        for (size_t b = 0; b < this->num_bodies; b++) {
-            this->bodies[b].node_contact_mx_t = this->bodies[b].node_mx_t;
-            this->bodies[b].node_contact_my_t = this->bodies[b].node_my_t;
-            this->bodies[b].node_contact_mz_t = this->bodies[b].node_mz_t;
+    //if (this->use_3d==1) {
+    for (size_t b = 0; b < this->num_bodies; b++) {
+        this->bodies[b].node_contact_mx_t = this->bodies[b].node_mx_t;
+        this->bodies[b].node_contact_my_t = this->bodies[b].node_my_t;
+        this->bodies[b].node_contact_mz_t = this->bodies[b].node_mz_t;
 
-            //the following appear unused
-            this->bodies[b].node_contact_x_t = this->bodies[b].node_x_t;
-            this->bodies[b].node_contact_y_t = this->bodies[b].node_y_t;
-            this->bodies[b].node_contact_z_t = this->bodies[b].node_z_t;
+        //the following appear unused
+        this->bodies[b].node_contact_x_t = this->bodies[b].node_x_t;
+        this->bodies[b].node_contact_y_t = this->bodies[b].node_y_t;
+        this->bodies[b].node_contact_z_t = this->bodies[b].node_z_t;
 
-            this->bodies[b].node_contact_fx = this->bodies[b].node_fx;
-            this->bodies[b].node_contact_fy = this->bodies[b].node_fy;
-            this->bodies[b].node_contact_fz = this->bodies[b].node_fz;
-        }
-        return;
-    } else {
-        return this->addContactForces2D();
+        this->bodies[b].node_contact_fx = this->bodies[b].node_fx;
+        this->bodies[b].node_contact_fy = this->bodies[b].node_fy;
+        this->bodies[b].node_contact_fz = this->bodies[b].node_fz;
     }
+
+    if (this->num_bodies > 1) {
+        //look for contacts if there are two bodies
+        for (size_t i = 0; i < this->num_nodes; i++) {
+            //test every node for contact
+            if (this->bodies[0].node_m[i] > TOL && this->bodies[1].node_m[i] > TOL) {
+                //use normal from body 1
+                Eigen::Vector3d n1i;
+                n1i << this->bodies[0].node_contact_normal_x[i],
+                        this->bodies[0].node_contact_normal_y[i],
+                        this->bodies[0].node_contact_normal_z[i];
+                //enforce unit length
+                n1i /= sqrt(n1i.dot(n1i));
+
+                //determine 'center of mass' velocity
+                double m1 = this->bodies[0].node_m[i];
+                double m2 = this->bodies[1].node_m[i];
+                Eigen::Vector3d mv1i;
+                Eigen::Vector3d mv2i;
+                Eigen::Vector3d vCMi;
+                mv1i << this->bodies[0].node_contact_mx_t[i],
+                        this->bodies[0].node_contact_my_t[i],
+                        this->bodies[0].node_contact_mz_t[i];
+                mv2i << this->bodies[1].node_contact_mx_t[i],
+                        this->bodies[1].node_contact_my_t[i],
+                        this->bodies[1].node_contact_mz_t[i];
+                vCMi = (mv1i + mv2i) / (m1 + m2);
+
+                //determine normal force
+                double fn1i;
+                fn1i = m1 * m2 / (this->dt * (m1 + m2)) * (mv2i.dot(n1i) / m2 - mv1i.dot(n1i) / m1);
+
+                //determine shear force and shear vector
+                double ft1i;
+                Eigen::Vector3d s1i;
+                s1i = m1 / this->dt * (vCMi - mv1i / m1) - fn1i * n1i;
+                ft1i = sqrt(s1i.dot(s1i));
+                s1i /= ft1i;
+
+                //add forces
+                Eigen::Vector3d fcti;
+                fcti = std::min(0.0, fn1i)*n1i + std::min(MU_F*std::abs(fn1i),std::abs(ft1i))*s1i;
+
+                //set contact forces
+                this->bodies[0].node_contact_fx[i] = fcti[0];
+                this->bodies[0].node_contact_fy[i] = fcti[1];
+                this->bodies[0].node_contact_fz[i] = fcti[2];
+
+                this->bodies[1].node_contact_fx[i] = -fcti[0];
+                this->bodies[1].node_contact_fy[i] = -fcti[1];
+                this->bodies[1].node_contact_fz[i] = -fcti[2];
+
+                //adjust nodal velocities for non-penetration
+                mv1i = mv1i - n1i.dot(mv1i-m1*vCMi)*n1i;
+                mv2i = mv2i - n1i.dot(mv2i-m2*vCMi)*n1i;
+
+                this->bodies[0].node_contact_mx_t[i] = mv1i[0];
+                this->bodies[0].node_contact_my_t[i] = mv1i[1];
+                this->bodies[0].node_contact_mz_t[i] = mv1i[2];
+
+                this->bodies[0].node_contact_x_t[i] = mv1i[0]/m1;
+                this->bodies[0].node_contact_y_t[i] = mv1i[1]/m1;
+                this->bodies[0].node_contact_z_t[i] = mv1i[2]/m1;
+
+                this->bodies[1].node_contact_mx_t[i] = mv2i[0];
+                this->bodies[1].node_contact_my_t[i] = mv2i[1];
+                this->bodies[1].node_contact_mz_t[i] = mv2i[2];
+
+                this->bodies[1].node_contact_x_t[i] = mv2i[0]/m2;
+                this->bodies[1].node_contact_y_t[i] = mv2i[1]/m2;
+                this->bodies[1].node_contact_z_t[i] = mv2i[2]/m2;
+            }
+        }
+    }
+
+    return;
+    //} else {
+    //    return this->addContactForces2D();
+    //}
 }
 
 void job_t::addContactForces2D(){
@@ -695,6 +785,72 @@ void job_t::addContactForces2D(){
         this->bodies[b].node_contact_fy = this->bodies[b].node_fy;
         this->bodies[b].node_contact_fz = this->bodies[b].node_fz;
     }
+
+    if (this->num_bodies > 1) {
+        //look for contacts if there are two bodies
+        for (size_t i = 0; i < this->num_nodes; i++) {
+            //test every node for contact
+            if (this->bodies[0].node_m[i] > TOL && this->bodies[1].node_m[i] > TOL) {
+                //use normal from body 1
+                Eigen::Vector2d n1i;
+                n1i << this->bodies[0].node_contact_normal_x[i],
+                        this->bodies[0].node_contact_normal_y[i];
+                //enforce unit length
+                n1i /= sqrt(n1i.dot(n1i));
+
+                //determine 'center of mass' velocity
+                double m1 = this->bodies[0].node_m[i];
+                double m2 = this->bodies[1].node_m[i];
+                Eigen::Vector2d mv1i;
+                Eigen::Vector2d mv2i;
+                Eigen::Vector2d vCMi;
+                mv1i << this->bodies[0].node_contact_mx_t[i],
+                        this->bodies[0].node_contact_my_t[i];
+                mv2i << this->bodies[1].node_contact_mx_t[i],
+                        this->bodies[1].node_contact_my_t[i];
+                vCMi = (mv1i + mv2i) / (m1 + m2);
+
+                //determine normal force
+                double fn1i;
+                fn1i = m1 * m2 / (this->dt * (m1 + m2)) * (mv2i.dot(n1i) / m2 - mv1i.dot(n1i) / m1);
+
+                //determine shear force and shear vector
+                double ft1i;
+                Eigen::Vector2d s1i;
+                s1i = m1 / this->dt * (vCMi - mv1i / m1) - fn1i * n1i;
+                ft1i = sqrt(s1i.dot(s1i));
+                s1i /= ft1i;
+
+                //add forces
+                Eigen::Vector2d fcti;
+                fcti = std::min(0.0, fn1i)*n1i + std::min(MU_F*std::abs(fn1i),std::abs(ft1i))*s1i;
+
+                //set contact forces
+                this->bodies[0].node_contact_fx[i] = fcti[0];
+                this->bodies[0].node_contact_fy[i] = fcti[1];
+
+                this->bodies[1].node_contact_fx[i] = -fcti[0];
+                this->bodies[1].node_contact_fy[i] = -fcti[1];
+
+                //adjust nodal velocities for non-penetration
+                mv1i = mv1i - n1i.dot(mv1i-m1*vCMi)*n1i;
+                mv2i = mv2i - n1i.dot(mv2i-m2*vCMi)*n1i;
+
+                this->bodies[0].node_contact_mx_t[i] = mv1i[0];
+                this->bodies[0].node_contact_my_t[i] = mv1i[1];
+
+                this->bodies[0].node_contact_x_t[i] = mv1i[0]/m1;
+                this->bodies[0].node_contact_y_t[i] = mv1i[1]/m1;
+
+                this->bodies[1].node_contact_mx_t[i] = mv2i[0];
+                this->bodies[1].node_contact_my_t[i] = mv2i[1];
+
+                this->bodies[1].node_contact_x_t[i] = mv2i[0]/m2;
+                this->bodies[1].node_contact_y_t[i] = mv2i[1]/m2;
+            }
+        }
+    }
+
     return;
 }
 
@@ -707,30 +863,30 @@ void job_t::addBoundaryConditions(){
 }
 
 void job_t::moveGridExplicit(){
-    if (this->use_3d==1) {
-        for (size_t b = 0; b < this->num_bodies; b++) {
-            for (size_t i = 0; i < this->num_nodes; i++) {
-                double m = this->bodies[b].nodes[i].m[0];
-                if (m > TOL) {
-                    this->bodies[b].nodes[i].contact_mx_t[0] += this->dt * this->bodies[b].nodes[i].contact_fx[0];
-                    this->bodies[b].nodes[i].contact_my_t[0] += this->dt * this->bodies[b].nodes[i].contact_fy[0];
-                    this->bodies[b].nodes[i].contact_mz_t[0] += this->dt * this->bodies[b].nodes[i].contact_fz[0];
+    //if (this->use_3d==1) {
+    for (size_t b = 0; b < this->num_bodies; b++) {
+        for (size_t i = 0; i < this->num_nodes; i++) {
+            double m = this->bodies[b].nodes[i].m[0];
+            if (m > TOL) {
+                this->bodies[b].nodes[i].contact_mx_t[0] += this->dt * this->bodies[b].nodes[i].contact_fx[0];
+                this->bodies[b].nodes[i].contact_my_t[0] += this->dt * this->bodies[b].nodes[i].contact_fy[0];
+                this->bodies[b].nodes[i].contact_mz_t[0] += this->dt * this->bodies[b].nodes[i].contact_fz[0];
 
-                    this->bodies[b].nodes[i].contact_x_t[0] = this->bodies[b].nodes[i].contact_mx_t[0] / m;
-                    this->bodies[b].nodes[i].contact_y_t[0] = this->bodies[b].nodes[i].contact_my_t[0] / m;
-                    this->bodies[b].nodes[i].contact_z_t[0] = this->bodies[b].nodes[i].contact_mz_t[0] / m;
-                } else {
-                    this->bodies[b].nodes[i].contact_x_t[0] = 0;
-                    this->bodies[b].nodes[i].contact_y_t[0] = 0;
-                    this->bodies[b].nodes[i].contact_z_t[0] = 0;
-                }
-
+                this->bodies[b].nodes[i].contact_x_t[0] = this->bodies[b].nodes[i].contact_mx_t[0] / m;
+                this->bodies[b].nodes[i].contact_y_t[0] = this->bodies[b].nodes[i].contact_my_t[0] / m;
+                this->bodies[b].nodes[i].contact_z_t[0] = this->bodies[b].nodes[i].contact_mz_t[0] / m;
+            } else {
+                this->bodies[b].nodes[i].contact_x_t[0] = 0;
+                this->bodies[b].nodes[i].contact_y_t[0] = 0;
+                this->bodies[b].nodes[i].contact_z_t[0] = 0;
             }
+
         }
-        return;
-    } else {
-        return this->moveGridExplicit2D();
     }
+    return;
+    //} else {
+    //    return this->moveGridExplicit2D();
+    //}
 }
 
 void job_t::moveGridExplicit2D(){
@@ -757,58 +913,58 @@ void job_t::moveGridExplicit2D(){
 }
 
 void job_t::moveParticlesExplicit(){
-    if (this->use_3d==1) {
-        for (size_t b = 0; b < this->num_bodies; b++) {
-            //use Eigen Map to point to particle array
-            size_t numRowsP = this->bodies[b].p;
-            size_t numColsP = 1;
+    //if (this->use_3d==1) {
+    for (size_t b = 0; b < this->num_bodies; b++) {
+        //use Eigen Map to point to particle array
+        size_t numRowsP = this->bodies[b].p;
+        size_t numColsP = 1;
 
-            //use Eigen Map to point to node array
-            size_t numRowsN = this->bodies[b].n;
-            size_t numColsN = 1;
+        //use Eigen Map to point to node array
+        size_t numRowsN = this->bodies[b].n;
+        size_t numColsN = 1;
 
-            //use to create dummy pvec
-            Eigen::MatrixXd pvec(numRowsP, numColsP);
+        //use to create dummy pvec
+        Eigen::VectorXd pvec(numRowsP);
 
-            for (size_t i = 0; i < this->bodies[b].n; i++) {
-                double m = this->bodies[b].nodes[i].m[0];
-                if (m != 0) {
-                    this->bodies[b].nodes[i].ux[0] = this->dt * this->bodies[b].nodes[i].contact_mx_t[0] / m;
-                    this->bodies[b].nodes[i].uy[0] = this->dt * this->bodies[b].nodes[i].contact_my_t[0] / m;
-                    this->bodies[b].nodes[i].uz[0] = this->dt * this->bodies[b].nodes[i].contact_mz_t[0] / m;
+        for (size_t i = 0; i < this->bodies[b].n; i++) {
+            double m = this->bodies[b].nodes[i].m[0];
+            if (m != 0) {
+                this->bodies[b].nodes[i].ux[0] = this->dt * this->bodies[b].nodes[i].contact_mx_t[0] / m;
+                this->bodies[b].nodes[i].uy[0] = this->dt * this->bodies[b].nodes[i].contact_my_t[0] / m;
+                this->bodies[b].nodes[i].uz[0] = this->dt * this->bodies[b].nodes[i].contact_mz_t[0] / m;
 
-                    this->bodies[b].nodes[i].diff_x_t[0] = this->dt * this->bodies[b].nodes[i].contact_fx[0] / m;
-                    this->bodies[b].nodes[i].diff_y_t[0] = this->dt * this->bodies[b].nodes[i].contact_fy[0] / m;
-                    this->bodies[b].nodes[i].diff_z_t[0] = this->dt * this->bodies[b].nodes[i].contact_fz[0] / m;
-                } else {
-                    this->bodies[b].nodes[i].ux[0] = 0;
-                    this->bodies[b].nodes[i].uy[0] = 0;
-                    this->bodies[b].nodes[i].uz[0] = 0;
+                this->bodies[b].nodes[i].diff_x_t[0] = this->dt * this->bodies[b].nodes[i].contact_fx[0] / m;
+                this->bodies[b].nodes[i].diff_y_t[0] = this->dt * this->bodies[b].nodes[i].contact_fy[0] / m;
+                this->bodies[b].nodes[i].diff_z_t[0] = this->dt * this->bodies[b].nodes[i].contact_fz[0] / m;
+            } else {
+                this->bodies[b].nodes[i].ux[0] = 0;
+                this->bodies[b].nodes[i].uy[0] = 0;
+                this->bodies[b].nodes[i].uz[0] = 0;
 
-                    this->bodies[b].nodes[i].diff_x_t[0] = 0;
-                    this->bodies[b].nodes[i].diff_y_t[0] = 0;
-                    this->bodies[b].nodes[i].diff_z_t[0] = 0;
-                }
+                this->bodies[b].nodes[i].diff_x_t[0] = 0;
+                this->bodies[b].nodes[i].diff_y_t[0] = 0;
+                this->bodies[b].nodes[i].diff_z_t[0] = 0;
             }
-
-            //map back to particles using S transpose
-            this->bodies[b].particle_x += this->bodies[b].Phi.transpose() * this->bodies[b].node_ux;
-            this->bodies[b].particle_y += this->bodies[b].Phi.transpose() * this->bodies[b].node_uy;
-            this->bodies[b].particle_z += this->bodies[b].Phi.transpose() * this->bodies[b].node_uz;
-
-            this->bodies[b].particle_ux += this->bodies[b].Phi.transpose() * this->bodies[b].node_ux;
-            this->bodies[b].particle_uy += this->bodies[b].Phi.transpose() * this->bodies[b].node_uy;
-            this->bodies[b].particle_uz += this->bodies[b].Phi.transpose() * this->bodies[b].node_uz;
-
-            this->bodies[b].particle_x_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_x_t;
-            this->bodies[b].particle_y_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_y_t;
-            this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_z_t;
-
         }
-        return;
-    } else {
-        return this->moveParticlesExplicit2D();
+
+        //map back to particles using S transpose
+        this->bodies[b].particle_x += this->bodies[b].Phi.transpose() * this->bodies[b].node_ux;
+        this->bodies[b].particle_y += this->bodies[b].Phi.transpose() * this->bodies[b].node_uy;
+        this->bodies[b].particle_z += this->bodies[b].Phi.transpose() * this->bodies[b].node_uz;
+
+        this->bodies[b].particle_ux += this->bodies[b].Phi.transpose() * this->bodies[b].node_ux;
+        this->bodies[b].particle_uy += this->bodies[b].Phi.transpose() * this->bodies[b].node_uy;
+        this->bodies[b].particle_uz += this->bodies[b].Phi.transpose() * this->bodies[b].node_uz;
+
+        this->bodies[b].particle_x_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_x_t;
+        this->bodies[b].particle_y_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_y_t;
+        this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_z_t;
+
     }
+    return;
+    //} else {
+    //    return this->moveParticlesExplicit2D();
+    //}
 }
 
 void job_t::moveParticlesExplicit2D(){
@@ -822,7 +978,8 @@ void job_t::moveParticlesExplicit2D(){
         size_t numColsN = 1;
 
         //use to create dummy pvec
-        Eigen::MatrixXd pvec(numRowsP, numColsP);
+        //Eigen::VectorXd pvec(numRowsP);
+        Eigen::VectorXd pvec(numRowsP);
 
         for (size_t i=0;i<this->bodies[b].n;i++){
             double m = this->bodies[b].nodes[i].m[0];
@@ -863,75 +1020,75 @@ void job_t::moveParticlesExplicit2D(){
 }
 
 void job_t::calculateStrainRate() {
-    if (this->use_3d==1) {
-        for (size_t b = 0; b < this->num_bodies; b++) {
-            //map nodal velocities with Eigen
-            size_t numRowsN = this->bodies[b].n;
-            size_t numColsN = 1;
+    //if (this->use_3d==1) {
+    for (size_t b = 0; b < this->num_bodies; b++) {
+        //map nodal velocities with Eigen
+        size_t numRowsN = this->bodies[b].n;
+        size_t numColsN = 1;
 
-            //nodal velocities
-            this->bodies[b].node_contact_x_t =
-                    this->bodies[b].node_contact_mx_t.array() / this->bodies[b].node_m.array();
-            this->bodies[b].node_contact_y_t =
-                    this->bodies[b].node_contact_my_t.array() / this->bodies[b].node_m.array();
-            this->bodies[b].node_contact_z_t =
-                    this->bodies[b].node_contact_mz_t.array() / this->bodies[b].node_m.array();
+        //nodal velocities
+        this->bodies[b].node_contact_x_t =
+                this->bodies[b].node_contact_mx_t.array() / this->bodies[b].node_m.array();
+        this->bodies[b].node_contact_y_t =
+                this->bodies[b].node_contact_my_t.array() / this->bodies[b].node_m.array();
+        this->bodies[b].node_contact_z_t =
+                this->bodies[b].node_contact_mz_t.array() / this->bodies[b].node_m.array();
 
-            //use to create dummy pvec
-            size_t numRowsP = this->bodies[b].p;
-            size_t numColsP = 1;
-            Eigen::MatrixXd pvec(numRowsP, numColsP);
+        //use to create dummy pvec
+        size_t numRowsP = this->bodies[b].p;
+        size_t numColsP = 1;
+        Eigen::VectorXd pvec(numRowsP);
 
-            //calculate particle[i].L[9]
-            pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].node_contact_x_t;
-            for (size_t i = 0; i < this->bodies[b].p; i++) {
-                this->bodies[b].particles[i].L[XX] = pvec(i, 0);
-            }
-
-            pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].node_contact_x_t;
-            for (size_t i = 0; i < this->bodies[b].p; i++) {
-                this->bodies[b].particles[i].L[XY] = pvec(i, 0);
-            }
-
-            pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].node_contact_x_t;
-            for (size_t i = 0; i < this->bodies[b].p; i++) {
-                this->bodies[b].particles[i].L[XZ] = pvec(i, 0);
-            }
-
-            pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].node_contact_y_t;
-            for (size_t i = 0; i < this->bodies[b].p; i++) {
-                this->bodies[b].particles[i].L[YX] = pvec(i, 0);
-            }
-
-            pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].node_contact_y_t;
-            for (size_t i = 0; i < this->bodies[b].p; i++) {
-                this->bodies[b].particles[i].L[YY] = pvec(i, 0);
-            }
-
-            pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].node_contact_y_t;
-            for (size_t i = 0; i < this->bodies[b].p; i++) {
-                this->bodies[b].particles[i].L[YZ] = pvec(i, 0);
-            }
-
-            pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].node_contact_z_t;
-            for (size_t i = 0; i < this->bodies[b].p; i++) {
-                this->bodies[b].particles[i].L[ZX] = pvec(i, 0);
-            }
-
-            pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].node_contact_z_t;
-            for (size_t i = 0; i < this->bodies[b].p; i++) {
-                this->bodies[b].particles[i].L[ZY] = pvec(i, 0);
-            }
-
-            pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].node_contact_z_t;
-            for (size_t i = 0; i < this->bodies[b].p; i++) {
-                this->bodies[b].particles[i].L[ZZ] = pvec(i, 0);
-            }
+        //calculate particle[i].L[9]
+        pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].node_contact_x_t;
+        for (size_t i = 0; i < this->bodies[b].p; i++) {
+            this->bodies[b].particles[i].L[XX] = pvec[i];
         }
-        return;
-    } else {
-        return this->calculateStrainRate2D();
+
+        pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].node_contact_x_t;
+        for (size_t i = 0; i < this->bodies[b].p; i++) {
+            this->bodies[b].particles[i].L[XY] = pvec[i];
+        }
+
+        pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].node_contact_x_t;
+        for (size_t i = 0; i < this->bodies[b].p; i++) {
+            this->bodies[b].particles[i].L[XZ] = pvec[i];
+        }
+
+        pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].node_contact_y_t;
+        for (size_t i = 0; i < this->bodies[b].p; i++) {
+            this->bodies[b].particles[i].L[YX] = pvec[i];
+        }
+
+        pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].node_contact_y_t;
+        for (size_t i = 0; i < this->bodies[b].p; i++) {
+            this->bodies[b].particles[i].L[YY] = pvec[i];
+        }
+
+        pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].node_contact_y_t;
+        for (size_t i = 0; i < this->bodies[b].p; i++) {
+            this->bodies[b].particles[i].L[YZ] = pvec[i];
+        }
+
+        pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].node_contact_z_t;
+        for (size_t i = 0; i < this->bodies[b].p; i++) {
+            this->bodies[b].particles[i].L[ZX] = pvec[i];
+        }
+
+        pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].node_contact_z_t;
+        for (size_t i = 0; i < this->bodies[b].p; i++) {
+            this->bodies[b].particles[i].L[ZY] = pvec[i];
+        }
+
+        pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].node_contact_z_t;
+        for (size_t i = 0; i < this->bodies[b].p; i++) {
+            this->bodies[b].particles[i].L[ZZ] = pvec[i];
+        }
     }
+    return;
+    //} else {
+    //    return this->calculateStrainRate2D();
+    //}
 }
 
 void job_t::calculateStrainRate2D() {
@@ -948,17 +1105,18 @@ void job_t::calculateStrainRate2D() {
         //use to create dummy pvec
         size_t numRowsP = this->bodies[b].p;
         size_t numColsP = 1;
-        Eigen::MatrixXd pvec(numRowsP,numColsP);
+        //Eigen::MatrixXd pvec(numRowsP,numColsP);
+        Eigen::VectorXd pvec(numRowsP);
 
         //calculate particle[i].L[9]
         pvec = this->bodies[b].gradPhiX.transpose()*this->bodies[b].node_contact_x_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[XX] = pvec(i,0);
+            this->bodies[b].particles[i].L[XX] = pvec[i];
         }
 
         pvec = this->bodies[b].gradPhiY.transpose()*this->bodies[b].node_contact_x_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[XY] = pvec(i,0);
+            this->bodies[b].particles[i].L[XY] = pvec[i];
         }
 
         //pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].node_contact_x_t;
@@ -968,12 +1126,12 @@ void job_t::calculateStrainRate2D() {
 
         pvec = this->bodies[b].gradPhiX.transpose()*this->bodies[b].node_contact_y_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[YX] = pvec(i,0);
+            this->bodies[b].particles[i].L[YX] = pvec[i];
         }
 
         pvec = this->bodies[b].gradPhiY.transpose()*this->bodies[b].node_contact_y_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[YY] = pvec(i,0);
+            this->bodies[b].particles[i].L[YY] = pvec[i];
         }
 
         //pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].node_contact_y_t;
@@ -1061,16 +1219,10 @@ int job_t::mpmStepUSLExplicit() {
     return 1;
 }
 
-int job_t::mpmStepUSLExplicitDebug() {
+int job_t::mpmStepUSLExplicit2D() {
     //forward step
     this->t += this->dt;
     this->stepcount += 1;
-
-    for (size_t i=0;i<this->bodies[0].e;i++){
-        if (i != this->bodies[0].elements[i].id){
-            std::cout << "Elemend ID Error! " << i << " != " << this->bodies[0].elements[i].id << "\n";
-        }
-    }
 
     //create particle map
     this->createMappings();
@@ -1079,19 +1231,19 @@ int job_t::mpmStepUSLExplicitDebug() {
     this->mapParticles2Grid();
 
     //add contact forces
-    this->addContactForces();
+    this->addContactForces2D();
 
     //enforce boundary conditions
     this->addBoundaryConditions();
 
     //move grid
-    this->moveGridExplicit();
+    this->moveGridExplicit2D();
 
     //move particles
-    this->moveParticlesExplicit();
+    this->moveParticlesExplicit2D();
 
     //calculate L on particles
-    this->calculateStrainRate();
+    this->calculateStrainRate2D();
 
     //update particle densities
     this->updateDensity();

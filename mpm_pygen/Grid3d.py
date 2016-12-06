@@ -4,12 +4,16 @@ import Primitives3d
 import CSGTree3d
 
 class CartesianPointGrid:
-    def __init__(self, Lx, Ly, Lz, num_linear_elements, linear_element_material_point_density):
+    def __init__(self, Lx, Ly, Lz, num_linear_elements_x, num_linear_elements_y, num_linear_elements_z, linear_element_material_point_density):
         self.Lx = float(Lx)
         self.Ly = float(Ly)
         self.Lz = float(Lz)
-        self.Ne = num_linear_elements
-        self.Nn = self.Ne + 1
+        self.Nex = num_linear_elements_x
+        self.Ney = num_linear_elements_y
+        self.Nez = num_linear_elements_z
+        self.Nnx = self.Nex + 1
+        self.Nny = self.Ney + 1
+        self.Nnz = self.Nez + 1
         self.lmpdensity = linear_element_material_point_density
         self.primitive = None
 
@@ -25,13 +29,13 @@ class CartesianPointGrid:
         xyz_s = [(x,y,z) for x in s for y in s for z in s]
 
         # element spacing
-        dx = self.Lx / self.Ne
-        dy = self.Ly / self.Ne
-        dz = self.Lz / self.Ne
+        dx = self.Lx / self.Nex
+        dy = self.Ly / self.Ney
+        dz = self.Lz / self.Nez
 
-        ijk_array = [(i, j, k) for i in range(0, self.Ne) for j in range(0, self.Ne) for k in range(0, self.Ne)]
+        ijk_array = [(i, j, k) for i in range(0, self.Nex) for j in range(0, self.Ney) for k in range(0, self.Nez)]
 
-        xyz_nodes = map(lambda ijk: (self.Lx*float(ijk[0])/self.Ne, self.Ly*float(ijk[1])/self.Ne, self.Lz*float(ijk[2])/self.Ne), ijk_array)
+        xyz_nodes = map(lambda ijk: (self.Lx*float(ijk[0])/self.Nex, self.Ly*float(ijk[1])/self.Ney, self.Lz*float(ijk[2])/self.Nez), ijk_array)
 
         xyz_material_point_candidates = []
         i=0
@@ -51,7 +55,7 @@ class CartesianPointGrid:
 
     def write_grid_file(self, filename):
         with open(filename, 'w') as f:
-            f.write('{}\n{}\n'.format(self.Nn, self.Lx))
+            f.write('{} {} {}\n{} {} {}\n'.format(self.Nnx,self.Nny,self.Nnz,self.Lx,self.Ly,self.Lz))
 
 if __name__ == '__main__':
     g = CartesianPointGrid(1, 1, 1, 100, 1)

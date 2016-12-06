@@ -49,23 +49,25 @@ public:
         //gPhic = hx^3/8*A_i(r^p_c)*gradA_i(r*^p)
         double r,s,t;
         double rp,sp,tp;
-        double dx = body->nodes[nodeID[1]].x[0] - body->nodes[nodeID[0]].x[0];
-        if (dx <= 0){
-            std::cout << "Error! dx <= 0 in element.calculatePhic()\n";
+        double dx = body->nodes[nodeID[7]].x[0] - body->nodes[nodeID[0]].x[0];
+        double dy = body->nodes[nodeID[7]].y[0] - body->nodes[nodeID[0]].y[0];
+        double dz = body->nodes[nodeID[7]].z[0] - body->nodes[nodeID[0]].z[0];
+        if (dx <= 0 || dy<=0 || dz<=0){
+            std::cout << "Error! h <= 0 in element: " << id << "\n";
             //std::cout << "Element: " << id << "\n";
             //std::cout << "nodeIDs: " << nodeID[0] << ", " << nodeID[1] << "\n";
         } else {
             r = (particle->corner[idc][0] - body->nodes[nodeID[0]].x[0])/dx;
-            s = (particle->corner[idc][1] - body->nodes[nodeID[0]].y[0])/dx;
-            t = (particle->corner[idc][2] - body->nodes[nodeID[0]].z[0])/dx;
+            s = (particle->corner[idc][1] - body->nodes[nodeID[0]].y[0])/dy;
+            t = (particle->corner[idc][2] - body->nodes[nodeID[0]].z[0])/dz;
 
             if (r<0 || s<0 || t<0) {
                 std::cout << "Error! <r,s,t> has negative component!\n";
             }
 
             rp = (particle->x[0] - body->nodes[nodeID[0]].x[0])/dx;
-            sp = (particle->y[0] - body->nodes[nodeID[0]].y[0])/dx;
-            tp = (particle->z[0] - body->nodes[nodeID[0]].z[0])/dx;
+            sp = (particle->y[0] - body->nodes[nodeID[0]].y[0])/dy;
+            tp = (particle->z[0] - body->nodes[nodeID[0]].z[0])/dz;
 
             double a = particle->a[0];
             double v = particle->v_averaging[0];

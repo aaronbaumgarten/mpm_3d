@@ -56,6 +56,11 @@ void MPMio::setSampleRate(double rateIn) {
 
 void MPMio::setJob(job_t *jobIn) {
     this->job = jobIn;
+
+    this->xLimit = jobIn->Lx;
+    this->yLimit = jobIn->Ly;
+    this->zLimit = jobIn->Lz;
+
     return;
 }
 
@@ -93,7 +98,25 @@ void MPMio::writeFrame(){
     return;
 }
 
-void MPMio::writeFrame(job_t* jobIn){
+void MPMio::writeFrame(job_t* jobIn) {
+    writeParticles(jobIn);
+    writeNodes(jobIn);
+    return;
+}
+
+void MPMio::writeParticles(job_t* jobIn) {
+    // set limits on position
+    this->xLimit = jobIn->Lx;
+    this->yLimit = jobIn->Ly;
+    this->zLimit = jobIn->Lz;
+
+    /*double xTest = -2.20021e46;
+    std::cout << std::fabs(xTest) << "\n" << xTest << "\n";
+    if (std::isnan(xTest) || std::isinf(xTest) || std::fabs(xTest)>this->xLimit){
+        xTest = this->xLimit;
+    }
+    std::cout << xTest << "\n";*/
+
     //open frame file to write
     std::ostringstream s;
     s << this->frameDirectory << "/" << this->frameFile << "." << std::setw(10) << std::setfill('0') << this->sampledFrames << ".vtk";
@@ -123,25 +146,33 @@ void MPMio::writeFrame(job_t* jobIn){
                 //ffile << jobIn->bodies[b].particles[i].y[0] << " ";
                 //ffile << jobIn->bodies[b].particles[i].z[0] << "\n";
 
-                if (std::isnan(x) || std::isinf(x)){
+                if (std::isnan(x) || std::isinf(x) || x<0){
                     x = 0;
+                } else if (x>this->xLimit){
+                    x = this->xLimit;
                 }
-                if (std::isnan(y) || std::isinf(y)){
+                if (std::isnan(y) || std::isinf(y) ||y<0) {
                     y = 0;
+                } else if (y>this->yLimit) {
+                    y = this->yLimit;
                 }
-                if (std::isnan(z) || std::isinf(z) || job->use_3d!=1){
+                if (std::isnan(z) || std::isinf(z) || job->use_3d!=1) {
                     z = 0; // if 2d set z to 0
+                } else if (z>this->zLimit) {
+                    z = this->zLimit;
                 }
                 ffile << x << " " << y << " " << z << "\n";
             }
         }
 
+        double countCell = 0;
         ffile << "CELLS " << numPoints.str() << " " << strSize.str() << "\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
                 std::ostringstream line;
-                line << "1 " << i << "\n";
+                line << "1 " << countCell << "\n";
                 ffile << line.str();
+                countCell += 1;
             }
         }
 
@@ -256,6 +287,7 @@ void MPMio::writeFrame(job_t* jobIn){
                 std::ostringstream line;
                 double P = 0;
                 tensor_trace3(&P,jobIn->bodies[b].particles[i].T);
+                P = -P/3.0;
                 //if p is nan set to zero
                 if (std::isnan(P) || std::isinf(P)){
                     P=0;
@@ -489,9 +521,208 @@ void MPMio::writeFrame(job_t* jobIn){
             }
         }
 
+        ffile << "TENSORS state double\n";
+        //ffile << "LOOKUP_TABLE default\n";
+        for (size_t b=0; b<jobIn->num_bodies; b++){
+            for (size_t i=0; i<jobIn->bodies[b].p; i++){
+                std::ostringstream line;
+
+                //set nan gradients to 0
+                double fxx = jobIn->bodies[b].particles[i].state[XX];
+                double fxy = jobIn->bodies[b].particles[i].state[XY];
+                double fxz = jobIn->bodies[b].particles[i].state[XZ];
+                double fyx = jobIn->bodies[b].particles[i].state[YX];
+                double fyy = jobIn->bodies[b].particles[i].state[YY];
+                double fyz = jobIn->bodies[b].particles[i].state[YZ];
+                double fzx = jobIn->bodies[b].particles[i].state[ZX];
+                double fzy = jobIn->bodies[b].particles[i].state[ZY];
+                double fzz = jobIn->bodies[b].particles[i].state[ZZ];
+
+                if (std::isnan(fxx) || std::isinf(fxx)){
+                    fxx = 0;
+                }
+                if (std::isnan(fxy) || std::isinf(fxy)){
+                    fxy = 0;
+                }
+                if (std::isnan(fxz) || std::isinf(fxz)){
+                    fxz = 0;
+                }
+                if (std::isnan(fyx) || std::isinf(fyx)){
+                    fyx = 0;
+                }
+                if (std::isnan(fyy) || std::isinf(fyy)){
+                    fyy = 0;
+                }
+                if (std::isnan(fyz) || std::isinf(fyz)){
+                    fyz = 0;
+                }
+                if (std::isnan(fzx) || std::isinf(fzx)){
+                    fzx = 0;
+                }
+                if (std::isnan(fzy) || std::isinf(fzy)){
+                    fzy = 0;
+                }
+                if (std::isnan(fzz) || std::isinf(fzz)){
+                    fzz = 0;
+                }
+
+                //line << jobIn->bodies[b].particles[i].Fp[XX] << " " << jobIn->bodies[b].particles[i].Fp[XY] << " " << jobIn->bodies[b].particles[i].Fp[XZ] << "\n";
+                //line << jobIn->bodies[b].particles[i].Fp[YX] << " " << jobIn->bodies[b].particles[i].Fp[YY] << " " << jobIn->bodies[b].particles[i].Fp[YZ] << "\n";
+                //line << jobIn->bodies[b].particles[i].Fp[ZX] << " " << jobIn->bodies[b].particles[i].Fp[ZY] << " " << jobIn->bodies[b].particles[i].Fp[ZZ] << "\n";
+
+                line << fxx << " " << fxy << " " << fxz << "\n";
+                line << fyx << " " << fyy << " " << fyz << "\n";
+                line << fzx << " " << fzy << " " << fzz << "\n";
+                ffile << line.str() << std::endl;
+            }
+        }
+
+        ffile << "SCALARS state9 double 1\n";
+        ffile << "LOOKUP_TABLE default\n";
+        for (size_t b=0; b<jobIn->num_bodies; b++){
+            for (size_t i=0; i<jobIn->bodies[b].p; i++){
+                std::ostringstream line;
+                double P = jobIn->bodies[b].particles[i].state[9];
+                //if p is nan set to zero
+                if (std::isnan(P) || std::isinf(P)){
+                    P=0;
+                }
+                line << P << "\n";
+                ffile << line.str();
+            }
+        }
+
+        ffile << "SCALARS state10 double 1\n";
+        ffile << "LOOKUP_TABLE default\n";
+        for (size_t b=0; b<jobIn->num_bodies; b++){
+            for (size_t i=0; i<jobIn->bodies[b].p; i++){
+                std::ostringstream line;
+                double P = jobIn->bodies[b].particles[i].state[10];
+                //if p is nan set to zero
+                if (std::isnan(P) || std::isinf(P)){
+                    P=0;
+                }
+                line << P << "\n";
+                ffile << line.str();
+            }
+        }
+
         ffile.close();
     } else {
         std::cout << "Unable to open frame output file in MPMio object.\n";
+    }
+}
+
+void MPMio::writeNodes(job_t* jobIn) {
+    for (size_t b=0; b<jobIn->num_bodies;b++) {
+        //open frame file to write
+        std::ostringstream s;
+        s << this->frameDirectory << "/n" << b << this->frameFile << "." << std::setw(10) << std::setfill('0') <<
+        this->sampledFrames << ".vtk";
+        std::ofstream ffile(s.str(), std::ios::trunc);
+
+        //write frame data
+        if (ffile.is_open()) {
+            std::ostringstream fheader;
+            fheader << "Frame: " << this->sampledFrames << ", Time: " << jobIn->t << "\n";
+            std::ostringstream numPoints;
+            numPoints << jobIn->num_nodes;
+            std::ostringstream strSize;
+            strSize << (jobIn->num_nodes * 2);
+            ffile << "# vtk DataFile Version 3.0\n";
+            ffile << fheader.str();
+            ffile << "ASCII\n";
+            ffile << "DATASET UNSTRUCTURED_GRID\n";
+
+            ffile << "POINTS " << numPoints.str() << " double\n";
+            for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
+                //position
+                double x = jobIn->bodies[b].nodes[i].x[0];
+                double y = jobIn->bodies[b].nodes[i].y[0];
+                double z = jobIn->bodies[b].nodes[i].z[0];
+                //ffile << jobIn->bodies[b].particles[i].x[0] << " ";
+                //ffile << jobIn->bodies[b].particles[i].y[0] << " ";
+                //ffile << jobIn->bodies[b].particles[i].z[0] << "\n";
+
+                if (std::isnan(x) || std::isinf(x)) {
+                    x = 0;
+                }
+                if (std::isnan(y) || std::isinf(y)) {
+                    y = 0;
+                }
+                if (std::isnan(z) || std::isinf(z) || job->use_3d != 1) {
+                    z = 0; // if 2d set z to 0
+                }
+                ffile << x << " " << y << " " << z << "\n";
+            }
+
+            ffile << "CELLS " << numPoints.str() << " " << strSize.str() << "\n";
+            for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
+                std::ostringstream line;
+                line << "1 " << i << "\n";
+                ffile << line.str();
+            }
+
+            ffile << "CELL_TYPES " << numPoints.str() << "\n";
+            for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
+                ffile << "1\n";
+            }
+
+            ffile << "POINT_DATA " << numPoints.str() << "\n";
+            ffile << "SCALARS mass double 1\n";
+            ffile << "LOOKUP_TABLE default\n";
+            for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
+                std::ostringstream line;
+                line << jobIn->bodies[b].nodes[i].m[0] << "\n";
+                ffile << line.str();
+            }
+
+            ffile << "VECTORS velocity double\n";
+            //ffile << "LOOKUP_TABLE default\n";
+            for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
+                std::ostringstream line;
+                //set velocity to zeros if nan
+                double x_t = jobIn->bodies[b].nodes[i].contact_x_t[0];
+                double y_t = jobIn->bodies[b].nodes[i].contact_y_t[0];
+                double z_t = jobIn->bodies[b].nodes[i].contact_z_t[0];
+                if (std::isnan(x_t) || std::isinf(x_t)) {
+                    x_t = 0;
+                }
+                if (std::isnan(y_t) || std::isinf(y_t)) {
+                    y_t = 0;
+                }
+                if (std::isnan(z_t) || std::isinf(z_t)) {
+                    z_t = 0;
+                }
+                line << x_t << " " << y_t << " " << z_t << "\n";
+                ffile << line.str();
+            }
+
+            ffile << "VECTORS force double\n";
+            //ffile << "LOOKUP_TABLE default\n";
+            for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
+                std::ostringstream line;
+                //set body force to zero is nan
+                double bx = jobIn->bodies[b].nodes[i].contact_fx[0];
+                double by = jobIn->bodies[b].nodes[i].contact_fy[0];
+                double bz = jobIn->bodies[b].nodes[i].contact_fz[0];
+                if (std::isnan(bx) || std::isinf(bx)) {
+                    bx = 0;
+                }
+                if (std::isnan(by) || std::isinf(by)) {
+                    by = 0;
+                }
+                if (std::isnan(bz) || std::isinf(bz)) {
+                    bz = 0;
+                }
+                line << bx << " " << by << " " << bz << "\n";
+                ffile << line.str();
+            }
+
+            ffile.close();
+        } else {
+            std::cout << "Unable to open frame output file in MPMio object.\n";
+        }
     }
 }
 

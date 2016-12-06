@@ -14,7 +14,7 @@
 #include "tensor.hpp"
 
 #define MAT_VERSION_STRING "1.0" __DATE__ " " __TIME__
-#define MU_S 0.13 //from sachith
+#define MU_S 0.3819 //from sachith
 
 /* timestep passed as argument */
 double dt = 1e-6;
@@ -46,6 +46,8 @@ void material_init(Body *body) {
         body->particles[i].state[XX] = 1;
         body->particles[i].state[YY] = 1;
         body->particles[i].state[ZZ] = 1;
+
+        body->particles[i].state[9] = 1; //detF
 
         body->particles[i].F[XX] = 1;
         body->particles[i].F[YY] = 1;
@@ -130,13 +132,18 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
         tensor_scale3(tmp,dt);
         tensor_add3(f,one,tmp); //calculate f
 
+
+
         tensor_copy3(tmp,body->particles[i].F);
         tensor_multiply3(body->particles[i].F,f,tmp); //update F
 
-        tensor_det3(&J,body->particles[i].F);
+        //tensor_det3(&J,body->particles[i].F);
+        tensor_det3(&detf,f);
+        J = body->particles[i].state[9] * detf;
+        body->particles[i].state[9] = J;
         p = K/2.0 * (J*J-1) / J; //calculate pressure
 
-        if (-J*p<0){
+        if (-p<0){
             //std::cout << "no pressure " << J << "\n";
             p = 0; //only allow compression (sand)
             for (size_t idT = 0; idT<9; idT++){
@@ -146,10 +153,11 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
             Iebar = Iebar/3.0;
             tensor_copy3(body->particles[i].state,one);
             tensor_scale3(body->particles[i].state,Iebar);
+            body->particles[i].state[9] = 1;
             continue;
         }
 
-        tensor_det3(&detf,f);
+        //tensor_det3(&detf,f);
         tensor_copy3(fbar,f);
         tensor_scale3(fbar,1/cbrt(detf)); //calculate f isochoric
 
@@ -162,7 +170,7 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
         tensor_scale3(s,G); //calculate deviatoric stress
 
         tensor_mag3(&mags,s);
-        yield = -J*p*MU_S;
+        yield = -p*MU_S;
         fplastic = mags - sqrt(2.0/3.0)*yield; //plastic flow rule
 
         //plastic flow
@@ -181,10 +189,12 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
             tensor_add3(s,tmp,tmp2); //remove stress resulting in plastic flow
 
             tensor_copy3(tmp,one);
-            tensor_scale3(tmp,-Iebar);
+            tensor_scale3(tmp,Iebar);
             tensor_copy3(tmp2,s);
             tensor_scale3(tmp2,1/G);
             tensor_add3(bebar,tmp2,tmp); //update isochoric left cauchy green tensor
+        } else {
+            //std::cout << "no plascity" << std::endl;
         }
 
         tensor_copy3(tmp,one);

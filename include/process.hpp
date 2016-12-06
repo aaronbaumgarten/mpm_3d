@@ -67,7 +67,7 @@ public:
 
     //functions
     job_t();
-    inline void node_number_to_coords(double *, double *, double *, size_t, size_t, double);
+    inline void node_number_to_coords(double *, double *, double *, size_t, size_t, size_t, size_t, double, double, double);
     inline int ijkton_safe(int,int,int,int,int,int);
 
     //initialization
@@ -81,7 +81,7 @@ public:
     int assignBoundaryConditions(const char*);
 
     int mpmStepUSLExplicit();
-    int mpmStepUSLExplicitDebug();
+    int mpmStepUSLExplicit2D();
     //usl step
     int createMappings();
     void mapParticles2Grid();

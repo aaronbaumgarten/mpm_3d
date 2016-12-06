@@ -14,7 +14,7 @@
 #include "tensor.hpp"
 
 namespace material1 {
-//#include "isolin.cpp"
+#include "isolin.cpp"
 //#include "hyperelastic.cpp"
-#include "dp_plasticity.cpp"
+//#include "dp_plasticity.cpp"
 }
