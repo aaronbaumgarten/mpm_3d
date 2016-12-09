@@ -39,6 +39,7 @@ public:
 
     //mpm type
     int use_3d;
+    int use_implicit;
     int use_cpdi;
 
     //node positions
@@ -81,7 +82,9 @@ public:
     int assignBoundaryConditions(const char*);
 
     int mpmStepUSLExplicit();
+    int mpmStepUSLImplicit();
     int mpmStepUSLExplicit2D();
+    int mpmTrialStepUSLExplicit();
     //usl step
     int createMappings();
     void mapParticles2Grid();
@@ -95,8 +98,11 @@ public:
     void calculateStrainRate();
     void calculateStrainRate2D();
     void updateDensity();
+    void updateTrialDensity();
     void updateStress();
-
+    void updateTrialStress();
+    void mapTrialStress2Grid();
+    void calculateImplicitResidual();
 
 };
 

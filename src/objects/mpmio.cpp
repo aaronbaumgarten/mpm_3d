@@ -151,12 +151,12 @@ void MPMio::writeParticles(job_t* jobIn) {
                 } else if (x>this->xLimit){
                     x = this->xLimit;
                 }
-                if (std::isnan(y) || std::isinf(y) ||y<0) {
+                if (std::isnan(y) || std::isinf(y) || y<0) {
                     y = 0;
                 } else if (y>this->yLimit) {
                     y = this->yLimit;
                 }
-                if (std::isnan(z) || std::isinf(z) || job->use_3d!=1) {
+                if (std::isnan(z) || std::isinf(z) || job->use_3d!=1 || z<0) {
                     z = 0; // if 2d set z to 0
                 } else if (z>this->zLimit) {
                     z = this->zLimit;

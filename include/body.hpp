@@ -87,13 +87,59 @@ public:
     Eigen::VectorXd node_contact_fy;
     Eigen::VectorXd node_contact_fz;
 
-    Eigen::VectorXd node_real_contact_fx;
-    Eigen::VectorXd node_real_contact_fy;
-    Eigen::VectorXd node_real_contact_fz;
+    //Eigen::VectorXd node_real_contact_fx;
+    //Eigen::VectorXd node_real_contact_fy;
+    //Eigen::VectorXd node_real_contact_fz;
 
     Eigen::VectorXd node_contact_normal_x;
     Eigen::VectorXd node_contact_normal_y;
     Eigen::VectorXd node_contact_normal_z;
+
+    //implicit states (not stored on nodes)
+    Eigen::VectorXd node_x_t_trial;
+    Eigen::VectorXd node_y_t_trial;
+    Eigen::VectorXd node_z_t_trial;
+
+    Eigen::VectorXd node_x_t_n;
+    Eigen::VectorXd node_y_t_n;
+    Eigen::VectorXd node_z_t_n;
+
+    Eigen::VectorXd node_x_t_explicit;
+    Eigen::VectorXd node_y_t_explicit;
+    Eigen::VectorXd node_z_t_explicit;
+
+    Eigen::VectorXd node_fx_k;
+    Eigen::VectorXd node_fy_k;
+    Eigen::VectorXd node_fz_k;
+
+    Eigen::VectorXd node_fx_L;
+    Eigen::VectorXd node_fy_L;
+    Eigen::VectorXd node_fz_L;
+
+    //nodal residuals (not stored on nodes)
+    Eigen::VectorXd Rx;
+    Eigen::VectorXd Ry;
+    Eigen::VectorXd Rz;
+
+    Eigen::VectorXd Rvx;
+    Eigen::VectorXd Rvy;
+    Eigen::VectorXd Rvz;
+
+    Eigen::VectorXd DhRx;
+    Eigen::VectorXd DhRy;
+    Eigen::VectorXd DhRz;
+
+    //implicit algorithm
+    Eigen::MatrixXd wk;
+    //Eigen::VectorXd ak;//*
+    double ak;
+    Eigen::MatrixXd sk;
+    Eigen::MatrixXd rk;
+    //Eigen::VectorXd rhok;//*
+    double rhok;
+    //Eigen::VectorXd bk;//*
+    double bk;
+    Eigen::MatrixXd pk;
 
     //***** particle values *****
     //position
@@ -103,6 +149,7 @@ public:
 
     //volume
     Eigen::VectorXd particle_v;
+    Eigen::VectorXd particle_v_trial;
     Eigen::VectorXd particle_v0;
     Eigen::VectorXd particle_v_averaging;
 

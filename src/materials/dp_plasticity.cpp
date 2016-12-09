@@ -88,6 +88,14 @@ void calculate_stress(Body *body, double dtIn) {
 /*----------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------------------------*/
+void calculate_stress_implicit(Body *body, double dtIn) {
+    std::cout << "implicit method not implemented in dp_plasticity.cpp"<<std::endl;
+    exit(0);
+    return;
+}
+/*----------------------------------------------------------------------------*/
+
+/*----------------------------------------------------------------------------*/
 void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
     //printf("t = %g\nx = %g\ny = %g\n", job->t, job->particles[0].x, job->particles[0].y);
     /*printf("L: \n%g %g %g\n%g %g %g\n%g %g %g\n\n",

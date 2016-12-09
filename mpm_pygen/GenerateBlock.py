@@ -17,12 +17,12 @@ print "files named"
 #grid properties
 #Ly = Lx = Lz = 0.4
 Lx = 1.0
-Ly = 0.5
+Ly = 1.0
 Lz = 1.0
 #Ne = 40
-Nx = 100
-Ny = 50
-Nz = 100
+Nx = 20
+Ny = 20
+Nz = 20
 lmpp = 2
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
 grid2 = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
@@ -33,13 +33,13 @@ g = -9.81
 
 # free block properties
 block_properties = { 'rho': 1500.0 }
-block_width = 0.1#*Lx
-block_height = 0.1#*Lz
-block_depth = 0.1#*Ly
+block_width = 0.2#*Lx
+block_height = 0.2#*Lz
+block_depth = 0.2#*Ly
 
-block_primitive = Primitives3d.Box(0.3,0.3+block_width,
+block_primitive = Primitives3d.Box((Lx-block_width)/2, (Lx+block_width)/2,
                                  (Ly-block_depth)/2, (Ly+block_depth)/2,
-                                 (Lz-block_height)/2+0.1, (Lz+block_height)/2+0.1,
+                                 (Lz-block_height)/2, (Lz+block_height)/2,
                                  )
 block_body = CSGTree3d.Node(block_primitive)
 print "body 1 created"
@@ -74,7 +74,7 @@ print "point array 2 created"
 # add arrays to mpm dictionary
 mpm_points = []
 nb1 = len(block_point_array) #number of material points in body 1
-nb2 = len(block2_point_array)
+nb2 = 0#len(block2_point_array)
 
 grid.write_grid_file(grid_filename)
 with open(particle_filename, 'w') as f:
@@ -91,9 +91,9 @@ with open(particle_filename, 'w') as f:
     #    if (mpm_point['body'] == 1):
     #        nb1 += 1
     #    mpm_points.append(mpm_point)
-        f.write("%g %g %g %g %g %g %g %g %g\n" % (1, block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 1, 0, -1))
-    for p in block2_point_array:
-        f.write("%g %g %g %g %g %g %g %g %g\n" % (2, block2_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, -1, 0, 1))
+        f.write("%g %g %g %g %g %g %g %g %g\n" % (1, block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 0, 0, 0))
+#    for p in block2_point_array:
+#        f.write("%g %g %g %g %g %g %g %g %g\n" % (2, block2_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, -1, 0, 1))
     
 
 print "file written"

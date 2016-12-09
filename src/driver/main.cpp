@@ -24,8 +24,9 @@ int main(int argc, char *argv[]) {
 
     //initialize job
     job_t *job(new job_t);
-    job->dt = 5e-5;
+    job->dt = 1e-3;
     job->use_3d = 1;
+    job->use_implicit = 1;
 
     //parse configuration files
     //char *fileParticle = "s.particles";
@@ -39,7 +40,7 @@ int main(int argc, char *argv[]) {
 
     //initialize and allocate memory
     /* hard-coding material properties for initial run */
-    double fp64_props[2] = {1e6,0.3};
+    double fp64_props[2] = {1e7,0.3};
     int *int_props = NULL;
     if(!(job->assignMaterials())){
         std::cout << "failed to assign materials" << std::endl;
@@ -73,7 +74,11 @@ int main(int argc, char *argv[]) {
     while (job->t < T_STOP) {
         //job->mpmStepUSLExplicit();
         if (job->use_3d==1) {
-            job->mpmStepUSLExplicit();
+            if (job->use_implicit==1){
+                job->mpmStepUSLImplicit();
+            } else {
+                job->mpmStepUSLExplicit();
+            }
         } else {
             job->mpmStepUSLExplicit2D();
         }

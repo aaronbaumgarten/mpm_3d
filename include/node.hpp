@@ -75,9 +75,9 @@ public:
     double* contact_fy;
     double* contact_fz;
 
-    double* real_contact_fx;
-    double* real_contact_fy;
-    double* real_contact_fz;
+    //double* real_contact_fx;
+    //double* real_contact_fy;
+    //double* real_contact_fz;
 
     double* contact_normal_x;
     double* contact_normal_y;
@@ -141,9 +141,9 @@ public:
             contact_fy(&(bd->node_contact_fy[idIn])),
             contact_fz(&(bd->node_contact_fz[idIn])),
 
-            real_contact_fx(&(bd->node_real_contact_fx[idIn])),
-            real_contact_fy(&(bd->node_real_contact_fy[idIn])),
-            real_contact_fz(&(bd->node_real_contact_fz[idIn])),
+            //real_contact_fx(&(bd->node_real_contact_fx[idIn])),
+            //real_contact_fy(&(bd->node_real_contact_fy[idIn])),
+            //real_contact_fz(&(bd->node_real_contact_fz[idIn])),
 
             contact_normal_x(&(bd->node_contact_normal_x[idIn])),
             contact_normal_y(&(bd->node_contact_normal_y[idIn])),

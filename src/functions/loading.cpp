@@ -12,7 +12,7 @@
 #include "process.hpp"
 #include "loading.hpp"
 
-#define G_MAG 0.0//9.81
+#define G_MAG 9.81
 #define RAMP_TIME 0.0
 
 void initial_loads(job_t *job){

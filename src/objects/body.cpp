@@ -77,13 +77,50 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
         node_contact_fy(n),
         node_contact_fz(n),
 
-        node_real_contact_fx(n),
-        node_real_contact_fy(n),
-        node_real_contact_fz(n),
+        //node_real_contact_fx(n),
+        //node_real_contact_fy(n),
+        //node_real_contact_fz(n),
 
         node_contact_normal_x(n),
         node_contact_normal_y(n),
         node_contact_normal_z(n),
+
+        //implicit states
+        node_x_t_trial(n),
+        node_y_t_trial(n),
+        node_z_t_trial(n),
+
+        node_x_t_explicit(n),
+        node_y_t_explicit(n),
+        node_z_t_explicit(n),
+
+        node_x_t_n(n),
+        node_y_t_n(n),
+        node_z_t_n(n),
+
+        node_fx_k(n),
+        node_fy_k(n),
+        node_fz_k(n),
+
+        node_fx_L(n),
+        node_fy_L(n),
+        node_fz_L(n),
+
+        Rx(n),
+        Ry(n),
+        Rz(n),
+
+        Rvx(n),
+        Rvy(n),
+        Rvz(n),
+
+        DhRx(n),
+        DhRy(n),
+        DhRz(n),
+
+        //ak(n),
+        //rhok(n),
+        //bk(n),
 
         //position
         particle_x(p),
@@ -92,6 +129,7 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
 
         //volume
         particle_v(p),
+        particle_v_trial(p),
         particle_v0(p),
         particle_v_averaging(p),
 
@@ -131,6 +169,15 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
     gradPhiY.resize(n,p);
     gradPhiZ.resize(n,p);
 
+
+    wk.resize(n,3);
+    //ak.resize(n,3);
+    sk.resize(n,3);
+    rk.resize(n,3);
+    //rhok.resize(n,3);
+    //bk.resize(n,3);
+    pk.resize(n,3);
+
     //Phi and gradPhi
     PhiTriplets.reserve(8*8*p);
     gradPhiXTriplets.reserve(8*8*p);
@@ -148,6 +195,7 @@ void Body::addParticle(double mIn,double vIn,double xIn,double yIn,double zIn,do
 
     //volume
     particle_v[idIn] = vIn;
+    particle_v_trial[idIn] = vIn;
     particle_v0[idIn] = vIn;
     particle_v_averaging[idIn] = 0.125*vIn; //from Sachith's code
 
@@ -231,13 +279,51 @@ void Body::addNode(double xIn, double yIn, double zIn, size_t idIn) {
     node_contact_fy[idIn] = 0;
     node_contact_fz[idIn] = 0;
 
-    node_real_contact_fx[idIn] = 0;
-    node_real_contact_fy[idIn] = 0;
-    node_real_contact_fz[idIn] = 0;
+    //node_real_contact_fx[idIn] = 0;
+    //node_real_contact_fy[idIn] = 0;
+    //node_real_contact_fz[idIn] = 0;
 
     node_contact_normal_x[idIn] = 0;
     node_contact_normal_y[idIn] = 0;
     node_contact_normal_z[idIn] = 0;
+
+    //implicit states
+    node_x_t_trial[idIn] = 0;
+    node_y_t_trial[idIn] = 0;
+    node_z_t_trial[idIn] = 0;
+
+    node_x_t_explicit[idIn] = 0;
+    node_y_t_explicit[idIn] = 0;
+    node_z_t_explicit[idIn] = 0;
+
+    node_fx_k[idIn] = 0;
+    node_fy_k[idIn] = 0;
+    node_fz_k[idIn] = 0;
+
+    node_fx_L[idIn] = 0;
+    node_fy_L[idIn] = 0;
+    node_fz_L[idIn] = 0;
+
+    //nodal residuals
+    Rx[idIn] = 0;
+    Ry[idIn] = 0;
+    Rz[idIn] = 0;
+
+    DhRx[idIn] = 0;
+    DhRy[idIn] = 0;
+    DhRz[idIn] = 0;
+    
+    //implicit algorithm
+    sk(idIn,0)=0;
+    sk(idIn,1)=0;
+    sk(idIn,2)=0;
+
+    /*ak[idIn]=0;
+    sk[idIn]=0;
+    rk[idIn]=0;
+    rhok[idIn]=0;
+    bk[idIn]=0;
+    pk[idIn]=0;*/
 
     //create Nodes object
     this->nodes[idIn] = Node(this,idIn);

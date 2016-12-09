@@ -26,6 +26,7 @@ public:
 
     std::function<void(Body *)> material_init;
     std::function<void(Body *, double)> calculate_stress;
+    std::function<void(Body *, double)> calculate_stress_implicit;
     std::function<void(threadtask_t *, Body *, double)> calculate_stress_threaded;
 
     double *fp64_props;
@@ -52,6 +53,7 @@ namespace material1 {
     void material_init(Body *);
     void calculate_stress(Body *, double);
     void calculate_stress_threaded(threadtask_t *, Body *, double);
+    void calculate_stress_implicit(Body *, double);
 }
 
 namespace material2 {
@@ -60,4 +62,5 @@ namespace material2 {
     void material_init(Body *);
     void calculate_stress(Body *, double);
     void calculate_stress_threaded(threadtask_t *, Body *, double);
+    void calculate_stress_implicit(Body *, double);
 }

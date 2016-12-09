@@ -81,6 +81,60 @@ void calculate_stress(Body *body, double dtIn) {
 /*----------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------------------------*/
+void calculate_stress_implicit(Body *body, double dtIn) {
+
+    dt = dtIn;
+
+    for (size_t i = 0; i < body->p; i++) {
+        if (body->particle_active[i] == 0) {
+            continue;
+        }
+
+        double e_t[9];
+        double w_t[9];
+        tensor_sym3(e_t,body->particles[i].L);
+        tensor_skw3(w_t,body->particles[i].L);
+
+        double trD;
+        tensor_trace3(&trD,body->particles[i].L);
+
+        double dsj[9]; //this formulation may be wrong. Second two terms are confusing
+        dsj[XX] = lambda * trD + 2.0 * G * e_t[XX]
+                  + 2.0 * w_t[XY] * body->particles[i].T[XY]
+                  - 2.0 * w_t[ZX] * body->particles[i].T[XZ];
+
+        dsj[YY] = lambda * trD + 2.0 * G * e_t[YY]
+                  - 2.0 * w_t[XY] * body->particles[i].T[XY]
+                  + 2.0 * w_t[YZ] * body->particles[i].T[YZ];
+
+        dsj[ZZ] = lambda * trD + 2.0 * G * e_t[ZZ]
+                  - 2.0 * w_t[YZ] * body->particles[i].T[YZ]
+                  + 2.0 * w_t[ZX] * body->particles[i].T[XZ];
+
+        dsj[XY] = 2.0 * G * e_t[XY]
+                  - w_t[XY] * (body->particles[i].T[XX] - body->particles[i].T[YY]);
+
+        dsj[XZ] = 2.0 * G * e_t[XZ]
+                  - w_t[ZX] * (body->particles[i].T[ZZ] - body->particles[i].T[XX]);
+
+        dsj[YZ] = 2.0 * G * e_t[YZ]
+                  - w_t[YZ] * (body->particles[i].T[YY] - body->particles[i].T[ZZ]);
+
+        body->particles[i].Ttrial[XX] = body->particles[i].T[XX] + dt * dsj[XX];
+        body->particles[i].Ttrial[XY] = body->particles[i].T[XY] + dt * dsj[XY];
+        body->particles[i].Ttrial[XZ] = body->particles[i].T[XZ] + dt * dsj[XZ];
+        body->particles[i].Ttrial[YX] = body->particles[i].T[YX] + dt * dsj[XY];//*
+        body->particles[i].Ttrial[YY] = body->particles[i].T[YY] + dt * dsj[YY];
+        body->particles[i].Ttrial[YZ] = body->particles[i].T[YZ] + dt * dsj[YZ];
+        body->particles[i].Ttrial[ZX] = body->particles[i].T[ZX] + dt * dsj[XZ];//*
+        body->particles[i].Ttrial[ZY] = body->particles[i].T[ZY] + dt * dsj[YZ];//*
+        body->particles[i].Ttrial[ZZ] = body->particles[i].T[ZZ] + dt * dsj[ZZ];
+    }
+
+}
+/*----------------------------------------------------------------------------*/
+
+/*----------------------------------------------------------------------------*/
 void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
     //printf("t = %g\nx = %g\ny = %g\n", job->t, job->particles[0].x, job->particles[0].y);
     /*printf("L: \n%g %g %g\n%g %g %g\n%g %g %g\n\n",

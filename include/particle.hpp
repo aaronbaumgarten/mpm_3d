@@ -57,6 +57,7 @@ public:
 
     //volume
     double* v;
+    double* v_trial;
     double* v0;
     double* v_averaging;
 
@@ -79,6 +80,7 @@ public:
     //full 3d stress tensor
     /* CAUTION: T is also used for templates */
     double T[NDIM * NDIM];
+    double Ttrial[NDIM * NDIM];
 
     //velocity gradient
     double L[NDIM*NDIM];
@@ -132,6 +134,7 @@ public:
 
             //volume
             v(&(bd->particle_v[idIn])),
+            v_trial(&(bd->particle_v_trial[idIn])),
             v0(&(bd->particle_v0[idIn])),
             v_averaging(&(bd->particle_v_averaging[idIn])),
 
@@ -158,6 +161,7 @@ public:
     {
         for (int i=0; i<NDIM*NDIM; i++){
             T[i] = 0;
+            Ttrial[i] = 0;
             L[i] = 0;
             F[i] = 0;
             Fp[i] = 0;
