@@ -16,11 +16,12 @@
 #include "loading.hpp"
 
 //mass tolerance
-#define TOL 5e-111
+#define TOL 5e-11
 //contact friction
 #define MU_F 0.4
 //squared norm error tolerance
-#define R_TOL 1e-7
+#define R_TOL 1e-5
+#define R_MAX 1e10
 
 //hard coded for now. need to change
 job_t::job_t():
@@ -28,9 +29,13 @@ job_t::job_t():
         use_3d(1), //default 3d
         use_implicit(0), //default explicit
         dt(1e-3),
+        dt_base(dt),
+        dt_minimum(1e-6),
         t(0.0),
         step_start_time(0.0),
-        stepcount(0)
+        stepcount(0),
+        newtonTOL(1e-5),
+        linearStepSize(1e-6)
 {
     std::cout << "Job created.\n";
     boundary = Boundary();
@@ -1215,9 +1220,9 @@ void job_t::mapTrialStress2Grid() {
         p_m_by = this->bodies[b].particle_m.array() * this->bodies[b].particle_by.array();
         p_m_bz = this->bodies[b].particle_m.array() * this->bodies[b].particle_bz.array();
 
-        this->bodies[b].node_fx_L = this->bodies[b].Phi * p_m_bx; //need to add stress
-        this->bodies[b].node_fy_L = this->bodies[b].Phi * p_m_by; //need to add stress
-        this->bodies[b].node_fz_L = this->bodies[b].Phi * p_m_bz; //need to add stress
+        this->bodies[b].node_fx = this->bodies[b].Phi * p_m_bx; //need to add stress
+        this->bodies[b].node_fy = this->bodies[b].Phi * p_m_by; //need to add stress
+        this->bodies[b].node_fz = this->bodies[b].Phi * p_m_bz; //need to add stress
 
         //use to create dummy pvec and ones
         Eigen::VectorXd pvec(numRowsP);
@@ -1225,42 +1230,42 @@ void job_t::mapTrialStress2Grid() {
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[XX];
         }
-        this->bodies[b].node_fx_L -= this->bodies[b].gradPhiX*pvec;
+        this->bodies[b].node_fx -= this->bodies[b].gradPhiX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[XY];
         }
-        this->bodies[b].node_fx_L -= this->bodies[b].gradPhiY*pvec;
-        this->bodies[b].node_fy_L -= this->bodies[b].gradPhiX*pvec;
+        this->bodies[b].node_fx -= this->bodies[b].gradPhiY*pvec;
+        this->bodies[b].node_fy -= this->bodies[b].gradPhiX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[XZ];
         }
-        this->bodies[b].node_fx_L -= this->bodies[b].gradPhiZ*pvec;
-        this->bodies[b].node_fz_L -= this->bodies[b].gradPhiX*pvec;
+        this->bodies[b].node_fx -= this->bodies[b].gradPhiZ*pvec;
+        this->bodies[b].node_fz -= this->bodies[b].gradPhiX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[YY];
         }
-        this->bodies[b].node_fy_L -= this->bodies[b].gradPhiY*pvec;
+        this->bodies[b].node_fy -= this->bodies[b].gradPhiY*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[YZ];
         }
-        this->bodies[b].node_fy_L -= this->bodies[b].gradPhiZ*pvec;
-        this->bodies[b].node_fz_L -= this->bodies[b].gradPhiY*pvec;
+        this->bodies[b].node_fy -= this->bodies[b].gradPhiZ*pvec;
+        this->bodies[b].node_fz -= this->bodies[b].gradPhiY*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[ZZ];
         }
-        this->bodies[b].node_fz_L -= this->bodies[b].gradPhiZ*pvec;
+        this->bodies[b].node_fz -= this->bodies[b].gradPhiZ*pvec;
     }
     return;
 }
 
 void job_t::calculateImplicitResidual() {
     for (size_t b=0;b<this->num_bodies;b++) {
-        this->bodies[b].Rx = this->bodies[b].node_x_t_trial.array()*this->bodies[b].node_m.array()
+        /*this->bodies[b].Rx = this->bodies[b].node_x_t_trial.array()*this->bodies[b].node_m.array()
                                   - this->dt*this->bodies[b].node_fx_L.array() + this->dt*this->bodies[b].node_fx_k.array()
                                   - this->bodies[b].node_x_t_explicit.array()*this->bodies[b].node_m.array();
 
@@ -1271,6 +1276,28 @@ void job_t::calculateImplicitResidual() {
         this->bodies[b].Rz = this->bodies[b].node_z_t_trial.array()*this->bodies[b].node_m.array()
                                   - this->dt*this->bodies[b].node_fz_L.array() + this->dt*this->bodies[b].node_fz_k.array()
                                   - this->bodies[b].node_z_t_explicit.array()*this->bodies[b].node_m.array();
+        */
+
+        this->bodies[b].Rx = this->bodies[b].node_x_t_trial.array()*this->bodies[b].node_m.array()
+                             - this->dt*this->bodies[b].node_fx_L.array()
+                             - this->bodies[b].node_mx_t_k.array();
+
+        this->bodies[b].Ry = this->bodies[b].node_y_t_trial.array()*this->bodies[b].node_m.array()
+                             - this->dt*this->bodies[b].node_fy_L.array()
+                             - this->bodies[b].node_my_t_k.array();
+
+        this->bodies[b].Rz = this->bodies[b].node_z_t_trial.array()*this->bodies[b].node_m.array()
+                             - this->dt*this->bodies[b].node_fz_L.array()
+                             - this->bodies[b].node_mz_t_k.array();
+
+        for (size_t i=0;i<this->num_nodes;i++){
+            if (this->u_dirichlet_mask[i] != 0){
+                //nodal boundary
+                this->bodies[b].Rx[i] = 0;
+                this->bodies[b].Ry[i] = 0;
+                this->bodies[b].Rz[i] = 0;
+            }
+        }
     }
 }
 
@@ -1365,42 +1392,28 @@ int job_t::mpmStepUSLImplicit() {
     //map particles to grid
     this->mapParticles2Grid();
 
-    //save initial forces and choose first trial velocity as old velocity
+    //add contact forces
+    this->addContactForces();
+
+    //enforce boundary conditions
+    this->addBoundaryConditions();
+    
     for (size_t b=0;b<this->num_bodies;b++){
-        this->bodies[b].node_fx_k = this->bodies[b].node_fx;
-        this->bodies[b].node_fy_k = this->bodies[b].node_fy;
-        this->bodies[b].node_fz_k = this->bodies[b].node_fz;
-
-        //this->bodies[b].node_x_t_n = this->bodies[b].node_mx_t.array()/this->bodies[b].node_m.array();
-        //this->bodies[b].node_y_t_n = this->bodies[b].node_my_t.array()/this->bodies[b].node_m.array();
-        //this->bodies[b].node_z_t_n = this->bodies[b].node_mz_t.array()/this->bodies[b].node_m.array();
-        this->bodies[b].node_x_t_n.setZero();
-        this->bodies[b].node_y_t_n.setZero();
-        this->bodies[b].node_z_t_n.setZero();
-
-        for (size_t i=0;i<this->num_nodes;i++){
-            if (this->bodies[b].node_m[i] > TOL) {
-                this->bodies[b].node_x_t_n[i] = this->bodies[b].node_mx_t[i] / this->bodies[b].node_m[i];
-                this->bodies[b].node_y_t_n[i] = this->bodies[b].node_my_t[i] / this->bodies[b].node_m[i];
-                this->bodies[b].node_z_t_n[i] = this->bodies[b].node_mz_t[i] / this->bodies[b].node_m[i];
-            }
-        }
-
-        this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
-        this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
-        this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
+        this->bodies[b].node_mx_t_k = this->bodies[b].node_contact_mx_t;
+        this->bodies[b].node_my_t_k = this->bodies[b].node_contact_my_t;
+        this->bodies[b].node_mz_t_k = this->bodies[b].node_contact_mz_t;
     }
 
-    //perform trial step
-    this->mpmTrialStepUSLExplicit();
+    //move grid
+    //this->moveGridExplicit();
 
-    //save explicit solution
+    //save forces and initial trial velocity
     for (size_t b=0;b<this->num_bodies;b++){
-        //this->bodies[b].node_x_t_explicit = this->bodies[b].node_contact_mx_t.array()/this->bodies[b].node_m.array();
-        //this->bodies[b].node_y_t_explicit = this->bodies[b].node_contact_my_t.array()/this->bodies[b].node_m.array();
-        //this->bodies[b].node_z_t_explicit = this->bodies[b].node_contact_mz_t.array()/this->bodies[b].node_m.array();
+        this->bodies[b].node_fx_k = this->bodies[b].node_contact_fx;
+        this->bodies[b].node_fy_k = this->bodies[b].node_contact_fy;
+        this->bodies[b].node_fz_k = this->bodies[b].node_contact_fz;
 
-        this->bodies[b].node_x_t_explicit.setZero();
+        /*this->bodies[b].node_x_t_explicit.setZero();
         this->bodies[b].node_y_t_explicit.setZero();
         this->bodies[b].node_z_t_explicit.setZero();
 
@@ -1411,23 +1424,73 @@ int job_t::mpmStepUSLImplicit() {
                 this->bodies[b].node_z_t_explicit[i] = this->bodies[b].node_contact_mz_t[i] / this->bodies[b].node_m[i];
             }
         }
+
+        this->bodies[b].node_x_t_n = this->bodies[b].node_x_t_explicit;
+        this->bodies[b].node_y_t_n = this->bodies[b].node_y_t_explicit;
+        this->bodies[b].node_z_t_n = this->bodies[b].node_z_t_explicit;
+         */
+
+        this->bodies[b].node_x_t_n.setZero();
+        this->bodies[b].node_y_t_n.setZero();
+        this->bodies[b].node_z_t_n.setZero();
+
+        for (size_t i=0;i<this->num_nodes;i++){
+            if (this->bodies[b].node_m[i] > TOL) {
+                this->bodies[b].node_x_t_n[i] = this->bodies[b].node_contact_mx_t[i] / this->bodies[b].node_m[i];
+                this->bodies[b].node_y_t_n[i] = this->bodies[b].node_contact_my_t[i] / this->bodies[b].node_m[i];
+                this->bodies[b].node_z_t_n[i] = this->bodies[b].node_contact_mz_t[i] / this->bodies[b].node_m[i];
+            }
+        }
+
+        this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
+        this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
+        this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
     }
+
+    //calculate L on particles
+    this->calculateStrainRate();
+
+    //update particle densities
+    this->updateTrialDensity();
+
+    //material stress update
+    this->updateTrialStress();
+
+    //add body forces
+    time_varying_loads(this);
 
     //map particle stress back to nodes
     this->mapTrialStress2Grid();
+
+    //add contact forces
+    this->addContactForces();
+
+    //enforce boundary conditions
+    this->addBoundaryConditions();
+
+    //save explicit solution
+    for (size_t b=0;b<this->num_bodies;b++){
+        //this->bodies[b].node_x_t_explicit = this->bodies[b].node_contact_mx_t.array()/this->bodies[b].node_m.array();
+        //this->bodies[b].node_y_t_explicit = this->bodies[b].node_contact_my_t.array()/this->bodies[b].node_m.array();
+        //this->bodies[b].node_z_t_explicit = this->bodies[b].node_contact_mz_t.array()/this->bodies[b].node_m.array();
+
+        this->bodies[b].node_fx_L = this->bodies[b].node_contact_fx;
+        this->bodies[b].node_fy_L = this->bodies[b].node_contact_fy;
+        this->bodies[b].node_fz_L = this->bodies[b].node_contact_fz;
+    }
 
     //calculate residual for expicit step
     this->calculateImplicitResidual();
 
     double rhoSum = 0;
     double rhoTOL = 0;
-    for (size_t b=0;b<this->num_bodies;b++){
+    /*for (size_t b=0;b<this->num_bodies;b++){
         rhoTOL += this->bodies[b].node_m.array().sum();
     }
-    rhoTOL *= 9.81*R_TOL*9.81*R_TOL*rhoTOL;
+    rhoTOL *= 9.81*R_TOL*9.81*R_TOL*rhoTOL;*/
 
     ///////////////////////////////////////
-    rhoTOL = R_TOL*this->num_bodies*this->num_nodes;
+    rhoTOL = this->newtonTOL;//R_TOL;//*this->num_bodies*this->num_nodes;
 
     size_t nIter = 0;
     do {
@@ -1439,9 +1502,9 @@ int job_t::mpmStepUSLImplicit() {
             this->bodies[b].Rvy = this->bodies[b].Ry;
             this->bodies[b].Rvz = this->bodies[b].Rz;
 
-            this->bodies[b].rk.col(0) << -this->bodies[b].Rvx;
-            this->bodies[b].rk.col(1) << -this->bodies[b].Rvy;
-            this->bodies[b].rk.col(2) << -this->bodies[b].Rvz;
+            this->bodies[b].rk.setZero();
+
+            this->bodies[b].rk << -this->bodies[b].Rvx, -this->bodies[b].Rvy, -this->bodies[b].Rvz;
 
             this->bodies[b].rhok = this->bodies[b].rk.squaredNorm();
 
@@ -1456,8 +1519,8 @@ int job_t::mpmStepUSLImplicit() {
 
         //solve for 's' to iterate 'v' [Sulsky 2003]
         size_t k = 0;
-        while (k < this->num_nodes && rhoSum > rhoTOL) { //(this->num_bodies * this->num_nodes * R_TOL)) {
-            double h = 1e-7; //suggested by sachith
+        while (/*k < 3*this->num_nodes &&*/ rhoSum > rhoTOL && rhoSum < R_MAX) { //(this->num_bodies * this->num_nodes * R_TOL)) {
+            double h = this->linearStepSize;//-6; //per paper suggestion
 
             for (size_t b = 0; b < this->num_bodies; b++) {
                 double vNorm = std::sqrt(
@@ -1469,22 +1532,56 @@ int job_t::mpmStepUSLImplicit() {
                 double sNorm = this->bodies[b].pk.norm();
                 if (sNorm>TOL) {
                     this->bodies[b].node_x_t_trial =
-                            this->bodies[b].node_x_t_n + h * vNorm * this->bodies[b].pk.col(0) / sNorm;
+                            this->bodies[b].node_x_t_n + h * vNorm * this->bodies[b].pk.segment(0,this->bodies[b].n) / sNorm;
                     this->bodies[b].node_y_t_trial =
-                            this->bodies[b].node_y_t_n + h * vNorm * this->bodies[b].pk.col(1) / sNorm;
+                            this->bodies[b].node_y_t_n + h * vNorm * this->bodies[b].pk.segment(this->bodies[b].n,this->bodies[b].n)/ sNorm;
                     this->bodies[b].node_z_t_trial =
-                            this->bodies[b].node_z_t_n + h * vNorm * this->bodies[b].pk.col(2) / sNorm;
+                            this->bodies[b].node_z_t_n + h * vNorm * this->bodies[b].pk.segment(2*this->bodies[b].n,this->bodies[b].n) / sNorm;
                 } else {
                     this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
                     this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
                     this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
                 }
+
+                this->bodies[b].node_mx_t = this->bodies[b].node_x_t_trial.array() * this->bodies[b].node_m.array();
+                this->bodies[b].node_my_t = this->bodies[b].node_y_t_trial.array() * this->bodies[b].node_m.array();
+                this->bodies[b].node_mz_t = this->bodies[b].node_z_t_trial.array() * this->bodies[b].node_m.array();
+
+                this->bodies[b].node_x_t = this->bodies[b].node_x_t_trial;
+                this->bodies[b].node_y_t = this->bodies[b].node_y_t_trial;
+                this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
             }
 
-            this->mpmTrialStepUSLExplicit();
-            //map particle stress back to nodes
+            //add contact forces
+            this->addContactForces();
+
+            //enforce boundary conditions
+            this->addBoundaryConditions();
+
+            //calculate L on particles
+            this->calculateStrainRate();
+
+            //update particle densities
+            this->updateTrialDensity();
+
+            //material stress update
+            this->updateTrialStress();
+
             this->mapTrialStress2Grid();
             //calculate residual for expicit step
+
+            //add contact forces
+            this->addContactForces();
+
+            //enforce boundary conditions
+            this->addBoundaryConditions();
+
+            for (size_t b=0;b<this->num_bodies;b++) {
+                this->bodies[b].node_fx_L = this->bodies[b].node_contact_fx;
+                this->bodies[b].node_fy_L = this->bodies[b].node_contact_fy;
+                this->bodies[b].node_fz_L = this->bodies[b].node_contact_fz;
+            }
+
             this->calculateImplicitResidual();
 
             for (size_t b = 0; b < this->num_bodies; b++) {
@@ -1499,12 +1596,8 @@ int job_t::mpmStepUSLImplicit() {
                 this->bodies[b].DhRy = sNorm / (h * vNorm) * (this->bodies[b].Ry - this->bodies[b].Rvy);
                 this->bodies[b].DhRz = sNorm / (h * vNorm) * (this->bodies[b].Rz - this->bodies[b].Rvz);
 
-                this->bodies[b].wk.col(0) << this->bodies[b].DhRx;
-                this->bodies[b].wk.col(1) << this->bodies[b].DhRy;
-                this->bodies[b].wk.col(2) << this->bodies[b].DhRz;
-
-                Eigen::MatrixXd nmat = this->bodies[b].pk.array() * this->bodies[b].wk.array();
-                this->bodies[b].ak = this->bodies[b].rhok / nmat.sum();
+                this->bodies[b].wk << this->bodies[b].DhRx, this->bodies[b].DhRy, this->bodies[b].DhRz;
+                this->bodies[b].ak = this->bodies[b].rhok / (this->bodies[b].pk.transpose() * this->bodies[b].wk);
 
                 this->bodies[b].sk += this->bodies[b].ak * this->bodies[b].pk;
 
@@ -1523,24 +1616,57 @@ int job_t::mpmStepUSLImplicit() {
             }
             std::cout << "\rn: " << nIter << " k: " << k <<  " r: " << rhoSum << "      \r" << std::flush;
         }
-        std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
 
         for (size_t b = 0; b < this->num_bodies; b++) {
-            this->bodies[b].node_x_t_n += this->bodies[b].sk.col(0);
-            this->bodies[b].node_y_t_n += this->bodies[b].sk.col(1);
-            this->bodies[b].node_z_t_n += this->bodies[b].sk.col(2);
+            this->bodies[b].node_x_t_n += this->bodies[b].sk.segment(0,this->bodies[b].n);
+            this->bodies[b].node_y_t_n += this->bodies[b].sk.segment(this->bodies[b].n,this->bodies[b].n);
+            this->bodies[b].node_z_t_n += this->bodies[b].sk.segment(2*this->bodies[b].n,this->bodies[b].n);
 
             this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
             this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
             this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
+
+            this->bodies[b].node_mx_t = this->bodies[b].node_x_t_trial.array() * this->bodies[b].node_m.array();
+            this->bodies[b].node_my_t = this->bodies[b].node_y_t_trial.array() * this->bodies[b].node_m.array();
+            this->bodies[b].node_mz_t = this->bodies[b].node_z_t_trial.array() * this->bodies[b].node_m.array();
+
+            this->bodies[b].node_x_t = this->bodies[b].node_x_t_trial;
+            this->bodies[b].node_y_t = this->bodies[b].node_y_t_trial;
+            this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
         }
 
         nIter += 1;
 
-        this->mpmTrialStepUSLExplicit();
-        //map particle stress back to nodes
+        //add contact forces
+        this->addContactForces();
+
+        //enforce boundary conditions
+        this->addBoundaryConditions();
+
+        //calculate L on particles
+        this->calculateStrainRate();
+
+        //update particle densities
+        this->updateTrialDensity();
+
+        //material stress update
+        this->updateTrialStress();
+
         this->mapTrialStress2Grid();
         //calculate residual for expicit step
+
+        //add contact forces
+        this->addContactForces();
+
+        //enforce boundary conditions
+        this->addBoundaryConditions();
+
+        for (size_t b=0;b<this->num_bodies;b++) {
+            this->bodies[b].node_fx_L = this->bodies[b].node_contact_fx;
+            this->bodies[b].node_fy_L = this->bodies[b].node_contact_fy;
+            this->bodies[b].node_fz_L = this->bodies[b].node_contact_fz;
+        }
+
         this->calculateImplicitResidual();
 
         //setup for next iteration
@@ -1550,9 +1676,7 @@ int job_t::mpmStepUSLImplicit() {
             this->bodies[b].Rvy = this->bodies[b].Ry;
             this->bodies[b].Rvz = this->bodies[b].Rz;
 
-            this->bodies[b].rk.col(0) << -this->bodies[b].Rvx;
-            this->bodies[b].rk.col(1) << -this->bodies[b].Rvy;
-            this->bodies[b].rk.col(2) << -this->bodies[b].Rvz;
+            this->bodies[b].rk << -this->bodies[b].Rvx, -this->bodies[b].Rvy, -this->bodies[b].Rvz;
 
             this->bodies[b].rhok = this->bodies[b].rk.squaredNorm();
 
@@ -1562,13 +1686,40 @@ int job_t::mpmStepUSLImplicit() {
 
             this->bodies[b].sk.setZero();
         }
-    } while (rhoSum>rhoTOL); //(this->num_bodies * this->num_nodes * R_TOL));
+        std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
+    } while (rhoSum>rhoTOL && rhoSum<R_MAX); //(this->num_bodies * this->num_nodes * R_TOL));
 
     //catch error where rhoSum is nan
-    if (!std::isfinite(rhoSum)){
+    if (!std::isfinite(rhoSum) || rhoSum>=R_MAX){
         std::cout << "Error: Residual in mpmStepUSLImplicit() is infinite." << std::endl;
+        /*if (this->dt*0.5 < this->dt_minimum){
+            std::cout << "dt below threshhold. Exiting." << std::endl;
+            exit(0);
+        } else {
+            //reset step
+            this->t -= dt;
+            this->stepcount -= 1;
+
+            //adjust timestep
+            this->dt *= 0.5;
+            std::cout << "Reducing dt: " << this->dt << std::endl;
+
+            //restart step
+            this->mpmStepUSLImplicit();
+
+            //reset timestep
+            this->dt = this->dt_base;
+
+            return 1;
+        }*/
         exit(0);
     }
+
+    //add contact forces
+    this->addContactForces();
+
+    //enforce boundary conditions
+    this->addBoundaryConditions();
 
     //move particles
     this->moveParticlesExplicit();
@@ -1583,49 +1734,6 @@ int job_t::mpmStepUSLImplicit() {
     this->updateStress();
 
     //add boddy forces
-    time_varying_loads(this);
-
-
-    return 1;
-}
-
-int job_t::mpmTrialStepUSLExplicit() {
-
-    //create particle map (should already be done
-    //this->createMappings();
-
-    //map particles to grid
-    this->mapParticles2Grid();
-
-    for (size_t b=0;b<this->num_bodies;b++) {
-        this->bodies[b].node_mx_t = this->bodies[b].node_x_t_trial.array() * this->bodies[b].node_m.array();
-        this->bodies[b].node_my_t = this->bodies[b].node_y_t_trial.array() * this->bodies[b].node_m.array();
-        this->bodies[b].node_mz_t = this->bodies[b].node_z_t_trial.array() * this->bodies[b].node_m.array();
-
-        this->bodies[b].node_x_t = this->bodies[b].node_x_t_trial;
-        this->bodies[b].node_y_t = this->bodies[b].node_y_t_trial;
-        this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
-    }
-
-    //add contact forces
-    this->addContactForces();
-
-    //enforce boundary conditions
-    this->addBoundaryConditions();
-
-    //move grid
-    this->moveGridExplicit();
-
-    //calculate L on particles
-    this->calculateStrainRate();
-
-    //update particle densities
-    this->updateTrialDensity();
-
-    //material stress update
-    this->updateTrialStress();
-
-    //add body forces
     time_varying_loads(this);
 
     return 1;

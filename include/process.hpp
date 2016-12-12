@@ -20,6 +20,12 @@ public:
     size_t frame;
     int stepcount;
 
+    //implicit
+    double linearStepSize;
+    double newtonTOL;
+    double dt_base;
+    double dt_minimum;
+
     //total count
     size_t num_bodies;
     size_t num_particles;

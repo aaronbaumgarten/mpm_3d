@@ -96,6 +96,10 @@ public:
     Eigen::VectorXd node_contact_normal_z;
 
     //implicit states (not stored on nodes)
+    Eigen::VectorXd node_mx_t_k;
+    Eigen::VectorXd node_my_t_k;
+    Eigen::VectorXd node_mz_t_k;
+
     Eigen::VectorXd node_x_t_trial;
     Eigen::VectorXd node_y_t_trial;
     Eigen::VectorXd node_z_t_trial;
@@ -130,16 +134,17 @@ public:
     Eigen::VectorXd DhRz;
 
     //implicit algorithm
-    Eigen::MatrixXd wk;
+    Eigen::VectorXd wk;
     //Eigen::VectorXd ak;//*
     double ak;
-    Eigen::MatrixXd sk;
-    Eigen::MatrixXd rk;
+    Eigen::VectorXd sk;
+    Eigen::VectorXd rk;
+    Eigen::VectorXd r0;
     //Eigen::VectorXd rhok;//*
     double rhok;
     //Eigen::VectorXd bk;//*
     double bk;
-    Eigen::MatrixXd pk;
+    Eigen::VectorXd pk;
 
     //***** particle values *****
     //position

@@ -86,6 +86,10 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
         node_contact_normal_z(n),
 
         //implicit states
+        node_mx_t_k(n),
+        node_my_t_k(n),
+        node_mz_t_k(n),
+
         node_x_t_trial(n),
         node_y_t_trial(n),
         node_z_t_trial(n),
@@ -121,6 +125,11 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
         //ak(n),
         //rhok(n),
         //bk(n),
+        wk(3*n),
+        sk(3*n),
+        pk(3*n),
+        rk(3*n),
+        r0(3*n),
 
         //position
         particle_x(p),
@@ -168,15 +177,6 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
     gradPhiX.resize(n,p);
     gradPhiY.resize(n,p);
     gradPhiZ.resize(n,p);
-
-
-    wk.resize(n,3);
-    //ak.resize(n,3);
-    sk.resize(n,3);
-    rk.resize(n,3);
-    //rhok.resize(n,3);
-    //bk.resize(n,3);
-    pk.resize(n,3);
 
     //Phi and gradPhi
     PhiTriplets.reserve(8*8*p);
@@ -314,9 +314,9 @@ void Body::addNode(double xIn, double yIn, double zIn, size_t idIn) {
     DhRz[idIn] = 0;
     
     //implicit algorithm
-    sk(idIn,0)=0;
-    sk(idIn,1)=0;
-    sk(idIn,2)=0;
+    sk[idIn]=0;
+    sk[idIn+n]=0;
+    sk[idIn+2*n]=0;
 
     /*ak[idIn]=0;
     sk[idIn]=0;

@@ -20,9 +20,9 @@ Lx = 1.0
 Ly = 1.0
 Lz = 1.0
 #Ne = 40
-Nx = 20
-Ny = 20
-Nz = 20
+Nx = 10
+Ny = 10
+Nz = 10
 lmpp = 2
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
 grid2 = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
@@ -65,9 +65,9 @@ block2_body = CSGTree3d.Node(block2_primitive)
 print "body 2 created"
 
 # add points to arrays
-block2_point_array = []
-grid2.generate_point_array(block2_primitive)
-block2_point_array = grid2.point_array
+#block2_point_array = []
+#grid2.generate_point_array(block2_primitive)
+#block2_point_array = grid2.point_array
 
 print "point array 2 created"
 
