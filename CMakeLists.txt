@@ -21,3 +21,8 @@ include_directories(src/boundaries)
 include_directories(/usr/include/eigen3)
 
 add_executable(mpm_3d ${SOURCE_FILES})
+
+set(UNIT_TEST_SOURCE_FILES
+    src/tests/unitTestMain.cpp
+    src/tests/unitShapeFunctions.cpp)
+add_executable(unit ${UNIT_TEST_SOURCE_FILES}) 
