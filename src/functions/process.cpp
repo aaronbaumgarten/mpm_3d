@@ -1510,12 +1510,18 @@ int job_t::mpmStepUSLImplicit() {
 
             rhoSum += this->bodies[b].rhok;
 
-            this->bodies[b].pk = this->bodies[b].rk / this->bodies[b].rhok;
+            this->bodies[b].pk = this->bodies[b].rk / std::sqrt(this->bodies[b].rhok);
 
             this->bodies[b].sk.setZero();
+
+            if (this->bodies[b].rhok > 2){
+                this->bodies[b].rhok = 1;
+            }
         }
 
-        std::cout << "RHO: " << rhoSum << " ?< " << rhoTOL << std::endl;
+        std::cout << "RHO: " << rhoSum << " ?< " << rhoTOL <<  " vnorm: " << this->bodies[0].node_x_t_n.lpNorm<Eigen::Infinity>() <<
+                "," << this->bodies[0].node_y_t_n.lpNorm<Eigen::Infinity>() <<
+                "," << this->bodies[0].node_z_t_n.lpNorm<Eigen::Infinity>() << std::endl;
 
         //solve for 's' to iterate 'v' [Sulsky 2003]
         size_t k = 0;

@@ -29,8 +29,8 @@ int main(int argc, char *argv[]) {
     job->dt_minimum = 1e-6;
     job->use_3d = 1;
     job->use_implicit = 1;
-    job->newtonTOL = 1e-6;
-    job->linearStepSize = 1e-5;
+    job->newtonTOL = 1e-7;
+    job->linearStepSize = 1e-6;
 
     //parse configuration files
     //char *fileParticle = "s.particles";
