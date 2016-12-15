@@ -29,8 +29,9 @@ int main(int argc, char *argv[]) {
     job->dt_minimum = 1e-6;
     job->use_3d = 1;
     job->use_implicit = 1;
-    job->newtonTOL = 1e-7;
-    job->linearStepSize = 1e-6;
+    job->use_cpdi = 1;
+    job->newtonTOL = 1e-14;
+    job->linearStepSize = 1e-5;
 
     //parse configuration files
     //char *fileParticle = "s.particles";
@@ -92,6 +93,23 @@ int main(int argc, char *argv[]) {
             mpmOut.sampledFrames += 1;
             std::cout << " Frame captured (" << mpmOut.sampledFrames << ")." << std::flush;
         }
+
+        /*std::ostringstream s;
+        s << "pressure.csv";
+        std::ofstream ffile(s.str(), std::ios::app);
+        if (ffile.is_open()) {
+            double P = 0;
+            for (size_t i=0; i<job->bodies[0].p; i++){
+                double pP;
+                pP = (job->bodies[0].particles[i].T[XX]+job->bodies[0].particles[i].T[YY]+job->bodies[0].particles[i].T[ZZ])/3;
+                P += pP*pP;
+                //if p is nan set to zero
+            }
+            std::ostringstream line;
+            line << std::sqrt(P) << "\n";
+            ffile << line.str();
+        }
+        ffile.close();*/
     }
     std::cout << "\n";
 

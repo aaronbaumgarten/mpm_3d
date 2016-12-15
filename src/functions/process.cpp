@@ -565,7 +565,7 @@ int job_t::createMappings() {
             if((this->bodies[b].particles[p].updateActive(this))==1) {
                 this->bodies[b].particles[p].updateCorners(this);
                 //check that all corners are in domain
-                if (std::count(this->bodies[b].particles[p].corner_elements,
+                if (this->use_cpdi==0 || std::count(this->bodies[b].particles[p].corner_elements,
                                std::end(this->bodies[b].particles[p].corner_elements), -1) > 0) {
                     //set corners to particle position
                     this->bodies[b].particles[p].resetCorners(this);
@@ -577,7 +577,7 @@ int job_t::createMappings() {
                     if (e != this->bodies[0].elements[e].id){
                         std::cout << "Elemend ID Error! " << e << " != " << this->bodies[0].elements[e].id << "\n";
                     }
-                    this->bodies[b].elements[e].calculatePhic(&(this->bodies[b]), &(this->bodies[b].particles[p]), c);
+                    this->bodies[b].elements[e].calculatePhic(&(this->bodies[b]), &(this->bodies[b].particles[p]), c, this->use_cpdi);
                     //std::cout << "b:" << b << " p:" << p << " c:" << c << "\r";
                 }
             }
@@ -886,6 +886,10 @@ void job_t::moveGridExplicit(){
                 this->bodies[b].nodes[i].contact_y_t[0] = this->bodies[b].nodes[i].contact_my_t[0] / m;
                 this->bodies[b].nodes[i].contact_z_t[0] = this->bodies[b].nodes[i].contact_mz_t[0] / m;
             } else {
+                this->bodies[b].nodes[i].contact_mx_t[0] = 0;
+                this->bodies[b].nodes[i].contact_my_t[0] = 0;
+                this->bodies[b].nodes[i].contact_mz_t[0] = 0;
+
                 this->bodies[b].nodes[i].contact_x_t[0] = 0;
                 this->bodies[b].nodes[i].contact_y_t[0] = 0;
                 this->bodies[b].nodes[i].contact_z_t[0] = 0;
@@ -912,6 +916,10 @@ void job_t::moveGridExplicit2D(){
                 this->bodies[b].nodes[i].contact_y_t[0] = this->bodies[b].nodes[i].contact_my_t[0] / m;
                 this->bodies[b].nodes[i].contact_z_t[0] = 0;//this->bodies[b].nodes[i].contact_mz_t[0] / m;
             } else {
+                this->bodies[b].nodes[i].contact_mx_t[0] = 0;
+                this->bodies[b].nodes[i].contact_my_t[0] = 0;
+                this->bodies[b].nodes[i].contact_mz_t[0] = 0;
+
                 this->bodies[b].nodes[i].contact_x_t[0] = 0;
                 this->bodies[b].nodes[i].contact_y_t[0] = 0;
                 this->bodies[b].nodes[i].contact_z_t[0] = 0;
@@ -942,6 +950,65 @@ void job_t::moveParticlesExplicit(){
                 this->bodies[b].nodes[i].ux[0] = this->dt * this->bodies[b].nodes[i].contact_mx_t[0] / m;
                 this->bodies[b].nodes[i].uy[0] = this->dt * this->bodies[b].nodes[i].contact_my_t[0] / m;
                 this->bodies[b].nodes[i].uz[0] = this->dt * this->bodies[b].nodes[i].contact_mz_t[0] / m;
+
+                this->bodies[b].nodes[i].diff_x_t[0] = this->dt * this->bodies[b].nodes[i].contact_fx[0] / m;
+                this->bodies[b].nodes[i].diff_y_t[0] = this->dt * this->bodies[b].nodes[i].contact_fy[0] / m;
+                this->bodies[b].nodes[i].diff_z_t[0] = this->dt * this->bodies[b].nodes[i].contact_fz[0] / m;
+            } else {
+                this->bodies[b].nodes[i].ux[0] = 0;
+                this->bodies[b].nodes[i].uy[0] = 0;
+                this->bodies[b].nodes[i].uz[0] = 0;
+
+                this->bodies[b].nodes[i].diff_x_t[0] = 0;
+                this->bodies[b].nodes[i].diff_y_t[0] = 0;
+                this->bodies[b].nodes[i].diff_z_t[0] = 0;
+            }
+        }
+
+        //map back to particles using S transpose
+        this->bodies[b].particle_x += this->bodies[b].Phi.transpose() * this->bodies[b].node_ux;
+        this->bodies[b].particle_y += this->bodies[b].Phi.transpose() * this->bodies[b].node_uy;
+        this->bodies[b].particle_z += this->bodies[b].Phi.transpose() * this->bodies[b].node_uz;
+
+        this->bodies[b].particle_ux += this->bodies[b].Phi.transpose() * this->bodies[b].node_ux;
+        this->bodies[b].particle_uy += this->bodies[b].Phi.transpose() * this->bodies[b].node_uy;
+        this->bodies[b].particle_uz += this->bodies[b].Phi.transpose() * this->bodies[b].node_uz;
+
+        this->bodies[b].particle_x_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_x_t;
+        this->bodies[b].particle_y_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_y_t;
+        this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_z_t;
+
+    }
+    return;
+    //} else {
+    //    return this->moveParticlesExplicit2D();
+    //}
+}
+
+void job_t::moveParticlesImplicit(){
+    //if (this->use_3d==1) {
+    //REQUIRES NODE mx_t TO BE STORED AT START OF TIMESTEP
+    for (size_t b = 0; b < this->num_bodies; b++) {
+        //use Eigen Map to point to particle array
+        size_t numRowsP = this->bodies[b].p;
+        size_t numColsP = 1;
+
+        //use Eigen Map to point to node array
+        size_t numRowsN = this->bodies[b].n;
+        size_t numColsN = 1;
+
+        //use to create dummy pvec
+        Eigen::VectorXd pvec(numRowsP);
+
+        for (size_t i = 0; i < this->bodies[b].n; i++) {
+            double m = this->bodies[b].nodes[i].m[0];
+            if (m != 0) {
+                this->bodies[b].nodes[i].ux[0] = this->dt * (this->bodies[b].node_mx_t_k[i] + this->bodies[b].nodes[i].contact_mx_t[0]) / (2*m);
+                this->bodies[b].nodes[i].uy[0] = this->dt * (this->bodies[b].node_my_t_k[i] + this->bodies[b].nodes[i].contact_my_t[0]) / (2*m);
+                this->bodies[b].nodes[i].uz[0] = this->dt * (this->bodies[b].node_mz_t_k[i] + this->bodies[b].nodes[i].contact_mz_t[0]) / (2*m);
+
+                //this->bodies[b].nodes[i].uy[0] = this->dt * this->bodies[b].nodes[i].contact_my_t[0] / m;
+                //this->bodies[b].nodes[i].uz[0] = this->dt * this->bodies[b].nodes[i].contact_mz_t[0] / m;
 
                 this->bodies[b].nodes[i].diff_x_t[0] = this->dt * this->bodies[b].nodes[i].contact_fx[0] / m;
                 this->bodies[b].nodes[i].diff_y_t[0] = this->dt * this->bodies[b].nodes[i].contact_fy[0] / m;
@@ -1278,25 +1345,30 @@ void job_t::calculateImplicitResidual() {
                                   - this->bodies[b].node_z_t_explicit.array()*this->bodies[b].node_m.array();
         */
 
-        this->bodies[b].Rx = this->bodies[b].node_x_t_trial.array()*this->bodies[b].node_m.array()
-                             - this->dt*this->bodies[b].node_fx_L.array()
-                             - this->bodies[b].node_mx_t_k.array();
+        this->bodies[b].Rx = this->bodies[b].node_x_t_trial.array()*this->bodies[b].node_m.array();
+        this->bodies[b].Rx -= this->dt*this->bodies[b].node_fx_L;
+        this->bodies[b].Rx -= this->bodies[b].node_mx_t_k;
 
-        this->bodies[b].Ry = this->bodies[b].node_y_t_trial.array()*this->bodies[b].node_m.array()
-                             - this->dt*this->bodies[b].node_fy_L.array()
-                             - this->bodies[b].node_my_t_k.array();
+        this->bodies[b].Ry = this->bodies[b].node_y_t_trial.array()*this->bodies[b].node_m.array();
+        this->bodies[b].Ry -= this->dt*this->bodies[b].node_fy_L;
+        this->bodies[b].Ry -= this->bodies[b].node_my_t_k;
 
-        this->bodies[b].Rz = this->bodies[b].node_z_t_trial.array()*this->bodies[b].node_m.array()
-                             - this->dt*this->bodies[b].node_fz_L.array()
-                             - this->bodies[b].node_mz_t_k.array();
+        this->bodies[b].Rz = this->bodies[b].node_z_t_trial.array()*this->bodies[b].node_m.array();
+        this->bodies[b].Rz -= this->dt*this->bodies[b].node_fz_L;
+        this->bodies[b].Rz -= this->bodies[b].node_mz_t_k;
 
         for (size_t i=0;i<this->num_nodes;i++){
-            if (this->u_dirichlet_mask[i] != 0){
+            if (this->u_dirichlet_mask[i] != 0 || this->bodies[b].node_m[i] <= TOL){
                 //nodal boundary
                 this->bodies[b].Rx[i] = 0;
                 this->bodies[b].Ry[i] = 0;
                 this->bodies[b].Rz[i] = 0;
+            } else {
+                this->bodies[b].Rx[i] /= this->bodies[b].node_m[i];
+                this->bodies[b].Ry[i] /= this->bodies[b].node_m[i];
+                this->bodies[b].Rz[i] /= this->bodies[b].node_m[i];
             }
+
         }
     }
 }
@@ -1484,12 +1556,6 @@ int job_t::mpmStepUSLImplicit() {
 
     double rhoSum = 0;
     double rhoTOL = 0;
-    /*for (size_t b=0;b<this->num_bodies;b++){
-        rhoTOL += this->bodies[b].node_m.array().sum();
-    }
-    rhoTOL *= 9.81*R_TOL*9.81*R_TOL*rhoTOL;*/
-
-    ///////////////////////////////////////
     rhoTOL = this->newtonTOL;//R_TOL;//*this->num_bodies*this->num_nodes;
 
     size_t nIter = 0;
@@ -1514,9 +1580,9 @@ int job_t::mpmStepUSLImplicit() {
 
             this->bodies[b].sk.setZero();
 
-            if (this->bodies[b].rhok > 2){
+            /*if (this->bodies[b].rhok > 2){
                 this->bodies[b].rhok = 1;
-            }
+            }*/
         }
 
         std::cout << "RHO: " << rhoSum << " ?< " << rhoTOL <<  " vnorm: " << this->bodies[0].node_x_t_n.lpNorm<Eigen::Infinity>() <<
@@ -1532,7 +1598,7 @@ int job_t::mpmStepUSLImplicit() {
                 double vNorm = std::sqrt(
                         this->bodies[b].node_x_t_n.squaredNorm() + this->bodies[b].node_y_t_n.squaredNorm()
                         + this->bodies[b].node_z_t_n.squaredNorm());
-                if (vNorm < TOL) {
+                if (vNorm <= TOL) {
                     vNorm = 1.0;
                 }
                 double sNorm = this->bodies[b].pk.norm();
@@ -1574,7 +1640,6 @@ int job_t::mpmStepUSLImplicit() {
             this->updateTrialStress();
 
             this->mapTrialStress2Grid();
-            //calculate residual for expicit step
 
             //add contact forces
             this->addContactForces();
@@ -1594,7 +1659,7 @@ int job_t::mpmStepUSLImplicit() {
                 double vNorm = std::sqrt(
                         this->bodies[b].node_x_t_n.squaredNorm() + this->bodies[b].node_y_t_n.squaredNorm() +
                         this->bodies[b].node_z_t_n.squaredNorm());
-                if (vNorm < TOL) {
+                if (vNorm <= TOL) {
                     vNorm = 1.0;
                 }
                 double sNorm = this->bodies[b].pk.norm();
@@ -1641,6 +1706,7 @@ int job_t::mpmStepUSLImplicit() {
             this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
         }
 
+        std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
         nIter += 1;
 
         //add contact forces
@@ -1678,21 +1744,21 @@ int job_t::mpmStepUSLImplicit() {
         //setup for next iteration
         rhoSum = 0;
         for (size_t b = 0; b < this->num_bodies; b++) {
-            this->bodies[b].Rvx = this->bodies[b].Rx;
-            this->bodies[b].Rvy = this->bodies[b].Ry;
-            this->bodies[b].Rvz = this->bodies[b].Rz;
+            //this->bodies[b].Rvx = this->bodies[b].Rx;
+            //this->bodies[b].Rvy = this->bodies[b].Ry;
+            //this->bodies[b].Rvz = this->bodies[b].Rz;
 
-            this->bodies[b].rk << -this->bodies[b].Rvx, -this->bodies[b].Rvy, -this->bodies[b].Rvz;
+            this->bodies[b].rk << -this->bodies[b].Rx, -this->bodies[b].Ry, -this->bodies[b].Rz;
 
             this->bodies[b].rhok = this->bodies[b].rk.squaredNorm();
 
             rhoSum += this->bodies[b].rhok;
 
-            this->bodies[b].pk = this->bodies[b].rk / this->bodies[b].rhok;
+            //this->bodies[b].pk = this->bodies[b].rk / std::sqrt(this->bodies[b].rhok);
 
-            this->bodies[b].sk.setZero();
+            //this->bodies[b].sk.setZero();
         }
-        std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
+        //std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
     } while (rhoSum>rhoTOL && rhoSum<R_MAX); //(this->num_bodies * this->num_nodes * R_TOL));
 
     //catch error where rhoSum is nan
@@ -1728,7 +1794,8 @@ int job_t::mpmStepUSLImplicit() {
     this->addBoundaryConditions();
 
     //move particles
-    this->moveParticlesExplicit();
+    //this->moveParticlesExplicit();
+    this->moveParticlesImplicit();
 
     //calculate L on particles
     this->calculateStrainRate();

@@ -100,6 +100,7 @@ public:
     void moveGridExplicit();
     void moveGridExplicit2D();
     void moveParticlesExplicit();
+    void moveParticlesImplicit();
     void moveParticlesExplicit2D();
     void calculateStrainRate();
     void calculateStrainRate2D();

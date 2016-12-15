@@ -39,6 +39,7 @@ block_depth = 0.2#*Ly
 
 block_primitive = Primitives3d.Box((Lx-block_width)/2, (Lx+block_width)/2,
                                  (Ly-block_depth)/2, (Ly+block_depth)/2,
+                                 #0,block_height,
                                  (Lz-block_height)/2, (Lz+block_height)/2,
                                  )
 block_body = CSGTree3d.Node(block_primitive)
