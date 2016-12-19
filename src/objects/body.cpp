@@ -130,6 +130,9 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
         pk(3*n),
         rk(3*n),
         r0(3*n),
+        qk(3*n),
+        tk(3*n),
+        hk(3*n),
 
         //position
         particle_x(p),

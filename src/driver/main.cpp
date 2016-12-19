@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
     MPMio mpmOut;
     mpmOut.setDefaultFiles();
     mpmOut.setJob(job);
-    mpmOut.setSampleRate(120.0);
+    mpmOut.setSampleRate(1000.0);
 
     //process_usl
     while (job->t < T_STOP) {
