@@ -1364,112 +1364,18 @@ void job_t::calculateImplicitResidual() {
                 this->bodies[b].Ry[i] = 0;
                 this->bodies[b].Rz[i] = 0;
             } else {
-                this->bodies[b].Rx[i] /= this->bodies[b].node_m[i];
-                this->bodies[b].Ry[i] /= this->bodies[b].node_m[i];
-                this->bodies[b].Rz[i] /= this->bodies[b].node_m[i];
+                //this->bodies[b].Rx[i] /= this->bodies[b].node_m[i];
+                //this->bodies[b].Ry[i] /= this->bodies[b].node_m[i];
+                //this->bodies[b].Rz[i] /= this->bodies[b].node_m[i];
             }
 
         }
     }
 }
 
-//*******************************************************************//
-//**************************MPM STEP*********************************//
-//*******************************************************************//
+void job_t::moveGridImplicitCG() {
+    //full conjugate gradient mathod for solving Js = -F(v)
 
-int job_t::mpmStepUSLExplicit() {
-    //forward step
-    this->t += this->dt;
-    this->stepcount += 1;
-
-    //create particle map
-    this->createMappings();
-
-    //map particles to grid
-    this->mapParticles2Grid();
-
-    //add contact forces
-    this->addContactForces();
-
-    //enforce boundary conditions
-    this->addBoundaryConditions();
-
-    //move grid
-    this->moveGridExplicit();
-
-    //move particles
-    this->moveParticlesExplicit();
-
-    //calculate L on particles
-    this->calculateStrainRate();
-
-    //update particle densities
-    this->updateDensity();
-
-    //material stress update
-    this->updateStress();
-
-    //add boddy forces
-    time_varying_loads(this);
-
-    return 1;
-}
-
-int job_t::mpmStepUSLExplicit2D() {
-    //forward step
-    this->t += this->dt;
-    this->stepcount += 1;
-
-    //create particle map
-    this->createMappings();
-
-    //map particles to grid
-    this->mapParticles2Grid();
-
-    //add contact forces
-    this->addContactForces2D();
-
-    //enforce boundary conditions
-    this->addBoundaryConditions();
-
-    //move grid
-    this->moveGridExplicit2D();
-
-    //move particles
-    this->moveParticlesExplicit2D();
-
-    //calculate L on particles
-    this->calculateStrainRate2D();
-
-    //update particle densities
-    this->updateDensity();
-
-    //material stress update
-    this->updateStress();
-
-    //add boddy forces
-    time_varying_loads(this);
-
-    return 1;
-}
-
-int job_t::mpmStepUSLImplicit() {
-    //forward step
-    this->t += this->dt;
-    this->stepcount += 1;
-
-    //create particle map
-    this->createMappings();
-
-    //map particles to grid
-    this->mapParticles2Grid();
-
-    //add contact forces
-    this->addContactForces();
-
-    //enforce boundary conditions
-    this->addBoundaryConditions();
-    
     for (size_t b=0;b<this->num_bodies;b++){
         this->bodies[b].node_mx_t_k = this->bodies[b].node_contact_mx_t;
         this->bodies[b].node_my_t_k = this->bodies[b].node_contact_my_t;
@@ -1586,8 +1492,8 @@ int job_t::mpmStepUSLImplicit() {
         }
 
         std::cout << "RHO: " << rhoSum << " ?< " << rhoTOL <<  " vnorm: " << this->bodies[0].node_x_t_n.lpNorm<Eigen::Infinity>() <<
-                "," << this->bodies[0].node_y_t_n.lpNorm<Eigen::Infinity>() <<
-                "," << this->bodies[0].node_z_t_n.lpNorm<Eigen::Infinity>() << std::endl;
+        "," << this->bodies[0].node_y_t_n.lpNorm<Eigen::Infinity>() <<
+        "," << this->bodies[0].node_z_t_n.lpNorm<Eigen::Infinity>() << std::endl;
 
         //solve for 's' to iterate 'v' [Sulsky 2003]
         size_t k = 0;
@@ -1714,7 +1620,6 @@ int job_t::mpmStepUSLImplicit() {
 
         //enforce boundary conditions
         this->addBoundaryConditions();
-
         //calculate L on particles
         this->calculateStrainRate();
 
@@ -1786,6 +1691,470 @@ int job_t::mpmStepUSLImplicit() {
         }*/
         exit(0);
     }
+
+    return;
+}
+
+void job_t::moveGridImplicitBiCGSTAB() {
+    //full biconjugate gradient stabilized mathod for solving Js = -F(v)
+
+    for (size_t b=0;b<this->num_bodies;b++){
+        this->bodies[b].node_mx_t_k = this->bodies[b].node_contact_mx_t;
+        this->bodies[b].node_my_t_k = this->bodies[b].node_contact_my_t;
+        this->bodies[b].node_mz_t_k = this->bodies[b].node_contact_mz_t;
+    }
+
+    //move grid
+    //this->moveGridExplicit();
+
+    //save forces and initial trial velocity
+    for (size_t b=0;b<this->num_bodies;b++){
+        this->bodies[b].node_fx_k = this->bodies[b].node_contact_fx;
+        this->bodies[b].node_fy_k = this->bodies[b].node_contact_fy;
+        this->bodies[b].node_fz_k = this->bodies[b].node_contact_fz;
+
+        this->bodies[b].node_x_t_n.setZero();
+        this->bodies[b].node_y_t_n.setZero();
+        this->bodies[b].node_z_t_n.setZero();
+
+        for (size_t i=0;i<this->num_nodes;i++){
+            if (this->bodies[b].node_m[i] > TOL) {
+                this->bodies[b].node_x_t_n[i] = this->bodies[b].node_contact_mx_t[i] / this->bodies[b].node_m[i];
+                this->bodies[b].node_y_t_n[i] = this->bodies[b].node_contact_my_t[i] / this->bodies[b].node_m[i];
+                this->bodies[b].node_z_t_n[i] = this->bodies[b].node_contact_mz_t[i] / this->bodies[b].node_m[i];
+            }
+        }
+
+        this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
+        this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
+        this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
+    }
+
+    //calculate L on particles
+    this->calculateStrainRate();
+
+    //update particle densities
+    this->updateTrialDensity();
+
+    //material stress update
+    this->updateTrialStress();
+
+    //add body forces
+    time_varying_loads(this);
+
+    //map particle stress back to nodes
+    this->mapTrialStress2Grid();
+
+    //add contact forces
+    this->addContactForces();
+
+    //enforce boundary conditions
+    this->addBoundaryConditions();
+
+    //save final forces on nodes
+    for (size_t b=0;b<this->num_bodies;b++){
+
+        this->bodies[b].node_fx_L = this->bodies[b].node_contact_fx;
+        this->bodies[b].node_fy_L = this->bodies[b].node_contact_fy;
+        this->bodies[b].node_fz_L = this->bodies[b].node_contact_fz;
+    }
+
+    //calculate initial residual
+    this->calculateImplicitResidual();
+
+    double rhoSum = 0;
+    double rhoTOL = 0;
+    rhoTOL = this->newtonTOL;//R_TOL;//*this->num_bodies*this->num_nodes;
+
+    size_t nIter = 0;
+    do {
+        //calculate norm from residual on both bodies and save residual of trial velocity
+        //setup iteration for s
+        rhoSum = 0;
+        for (size_t b = 0; b < this->num_bodies; b++) {
+            this->bodies[b].Rvx = this->bodies[b].Rx;
+            this->bodies[b].Rvy = this->bodies[b].Ry;
+            this->bodies[b].Rvz = this->bodies[b].Rz;
+
+            //initialize bicgstab variables
+            this->bodies[b].sk.setZero();
+            this->bodies[b].wk.setZero();
+            this->bodies[b].pk.setZero();
+            this->bodies[b].ak = 1;
+            this->bodies[b].rhok = 1;
+            this->bodies[b].ok = 1;
+            this->bodies[b].rk.setZero();
+
+            this->bodies[b].rk << -this->bodies[b].Rvx, -this->bodies[b].Rvy, -this->bodies[b].Rvz;
+            this->bodies[b].r0 = this->bodies[b].rk;
+
+            rhoSum += this->bodies[b].rk.squaredNorm();
+        }
+
+        std::cout << "RHO: " << rhoSum << " ?< " << rhoTOL <<  " vnorm: " << this->bodies[0].node_x_t_n.lpNorm<Eigen::Infinity>() <<
+        "," << this->bodies[0].node_y_t_n.lpNorm<Eigen::Infinity>() <<
+        "," << this->bodies[0].node_z_t_n.lpNorm<Eigen::Infinity>() << std::endl;
+
+        //solve for 's' to iterate 'v' [Sulsky 2003]
+        size_t k = 0;
+        while (/*k < 3*this->num_nodes &&*/ rhoSum > rhoTOL && rhoSum < R_MAX) {
+            double h = this->linearStepSize;
+
+            for (size_t b = 0; b < this->num_bodies; b++) {
+
+                this->bodies[b].bk = (this->bodies[b].r0.dot(this->bodies[b].rk))/(this->bodies[b].rhok)*this->bodies[b].ak/this->bodies[b].ok;
+                this->bodies[b].rhok = this->bodies[b].r0.dot(this->bodies[b].rk);
+                this->bodies[b].pk = this->bodies[b].rk + this->bodies[b].bk*(this->bodies[b].pk - this->bodies[b].ok*this->bodies[b].wk);
+
+                //wk = DhDF(vn,pk)
+                double vNorm = std::sqrt(
+                        this->bodies[b].node_x_t_n.squaredNorm() + this->bodies[b].node_y_t_n.squaredNorm()
+                        + this->bodies[b].node_z_t_n.squaredNorm());
+                if (vNorm <= TOL) {
+                    vNorm = 1.0;
+                }
+                double sNorm = this->bodies[b].pk.norm();
+                if (sNorm>TOL) {
+                    this->bodies[b].node_x_t_trial =
+                            this->bodies[b].node_x_t_n + h * vNorm * this->bodies[b].pk.segment(0,this->bodies[b].n) / sNorm;
+                    this->bodies[b].node_y_t_trial =
+                            this->bodies[b].node_y_t_n + h * vNorm * this->bodies[b].pk.segment(this->bodies[b].n,this->bodies[b].n)/ sNorm;
+                    this->bodies[b].node_z_t_trial =
+                            this->bodies[b].node_z_t_n + h * vNorm * this->bodies[b].pk.segment(2*this->bodies[b].n,this->bodies[b].n) / sNorm;
+                } else {
+                    this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
+                    this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
+                    this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
+                }
+
+                this->bodies[b].node_mx_t = this->bodies[b].node_x_t_trial.array() * this->bodies[b].node_m.array();
+                this->bodies[b].node_my_t = this->bodies[b].node_y_t_trial.array() * this->bodies[b].node_m.array();
+                this->bodies[b].node_mz_t = this->bodies[b].node_z_t_trial.array() * this->bodies[b].node_m.array();
+
+                this->bodies[b].node_x_t = this->bodies[b].node_x_t_trial;
+                this->bodies[b].node_y_t = this->bodies[b].node_y_t_trial;
+                this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
+            }
+
+            //add contact forces
+            this->addContactForces();
+
+            //enforce boundary conditions
+            this->addBoundaryConditions();
+
+            //calculate L on particles
+            this->calculateStrainRate();
+
+            //update particle densities
+            this->updateTrialDensity();
+
+            //material stress update
+            this->updateTrialStress();
+
+            this->mapTrialStress2Grid();
+
+            //add contact forces
+            this->addContactForces();
+
+            //enforce boundary conditions
+            this->addBoundaryConditions();
+
+            for (size_t b=0;b<this->num_bodies;b++) {
+                this->bodies[b].node_fx_L = this->bodies[b].node_contact_fx;
+                this->bodies[b].node_fy_L = this->bodies[b].node_contact_fy;
+                this->bodies[b].node_fz_L = this->bodies[b].node_contact_fz;
+            }
+
+            this->calculateImplicitResidual();
+
+            for (size_t b = 0; b < this->num_bodies; b++) {
+                double vNorm = std::sqrt(
+                        this->bodies[b].node_x_t_n.squaredNorm() + this->bodies[b].node_y_t_n.squaredNorm() +
+                        this->bodies[b].node_z_t_n.squaredNorm());
+                if (vNorm <= TOL) {
+                    vNorm = 1.0;
+                }
+                double sNorm = this->bodies[b].pk.norm();
+                this->bodies[b].DhRx = sNorm / (h * vNorm) * (this->bodies[b].Rx - this->bodies[b].Rvx);
+                this->bodies[b].DhRy = sNorm / (h * vNorm) * (this->bodies[b].Ry - this->bodies[b].Rvy);
+                this->bodies[b].DhRz = sNorm / (h * vNorm) * (this->bodies[b].Rz - this->bodies[b].Rvz);
+
+                this->bodies[b].wk << this->bodies[b].DhRx, this->bodies[b].DhRy, this->bodies[b].DhRz;
+                this->bodies[b].ak = this->bodies[b].rhok / (this->bodies[b].r0.dot(this->bodies[b].wk));
+                this->bodies[b].hk = this->bodies[b].sk + this->bodies[b].ak * this->bodies[b].pk;
+
+                if(!std::isfinite(this->bodies[b].ak)){
+                    std::cout << "ak is infinite\n";
+                }
+
+                //check hk for convergence?
+
+                this->bodies[b].qk = this->bodies[b].rk - this->bodies[b].ak * this->bodies[b].wk;
+
+                //calculate t = DhDF(vn,q)
+                sNorm = this->bodies[b].qk.norm();
+                if (sNorm>TOL) {
+                    this->bodies[b].node_x_t_trial =
+                            this->bodies[b].node_x_t_n + h * vNorm * this->bodies[b].qk.segment(0,this->bodies[b].n) / sNorm;
+                    this->bodies[b].node_y_t_trial =
+                            this->bodies[b].node_y_t_n + h * vNorm * this->bodies[b].qk.segment(this->bodies[b].n,this->bodies[b].n)/ sNorm;
+                    this->bodies[b].node_z_t_trial =
+                            this->bodies[b].node_z_t_n + h * vNorm * this->bodies[b].qk.segment(2*this->bodies[b].n,this->bodies[b].n) / sNorm;
+                } else {
+                    this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
+                    this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
+                    this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
+                }
+
+                this->bodies[b].node_mx_t = this->bodies[b].node_x_t_trial.array() * this->bodies[b].node_m.array();
+                this->bodies[b].node_my_t = this->bodies[b].node_y_t_trial.array() * this->bodies[b].node_m.array();
+                this->bodies[b].node_mz_t = this->bodies[b].node_z_t_trial.array() * this->bodies[b].node_m.array();
+
+                this->bodies[b].node_x_t = this->bodies[b].node_x_t_trial;
+                this->bodies[b].node_y_t = this->bodies[b].node_y_t_trial;
+                this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
+            }
+
+            //add contact forces
+            this->addContactForces();
+
+            //enforce boundary conditions
+            this->addBoundaryConditions();
+
+            //calculate L on particles
+            this->calculateStrainRate();
+
+            //update particle densities
+            this->updateTrialDensity();
+
+            //material stress update
+            this->updateTrialStress();
+
+            this->mapTrialStress2Grid();
+
+            //add contact forces
+            this->addContactForces();
+
+            //enforce boundary conditions
+            this->addBoundaryConditions();
+
+            for (size_t b=0;b<this->num_bodies;b++) {
+                this->bodies[b].node_fx_L = this->bodies[b].node_contact_fx;
+                this->bodies[b].node_fy_L = this->bodies[b].node_contact_fy;
+                this->bodies[b].node_fz_L = this->bodies[b].node_contact_fz;
+            }
+
+            this->calculateImplicitResidual();
+
+            for (size_t b = 0; b < this->num_bodies; b++) {
+                double vNorm = std::sqrt(
+                        this->bodies[b].node_x_t_n.squaredNorm() + this->bodies[b].node_y_t_n.squaredNorm() +
+                        this->bodies[b].node_z_t_n.squaredNorm());
+                if (vNorm <= TOL) {
+                    vNorm = 1.0;
+                }
+                double sNorm = this->bodies[b].qk.norm();
+                if (sNorm > TOL) {
+                    this->bodies[b].DhRx = sNorm / (h * vNorm) * (this->bodies[b].Rx - this->bodies[b].Rvx);
+                    this->bodies[b].DhRy = sNorm / (h * vNorm) * (this->bodies[b].Ry - this->bodies[b].Rvy);
+                    this->bodies[b].DhRz = sNorm / (h * vNorm) * (this->bodies[b].Rz - this->bodies[b].Rvz);
+
+                    this->bodies[b].tk << this->bodies[b].DhRx, this->bodies[b].DhRy, this->bodies[b].DhRz;
+                    this->bodies[b].ok =
+                            this->bodies[b].tk.dot(this->bodies[b].qk) / (this->bodies[b].tk.dot(this->bodies[b].tk));
+                    this->bodies[b].sk = this->bodies[b].hk + this->bodies[b].ok * this->bodies[b].qk;
+
+                    //check convergence of sk?
+
+                    if (!std::isfinite(this->bodies[b].ok)) {
+                        std::cout << "ok is infinite\n";
+                    }
+
+                    this->bodies[b].rk = this->bodies[b].qk - this->bodies[b].ok * this->bodies[b].tk;
+                } else {
+                    this->bodies[b].sk = this->bodies[b].hk;
+                    this->bodies[b].rk = this->bodies[b].qk;
+                }
+            }
+            k += 1;
+            rhoSum = 0;
+            for (size_t b = 0; b < this->num_bodies; b++) {
+                rhoSum += this->bodies[b].rk.squaredNorm();
+            }
+            std::cout << "\rn: " << nIter << " k: " << k <<  " r: " << rhoSum << "      \r" << std::flush;
+        }
+
+        for (size_t b = 0; b < this->num_bodies; b++) {
+            this->bodies[b].node_x_t_n += this->bodies[b].sk.segment(0,this->bodies[b].n);
+            this->bodies[b].node_y_t_n += this->bodies[b].sk.segment(this->bodies[b].n,this->bodies[b].n);
+            this->bodies[b].node_z_t_n += this->bodies[b].sk.segment(2*this->bodies[b].n,this->bodies[b].n);
+
+            this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
+            this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
+            this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
+
+            this->bodies[b].node_mx_t = this->bodies[b].node_x_t_trial.array() * this->bodies[b].node_m.array();
+            this->bodies[b].node_my_t = this->bodies[b].node_y_t_trial.array() * this->bodies[b].node_m.array();
+            this->bodies[b].node_mz_t = this->bodies[b].node_z_t_trial.array() * this->bodies[b].node_m.array();
+
+            this->bodies[b].node_x_t = this->bodies[b].node_x_t_trial;
+            this->bodies[b].node_y_t = this->bodies[b].node_y_t_trial;
+            this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
+        }
+
+        std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
+        nIter += 1;
+
+        //add contact forces
+        this->addContactForces();
+
+        //enforce boundary conditions
+        this->addBoundaryConditions();
+        //calculate L on particles
+        this->calculateStrainRate();
+
+        //update particle densities
+        this->updateTrialDensity();
+
+        //material stress update
+        this->updateTrialStress();
+
+        this->mapTrialStress2Grid();
+        //calculate residual for expicit step
+
+        //add contact forces
+        this->addContactForces();
+
+        //enforce boundary conditions
+        this->addBoundaryConditions();
+
+        for (size_t b=0;b<this->num_bodies;b++) {
+            this->bodies[b].node_fx_L = this->bodies[b].node_contact_fx;
+            this->bodies[b].node_fy_L = this->bodies[b].node_contact_fy;
+            this->bodies[b].node_fz_L = this->bodies[b].node_contact_fz;
+        }
+
+        this->calculateImplicitResidual();
+
+        //setup for next iteration
+        rhoSum = 0;
+        for (size_t b = 0; b < this->num_bodies; b++) {
+            this->bodies[b].rk << -this->bodies[b].Rx, -this->bodies[b].Ry, -this->bodies[b].Rz;
+            rhoSum += this->bodies[b].rk.squaredNorm();
+        }
+        //std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
+    } while (rhoSum>rhoTOL && rhoSum<R_MAX); //(this->num_bodies * this->num_nodes * R_TOL));
+
+    //catch error where rhoSum is nan
+    if (!std::isfinite(rhoSum) || rhoSum>=R_MAX){
+        std::cout << "Error: Residual in mpmStepUSLImplicit() is infinite." << std::endl;
+        exit(0);
+    }
+
+    return;
+}
+
+//*******************************************************************//
+//**************************MPM STEP*********************************//
+//*******************************************************************//
+
+int job_t::mpmStepUSLExplicit() {
+    //forward step
+    this->t += this->dt;
+    this->stepcount += 1;
+
+    //create particle map
+    this->createMappings();
+
+    //map particles to grid
+    this->mapParticles2Grid();
+
+    //add contact forces
+    this->addContactForces();
+
+    //enforce boundary conditions
+    this->addBoundaryConditions();
+
+    //move grid
+    this->moveGridExplicit();
+
+    //move particles
+    this->moveParticlesExplicit();
+
+    //calculate L on particles
+    this->calculateStrainRate();
+
+    //update particle densities
+    this->updateDensity();
+
+    //material stress update
+    this->updateStress();
+
+    //add boddy forces
+    time_varying_loads(this);
+
+    return 1;
+}
+
+int job_t::mpmStepUSLExplicit2D() {
+    //forward step
+    this->t += this->dt;
+    this->stepcount += 1;
+
+    //create particle map
+    this->createMappings();
+
+    //map particles to grid
+    this->mapParticles2Grid();
+
+    //add contact forces
+    this->addContactForces2D();
+
+    //enforce boundary conditions
+    this->addBoundaryConditions();
+
+    //move grid
+    this->moveGridExplicit2D();
+
+    //move particles
+    this->moveParticlesExplicit2D();
+
+    //calculate L on particles
+    this->calculateStrainRate2D();
+
+    //update particle densities
+    this->updateDensity();
+
+    //material stress update
+    this->updateStress();
+
+    //add boddy forces
+    time_varying_loads(this);
+
+    return 1;
+}
+
+int job_t::mpmStepUSLImplicit() {
+    //forward step
+    this->t += this->dt;
+    this->stepcount += 1;
+
+    //create particle map
+    this->createMappings();
+
+    //map particles to grid
+    this->mapParticles2Grid();
+
+    //add contact forces
+    this->addContactForces();
+
+    //enforce boundary conditions
+    this->addBoundaryConditions();
+
+    //move grid
+    //this->moveGridExplicit();
+    //this->moveGridImplicitCG();
+    this->moveGridImplicitBiCGSTAB();
 
     //add contact forces
     this->addContactForces();

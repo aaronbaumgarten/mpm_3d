@@ -108,8 +108,11 @@ public:
     void updateTrialDensity();
     void updateStress();
     void updateTrialStress();
+    //implicit calculations
     void mapTrialStress2Grid();
     void calculateImplicitResidual();
+    void moveGridImplicitCG();
+    void moveGridImplicitBiCGSTAB();
 
 };
 

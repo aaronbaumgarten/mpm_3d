@@ -140,6 +140,10 @@ public:
     Eigen::VectorXd sk;
     Eigen::VectorXd rk;
     Eigen::VectorXd r0;
+    Eigen::VectorXd qk;
+    Eigen::VectorXd tk;
+    Eigen::VectorXd hk;
+    double ok;
     //Eigen::VectorXd rhok;//*
     double rhok;
     //Eigen::VectorXd bk;//*
