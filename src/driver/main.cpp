@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
 
     //initialize job
     job_t *job(new job_t);
-    job->dt = 1e-3;
+    job->dt = 1e-4;
     job->dt_base = job->dt;
     job->dt_minimum = 1e-6;
     job->use_3d = 1;
@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
     MPMio mpmOut;
     mpmOut.setDefaultFiles();
     mpmOut.setJob(job);
-    mpmOut.setSampleRate(1000.0);
+    mpmOut.setSampleRate(120.0);
 
     //process_usl
     while (job->t < T_STOP) {
@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
         if (job->t * mpmOut.sampleRate > mpmOut.sampledFrames) {
             mpmOut.writeFrame();
             mpmOut.sampledFrames += 1;
-            std::cout << " Frame captured (" << mpmOut.sampledFrames << ")." << std::flush;
+            std::cout << " Frame captured (" << mpmOut.sampledFrames-1 << ")." << std::flush;
         }
 
         /*std::ostringstream s;

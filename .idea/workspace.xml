@@ -13,11 +13,8 @@
   <component name="ChangeListManager">
     <list default="true" id="391efbbb-8441-4996-9b16-7d10a6ef491f" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/include/body.hpp" afterPath="$PROJECT_DIR$/include/body.hpp" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/include/process.hpp" afterPath="$PROJECT_DIR$/include/process.hpp" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/driver/main.cpp" afterPath="$PROJECT_DIR$/src/driver/main.cpp" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/functions/process.cpp" afterPath="$PROJECT_DIR$/src/functions/process.cpp" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/objects/body.cpp" afterPath="$PROJECT_DIR$/src/objects/body.cpp" />
     </list>
     <ignored path="mpm_3d.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -46,8 +43,8 @@
       <file leaf-file-name="main.cpp" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/driver/main.cpp">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="182">
-              <caret line="75" column="28" selection-start-line="75" selection-start-column="28" selection-end-line="75" selection-end-column="28" />
+            <state relative-caret-position="227">
+              <caret line="75" column="27" selection-start-line="75" selection-start-column="27" selection-end-line="75" selection-end-column="27" />
               <folding>
                 <element signature="e#0#19#0" expanded="true" />
               </folding>
@@ -88,8 +85,8 @@
       <file leaf-file-name="isolin.cpp" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/materials/isolin.cpp">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-763">
-              <caret line="122" column="38" selection-start-line="122" selection-start-column="38" selection-end-line="122" selection-end-column="38" />
+            <state relative-caret-position="587">
+              <caret line="122" column="30" selection-start-line="122" selection-start-column="30" selection-end-line="122" selection-end-column="30" />
               <folding />
             </state>
           </provider>
@@ -108,12 +105,22 @@
       <file leaf-file-name="process.cpp" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/functions/process.cpp">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="273">
-              <caret line="1351" column="70" selection-start-line="1351" selection-start-column="70" selection-end-line="1351" selection-end-column="70" />
+            <state relative-caret-position="678">
+              <caret line="1369" column="61" selection-start-line="1369" selection-start-column="61" selection-end-line="1369" selection-end-column="61" />
               <folding>
                 <element signature="e#54#73#0" expanded="true" />
-                <marker date="1482180169319" expanded="true" signature="1722:12499" ph="{...}" />
+                <marker date="1482187114064" expanded="true" signature="1722:12499" ph="{...}" />
               </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="boxBC.cpp" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/boundaries/boxBC.cpp">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="465">
+              <caret line="56" column="43" selection-start-line="56" selection-start-column="34" selection-end-line="56" selection-end-column="43" />
+              <folding />
             </state>
           </provider>
         </entry>
@@ -198,8 +205,8 @@
         <option value="$PROJECT_DIR$/include/process.hpp" />
         <option value="$PROJECT_DIR$/src/objects/body.cpp" />
         <option value="$PROJECT_DIR$/include/body.hpp" />
-        <option value="$PROJECT_DIR$/src/functions/process.cpp" />
         <option value="$PROJECT_DIR$/src/driver/main.cpp" />
+        <option value="$PROJECT_DIR$/src/functions/process.cpp" />
       </list>
     </option>
   </component>
@@ -884,34 +891,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/boundaries/boxBC.cpp">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="720">
-          <caret line="73" column="57" selection-start-line="73" selection-start-column="57" selection-end-line="73" selection-end-column="57" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/include/particle.hpp">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="-1857">
           <caret line="59" column="20" selection-start-line="59" selection-start-column="20" selection-end-line="59" selection-end-column="20" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/functions/loading.cpp">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="105">
-          <caret line="14" column="14" selection-start-line="14" selection-start-column="14" selection-end-line="14" selection-end-column="14" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/materials/isolin.cpp">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-763">
-          <caret line="122" column="38" selection-start-line="122" selection-start-column="38" selection-end-line="122" selection-end-column="38" />
           <folding />
         </state>
       </provider>
@@ -951,6 +934,14 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/functions/loading.cpp">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="105">
+          <caret line="14" column="14" selection-start-line="14" selection-start-column="14" selection-end-line="14" selection-end-column="14" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/include/process.hpp">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="435">
@@ -959,21 +950,37 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/materials/isolin.cpp">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="587">
+          <caret line="122" column="30" selection-start-line="122" selection-start-column="30" selection-end-line="122" selection-end-column="30" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/boundaries/boxBC.cpp">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="465">
+          <caret line="56" column="43" selection-start-line="56" selection-start-column="34" selection-end-line="56" selection-end-column="43" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/functions/process.cpp">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="273">
-          <caret line="1351" column="70" selection-start-line="1351" selection-start-column="70" selection-end-line="1351" selection-end-column="70" />
+        <state relative-caret-position="678">
+          <caret line="1369" column="61" selection-start-line="1369" selection-start-column="61" selection-end-line="1369" selection-end-column="61" />
           <folding>
             <element signature="e#54#73#0" expanded="true" />
-            <marker date="1482180169319" expanded="true" signature="1722:12499" ph="{...}" />
+            <marker date="1482187114064" expanded="true" signature="1722:12499" ph="{...}" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/driver/main.cpp">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="182">
-          <caret line="75" column="28" selection-start-line="75" selection-start-column="28" selection-end-line="75" selection-end-column="28" />
+        <state relative-caret-position="227">
+          <caret line="75" column="27" selection-start-line="75" selection-start-column="27" selection-end-line="75" selection-end-column="27" />
           <folding>
             <element signature="e#0#19#0" expanded="true" />
           </folding>

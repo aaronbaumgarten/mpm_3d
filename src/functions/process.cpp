@@ -1358,13 +1358,29 @@ void job_t::calculateImplicitResidual() {
         this->bodies[b].Rz -= this->bodies[b].node_mz_t_k;
 
         for (size_t i=0;i<this->num_nodes;i++){
-            if (this->u_dirichlet_mask[i] != 0 || this->bodies[b].node_m[i] <= TOL){
+            if (this->bodies[b].node_m[i] <= TOL){
                 //nodal boundary
                 this->bodies[b].Rx[i] = 0;
                 this->bodies[b].Ry[i] = 0;
                 this->bodies[b].Rz[i] = 0;
             } else {
-                //this->bodies[b].Rx[i] /= this->bodies[b].node_m[i];
+                if (this->u_dirichlet_mask[NODAL_DOF*i] != 0){
+                    this->bodies[b].Rx[i] = 0;
+                } else {
+                    this->bodies[b].Rx[i] /= this->bodies[b].node_m[i];
+                }
+
+                if (this->u_dirichlet_mask[NODAL_DOF*i + 1] != 0){
+                    this->bodies[b].Ry[i] = 0;
+                } else {
+                    this->bodies[b].Ry[i] /= this->bodies[b].node_m[i];
+                }
+
+                if (this->u_dirichlet_mask[NODAL_DOF*i + 2] != 0){
+                    this->bodies[b].Rz[i] = 0;
+                } else {
+                    this->bodies[b].Rz[i] /= this->bodies[b].node_m[i];
+                }
                 //this->bodies[b].Ry[i] /= this->bodies[b].node_m[i];
                 //this->bodies[b].Rz[i] /= this->bodies[b].node_m[i];
             }
@@ -1491,9 +1507,9 @@ void job_t::moveGridImplicitCG() {
             }*/
         }
 
-        std::cout << "RHO: " << rhoSum << " ?< " << rhoTOL <<  " vnorm: " << this->bodies[0].node_x_t_n.lpNorm<Eigen::Infinity>() <<
+        /*std::cout << "RHO: " << rhoSum << " ?< " << rhoTOL <<  " vnorm: " << this->bodies[0].node_x_t_n.lpNorm<Eigen::Infinity>() <<
         "," << this->bodies[0].node_y_t_n.lpNorm<Eigen::Infinity>() <<
-        "," << this->bodies[0].node_z_t_n.lpNorm<Eigen::Infinity>() << std::endl;
+        "," << this->bodies[0].node_z_t_n.lpNorm<Eigen::Infinity>() << std::endl;*/
 
         //solve for 's' to iterate 'v' [Sulsky 2003]
         size_t k = 0;
@@ -1591,7 +1607,7 @@ void job_t::moveGridImplicitCG() {
             for (size_t b = 0; b < this->num_bodies; b++) {
                 rhoSum += this->bodies[b].rhok;
             }
-            std::cout << "\rn: " << nIter << " k: " << k <<  " r: " << rhoSum << "      \r" << std::flush;
+            //std::cout << "\rn: " << nIter << " k: " << k <<  " r: " << rhoSum << "      \r" << std::flush;
         }
 
         for (size_t b = 0; b < this->num_bodies; b++) {
@@ -1612,7 +1628,7 @@ void job_t::moveGridImplicitCG() {
             this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
         }
 
-        std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
+        //std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
         nIter += 1;
 
         //add contact forces
@@ -1717,13 +1733,16 @@ void job_t::moveGridImplicitBiCGSTAB() {
         this->bodies[b].node_y_t_n.setZero();
         this->bodies[b].node_z_t_n.setZero();
 
+        double activeNodes = 0;
         for (size_t i=0;i<this->num_nodes;i++){
             if (this->bodies[b].node_m[i] > TOL) {
+                activeNodes += 1;
                 this->bodies[b].node_x_t_n[i] = this->bodies[b].node_contact_mx_t[i] / this->bodies[b].node_m[i];
                 this->bodies[b].node_y_t_n[i] = this->bodies[b].node_contact_my_t[i] / this->bodies[b].node_m[i];
                 this->bodies[b].node_z_t_n[i] = this->bodies[b].node_contact_mz_t[i] / this->bodies[b].node_m[i];
             }
         }
+        //std::cout << "\nactive nodes: " << activeNodes << std::endl;
 
         this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
         this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
@@ -1762,6 +1781,20 @@ void job_t::moveGridImplicitBiCGSTAB() {
     //calculate initial residual
     this->calculateImplicitResidual();
 
+    /*for (size_t b=0;b<this->num_bodies;b++) {
+        double nn = 0;
+        for (size_t i = 0; i < this->num_nodes; i++) {
+            if (this->bodies[b].node_m[i] > TOL) {
+                std::cout << "\nnodal force/mass: " << this->bodies[b].node_contact_fx[i] / this->bodies[b].node_m[i];
+                std::cout << " " << this->bodies[b].node_contact_fy[i] / this->bodies[b].node_m[i];
+                std::cout << " " << this->bodies[b].node_contact_fz[i] / this->bodies[b].node_m[i] << std::endl;
+                std::cout << this->bodies[b].Rx[i] << " " << this->bodies[b].Ry[i] << " " << this->bodies[b].Rz[i] << std::endl;
+                nn += 1;
+            }
+        }
+        std::cout << nn << std::endl;
+    }*/
+
     double rhoSum = 0;
     double rhoTOL = 0;
     rhoTOL = this->newtonTOL;//R_TOL;//*this->num_bodies*this->num_nodes;
@@ -1791,9 +1824,9 @@ void job_t::moveGridImplicitBiCGSTAB() {
             rhoSum += this->bodies[b].rk.squaredNorm();
         }
 
-        std::cout << "RHO: " << rhoSum << " ?< " << rhoTOL <<  " vnorm: " << this->bodies[0].node_x_t_n.lpNorm<Eigen::Infinity>() <<
+        /*std::cout << "RHO: " << rhoSum << " ?< " << rhoTOL <<  " vnorm: " << this->bodies[0].node_x_t_n.lpNorm<Eigen::Infinity>() <<
         "," << this->bodies[0].node_y_t_n.lpNorm<Eigen::Infinity>() <<
-        "," << this->bodies[0].node_z_t_n.lpNorm<Eigen::Infinity>() << std::endl;
+        "," << this->bodies[0].node_z_t_n.lpNorm<Eigen::Infinity>() << std::endl;*/
 
         //solve for 's' to iterate 'v' [Sulsky 2003]
         size_t k = 0;
@@ -1981,7 +2014,7 @@ void job_t::moveGridImplicitBiCGSTAB() {
             for (size_t b = 0; b < this->num_bodies; b++) {
                 rhoSum += this->bodies[b].rk.squaredNorm();
             }
-            std::cout << "\rn: " << nIter << " k: " << k <<  " r: " << rhoSum << "      \r" << std::flush;
+            //std::cout << "\rn: " << nIter << " k: " << k <<  " r: " << rhoSum << "      \r" << std::flush;
         }
 
         for (size_t b = 0; b < this->num_bodies; b++) {
@@ -2002,7 +2035,7 @@ void job_t::moveGridImplicitBiCGSTAB() {
             this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
         }
 
-        std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
+        //std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
         nIter += 1;
 
         //add contact forces
