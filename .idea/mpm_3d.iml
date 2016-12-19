@@ -11,7 +11,9 @@
       <sourceFolder url="file://$MODULE_DIR$/src/objects/body.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/objects/mpmio.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/objects/material1.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/tests/unitTestMain.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/tests/test.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/tests/unitShapeFunctions.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/CMakeLists.txt" isTestSource="false" />
     </content>
     <orderEntry type="sourceFolder" forTests="false" />

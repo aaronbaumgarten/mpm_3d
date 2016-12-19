@@ -123,12 +123,12 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
             }
             if (std::getline(fin, line)) {
                 std::stringstream ss(line);
-                if (!(ss >> this->Lx)) {
+                if (!(ss >> this->Lx >> this->Ly >> this->Lz)) {
                     std::cout << "Cannot parse grid file: " << nfilename << "\n";
                     return -1;
                 }
-                this->Ly = this->Lx;
-                this->Lz = this->Lx;
+                //this->Ly = this->Lx;
+                //this->Lz = this->Lx;
                 this->hx = this->Lx / (numLinearNodesX - 1);
                 this->hy = this->Ly / (numLinearNodesY - 1);
                 this->hz = this->Lz / (numLinearNodesZ - 1);
@@ -1908,21 +1908,27 @@ void job_t::moveGridImplicitBiCGSTAB() {
                     vNorm = 1.0;
                 }
                 double sNorm = this->bodies[b].pk.norm();
-                this->bodies[b].DhRx = sNorm / (h * vNorm) * (this->bodies[b].Rx - this->bodies[b].Rvx);
-                this->bodies[b].DhRy = sNorm / (h * vNorm) * (this->bodies[b].Ry - this->bodies[b].Rvy);
-                this->bodies[b].DhRz = sNorm / (h * vNorm) * (this->bodies[b].Rz - this->bodies[b].Rvz);
+                if (sNorm > TOL) {
+                    this->bodies[b].DhRx = sNorm / (h * vNorm) * (this->bodies[b].Rx - this->bodies[b].Rvx);
+                    this->bodies[b].DhRy = sNorm / (h * vNorm) * (this->bodies[b].Ry - this->bodies[b].Rvy);
+                    this->bodies[b].DhRz = sNorm / (h * vNorm) * (this->bodies[b].Rz - this->bodies[b].Rvz);
 
-                this->bodies[b].wk << this->bodies[b].DhRx, this->bodies[b].DhRy, this->bodies[b].DhRz;
-                this->bodies[b].ak = this->bodies[b].rhok / (this->bodies[b].r0.dot(this->bodies[b].wk));
-                this->bodies[b].hk = this->bodies[b].sk + this->bodies[b].ak * this->bodies[b].pk;
+                    this->bodies[b].wk << this->bodies[b].DhRx, this->bodies[b].DhRy, this->bodies[b].DhRz;
+                    this->bodies[b].ak = this->bodies[b].rhok / (this->bodies[b].r0.dot(this->bodies[b].wk));
+                    this->bodies[b].hk = this->bodies[b].sk + this->bodies[b].ak * this->bodies[b].pk;
 
-                if(!std::isfinite(this->bodies[b].ak)){
-                    std::cout << "ak is infinite\n";
+                    if (!std::isfinite(this->bodies[b].ak)) {
+                        std::cout << "\nak is infinite\n";
+                    }
+
+                    //check hk for convergence?
+
+                    this->bodies[b].qk = this->bodies[b].rk - this->bodies[b].ak * this->bodies[b].wk;
+                } else {
+                    this->bodies[b].hk = this->bodies[b].sk;
+                    this->bodies[b].qk = this->bodies[b].rk;
+                    //let ak retain former value for bk calculation at beginning of step
                 }
-
-                //check hk for convergence?
-
-                this->bodies[b].qk = this->bodies[b].rk - this->bodies[b].ak * this->bodies[b].wk;
 
                 //calculate t = DhDF(vn,q)
                 sNorm = this->bodies[b].qk.norm();
@@ -2007,6 +2013,7 @@ void job_t::moveGridImplicitBiCGSTAB() {
                 } else {
                     this->bodies[b].sk = this->bodies[b].hk;
                     this->bodies[b].rk = this->bodies[b].qk;
+                    //let ok retain previous value for calculation of bk at beginning of step
                 }
             }
             k += 1;

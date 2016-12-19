@@ -24,13 +24,13 @@ int main(int argc, char *argv[]) {
 
     //initialize job
     job_t *job(new job_t);
-    job->dt = 1e-4;
-    job->dt_base = job->dt;
-    job->dt_minimum = 1e-6;
+    job->dt = 1e-3;
+    //job->dt_base = job->dt;
+    //job->dt_minimum = 1e-6;
     job->use_3d = 1;
     job->use_implicit = 1;
     job->use_cpdi = 1;
-    job->newtonTOL = 1e-14;
+    job->newtonTOL = 1e-12;
     job->linearStepSize = 1e-5;
 
     //parse configuration files
