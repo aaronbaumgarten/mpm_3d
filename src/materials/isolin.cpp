@@ -90,44 +90,40 @@ void calculate_stress_implicit(Body *body, double dtIn) {
             continue;
         }
 
-        double e_t[9];
-        double w_t[9];
-        tensor_sym3(e_t,body->particles[i].L);
-        tensor_skw3(w_t,body->particles[i].L);
+        double D[9];
+        double W[9];
+        tensor_sym3(D,body->particles[i].L);
+        tensor_skw3(W,body->particles[i].L);
 
         double trD;
         tensor_trace3(&trD,body->particles[i].L);
 
-        double dsj[9]; //this formulation may be wrong. Second two terms are confusing
-        dsj[XX] = lambda * trD + 2.0 * G * e_t[XX]
-                  + 2.0 * w_t[XY] * body->particles[i].T[XY]
-                  - 2.0 * w_t[ZX] * body->particles[i].T[XZ];
+        double gleft[9];
+        tensor_multiply3(gleft, W, body->particles[i].T);
+        double gright[9];
+        tensor_multiply3(gright, body->particles[i].T, W);
+        tensor_scale3(gright, -1);
+        double tmp[9];
+        tensor_add3(tmp, gleft, gright);
 
-        dsj[YY] = lambda * trD + 2.0 * G * e_t[YY]
-                  - 2.0 * w_t[XY] * body->particles[i].T[XY]
-                  + 2.0 * w_t[YZ] * body->particles[i].T[YZ];
+        double CD[9];
+        tensor_copy3(CD, D);
+        tensor_scale3(CD, 2*G);
+        CD[XX] += lambda * trD;
+        CD[YY] += lambda * trD;
+        CD[ZZ] += lambda * trD;
 
-        dsj[ZZ] = lambda * trD + 2.0 * G * e_t[ZZ]
-                  - 2.0 * w_t[YZ] * body->particles[i].T[YZ]
-                  + 2.0 * w_t[ZX] * body->particles[i].T[XZ];
-
-        dsj[XY] = 2.0 * G * e_t[XY]
-                  - w_t[XY] * (body->particles[i].T[XX] - body->particles[i].T[YY]);
-
-        dsj[XZ] = 2.0 * G * e_t[XZ]
-                  - w_t[ZX] * (body->particles[i].T[ZZ] - body->particles[i].T[XX]);
-
-        dsj[YZ] = 2.0 * G * e_t[YZ]
-                  - w_t[YZ] * (body->particles[i].T[YY] - body->particles[i].T[ZZ]);
+        double dsj[9];
+        tensor_add3(dsj, CD, tmp);
 
         body->particles[i].Ttrial[XX] = body->particles[i].T[XX] + dt * dsj[XX];
         body->particles[i].Ttrial[XY] = body->particles[i].T[XY] + dt * dsj[XY];
         body->particles[i].Ttrial[XZ] = body->particles[i].T[XZ] + dt * dsj[XZ];
-        body->particles[i].Ttrial[YX] = body->particles[i].T[YX] + dt * dsj[XY];//*
+        body->particles[i].Ttrial[YX] = body->particles[i].T[YX] + dt * dsj[XY];
         body->particles[i].Ttrial[YY] = body->particles[i].T[YY] + dt * dsj[YY];
         body->particles[i].Ttrial[YZ] = body->particles[i].T[YZ] + dt * dsj[YZ];
-        body->particles[i].Ttrial[ZX] = body->particles[i].T[ZX] + dt * dsj[XZ];//*
-        body->particles[i].Ttrial[ZY] = body->particles[i].T[ZY] + dt * dsj[YZ];//*
+        body->particles[i].Ttrial[ZX] = body->particles[i].T[ZX] + dt * dsj[XZ];
+        body->particles[i].Ttrial[ZY] = body->particles[i].T[ZY] + dt * dsj[YZ];
         body->particles[i].Ttrial[ZZ] = body->particles[i].T[ZZ] + dt * dsj[ZZ];
     }
 
@@ -157,66 +153,45 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
             continue;
         }
 
-        double e_t[9];
-        double w_t[9];
-        tensor_sym3(e_t,body->particles[i].L);
-        tensor_skw3(w_t,body->particles[i].L);
+        double D[9];
+        double W[9];
+        tensor_sym3(D,body->particles[i].L);
+        tensor_skw3(W,body->particles[i].L);
 
         double trD;
         tensor_trace3(&trD,body->particles[i].L);
 
-        double dsj[9]; //this formulation may be wrong. Second two terms are confusing
-        dsj[XX] = lambda * trD + 2.0 * G * e_t[XX]
-                  + 2.0 * w_t[XY] * body->particles[i].T[XY]
-                  - 2.0 * w_t[ZX] * body->particles[i].T[XZ];
+        double gleft[9];
+        tensor_multiply3(gleft, W, body->particles[i].T);
+        double gright[9];
+        tensor_multiply3(gright, body->particles[i].T, W);
+        tensor_scale3(gright, -1);
+        double tmp[9];
+        tensor_add3(tmp, gleft, gright);
 
-        dsj[YY] = lambda * trD + 2.0 * G * e_t[YY]
-                  - 2.0 * w_t[XY] * body->particles[i].T[XY]
-                  + 2.0 * w_t[YZ] * body->particles[i].T[YZ];
+        double CD[9];
+        tensor_copy3(CD, D);
+        tensor_scale3(CD, 2*G);
+        CD[XX] += lambda * trD;
+        CD[YY] += lambda * trD;
+        CD[ZZ] += lambda * trD;
 
-        dsj[ZZ] = lambda * trD + 2.0 * G * e_t[ZZ]
-                  - 2.0 * w_t[YZ] * body->particles[i].T[YZ]
-                  + 2.0 * w_t[ZX] * body->particles[i].T[XZ];
-
-        dsj[XY] = 2.0 * G * e_t[XY]
-                  - w_t[XY] * (body->particles[i].T[XX] - body->particles[i].T[YY]);
-
-        dsj[XZ] = 2.0 * G * e_t[XZ]
-                  - w_t[ZX] * (body->particles[i].T[ZZ] - body->particles[i].T[XX]);
-
-        dsj[YZ] = 2.0 * G * e_t[YZ]
-                  - w_t[YZ] * (body->particles[i].T[YY] - body->particles[i].T[ZZ]);
+        double dsj[9];
+        tensor_add3(dsj, CD, tmp);
 
         body->particles[i].T[XX] += dt * dsj[XX];
         body->particles[i].T[XY] += dt * dsj[XY];
         body->particles[i].T[XZ] += dt * dsj[XZ];
-        body->particles[i].T[YX] += dt * dsj[XY];//*
+        body->particles[i].T[YX] += dt * dsj[XY];
         body->particles[i].T[YY] += dt * dsj[YY];
         body->particles[i].T[YZ] += dt * dsj[YZ];
-        body->particles[i].T[ZX] += dt * dsj[XZ];//*
-        body->particles[i].T[ZY] += dt * dsj[YZ];//*
+        body->particles[i].T[ZX] += dt * dsj[XZ];
+        body->particles[i].T[ZY] += dt * dsj[YZ];
         body->particles[i].T[ZZ] += dt * dsj[ZZ];
 
-        /*const double exx_t = body->particles[i].L[XX];
-        const double exy_t = 0.5 * (job->particles[i].L[XY] + job->particles[i].L[YX]);
-        const double wxy_t = 0.5 * (job->particles[i].L[XY] - job->particles[i].L[YX]);
-        const double eyy_t = job->particles[i].L[YY];
-
-        const double trD = exx_t + eyy_t;
-        double dsjxx = lambda * trD + 2.0 * G * exx_t;
-        double dsjxy = 2.0 * G * exy_t;
-        double dsjyy = lambda * trD + 2.0 * G * eyy_t;
-        dsjxx += 2 * wxy_t * job->particles[i].T[XY];
-        dsjxy -= wxy_t * (job->particles[i].T[XX] - job->particles[i].T[YY]);
-        dsjyy -= 2 * wxy_t * job->particles[i].T[XY];
-        const double dsjzz = lambda * trD;
-
-        job->particles[i].T[XX] += job->dt * dsjxx;
-        job->particles[i].T[XY] += job->dt * dsjxy;
-        job->particles[i].T[YY] += job->dt * dsjyy;
-        job->particles[i].T[ZZ] += job->dt * dsjzz;*/
     }
 
     return;
 }
 /*----------------------------------------------------------------------------*/
+

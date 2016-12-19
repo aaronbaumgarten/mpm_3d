@@ -82,7 +82,7 @@ UTEST(shapefunction, "Testing phi and gradPhi", []() -> bool {
     el.nodeID.push_back(5);
     el.nodeID.push_back(6);
     el.nodeID.push_back(7);
-    el.calculatePhic(&mb, &mp, 0);
+    el.calculatePhic(&mb, &mp, 0, 0);
 
     passing &= (mb.PhiTriplets[0].value() == (1.0 / 8.0) / 8.0);
     passing &= (mb.PhiTriplets[1].value() == (1.0 / 8.0) / 8.0);
