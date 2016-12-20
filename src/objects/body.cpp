@@ -25,114 +25,8 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
 
         //objects
         particles(p),
-        nodes(n),
-        elements(e),
-
-        //mass
-        node_m(n),
-
-        //position
-        node_x(n),
-        node_y(n),
-        node_z(n),
-
-        //displacement
-        node_ux(n),
-        node_uy(n),
-        node_uz(n),
-
-        //velocity
-        node_x_t(n),
-        node_y_t(n),
-        node_z_t(n),
-
-        //velocity difference
-        node_diff_x_t(n),
-        node_diff_y_t(n),
-        node_diff_z_t(n),
-
-        //momentum
-        node_mx_t(n),
-        node_my_t(n),
-        node_mz_t(n),
-
-        //force
-        node_fx(n),
-        node_fy(n),
-        node_fz(n),
-
-        //density
-        node_rho(n),
-
-        //body contact resolution
-        node_contact_mx_t(n),
-        node_contact_my_t(n),
-        node_contact_mz_t(n),
-
-        node_contact_x_t(n),
-        node_contact_y_t(n),
-        node_contact_z_t(n),
-
-        node_contact_fx(n),
-        node_contact_fy(n),
-        node_contact_fz(n),
-
-        //node_real_contact_fx(n),
-        //node_real_contact_fy(n),
-        //node_real_contact_fz(n),
-
-        node_contact_normal_x(n),
-        node_contact_normal_y(n),
-        node_contact_normal_z(n),
-
-        //implicit states
-        node_mx_t_k(n),
-        node_my_t_k(n),
-        node_mz_t_k(n),
-
-        node_x_t_trial(n),
-        node_y_t_trial(n),
-        node_z_t_trial(n),
-
-        node_x_t_explicit(n),
-        node_y_t_explicit(n),
-        node_z_t_explicit(n),
-
-        node_x_t_n(n),
-        node_y_t_n(n),
-        node_z_t_n(n),
-
-        node_fx_k(n),
-        node_fy_k(n),
-        node_fz_k(n),
-
-        node_fx_L(n),
-        node_fy_L(n),
-        node_fz_L(n),
-
-        Rx(n),
-        Ry(n),
-        Rz(n),
-
-        Rvx(n),
-        Rvy(n),
-        Rvz(n),
-
-        DhRx(n),
-        DhRy(n),
-        DhRz(n),
-
-        //ak(n),
-        //rhok(n),
-        //bk(n),
-        wk(3*n),
-        sk(3*n),
-        pk(3*n),
-        rk(3*n),
-        r0(3*n),
-        qk(3*n),
-        tk(3*n),
-        hk(3*n),
+        //nodes(n),
+        //elements(e),
 
         //position
         particle_x(p),
@@ -176,6 +70,7 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
         gradPhiZ(n,p)*/
 {
     material = Material();
+    nodes = Nodes(n);
     Phi.resize(n,p);
     gradPhiX.resize(n,p);
     gradPhiY.resize(n,p);
@@ -231,111 +126,10 @@ void Body::addParticle(double mIn,double vIn,double xIn,double yIn,double zIn,do
 
 }
 
-void Body::addNode(double xIn, double yIn, double zIn, size_t idIn) {
+/*void Body::addNode(double xIn, double yIn, double zIn, size_t idIn) {
     //Add node from job. Zero out unset terms
-    //mass
-    node_m[idIn] = 0;
-
-    //position
-    node_x[idIn] = xIn;
-    node_y[idIn] = yIn;
-    node_z[idIn] = zIn;
-
-    //displacement
-    node_ux[idIn] = 0;
-    node_uy[idIn] = 0;
-    node_uz[idIn] = 0;
-
-    //velocity
-    node_x_t[idIn] = 0;
-    node_y_t[idIn] = 0;
-    node_z_t[idIn] = 0;
-
-    //velocity difference
-    node_diff_x_t[idIn] = 0;
-    node_diff_y_t[idIn] = 0;
-    node_diff_z_t[idIn] = 0;
-
-    //momentum
-    node_mx_t[idIn] = 0;
-    node_my_t[idIn] = 0;
-    node_mz_t[idIn] = 0;
-
-    //force
-    node_fx[idIn] = 0;
-    node_fy[idIn] = 0;
-    node_fz[idIn] = 0;
-
-    //density
-    node_rho[idIn] = 0;
-
-    //body contact resolution
-    node_contact_mx_t[idIn] = 0;
-    node_contact_my_t[idIn] = 0;
-    node_contact_mz_t[idIn] = 0;
-
-    node_contact_x_t[idIn] = 0;
-    node_contact_y_t[idIn] = 0;
-    node_contact_z_t[idIn] = 0;
-
-    node_contact_fx[idIn] = 0;
-    node_contact_fy[idIn] = 0;
-    node_contact_fz[idIn] = 0;
-
-    //node_real_contact_fx[idIn] = 0;
-    //node_real_contact_fy[idIn] = 0;
-    //node_real_contact_fz[idIn] = 0;
-
-    node_contact_normal_x[idIn] = 0;
-    node_contact_normal_y[idIn] = 0;
-    node_contact_normal_z[idIn] = 0;
-
-    //implicit states
-    node_x_t_trial[idIn] = 0;
-    node_y_t_trial[idIn] = 0;
-    node_z_t_trial[idIn] = 0;
-
-    node_x_t_explicit[idIn] = 0;
-    node_y_t_explicit[idIn] = 0;
-    node_z_t_explicit[idIn] = 0;
-
-    node_fx_k[idIn] = 0;
-    node_fy_k[idIn] = 0;
-    node_fz_k[idIn] = 0;
-
-    node_fx_L[idIn] = 0;
-    node_fy_L[idIn] = 0;
-    node_fz_L[idIn] = 0;
-
-    //nodal residuals
-    Rx[idIn] = 0;
-    Ry[idIn] = 0;
-    Rz[idIn] = 0;
-
-    DhRx[idIn] = 0;
-    DhRy[idIn] = 0;
-    DhRz[idIn] = 0;
-    
-    //implicit algorithm
-    sk[idIn]=0;
-    sk[idIn+n]=0;
-    sk[idIn+2*n]=0;
-
-    /*ak[idIn]=0;
-    sk[idIn]=0;
-    rk[idIn]=0;
-    rhok[idIn]=0;
-    bk[idIn]=0;
-    pk[idIn]=0;*/
-
-    //create Nodes object
-    this->nodes[idIn] = Node(this,idIn);
-}
-
-void Body::addElement(size_t * nodeIDs, size_t idIn) {
-    this->elements[idIn] = Element(8,nodeIDs,idIn);
-    return;
-}
+    nodes.addNode(xIn,yIn,xIn,idIn);
+}*/
 
 void Body::defineMaterial(double * fp64_props, size_t num_fp64_props , int * int_props, size_t num_int_props) {
     //this->material = Material();

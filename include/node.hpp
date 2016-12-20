@@ -3,156 +3,131 @@
 // node.hpp (heavily borrow from mpm-2d-legacy)
 //
 
+#include <eigen3/Eigen/Core>
+
 #ifndef MPM_3D_NODE_HPP
 #define MPM_3D_NODE_HPP
 
-inline size_t get_global_index(size_t body, size_t local_index, size_t blocksize){
-    return (body * blocksize + local_index);
-}
-
-class Node{
+class Nodes{
 public:
     //unique id
-    size_t id;
-
-    //filled element neighbors
-    int num_filled_element_neighbors;
-    double mass_filled_element_neighbors;
+    size_t num_nodes;
 
     //mass
-    double* m;
-    double* body_m;
+    Eigen::VectorXd m;
 
     //position
-    double* x;
-    double* y;
-    double* z;
+    Eigen::VectorXd x;
+    Eigen::VectorXd y;
+    Eigen::VectorXd z;
 
     //displacement
-    double* ux;
-    double* uy;
-    double* uz;
+    Eigen::VectorXd ux;
+    Eigen::VectorXd uy;
+    Eigen::VectorXd uz;
 
     //velocity
-    double* x_t;
-    double* y_t;
-    double* z_t;
+    Eigen::VectorXd x_t;
+    Eigen::VectorXd y_t;
+    Eigen::VectorXd z_t;
 
     //velocity difference
-    double* diff_x_t;
-    double* diff_y_t;
-    double* diff_z_t;
+    Eigen::VectorXd diff_x_t;
+    Eigen::VectorXd diff_y_t;
+    Eigen::VectorXd diff_z_t;
 
     //momentum
-    double* mx_t;
-    double* my_t;
-    double* mz_t;
+    Eigen::VectorXd mx_t;
+    Eigen::VectorXd my_t;
+    Eigen::VectorXd mz_t;
 
     //force
-    double* fx;
-    double* fy;
-    double* fz;
+    Eigen::VectorXd fx;
+    Eigen::VectorXd fy;
+    Eigen::VectorXd fz;
 
     //density
-    double* rho;
-
-    //marker for displacement/velocity update
-    double velocity_update_flag;
-
-    double sum_sqrt_m_neighbors;
-    double max_m_neighbors;
+    Eigen::VectorXd rho;
 
     //body contact resolution
-    double* contact_x_t;
-    double* contact_y_t;
-    double* contact_z_t;
+    Eigen::VectorXd contact_x_t;
+    Eigen::VectorXd contact_y_t;
+    Eigen::VectorXd contact_z_t;
 
-    double* contact_mx_t;
-    double* contact_my_t;
-    double* contact_mz_t;
+    Eigen::VectorXd contact_mx_t;
+    Eigen::VectorXd contact_my_t;
+    Eigen::VectorXd contact_mz_t;
 
-    double* contact_fx;
-    double* contact_fy;
-    double* contact_fz;
+    Eigen::VectorXd contact_fx;
+    Eigen::VectorXd contact_fy;
+    Eigen::VectorXd contact_fz;
 
-    //double* real_contact_fx;
-    //double* real_contact_fy;
-    //double* real_contact_fz;
+    Eigen::VectorXd contact_normal_x;
+    Eigen::VectorXd contact_normal_y;
+    Eigen::VectorXd contact_normal_z;
+    
+    //nodal initial momentum
+    Eigen::VectorXd mx_t_k;
+    Eigen::VectorXd my_t_k;
+    Eigen::VectorXd mz_t_k;
 
-    double* contact_normal_x;
-    double* contact_normal_y;
-    double* contact_normal_z;
+    //nodal trial velocity
+    Eigen::VectorXd x_t_trial;
+    Eigen::VectorXd y_t_trial;
+    Eigen::VectorXd z_t_trial;
 
-    size_t num_bodies;
+    //nodal iterated velocity
+    Eigen::VectorXd x_t_n;
+    Eigen::VectorXd y_t_n;
+    Eigen::VectorXd z_t_n;
 
-    size_t blocksize;
+    //nodal initial force
+    //Eigen::VectorXd fx_k;
+    //Eigen::VectorXd fy_k;
+    //Eigen::VectorXd fz_k;
+
+    //nodal final force
+    Eigen::VectorXd fx_L;
+    Eigen::VectorXd fy_L;
+    Eigen::VectorXd fz_L;
+
+    //nodal residuals
+    Eigen::VectorXd Rx;
+    Eigen::VectorXd Ry;
+    Eigen::VectorXd Rz;
+
+    //saved residuals
+    Eigen::VectorXd Rvx;
+    Eigen::VectorXd Rvy;
+    Eigen::VectorXd Rvz;
+
+    //directional residual derivative
+    Eigen::VectorXd DhRx;
+    Eigen::VectorXd DhRy;
+    Eigen::VectorXd DhRz;
+
+    //implicit algorithm
+    Eigen::VectorXd wk;
+    double ak;
+    Eigen::VectorXd sk;
+    Eigen::VectorXd rk;
+    Eigen::VectorXd r0;
+    Eigen::VectorXd qk;
+    Eigen::VectorXd tk;
+    Eigen::VectorXd hk;
+    double ok;
+    double rhok;
+    double bk;
+    Eigen::VectorXd pk;
 
     //construcors
-
-    template <class bodyT>
-    Node(bodyT* bd, size_t idIn):
-            id(idIn),
-            //mass
-            m(&(bd->node_m[idIn])),
-
-            //position
-            x(&(bd->node_x[idIn])),
-            y(&(bd->node_y[idIn])),
-            z(&(bd->node_z[idIn])),
-
-            //displacement
-            ux(&(bd->node_ux[idIn])),
-            uy(&(bd->node_uy[idIn])),
-            uz(&(bd->node_uz[idIn])),
-
-            //velocity
-            x_t(&(bd->node_x_t[idIn])),
-            y_t(&(bd->node_y_t[idIn])),
-            z_t(&(bd->node_z_t[idIn])),
-
-            //velocity difference
-            diff_x_t(&(bd->node_diff_x_t[idIn])),
-            diff_y_t(&(bd->node_diff_y_t[idIn])),
-            diff_z_t(&(bd->node_diff_z_t[idIn])),
-
-            //momentum
-            mx_t(&(bd->node_mx_t[idIn])),
-            my_t(&(bd->node_my_t[idIn])),
-            mz_t(&(bd->node_mz_t[idIn])),
-
-            //force
-            fx(&(bd->node_fx[idIn])),
-            fy(&(bd->node_fy[idIn])),
-            fz(&(bd->node_fz[idIn])),
-
-            //density
-            rho(&(bd->node_rho[idIn])),
-
-            //body contact resolution
-            contact_mx_t(&(bd->node_contact_mx_t[idIn])),
-            contact_my_t(&(bd->node_contact_my_t[idIn])),
-            contact_mz_t(&(bd->node_contact_mz_t[idIn])),
-
-            contact_x_t(&(bd->node_contact_x_t[idIn])),
-            contact_y_t(&(bd->node_contact_y_t[idIn])),
-            contact_z_t(&(bd->node_contact_z_t[idIn])),
-
-            contact_fx(&(bd->node_contact_fx[idIn])),
-            contact_fy(&(bd->node_contact_fy[idIn])),
-            contact_fz(&(bd->node_contact_fz[idIn])),
-
-            //real_contact_fx(&(bd->node_real_contact_fx[idIn])),
-            //real_contact_fy(&(bd->node_real_contact_fy[idIn])),
-            //real_contact_fz(&(bd->node_real_contact_fz[idIn])),
-
-            contact_normal_x(&(bd->node_contact_normal_x[idIn])),
-            contact_normal_y(&(bd->node_contact_normal_y[idIn])),
-            contact_normal_z(&(bd->node_contact_normal_z[idIn]))
-    { }
-
-    Node() {}
+    Nodes(size_t);
+    Nodes() {}
     //destructors
     //~Node() {}
+
+    //functions
+    void addNode(double,double,double,size_t);
 };
 
 #endif //MPM_3D_NODE_HPP

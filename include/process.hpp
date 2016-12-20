@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include "body.hpp"
+#include "element.hpp"
 #include "boundary.hpp"
 
 class job_t{
@@ -48,10 +49,6 @@ public:
     int use_implicit;
     int use_cpdi;
 
-    //node positions
-    int *node_u_map;
-    int *inv_node_u_map;
-
     //which DOF are bc controlled
     std::vector<double> u_dirichlet;
     std::vector<double> u_dirichlet_mask;
@@ -63,6 +60,9 @@ public:
 
     //object vector
     std::vector<Body> bodies;
+
+    //element object
+    Elements elements;
 
     //boundary condition
     Boundary boundary;

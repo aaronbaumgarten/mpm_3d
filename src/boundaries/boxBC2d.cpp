@@ -101,11 +101,11 @@ void bc_momentum(job_t *job)
                 if (job->u_dirichlet[m] == 0) {
                     for (size_t b = 0; b < job->num_bodies; b++) {
                         if (j == XDOF_IDX) {
-                            job->bodies[b].node_contact_mx_t[i] = 0;
+                            job->bodies[b].nodes.contact_mx_t[i] = 0;
                         } else if (j == YDOF_IDX) {
-                            job->bodies[b].node_contact_my_t[i] = 0;
+                            job->bodies[b].nodes.contact_my_t[i] = 0;
                         } else if (j == ZDOF_IDX) {
-                            job->bodies[b].node_contact_mz_t[i] = 0;
+                            job->bodies[b].nodes.contact_mz_t[i] = 0;
                         }
                     }
                 }
@@ -127,11 +127,11 @@ void bc_force(job_t *job)
                 if (job->u_dirichlet[m] == 0) {
                     for (size_t b = 0; b < job->num_bodies; b++) {
                         if (j == XDOF_IDX) {
-                            job->bodies[b].node_contact_fx[i] = 0;
+                            job->bodies[b].nodes.contact_fx[i] = 0;
                         } else if (j == YDOF_IDX) {
-                            job->bodies[b].node_contact_fy[i] = 0;
+                            job->bodies[b].nodes.contact_fy[i] = 0;
                         } else if (j == ZDOF_IDX) {
-                            job->bodies[b].node_contact_fz[i] = 0;
+                            job->bodies[b].nodes.contact_fz[i] = 0;
                         }
                     }
                 }

@@ -72,7 +72,7 @@ UTEST(shapefunction, "Testing phi and gradPhi", []() -> bool {
     mp.a[0] = 0.5;
     mp.v_averaging[0] = 1;
 
-    Element el;
+    Elements el(1,8);
     el.numNodes = 8;
     el.nodeID.push_back(0);
     el.nodeID.push_back(1);
@@ -82,7 +82,7 @@ UTEST(shapefunction, "Testing phi and gradPhi", []() -> bool {
     el.nodeID.push_back(5);
     el.nodeID.push_back(6);
     el.nodeID.push_back(7);
-    el.calculatePhic(&mb, &mp, 0, 0);
+    el.calculatePhic(&mb, &mp, 0, 0, 0);
 
     passing &= (mb.PhiTriplets[0].value() == (1.0 / 8.0) / 8.0);
     passing &= (mb.PhiTriplets[1].value() == (1.0 / 8.0) / 8.0);

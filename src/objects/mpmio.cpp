@@ -637,9 +637,9 @@ void MPMio::writeNodes(job_t* jobIn) {
             ffile << "POINTS " << numPoints.str() << " double\n";
             for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
                 //position
-                double x = jobIn->bodies[b].nodes[i].x[0];
-                double y = jobIn->bodies[b].nodes[i].y[0];
-                double z = jobIn->bodies[b].nodes[i].z[0];
+                double x = jobIn->bodies[b].nodes.x[i];
+                double y = jobIn->bodies[b].nodes.y[i];
+                double z = jobIn->bodies[b].nodes.z[i];
                 //ffile << jobIn->bodies[b].particles[i].x[0] << " ";
                 //ffile << jobIn->bodies[b].particles[i].y[0] << " ";
                 //ffile << jobIn->bodies[b].particles[i].z[0] << "\n";
@@ -673,7 +673,7 @@ void MPMio::writeNodes(job_t* jobIn) {
             ffile << "LOOKUP_TABLE default\n";
             for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
                 std::ostringstream line;
-                line << jobIn->bodies[b].nodes[i].m[0] << "\n";
+                line << jobIn->bodies[b].nodes.m[i] << "\n";
                 ffile << line.str();
             }
 
@@ -682,9 +682,9 @@ void MPMio::writeNodes(job_t* jobIn) {
             for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
                 std::ostringstream line;
                 //set velocity to zeros if nan
-                double x_t = jobIn->bodies[b].nodes[i].contact_x_t[0];
-                double y_t = jobIn->bodies[b].nodes[i].contact_y_t[0];
-                double z_t = jobIn->bodies[b].nodes[i].contact_z_t[0];
+                double x_t = jobIn->bodies[b].nodes.contact_x_t[i];
+                double y_t = jobIn->bodies[b].nodes.contact_y_t[i];
+                double z_t = jobIn->bodies[b].nodes.contact_z_t[i];
                 if (std::isnan(x_t) || std::isinf(x_t)) {
                     x_t = 0;
                 }
@@ -703,9 +703,9 @@ void MPMio::writeNodes(job_t* jobIn) {
             for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
                 std::ostringstream line;
                 //set body force to zero is nan
-                double bx = jobIn->bodies[b].nodes[i].contact_fx[0];
-                double by = jobIn->bodies[b].nodes[i].contact_fy[0];
-                double bz = jobIn->bodies[b].nodes[i].contact_fz[0];
+                double bx = jobIn->bodies[b].nodes.contact_fx[i];
+                double by = jobIn->bodies[b].nodes.contact_fy[i];
+                double bz = jobIn->bodies[b].nodes.contact_fz[i];
                 if (std::isnan(bx) || std::isinf(bx)) {
                     bx = 0;
                 }

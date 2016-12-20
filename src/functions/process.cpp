@@ -14,6 +14,8 @@
 #include "process.hpp"
 #include "body.hpp"
 #include "loading.hpp"
+#include "node.hpp"
+#include "element.hpp"
 
 //mass tolerance
 #define TOL 5e-11
@@ -39,6 +41,7 @@ job_t::job_t():
 {
     std::cout << "Job created.\n";
     boundary = Boundary();
+    elements = Elements();
 }
 
 
@@ -73,11 +76,9 @@ inline int job_t::ijkton_safe(int i, int j, int k,
     if (k>kmax || k<0){
         return -1;
     }
-    //return i*jmax*kmax + j*kmax + k;
     return i + j*imax + k*jmax*imax;
 }
 
-//int job_t::importNodesandParticles(const char *nfilename, const char *pfilename){
 int job_t::importNodesandParticles(std::string nfilename, std::string pfilename){
     //only reads particle file for 2 bodies
 
@@ -127,8 +128,6 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
                     std::cout << "Cannot parse grid file: " << nfilename << "\n";
                     return -1;
                 }
-                //this->Ly = this->Lx;
-                //this->Lz = this->Lx;
                 this->hx = this->Lx / (numLinearNodesX - 1);
                 this->hy = this->Ly / (numLinearNodesY - 1);
                 this->hz = this->Lz / (numLinearNodesZ - 1);
@@ -139,40 +138,6 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
         }
 
         fin.close();
-
-        /*//open grid file and parse
-        fp = fopen(nfilename, "r");
-        if (fp == NULL){
-            std::cout << "Cannot parse grid file: " << nfilename << "\n";
-            return -1;
-        }
-
-        if (NULL==fgets(s, sizeof(s)/sizeof(char), fp)){
-            std::cout << "Cannot parse grid file: " << nfilename << "\n";
-            return -1;
-        }
-
-        r = sscanf(s,"%i",&numLinearNodes);
-        numElements = (numLinearNodes-1)*(numLinearNodes-1)*(numLinearNodes-1); //(number of linear nodes - 1) ^3
-        numNodes = numLinearNodes*numLinearNodes*numLinearNodes; //3d domain
-        num_nodes = numNodes;
-        num_elements = numElements;
-        if (r == 1) {
-            if (NULL==fgets(s,sizeof(s)/sizeof(char), fp)){
-                std::cout << "Cannot parse grid file: " << nfilename << "\n";
-                return -1;
-            }
-            r = sscanf(s,"%g",&Lx);
-            hx = Lx/(numLinearNodes-1);
-        }
-        if (r!=1){
-            std::cout << "Cannot parse grid file: " << nfilename << "\n";
-            return -1;
-        }
-        //std::cout << "Number of nodes: " << numNodes << "\n";
-        //std::cout << "Number of elements: " << numElements << "\n";
-
-        fclose(fp);*/
 
         //open particle file
         fin.open(pfilename);
@@ -224,7 +189,6 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
                     idOut = pb2;
                     pb2 += 1;
                 }
-                //std::cout << "{" << x << " " << y << " " << z << "} -> " << idOut << "\n";
                 this->bodies[b - 1].addParticle(m, v, x, y, z, x_t, y_t, z_t, idOut); //0-index particles
             }
         } else {
@@ -233,106 +197,39 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
         }
         fin.close();
 
-        /*//open particle file and parse header
-        fp = fopen(pfilename, "r");
-        if (fp == NULL){
-            std::cout << "Cannot parse particle file: " << pfilename << "\n";
-            return -1;
-        }
-
-        if (NULL==fgets(s, sizeof(s)/sizeof(char), fp)){
-            std::cout << "Cannot parse particle file: " << pfilename << "\n";
-            return -1;
-        }
-
-        r = sscanf(s,"%i %i %i",&numParticles,&numParticles1,&numParticles2);
-        num_particles = numParticles;
-        if (r!=3){
-            std::cout << "Cannot parse particle file: " << pfilename << "\n";
-            std::cout << "Expected 3 particle counts at file header." << "\n";
-            std::cout << "Got: z" << r << "\n";
-            return -1;
-        }
-        //std::cout << "Number of particles: " << numParticles << "\n";
-
-        //create body objects
-        numBodies = 0;
-        if (numParticles != 0){
-            if (numParticles1 != 0){
-                this->bodies.push_back(Body(numNodes,numParticles1,numElements,++numBodies));
-                //job_t::createBody(&(this->bodies[0]),numNodes,numParticles1,++numBodies);
-            }
-            if (numParticles2 != 0){
-                this->bodies.push_back(Body(numNodes,numParticles1,numElements,++numBodies));
-                //job_t::createBody(&(this->bodies[1]),numNodes,numParticles2,++numBodies);
-            }
-        } else {
-            return -1;
-        }
-        num_bodies = numBodies;
-        std::cout << "Bodies created (" << numBodies << ").\n";
-
-        //assign particle to bodies for each particle in particle file
-        size_t pb1 = 0;
-        size_t pb2 = 0;
-        for (size_t i=0; i<numParticles; i++){
-            double b, m, v, x, y, z, x_t, y_t, z_t;
-            if (NULL==fgets(s, sizeof(s)/sizeof(char), fp)){
-                std::cout << "Mismatch! Numbers of particles do not match!\n";
-                continue;
-            }
-            sscanf(s, "%lg %lg %lg %lg %lg %lg %lg %lg %lg", &b, &m, &v, &x, &y, &z, &x_t, &y_t, &z_t);
-
-            //currently assumes that bodies are 1-indexed
-            this->bodies[b-1].addParticle(m,v,x,y,z,x_t,y_t,z_t,pb1); //0-index particles
-            pb1+=1;
-        }
-        //close file
-        fclose(fp);*/
-
-        std::cout << "Particles created (" << numParticles << ").\n";
-
         //assign nodes to bodies
         for (size_t i = 0; i < numBodies; i++) {
             for (size_t nn = 0; nn < numNodes; nn++) {
                 double x, y, z;
                 job_t::node_number_to_coords(&x, &y, &z, nn, numLinearNodesX, numLinearNodesY, numLinearNodesZ, this->hx, this->hy, this->hz);
-                this->bodies[i].addNode(x, y, z, nn);
+                this->bodies[i].nodes.addNode(x, y, z, nn);
             }
 
         }
 
         std::cout << "Nodes created (" << numNodes << ").\n";
 
+        //create element object (using cube configuration for now)
+        this->elements.resizeElements(numElements,8);
+
         //assign elements to bodies and nodes to elements
-        for (size_t i = 0; i < numBodies; i++) {
-            for (size_t ne = 0; ne < numElements; ne++) {
-                size_t nodeIDs[8];
-                size_t c = ne % (numLinearNodesX - 1);
-                size_t r = (ne / (numLinearNodesX - 1)) % (numLinearNodesY - 1);
-                size_t l = ne / ((numLinearNodesX - 1) * (numLinearNodesY - 1));
-                size_t n = ijkton_safe(c, r, l, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+        for (size_t ne = 0; ne < numElements; ne++) {
+            Eigen::VectorXi nodeIDs(8);
+            size_t c = ne % (numLinearNodesX - 1);
+            size_t r = (ne / (numLinearNodesX - 1)) % (numLinearNodesY - 1);
+            size_t l = ne / ((numLinearNodesX - 1) * (numLinearNodesY - 1));
+            size_t n = ijkton_safe(c, r, l, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
 
-                nodeIDs[0] = n + ijkton_safe(0, 0, 0, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
-                nodeIDs[1] = n + ijkton_safe(1, 0, 0, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
-                nodeIDs[2] = n + ijkton_safe(0, 1, 0, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
-                nodeIDs[3] = n + ijkton_safe(1, 1, 0, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
-                nodeIDs[4] = n + ijkton_safe(0, 0, 1, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
-                nodeIDs[5] = n + ijkton_safe(1, 0, 1, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
-                nodeIDs[6] = n + ijkton_safe(0, 1, 1, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
-                nodeIDs[7] = n + ijkton_safe(1, 1, 1, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+            nodeIDs[0] = n + ijkton_safe(0, 0, 0, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+            nodeIDs[1] = n + ijkton_safe(1, 0, 0, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+            nodeIDs[2] = n + ijkton_safe(0, 1, 0, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+            nodeIDs[3] = n + ijkton_safe(1, 1, 0, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+            nodeIDs[4] = n + ijkton_safe(0, 0, 1, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+            nodeIDs[5] = n + ijkton_safe(1, 0, 1, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+            nodeIDs[6] = n + ijkton_safe(0, 1, 1, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
+            nodeIDs[7] = n + ijkton_safe(1, 1, 1, numLinearNodesX, numLinearNodesY, numLinearNodesZ);
 
-                //check uniqueness of element
-                //for(size_t c1=0;c1<8;c1++){
-                //    for(size_t c2;c2<8;c2++){
-                //        if(c2!=c1 && nodeIDs[c1]==nodeIDs[c2]){
-                //            std::cout << "Error: node " << c1 << " and node " << c2 << " identical in element " << ne << ".\n";
-                //        }
-                //    }
-                //}
-
-                this->bodies[i].addElement(nodeIDs, ne);
-            }
+            this->elements.addElement(nodeIDs, ne);
         }
 
         std::cout << "Elements created (" << numElements << ").\n";
@@ -391,12 +288,9 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
                 std::cout << "Cannot parse grid file: " << nfilename << "\n";
                 return -1;
             }
-            //this->Ly = this->Lx;
-            //this->Lz = this->Lx;
             this->hx = this->Lx / (numLinearNodesX - 1);
             this->hy = this->Ly / (numLinearNodesY - 1);
             this->hz = this->Lz / 2;
-            //this->Lz = this->hz; //1 element
         }
     } else {
         std::cout << "Cannot parse grid file: " << nfilename << "\n";
@@ -471,33 +365,34 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
         for (size_t nn=0; nn<numNodes; nn++){
             double x, y, z;
             job_t::node_number_to_coords(&x,&y,&z,nn,numLinearNodesX,numLinearNodesY,numLinearNodesZ,this->hx,this->hy,this->hz); //ok for 2d as nodes count in x,y first
-            this->bodies[i].addNode(x,y,z,nn);
+            this->bodies[i].nodes.addNode(x,y,z,nn);
         }
 
     }
 
     std::cout << "Nodes created (" << numNodes << ").\n";
 
+    //create element object (using cube configuration for now)
+    this->elements.resizeElements(numElements,8);
+
     //assign elements to bodies and nodes to elements
-    for (size_t i=0; i<numBodies;i++){
-        for(size_t ne=0; ne<numElements; ne++){
-            size_t nodeIDs[8];
-            size_t c = ne % (this->Nx-1);
-            size_t r = (ne/(this->Nx-1)) % (this->Ny-1);
-            size_t l = ne / ((this->Nx-1)*(this->Ny-1));
-            size_t n = ijkton_safe(c,r,l,this->Nx,this->Ny,this->Nz);
+    for(size_t ne=0; ne<numElements; ne++){
+        Eigen::VectorXi nodeIDs(8);
+        size_t c = ne % (this->Nx-1);
+        size_t r = (ne/(this->Nx-1)) % (this->Ny-1);
+        size_t l = ne / ((this->Nx-1)*(this->Ny-1));
+        size_t n = ijkton_safe(c,r,l,this->Nx,this->Ny,this->Nz);
 
-            nodeIDs[0] = n + ijkton_safe(0,0,0,this->Nx,this->Ny,this->Nz);
-            nodeIDs[1] = n + ijkton_safe(1,0,0,this->Nx,this->Ny,this->Nz);
-            nodeIDs[2] = n + ijkton_safe(0,1,0,this->Nx,this->Ny,this->Nz);
-            nodeIDs[3] = n + ijkton_safe(1,1,0,this->Nx,this->Ny,this->Nz);
-            nodeIDs[4] = n + ijkton_safe(0,0,1,this->Nx,this->Ny,this->Nz);
-            nodeIDs[5] = n + ijkton_safe(1,0,1,this->Nx,this->Ny,this->Nz);
-            nodeIDs[6] = n + ijkton_safe(0,1,1,this->Nx,this->Ny,this->Nz);
-            nodeIDs[7] = n + ijkton_safe(1,1,1,this->Nx,this->Ny,this->Nz);
+        nodeIDs[0] = n + ijkton_safe(0,0,0,this->Nx,this->Ny,this->Nz);
+        nodeIDs[1] = n + ijkton_safe(1,0,0,this->Nx,this->Ny,this->Nz);
+        nodeIDs[2] = n + ijkton_safe(0,1,0,this->Nx,this->Ny,this->Nz);
+        nodeIDs[3] = n + ijkton_safe(1,1,0,this->Nx,this->Ny,this->Nz);
+        nodeIDs[4] = n + ijkton_safe(0,0,1,this->Nx,this->Ny,this->Nz);
+        nodeIDs[5] = n + ijkton_safe(1,0,1,this->Nx,this->Ny,this->Nz);
+        nodeIDs[6] = n + ijkton_safe(0,1,1,this->Nx,this->Ny,this->Nz);
+        nodeIDs[7] = n + ijkton_safe(1,1,1,this->Nx,this->Ny,this->Nz);
 
-            this->bodies[i].addElement(nodeIDs,ne);
-        }
+        this->elements.addElement(nodeIDs,ne);
     }
 
     std::cout << "Elements created (" << numElements << ").\n";
@@ -574,10 +469,7 @@ int job_t::createMappings() {
                 //use cpdi (or count center 8 times if corners reset)
                 for (size_t c=0;c<8;c++) {
                     size_t e = this->bodies[b].particles[p].corner_elements[c];
-                    if (e != this->bodies[0].elements[e].id){
-                        std::cout << "Elemend ID Error! " << e << " != " << this->bodies[0].elements[e].id << "\n";
-                    }
-                    this->bodies[b].elements[e].calculatePhic(&(this->bodies[b]), &(this->bodies[b].particles[p]), c, this->use_cpdi);
+                    this->elements.calculatePhic(&(this->bodies[b]), &(this->bodies[b].particles[p]), e, c, this->use_cpdi);
                     //std::cout << "b:" << b << " p:" << p << " c:" << c << "\r";
                 }
             }
@@ -621,18 +513,18 @@ void job_t::mapParticles2Grid() {
         Eigen::VectorXd pvec(numRowsP);
 
         //use Phi to map particles to nodes
-        this->bodies[b].node_m = this->bodies[b].Phi*this->bodies[b].particle_m;
-        this->bodies[b].node_mx_t = this->bodies[b].Phi*p_m_x_t;
-        this->bodies[b].node_my_t = this->bodies[b].Phi*p_m_y_t;
-        this->bodies[b].node_mz_t = this->bodies[b].Phi*p_m_z_t;
-        this->bodies[b].node_fx = this->bodies[b].Phi*p_m_bx; //need to add stress
-        this->bodies[b].node_fy = this->bodies[b].Phi*p_m_by; //need to add stress
-        this->bodies[b].node_fz = this->bodies[b].Phi*p_m_bz; //need to add stress
+        this->bodies[b].nodes.m = this->bodies[b].Phi*this->bodies[b].particle_m;
+        this->bodies[b].nodes.mx_t = this->bodies[b].Phi*p_m_x_t;
+        this->bodies[b].nodes.my_t = this->bodies[b].Phi*p_m_y_t;
+        this->bodies[b].nodes.mz_t = this->bodies[b].Phi*p_m_z_t;
+        this->bodies[b].nodes.fx = this->bodies[b].Phi*p_m_bx; //need to add stress
+        this->bodies[b].nodes.fy = this->bodies[b].Phi*p_m_by; //need to add stress
+        this->bodies[b].nodes.fz = this->bodies[b].Phi*p_m_bz; //need to add stress
 
         //use gradPhi to map particles to nodes
-        this->bodies[b].node_contact_normal_x = this->bodies[b].gradPhiX*Eigen::MatrixXd::Constant(numRowsP,numColsP,1);//this->bodies[b].particle_m;
-        this->bodies[b].node_contact_normal_y = this->bodies[b].gradPhiY*Eigen::MatrixXd::Constant(numRowsP,numColsP,1);//this->bodies[b].particle_m;
-        this->bodies[b].node_contact_normal_z = this->bodies[b].gradPhiZ*Eigen::MatrixXd::Constant(numRowsP,numColsP,1);//this->bodies[b].particle_m;
+        this->bodies[b].nodes.contact_normal_x = this->bodies[b].gradPhiX*Eigen::MatrixXd::Constant(numRowsP,numColsP,1);//this->bodies[b].particle_m;
+        this->bodies[b].nodes.contact_normal_y = this->bodies[b].gradPhiY*Eigen::MatrixXd::Constant(numRowsP,numColsP,1);//this->bodies[b].particle_m;
+        this->bodies[b].nodes.contact_normal_z = this->bodies[b].gradPhiZ*Eigen::MatrixXd::Constant(numRowsP,numColsP,1);//this->bodies[b].particle_m;
 
         /*Eigen::VectorXd normMag(numRowsN);
         normMag = this->bodies[b].node_contact_normal_x.array().square()
@@ -647,35 +539,35 @@ void job_t::mapParticles2Grid() {
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XX];
         }
-        this->bodies[b].node_fx -= this->bodies[b].gradPhiX*pvec;
+        this->bodies[b].nodes.fx -= this->bodies[b].gradPhiX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XY];
         }
-        this->bodies[b].node_fx -= this->bodies[b].gradPhiY*pvec;
-        this->bodies[b].node_fy -= this->bodies[b].gradPhiX*pvec;
+        this->bodies[b].nodes.fx -= this->bodies[b].gradPhiY*pvec;
+        this->bodies[b].nodes.fy -= this->bodies[b].gradPhiX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XZ];
         }
-        this->bodies[b].node_fx -= this->bodies[b].gradPhiZ*pvec;
-        this->bodies[b].node_fz -= this->bodies[b].gradPhiX*pvec;
+        this->bodies[b].nodes.fx -= this->bodies[b].gradPhiZ*pvec;
+        this->bodies[b].nodes.fz -= this->bodies[b].gradPhiX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[YY];
         }
-        this->bodies[b].node_fy -= this->bodies[b].gradPhiY*pvec;
+        this->bodies[b].nodes.fy -= this->bodies[b].gradPhiY*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[YZ];
         }
-        this->bodies[b].node_fy -= this->bodies[b].gradPhiZ*pvec;
-        this->bodies[b].node_fz -= this->bodies[b].gradPhiY*pvec;
+        this->bodies[b].nodes.fy -= this->bodies[b].gradPhiZ*pvec;
+        this->bodies[b].nodes.fz -= this->bodies[b].gradPhiY*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[ZZ];
         }
-        this->bodies[b].node_fz -= this->bodies[b].gradPhiZ*pvec;
+        this->bodies[b].nodes.fz -= this->bodies[b].gradPhiZ*pvec;
 
     }
     return;
@@ -684,45 +576,45 @@ void job_t::mapParticles2Grid() {
 void job_t::addContactForces(){
     //if (this->use_3d==1) {
     for (size_t b = 0; b < this->num_bodies; b++) {
-        this->bodies[b].node_contact_mx_t = this->bodies[b].node_mx_t;
-        this->bodies[b].node_contact_my_t = this->bodies[b].node_my_t;
-        this->bodies[b].node_contact_mz_t = this->bodies[b].node_mz_t;
+        this->bodies[b].nodes.contact_mx_t = this->bodies[b].nodes.mx_t;
+        this->bodies[b].nodes.contact_my_t = this->bodies[b].nodes.my_t;
+        this->bodies[b].nodes.contact_mz_t = this->bodies[b].nodes.mz_t;
 
         //the following appear unused
-        this->bodies[b].node_contact_x_t = this->bodies[b].node_mx_t.array()/this->bodies[b].node_m.array();
-        this->bodies[b].node_contact_y_t = this->bodies[b].node_my_t.array()/this->bodies[b].node_m.array();
-        this->bodies[b].node_contact_z_t = this->bodies[b].node_mz_t.array()/this->bodies[b].node_m.array();
+        this->bodies[b].nodes.contact_x_t = this->bodies[b].nodes.mx_t.array()/this->bodies[b].nodes.m.array();
+        this->bodies[b].nodes.contact_y_t = this->bodies[b].nodes.my_t.array()/this->bodies[b].nodes.m.array();
+        this->bodies[b].nodes.contact_z_t = this->bodies[b].nodes.mz_t.array()/this->bodies[b].nodes.m.array();
 
-        this->bodies[b].node_contact_fx = this->bodies[b].node_fx;
-        this->bodies[b].node_contact_fy = this->bodies[b].node_fy;
-        this->bodies[b].node_contact_fz = this->bodies[b].node_fz;
+        this->bodies[b].nodes.contact_fx = this->bodies[b].nodes.fx;
+        this->bodies[b].nodes.contact_fy = this->bodies[b].nodes.fy;
+        this->bodies[b].nodes.contact_fz = this->bodies[b].nodes.fz;
     }
 
     if (this->num_bodies > 1) {
         //look for contacts if there are two bodies
         for (size_t i = 0; i < this->num_nodes; i++) {
             //test every node for contact
-            if (this->bodies[0].node_m[i] > TOL && this->bodies[1].node_m[i] > TOL) {
+            if (this->bodies[0].nodes.m[i] > TOL && this->bodies[1].nodes.m[i] > TOL) {
                 //use normal from body 1
                 Eigen::Vector3d n1i;
-                n1i << this->bodies[0].node_contact_normal_x[i],
-                        this->bodies[0].node_contact_normal_y[i],
-                        this->bodies[0].node_contact_normal_z[i];
+                n1i << this->bodies[0].nodes.contact_normal_x[i],
+                        this->bodies[0].nodes.contact_normal_y[i],
+                        this->bodies[0].nodes.contact_normal_z[i];
                 //enforce unit length
                 n1i /= sqrt(n1i.dot(n1i));
 
                 //determine 'center of mass' velocity
-                double m1 = this->bodies[0].node_m[i];
-                double m2 = this->bodies[1].node_m[i];
+                double m1 = this->bodies[0].nodes.m[i];
+                double m2 = this->bodies[1].nodes.m[i];
                 Eigen::Vector3d mv1i;
                 Eigen::Vector3d mv2i;
                 Eigen::Vector3d vCMi;
-                mv1i << this->bodies[0].node_contact_mx_t[i],
-                        this->bodies[0].node_contact_my_t[i],
-                        this->bodies[0].node_contact_mz_t[i];
-                mv2i << this->bodies[1].node_contact_mx_t[i],
-                        this->bodies[1].node_contact_my_t[i],
-                        this->bodies[1].node_contact_mz_t[i];
+                mv1i << this->bodies[0].nodes.contact_mx_t[i],
+                        this->bodies[0].nodes.contact_my_t[i],
+                        this->bodies[0].nodes.contact_mz_t[i];
+                mv2i << this->bodies[1].nodes.contact_mx_t[i],
+                        this->bodies[1].nodes.contact_my_t[i],
+                        this->bodies[1].nodes.contact_mz_t[i];
                 vCMi = (mv1i + mv2i) / (m1 + m2);
 
                 //determine normal force
@@ -741,33 +633,33 @@ void job_t::addContactForces(){
                 fcti = std::min(0.0, fn1i)*n1i + std::min(MU_F*std::abs(fn1i),std::abs(ft1i))*s1i;
 
                 //set contact forces
-                this->bodies[0].node_contact_fx[i] = fcti[0];
-                this->bodies[0].node_contact_fy[i] = fcti[1];
-                this->bodies[0].node_contact_fz[i] = fcti[2];
+                this->bodies[0].nodes.contact_fx[i] = fcti[0];
+                this->bodies[0].nodes.contact_fy[i] = fcti[1];
+                this->bodies[0].nodes.contact_fz[i] = fcti[2];
 
-                this->bodies[1].node_contact_fx[i] = -fcti[0];
-                this->bodies[1].node_contact_fy[i] = -fcti[1];
-                this->bodies[1].node_contact_fz[i] = -fcti[2];
+                this->bodies[1].nodes.contact_fx[i] = -fcti[0];
+                this->bodies[1].nodes.contact_fy[i] = -fcti[1];
+                this->bodies[1].nodes.contact_fz[i] = -fcti[2];
 
                 //adjust nodal velocities for non-penetration
                 mv1i = mv1i - n1i.dot(mv1i-m1*vCMi)*n1i;
                 mv2i = mv2i - n1i.dot(mv2i-m2*vCMi)*n1i;
 
-                this->bodies[0].node_contact_mx_t[i] = mv1i[0];
-                this->bodies[0].node_contact_my_t[i] = mv1i[1];
-                this->bodies[0].node_contact_mz_t[i] = mv1i[2];
+                this->bodies[0].nodes.contact_mx_t[i] = mv1i[0];
+                this->bodies[0].nodes.contact_my_t[i] = mv1i[1];
+                this->bodies[0].nodes.contact_mz_t[i] = mv1i[2];
 
-                this->bodies[0].node_contact_x_t[i] = mv1i[0]/m1;
-                this->bodies[0].node_contact_y_t[i] = mv1i[1]/m1;
-                this->bodies[0].node_contact_z_t[i] = mv1i[2]/m1;
+                this->bodies[0].nodes.contact_x_t[i] = mv1i[0]/m1;
+                this->bodies[0].nodes.contact_y_t[i] = mv1i[1]/m1;
+                this->bodies[0].nodes.contact_z_t[i] = mv1i[2]/m1;
 
-                this->bodies[1].node_contact_mx_t[i] = mv2i[0];
-                this->bodies[1].node_contact_my_t[i] = mv2i[1];
-                this->bodies[1].node_contact_mz_t[i] = mv2i[2];
+                this->bodies[1].nodes.contact_mx_t[i] = mv2i[0];
+                this->bodies[1].nodes.contact_my_t[i] = mv2i[1];
+                this->bodies[1].nodes.contact_mz_t[i] = mv2i[2];
 
-                this->bodies[1].node_contact_x_t[i] = mv2i[0]/m2;
-                this->bodies[1].node_contact_y_t[i] = mv2i[1]/m2;
-                this->bodies[1].node_contact_z_t[i] = mv2i[2]/m2;
+                this->bodies[1].nodes.contact_x_t[i] = mv2i[0]/m2;
+                this->bodies[1].nodes.contact_y_t[i] = mv2i[1]/m2;
+                this->bodies[1].nodes.contact_z_t[i] = mv2i[2]/m2;
             }
         }
     }
@@ -782,42 +674,42 @@ void job_t::addContactForces2D(){
     //resolve conflicts between grid velocites
     //implement later 10/21/16
     for (size_t b=0;b<this->num_bodies;b++) {
-        this->bodies[b].node_contact_mx_t = this->bodies[b].node_mx_t;
-        this->bodies[b].node_contact_my_t = this->bodies[b].node_my_t;
-        this->bodies[b].node_contact_mz_t = this->bodies[b].node_mz_t;
+        this->bodies[b].nodes.contact_mx_t = this->bodies[b].nodes.mx_t;
+        this->bodies[b].nodes.contact_my_t = this->bodies[b].nodes.my_t;
+        this->bodies[b].nodes.contact_mz_t = this->bodies[b].nodes.mz_t;
 
         //the following appear unused
-        this->bodies[b].node_contact_x_t = this->bodies[b].node_mx_t.array()/this->bodies[b].node_m.array();
-        this->bodies[b].node_contact_y_t = this->bodies[b].node_my_t.array()/this->bodies[b].node_m.array();
-        this->bodies[b].node_contact_z_t = this->bodies[b].node_mz_t.array()/this->bodies[b].node_m.array();
+        this->bodies[b].nodes.contact_x_t = this->bodies[b].nodes.mx_t.array()/this->bodies[b].nodes.m.array();
+        this->bodies[b].nodes.contact_y_t = this->bodies[b].nodes.my_t.array()/this->bodies[b].nodes.m.array();
+        this->bodies[b].nodes.contact_z_t = this->bodies[b].nodes.mz_t.array()/this->bodies[b].nodes.m.array();
 
-        this->bodies[b].node_contact_fx = this->bodies[b].node_fx;
-        this->bodies[b].node_contact_fy = this->bodies[b].node_fy;
-        this->bodies[b].node_contact_fz = this->bodies[b].node_fz;
+        this->bodies[b].nodes.contact_fx = this->bodies[b].nodes.fx;
+        this->bodies[b].nodes.contact_fy = this->bodies[b].nodes.fy;
+        this->bodies[b].nodes.contact_fz = this->bodies[b].nodes.fz;
     }
 
     if (this->num_bodies > 1) {
         //look for contacts if there are two bodies
         for (size_t i = 0; i < this->num_nodes; i++) {
             //test every node for contact
-            if (this->bodies[0].node_m[i] > TOL && this->bodies[1].node_m[i] > TOL) {
+            if (this->bodies[0].nodes.m[i] > TOL && this->bodies[1].nodes.m[i] > TOL) {
                 //use normal from body 1
                 Eigen::Vector2d n1i;
-                n1i << this->bodies[0].node_contact_normal_x[i],
-                        this->bodies[0].node_contact_normal_y[i];
+                n1i << this->bodies[0].nodes.contact_normal_x[i],
+                        this->bodies[0].nodes.contact_normal_y[i];
                 //enforce unit length
                 n1i /= sqrt(n1i.dot(n1i));
 
                 //determine 'center of mass' velocity
-                double m1 = this->bodies[0].node_m[i];
-                double m2 = this->bodies[1].node_m[i];
+                double m1 = this->bodies[0].nodes.m[i];
+                double m2 = this->bodies[1].nodes.m[i];
                 Eigen::Vector2d mv1i;
                 Eigen::Vector2d mv2i;
                 Eigen::Vector2d vCMi;
-                mv1i << this->bodies[0].node_contact_mx_t[i],
-                        this->bodies[0].node_contact_my_t[i];
-                mv2i << this->bodies[1].node_contact_mx_t[i],
-                        this->bodies[1].node_contact_my_t[i];
+                mv1i << this->bodies[0].nodes.contact_mx_t[i],
+                        this->bodies[0].nodes.contact_my_t[i];
+                mv2i << this->bodies[1].nodes.contact_mx_t[i],
+                        this->bodies[1].nodes.contact_my_t[i];
                 vCMi = (mv1i + mv2i) / (m1 + m2);
 
                 //determine normal force
@@ -836,27 +728,27 @@ void job_t::addContactForces2D(){
                 fcti = std::min(0.0, fn1i)*n1i + std::min(MU_F*std::abs(fn1i),std::abs(ft1i))*s1i;
 
                 //set contact forces
-                this->bodies[0].node_contact_fx[i] = fcti[0];
-                this->bodies[0].node_contact_fy[i] = fcti[1];
+                this->bodies[0].nodes.contact_fx[i] = fcti[0];
+                this->bodies[0].nodes.contact_fy[i] = fcti[1];
 
-                this->bodies[1].node_contact_fx[i] = -fcti[0];
-                this->bodies[1].node_contact_fy[i] = -fcti[1];
+                this->bodies[1].nodes.contact_fx[i] = -fcti[0];
+                this->bodies[1].nodes.contact_fy[i] = -fcti[1];
 
                 //adjust nodal velocities for non-penetration
                 mv1i = mv1i - n1i.dot(mv1i-m1*vCMi)*n1i;
                 mv2i = mv2i - n1i.dot(mv2i-m2*vCMi)*n1i;
 
-                this->bodies[0].node_contact_mx_t[i] = mv1i[0];
-                this->bodies[0].node_contact_my_t[i] = mv1i[1];
+                this->bodies[0].nodes.contact_mx_t[i] = mv1i[0];
+                this->bodies[0].nodes.contact_my_t[i] = mv1i[1];
 
-                this->bodies[0].node_contact_x_t[i] = mv1i[0]/m1;
-                this->bodies[0].node_contact_y_t[i] = mv1i[1]/m1;
+                this->bodies[0].nodes.contact_x_t[i] = mv1i[0]/m1;
+                this->bodies[0].nodes.contact_y_t[i] = mv1i[1]/m1;
 
-                this->bodies[1].node_contact_mx_t[i] = mv2i[0];
-                this->bodies[1].node_contact_my_t[i] = mv2i[1];
+                this->bodies[1].nodes.contact_mx_t[i] = mv2i[0];
+                this->bodies[1].nodes.contact_my_t[i] = mv2i[1];
 
-                this->bodies[1].node_contact_x_t[i] = mv2i[0]/m2;
-                this->bodies[1].node_contact_y_t[i] = mv2i[1]/m2;
+                this->bodies[1].nodes.contact_x_t[i] = mv2i[0]/m2;
+                this->bodies[1].nodes.contact_y_t[i] = mv2i[1]/m2;
             }
         }
     }
@@ -876,23 +768,23 @@ void job_t::moveGridExplicit(){
     //if (this->use_3d==1) {
     for (size_t b = 0; b < this->num_bodies; b++) {
         for (size_t i = 0; i < this->num_nodes; i++) {
-            double m = this->bodies[b].nodes[i].m[0];
+            double m = this->bodies[b].nodes.m[i];
             if (m > TOL) {
-                this->bodies[b].nodes[i].contact_mx_t[0] += this->dt * this->bodies[b].nodes[i].contact_fx[0];
-                this->bodies[b].nodes[i].contact_my_t[0] += this->dt * this->bodies[b].nodes[i].contact_fy[0];
-                this->bodies[b].nodes[i].contact_mz_t[0] += this->dt * this->bodies[b].nodes[i].contact_fz[0];
+                this->bodies[b].nodes.contact_mx_t[i] += this->dt * this->bodies[b].nodes.contact_fx[i];
+                this->bodies[b].nodes.contact_my_t[i] += this->dt * this->bodies[b].nodes.contact_fy[i];
+                this->bodies[b].nodes.contact_mz_t[i] += this->dt * this->bodies[b].nodes.contact_fz[i];
 
-                this->bodies[b].nodes[i].contact_x_t[0] = this->bodies[b].nodes[i].contact_mx_t[0] / m;
-                this->bodies[b].nodes[i].contact_y_t[0] = this->bodies[b].nodes[i].contact_my_t[0] / m;
-                this->bodies[b].nodes[i].contact_z_t[0] = this->bodies[b].nodes[i].contact_mz_t[0] / m;
+                this->bodies[b].nodes.contact_x_t[i] = this->bodies[b].nodes.contact_mx_t[i] / m;
+                this->bodies[b].nodes.contact_y_t[i] = this->bodies[b].nodes.contact_my_t[i] / m;
+                this->bodies[b].nodes.contact_z_t[i] = this->bodies[b].nodes.contact_mz_t[i] / m;
             } else {
-                this->bodies[b].nodes[i].contact_mx_t[0] = 0;
-                this->bodies[b].nodes[i].contact_my_t[0] = 0;
-                this->bodies[b].nodes[i].contact_mz_t[0] = 0;
+                this->bodies[b].nodes.contact_mx_t[i] = 0;
+                this->bodies[b].nodes.contact_my_t[i] = 0;
+                this->bodies[b].nodes.contact_mz_t[i] = 0;
 
-                this->bodies[b].nodes[i].contact_x_t[0] = 0;
-                this->bodies[b].nodes[i].contact_y_t[0] = 0;
-                this->bodies[b].nodes[i].contact_z_t[0] = 0;
+                this->bodies[b].nodes.contact_x_t[i] = 0;
+                this->bodies[b].nodes.contact_y_t[i] = 0;
+                this->bodies[b].nodes.contact_z_t[i] = 0;
             }
 
         }
@@ -906,23 +798,23 @@ void job_t::moveGridExplicit(){
 void job_t::moveGridExplicit2D(){
     for (size_t b = 0; b < this->num_bodies; b++){
         for (size_t i = 0; i < this->num_nodes; i++){
-            double m = this->bodies[b].nodes[i].m[0];
+            double m = this->bodies[b].nodes.m[i];
             if (m > TOL) {
-                this->bodies[b].nodes[i].contact_mx_t[0] += this->dt * this->bodies[b].nodes[i].contact_fx[0];
-                this->bodies[b].nodes[i].contact_my_t[0] += this->dt * this->bodies[b].nodes[i].contact_fy[0];
-                this->bodies[b].nodes[i].contact_mz_t[0] = 0;//this->dt * this->bodies[b].nodes[i].contact_fz[0];
+                this->bodies[b].nodes.contact_mx_t[i] += this->dt * this->bodies[b].nodes.contact_fx[i];
+                this->bodies[b].nodes.contact_my_t[i] += this->dt * this->bodies[b].nodes.contact_fy[i];
+                this->bodies[b].nodes.contact_mz_t[i] = 0;//this->dt * this->bodies[b].nodes.contact_fz[i];
 
-                this->bodies[b].nodes[i].contact_x_t[0] = this->bodies[b].nodes[i].contact_mx_t[0] / m;
-                this->bodies[b].nodes[i].contact_y_t[0] = this->bodies[b].nodes[i].contact_my_t[0] / m;
-                this->bodies[b].nodes[i].contact_z_t[0] = 0;//this->bodies[b].nodes[i].contact_mz_t[0] / m;
+                this->bodies[b].nodes.contact_x_t[i] = this->bodies[b].nodes.contact_mx_t[i] / m;
+                this->bodies[b].nodes.contact_y_t[i] = this->bodies[b].nodes.contact_my_t[i] / m;
+                this->bodies[b].nodes.contact_z_t[i] = 0;//this->bodies[b].nodes.contact_mz_t[i] / m;
             } else {
-                this->bodies[b].nodes[i].contact_mx_t[0] = 0;
-                this->bodies[b].nodes[i].contact_my_t[0] = 0;
-                this->bodies[b].nodes[i].contact_mz_t[0] = 0;
+                this->bodies[b].nodes.contact_mx_t[i] = 0;
+                this->bodies[b].nodes.contact_my_t[i] = 0;
+                this->bodies[b].nodes.contact_mz_t[i] = 0;
 
-                this->bodies[b].nodes[i].contact_x_t[0] = 0;
-                this->bodies[b].nodes[i].contact_y_t[0] = 0;
-                this->bodies[b].nodes[i].contact_z_t[0] = 0;
+                this->bodies[b].nodes.contact_x_t[i] = 0;
+                this->bodies[b].nodes.contact_y_t[i] = 0;
+                this->bodies[b].nodes.contact_z_t[i] = 0;
             }
 
         }
@@ -945,38 +837,38 @@ void job_t::moveParticlesExplicit(){
         Eigen::VectorXd pvec(numRowsP);
 
         for (size_t i = 0; i < this->bodies[b].n; i++) {
-            double m = this->bodies[b].nodes[i].m[0];
+            double m = this->bodies[b].nodes.m[i];
             if (m != 0) {
-                this->bodies[b].nodes[i].ux[0] = this->dt * this->bodies[b].nodes[i].contact_mx_t[0] / m;
-                this->bodies[b].nodes[i].uy[0] = this->dt * this->bodies[b].nodes[i].contact_my_t[0] / m;
-                this->bodies[b].nodes[i].uz[0] = this->dt * this->bodies[b].nodes[i].contact_mz_t[0] / m;
+                this->bodies[b].nodes.ux[i] = this->dt * this->bodies[b].nodes.contact_mx_t[i] / m;
+                this->bodies[b].nodes.uy[i] = this->dt * this->bodies[b].nodes.contact_my_t[i] / m;
+                this->bodies[b].nodes.uz[i] = this->dt * this->bodies[b].nodes.contact_mz_t[i] / m;
 
-                this->bodies[b].nodes[i].diff_x_t[0] = this->dt * this->bodies[b].nodes[i].contact_fx[0] / m;
-                this->bodies[b].nodes[i].diff_y_t[0] = this->dt * this->bodies[b].nodes[i].contact_fy[0] / m;
-                this->bodies[b].nodes[i].diff_z_t[0] = this->dt * this->bodies[b].nodes[i].contact_fz[0] / m;
+                this->bodies[b].nodes.diff_x_t[i] = this->dt * this->bodies[b].nodes.contact_fx[i] / m;
+                this->bodies[b].nodes.diff_y_t[i] = this->dt * this->bodies[b].nodes.contact_fy[i] / m;
+                this->bodies[b].nodes.diff_z_t[i] = this->dt * this->bodies[b].nodes.contact_fz[i] / m;
             } else {
-                this->bodies[b].nodes[i].ux[0] = 0;
-                this->bodies[b].nodes[i].uy[0] = 0;
-                this->bodies[b].nodes[i].uz[0] = 0;
+                this->bodies[b].nodes.ux[i] = 0;
+                this->bodies[b].nodes.uy[i] = 0;
+                this->bodies[b].nodes.uz[i] = 0;
 
-                this->bodies[b].nodes[i].diff_x_t[0] = 0;
-                this->bodies[b].nodes[i].diff_y_t[0] = 0;
-                this->bodies[b].nodes[i].diff_z_t[0] = 0;
+                this->bodies[b].nodes.diff_x_t[i] = 0;
+                this->bodies[b].nodes.diff_y_t[i] = 0;
+                this->bodies[b].nodes.diff_z_t[i] = 0;
             }
         }
 
         //map back to particles using S transpose
-        this->bodies[b].particle_x += this->bodies[b].Phi.transpose() * this->bodies[b].node_ux;
-        this->bodies[b].particle_y += this->bodies[b].Phi.transpose() * this->bodies[b].node_uy;
-        this->bodies[b].particle_z += this->bodies[b].Phi.transpose() * this->bodies[b].node_uz;
+        this->bodies[b].particle_x += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.ux;
+        this->bodies[b].particle_y += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uy;
+        this->bodies[b].particle_z += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uz;
 
-        this->bodies[b].particle_ux += this->bodies[b].Phi.transpose() * this->bodies[b].node_ux;
-        this->bodies[b].particle_uy += this->bodies[b].Phi.transpose() * this->bodies[b].node_uy;
-        this->bodies[b].particle_uz += this->bodies[b].Phi.transpose() * this->bodies[b].node_uz;
+        this->bodies[b].particle_ux += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.ux;
+        this->bodies[b].particle_uy += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uy;
+        this->bodies[b].particle_uz += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uz;
 
-        this->bodies[b].particle_x_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_x_t;
-        this->bodies[b].particle_y_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_y_t;
-        this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_z_t;
+        this->bodies[b].particle_x_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_x_t;
+        this->bodies[b].particle_y_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_y_t;
+        this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_z_t;
 
     }
     return;
@@ -1001,41 +893,41 @@ void job_t::moveParticlesImplicit(){
         Eigen::VectorXd pvec(numRowsP);
 
         for (size_t i = 0; i < this->bodies[b].n; i++) {
-            double m = this->bodies[b].nodes[i].m[0];
+            double m = this->bodies[b].nodes.m[i];
             if (m != 0) {
-                this->bodies[b].nodes[i].ux[0] = this->dt * (this->bodies[b].node_mx_t_k[i] + this->bodies[b].nodes[i].contact_mx_t[0]) / (2*m);
-                this->bodies[b].nodes[i].uy[0] = this->dt * (this->bodies[b].node_my_t_k[i] + this->bodies[b].nodes[i].contact_my_t[0]) / (2*m);
-                this->bodies[b].nodes[i].uz[0] = this->dt * (this->bodies[b].node_mz_t_k[i] + this->bodies[b].nodes[i].contact_mz_t[0]) / (2*m);
+                this->bodies[b].nodes.ux[i] = this->dt * (this->bodies[b].nodes.mx_t_k[i] + this->bodies[b].nodes.contact_mx_t[i]) / (2*m);
+                this->bodies[b].nodes.uy[i] = this->dt * (this->bodies[b].nodes.my_t_k[i] + this->bodies[b].nodes.contact_my_t[i]) / (2*m);
+                this->bodies[b].nodes.uz[i] = this->dt * (this->bodies[b].nodes.mz_t_k[i] + this->bodies[b].nodes.contact_mz_t[i]) / (2*m);
 
-                //this->bodies[b].nodes[i].uy[0] = this->dt * this->bodies[b].nodes[i].contact_my_t[0] / m;
-                //this->bodies[b].nodes[i].uz[0] = this->dt * this->bodies[b].nodes[i].contact_mz_t[0] / m;
+                //this->bodies[b].nodes.uy[i] = this->dt * this->bodies[b].nodes.contact_my_t[i] / m;
+                //this->bodies[b].nodes.uz[i] = this->dt * this->bodies[b].nodes.contact_mz_t[i] / m;
 
-                this->bodies[b].nodes[i].diff_x_t[0] = this->dt * this->bodies[b].nodes[i].contact_fx[0] / m;
-                this->bodies[b].nodes[i].diff_y_t[0] = this->dt * this->bodies[b].nodes[i].contact_fy[0] / m;
-                this->bodies[b].nodes[i].diff_z_t[0] = this->dt * this->bodies[b].nodes[i].contact_fz[0] / m;
+                this->bodies[b].nodes.diff_x_t[i] = this->dt * this->bodies[b].nodes.contact_fx[i] / m;
+                this->bodies[b].nodes.diff_y_t[i] = this->dt * this->bodies[b].nodes.contact_fy[i] / m;
+                this->bodies[b].nodes.diff_z_t[i] = this->dt * this->bodies[b].nodes.contact_fz[i] / m;
             } else {
-                this->bodies[b].nodes[i].ux[0] = 0;
-                this->bodies[b].nodes[i].uy[0] = 0;
-                this->bodies[b].nodes[i].uz[0] = 0;
+                this->bodies[b].nodes.ux[i] = 0;
+                this->bodies[b].nodes.uy[i] = 0;
+                this->bodies[b].nodes.uz[i] = 0;
 
-                this->bodies[b].nodes[i].diff_x_t[0] = 0;
-                this->bodies[b].nodes[i].diff_y_t[0] = 0;
-                this->bodies[b].nodes[i].diff_z_t[0] = 0;
+                this->bodies[b].nodes.diff_x_t[i] = 0;
+                this->bodies[b].nodes.diff_y_t[i] = 0;
+                this->bodies[b].nodes.diff_z_t[i] = 0;
             }
         }
 
         //map back to particles using S transpose
-        this->bodies[b].particle_x += this->bodies[b].Phi.transpose() * this->bodies[b].node_ux;
-        this->bodies[b].particle_y += this->bodies[b].Phi.transpose() * this->bodies[b].node_uy;
-        this->bodies[b].particle_z += this->bodies[b].Phi.transpose() * this->bodies[b].node_uz;
+        this->bodies[b].particle_x += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.ux;
+        this->bodies[b].particle_y += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uy;
+        this->bodies[b].particle_z += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uz;
 
-        this->bodies[b].particle_ux += this->bodies[b].Phi.transpose() * this->bodies[b].node_ux;
-        this->bodies[b].particle_uy += this->bodies[b].Phi.transpose() * this->bodies[b].node_uy;
-        this->bodies[b].particle_uz += this->bodies[b].Phi.transpose() * this->bodies[b].node_uz;
+        this->bodies[b].particle_ux += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.ux;
+        this->bodies[b].particle_uy += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uy;
+        this->bodies[b].particle_uz += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uz;
 
-        this->bodies[b].particle_x_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_x_t;
-        this->bodies[b].particle_y_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_y_t;
-        this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose() * this->bodies[b].node_diff_z_t;
+        this->bodies[b].particle_x_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_x_t;
+        this->bodies[b].particle_y_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_y_t;
+        this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_z_t;
 
     }
     return;
@@ -1059,38 +951,38 @@ void job_t::moveParticlesExplicit2D(){
         Eigen::VectorXd pvec(numRowsP);
 
         for (size_t i=0;i<this->bodies[b].n;i++){
-            double m = this->bodies[b].nodes[i].m[0];
+            double m = this->bodies[b].nodes.m[i];
             if (m!=0){
-                this->bodies[b].nodes[i].ux[0] = this->dt * this->bodies[b].nodes[i].contact_mx_t[0] / m;
-                this->bodies[b].nodes[i].uy[0] = this->dt * this->bodies[b].nodes[i].contact_my_t[0] / m;
-                //this->bodies[b].nodes[i].uz[0] = this->dt * this->bodies[b].nodes[i].contact_mz_t[0] / m;
+                this->bodies[b].nodes.ux[i] = this->dt * this->bodies[b].nodes.contact_mx_t[i] / m;
+                this->bodies[b].nodes.uy[i] = this->dt * this->bodies[b].nodes.contact_my_t[i] / m;
+                //this->bodies[b].nodes.uz[i] = this->dt * this->bodies[b].nodes.contact_mz_t[i] / m;
 
-                this->bodies[b].nodes[i].diff_x_t[0] = this->dt * this->bodies[b].nodes[i].contact_fx[0] / m;
-                this->bodies[b].nodes[i].diff_y_t[0] = this->dt * this->bodies[b].nodes[i].contact_fy[0] / m;
-                //this->bodies[b].nodes[i].diff_z_t[0] = this->dt * this->bodies[b].nodes[i].contact_fz[0] / m;
+                this->bodies[b].nodes.diff_x_t[i] = this->dt * this->bodies[b].nodes.contact_fx[i] / m;
+                this->bodies[b].nodes.diff_y_t[i] = this->dt * this->bodies[b].nodes.contact_fy[i] / m;
+                //this->bodies[b].nodes.diff_z_t[i] = this->dt * this->bodies[b].nodes.contact_fz[i] / m;
             } else {
-                this->bodies[b].nodes[i].ux[0] = 0;
-                this->bodies[b].nodes[i].uy[0] = 0;
-                this->bodies[b].nodes[i].uz[0] = 0;
+                this->bodies[b].nodes.ux[i] = 0;
+                this->bodies[b].nodes.uy[i] = 0;
+                this->bodies[b].nodes.uz[i] = 0;
 
-                this->bodies[b].nodes[i].diff_x_t[0] = 0;
-                this->bodies[b].nodes[i].diff_y_t[0] = 0;
-                this->bodies[b].nodes[i].diff_z_t[0] = 0;
+                this->bodies[b].nodes.diff_x_t[i] = 0;
+                this->bodies[b].nodes.diff_y_t[i] = 0;
+                this->bodies[b].nodes.diff_z_t[i] = 0;
             }
         }
 
         //map back to particles using S transpose
-        this->bodies[b].particle_x += this->bodies[b].Phi.transpose()*this->bodies[b].node_ux;
-        this->bodies[b].particle_y += this->bodies[b].Phi.transpose()*this->bodies[b].node_uy;
-        //this->bodies[b].particle_z += this->bodies[b].Phi.transpose()*this->bodies[b].node_uz;
+        this->bodies[b].particle_x += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.ux;
+        this->bodies[b].particle_y += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.uy;
+        //this->bodies[b].particle_z += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.uz;
 
-        this->bodies[b].particle_ux += this->bodies[b].Phi.transpose()*this->bodies[b].node_ux;
-        this->bodies[b].particle_uy += this->bodies[b].Phi.transpose()*this->bodies[b].node_uy;
-        //this->bodies[b].particle_uz += this->bodies[b].Phi.transpose()*this->bodies[b].node_uz;
+        this->bodies[b].particle_ux += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.ux;
+        this->bodies[b].particle_uy += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.uy;
+        //this->bodies[b].particle_uz += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.uz;
 
-        this->bodies[b].particle_x_t += this->bodies[b].Phi.transpose()*this->bodies[b].node_diff_x_t;
-        this->bodies[b].particle_y_t += this->bodies[b].Phi.transpose()*this->bodies[b].node_diff_y_t;
-        //this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose()*this->bodies[b].node_diff_z_t;
+        this->bodies[b].particle_x_t += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.diff_x_t;
+        this->bodies[b].particle_y_t += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.diff_y_t;
+        //this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.diff_z_t;
 
     }
     return;
@@ -1104,12 +996,12 @@ void job_t::calculateStrainRate() {
         size_t numColsN = 1;
 
         //nodal velocities
-        this->bodies[b].node_contact_x_t =
-                this->bodies[b].node_contact_mx_t.array() / this->bodies[b].node_m.array();
-        this->bodies[b].node_contact_y_t =
-                this->bodies[b].node_contact_my_t.array() / this->bodies[b].node_m.array();
-        this->bodies[b].node_contact_z_t =
-                this->bodies[b].node_contact_mz_t.array() / this->bodies[b].node_m.array();
+        this->bodies[b].nodes.contact_x_t =
+                this->bodies[b].nodes.contact_mx_t.array() / this->bodies[b].nodes.m.array();
+        this->bodies[b].nodes.contact_y_t =
+                this->bodies[b].nodes.contact_my_t.array() / this->bodies[b].nodes.m.array();
+        this->bodies[b].nodes.contact_z_t =
+                this->bodies[b].nodes.contact_mz_t.array() / this->bodies[b].nodes.m.array();
 
         //use to create dummy pvec
         size_t numRowsP = this->bodies[b].p;
@@ -1117,47 +1009,47 @@ void job_t::calculateStrainRate() {
         Eigen::VectorXd pvec(numRowsP);
 
         //calculate particle[i].L[9]
-        pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].node_contact_x_t;
+        pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].nodes.contact_x_t;
         for (size_t i = 0; i < this->bodies[b].p; i++) {
             this->bodies[b].particles[i].L[XX] = pvec[i];
         }
 
-        pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].node_contact_x_t;
+        pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].nodes.contact_x_t;
         for (size_t i = 0; i < this->bodies[b].p; i++) {
             this->bodies[b].particles[i].L[XY] = pvec[i];
         }
 
-        pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].node_contact_x_t;
+        pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].nodes.contact_x_t;
         for (size_t i = 0; i < this->bodies[b].p; i++) {
             this->bodies[b].particles[i].L[XZ] = pvec[i];
         }
 
-        pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].node_contact_y_t;
+        pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].nodes.contact_y_t;
         for (size_t i = 0; i < this->bodies[b].p; i++) {
             this->bodies[b].particles[i].L[YX] = pvec[i];
         }
 
-        pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].node_contact_y_t;
+        pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].nodes.contact_y_t;
         for (size_t i = 0; i < this->bodies[b].p; i++) {
             this->bodies[b].particles[i].L[YY] = pvec[i];
         }
 
-        pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].node_contact_y_t;
+        pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].nodes.contact_y_t;
         for (size_t i = 0; i < this->bodies[b].p; i++) {
             this->bodies[b].particles[i].L[YZ] = pvec[i];
         }
 
-        pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].node_contact_z_t;
+        pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].nodes.contact_z_t;
         for (size_t i = 0; i < this->bodies[b].p; i++) {
             this->bodies[b].particles[i].L[ZX] = pvec[i];
         }
 
-        pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].node_contact_z_t;
+        pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].nodes.contact_z_t;
         for (size_t i = 0; i < this->bodies[b].p; i++) {
             this->bodies[b].particles[i].L[ZY] = pvec[i];
         }
 
-        pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].node_contact_z_t;
+        pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].nodes.contact_z_t;
         for (size_t i = 0; i < this->bodies[b].p; i++) {
             this->bodies[b].particles[i].L[ZZ] = pvec[i];
         }
@@ -1175,9 +1067,9 @@ void job_t::calculateStrainRate2D() {
         size_t numColsN = 1;
 
         //nodal velocities
-        this->bodies[b].node_contact_x_t = this->bodies[b].node_contact_mx_t.array()/this->bodies[b].node_m.array();
-        this->bodies[b].node_contact_y_t = this->bodies[b].node_contact_my_t.array()/this->bodies[b].node_m.array();
-        //this->bodies[b].node_contact_z_t = this->bodies[b].node_contact_mz_t.array()/this->bodies[b].node_m.array();
+        this->bodies[b].nodes.contact_x_t = this->bodies[b].nodes.contact_mx_t.array()/this->bodies[b].nodes.m.array();
+        this->bodies[b].nodes.contact_y_t = this->bodies[b].nodes.contact_my_t.array()/this->bodies[b].nodes.m.array();
+        //this->bodies[b].nodes.contact_z_t = this->bodies[b].nodes.contact_mz_t.array()/this->bodies[b].nodes.m.array();
 
         //use to create dummy pvec
         size_t numRowsP = this->bodies[b].p;
@@ -1186,47 +1078,47 @@ void job_t::calculateStrainRate2D() {
         Eigen::VectorXd pvec(numRowsP);
 
         //calculate particle[i].L[9]
-        pvec = this->bodies[b].gradPhiX.transpose()*this->bodies[b].node_contact_x_t;
+        pvec = this->bodies[b].gradPhiX.transpose()*this->bodies[b].nodes.contact_x_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[XX] = pvec[i];
         }
 
-        pvec = this->bodies[b].gradPhiY.transpose()*this->bodies[b].node_contact_x_t;
+        pvec = this->bodies[b].gradPhiY.transpose()*this->bodies[b].nodes.contact_x_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[XY] = pvec[i];
         }
 
-        //pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].node_contact_x_t;
+        //pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].nodes.contact_x_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[XZ] = 0;
         }
 
-        pvec = this->bodies[b].gradPhiX.transpose()*this->bodies[b].node_contact_y_t;
+        pvec = this->bodies[b].gradPhiX.transpose()*this->bodies[b].nodes.contact_y_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[YX] = pvec[i];
         }
 
-        pvec = this->bodies[b].gradPhiY.transpose()*this->bodies[b].node_contact_y_t;
+        pvec = this->bodies[b].gradPhiY.transpose()*this->bodies[b].nodes.contact_y_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[YY] = pvec[i];
         }
 
-        //pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].node_contact_y_t;
+        //pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].nodes.contact_y_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[YZ] = 0;
         }
 
-        //pvec = this->bodies[b].gradPhiX.transpose()*this->bodies[b].node_contact_z_t;
+        //pvec = this->bodies[b].gradPhiX.transpose()*this->bodies[b].nodes.contact_z_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[ZX] = 0;
         }
 
-        //pvec = this->bodies[b].gradPhiY.transpose()*this->bodies[b].node_contact_z_t;
+        //pvec = this->bodies[b].gradPhiY.transpose()*this->bodies[b].nodes.contact_z_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[ZY] = 0;
         }
 
-        //pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].node_contact_z_t;
+        //pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].nodes.contact_z_t;
         for (size_t i=0;i<this->bodies[b].p;i++){
             this->bodies[b].particles[i].L[ZZ] = 0;
         }
@@ -1287,9 +1179,9 @@ void job_t::mapTrialStress2Grid() {
         p_m_by = this->bodies[b].particle_m.array() * this->bodies[b].particle_by.array();
         p_m_bz = this->bodies[b].particle_m.array() * this->bodies[b].particle_bz.array();
 
-        this->bodies[b].node_fx = this->bodies[b].Phi * p_m_bx; //need to add stress
-        this->bodies[b].node_fy = this->bodies[b].Phi * p_m_by; //need to add stress
-        this->bodies[b].node_fz = this->bodies[b].Phi * p_m_bz; //need to add stress
+        this->bodies[b].nodes.fx = this->bodies[b].Phi * p_m_bx; //need to add stress
+        this->bodies[b].nodes.fy = this->bodies[b].Phi * p_m_by; //need to add stress
+        this->bodies[b].nodes.fz = this->bodies[b].Phi * p_m_bz; //need to add stress
 
         //use to create dummy pvec and ones
         Eigen::VectorXd pvec(numRowsP);
@@ -1297,35 +1189,35 @@ void job_t::mapTrialStress2Grid() {
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[XX];
         }
-        this->bodies[b].node_fx -= this->bodies[b].gradPhiX*pvec;
+        this->bodies[b].nodes.fx -= this->bodies[b].gradPhiX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[XY];
         }
-        this->bodies[b].node_fx -= this->bodies[b].gradPhiY*pvec;
-        this->bodies[b].node_fy -= this->bodies[b].gradPhiX*pvec;
+        this->bodies[b].nodes.fx -= this->bodies[b].gradPhiY*pvec;
+        this->bodies[b].nodes.fy -= this->bodies[b].gradPhiX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[XZ];
         }
-        this->bodies[b].node_fx -= this->bodies[b].gradPhiZ*pvec;
-        this->bodies[b].node_fz -= this->bodies[b].gradPhiX*pvec;
+        this->bodies[b].nodes.fx -= this->bodies[b].gradPhiZ*pvec;
+        this->bodies[b].nodes.fz -= this->bodies[b].gradPhiX*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[YY];
         }
-        this->bodies[b].node_fy -= this->bodies[b].gradPhiY*pvec;
+        this->bodies[b].nodes.fy -= this->bodies[b].gradPhiY*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[YZ];
         }
-        this->bodies[b].node_fy -= this->bodies[b].gradPhiZ*pvec;
-        this->bodies[b].node_fz -= this->bodies[b].gradPhiY*pvec;
+        this->bodies[b].nodes.fy -= this->bodies[b].gradPhiZ*pvec;
+        this->bodies[b].nodes.fz -= this->bodies[b].gradPhiY*pvec;
 
         for (size_t i=0;i<this->bodies[b].p;i++){
             pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[ZZ];
         }
-        this->bodies[b].node_fz -= this->bodies[b].gradPhiZ*pvec;
+        this->bodies[b].nodes.fz -= this->bodies[b].gradPhiZ*pvec;
     }
     return;
 }
@@ -1345,49 +1237,49 @@ void job_t::calculateImplicitResidual() {
                                   - this->bodies[b].node_z_t_explicit.array()*this->bodies[b].node_m.array();
         */
 
-        this->bodies[b].Rx = this->bodies[b].node_x_t_trial.array()*this->bodies[b].node_m.array();
-        this->bodies[b].Rx -= this->dt*this->bodies[b].node_fx_L;
-        this->bodies[b].Rx -= this->bodies[b].node_mx_t_k;
+        this->bodies[b].nodes.Rx = this->bodies[b].nodes.x_t_trial.array()*this->bodies[b].nodes.m.array();
+        this->bodies[b].nodes.Rx -= this->dt*this->bodies[b].nodes.fx_L;
+        this->bodies[b].nodes.Rx -= this->bodies[b].nodes.mx_t_k;
 
-        this->bodies[b].Ry = this->bodies[b].node_y_t_trial.array()*this->bodies[b].node_m.array();
-        this->bodies[b].Ry -= this->dt*this->bodies[b].node_fy_L;
-        this->bodies[b].Ry -= this->bodies[b].node_my_t_k;
+        this->bodies[b].nodes.Ry = this->bodies[b].nodes.y_t_trial.array()*this->bodies[b].nodes.m.array();
+        this->bodies[b].nodes.Ry -= this->dt*this->bodies[b].nodes.fy_L;
+        this->bodies[b].nodes.Ry -= this->bodies[b].nodes.my_t_k;
 
-        this->bodies[b].Rz = this->bodies[b].node_z_t_trial.array()*this->bodies[b].node_m.array();
-        this->bodies[b].Rz -= this->dt*this->bodies[b].node_fz_L;
-        this->bodies[b].Rz -= this->bodies[b].node_mz_t_k;
+        this->bodies[b].nodes.Rz = this->bodies[b].nodes.z_t_trial.array()*this->bodies[b].nodes.m.array();
+        this->bodies[b].nodes.Rz -= this->dt*this->bodies[b].nodes.fz_L;
+        this->bodies[b].nodes.Rz -= this->bodies[b].nodes.mz_t_k;
 
         for (size_t i=0;i<this->num_nodes;i++){
-            if (this->bodies[b].node_m[i] <= TOL){
+            if (this->bodies[b].nodes.m[i] <= TOL){
                 //nodal boundary
-                this->bodies[b].Rx[i] = 0;
-                this->bodies[b].Ry[i] = 0;
-                this->bodies[b].Rz[i] = 0;
-            } else if (this->bodies[0].node_m[i] > TOL && this->bodies[1].node_m[i] > TOL){
+                this->bodies[b].nodes.Rx[i] = 0;
+                this->bodies[b].nodes.Ry[i] = 0;
+                this->bodies[b].nodes.Rz[i] = 0;
+            } else if (this->bodies[0].nodes.m[i] > TOL && this->bodies[1].nodes.m[i] > TOL){
                 //nodal contact
-                this->bodies[b].Rx[i] = 0;
-                this->bodies[b].Ry[i] = 0;
-                this->bodies[b].Rz[i] = 0;
+                this->bodies[b].nodes.Rx[i] = 0;
+                this->bodies[b].nodes.Ry[i] = 0;
+                this->bodies[b].nodes.Rz[i] = 0;
             } else {
                 if (this->u_dirichlet_mask[NODAL_DOF*i] != 0){
-                    this->bodies[b].Rx[i] = 0;
+                    this->bodies[b].nodes.Rx[i] = 0;
                 } else {
-                    this->bodies[b].Rx[i] /= this->bodies[b].node_m[i];
+                    this->bodies[b].nodes.Rx[i] /= this->bodies[b].nodes.m[i];
                 }
 
                 if (this->u_dirichlet_mask[NODAL_DOF*i + 1] != 0){
-                    this->bodies[b].Ry[i] = 0;
+                    this->bodies[b].nodes.Ry[i] = 0;
                 } else {
-                    this->bodies[b].Ry[i] /= this->bodies[b].node_m[i];
+                    this->bodies[b].nodes.Ry[i] /= this->bodies[b].nodes.m[i];
                 }
 
                 if (this->u_dirichlet_mask[NODAL_DOF*i + 2] != 0){
-                    this->bodies[b].Rz[i] = 0;
+                    this->bodies[b].nodes.Rz[i] = 0;
                 } else {
-                    this->bodies[b].Rz[i] /= this->bodies[b].node_m[i];
+                    this->bodies[b].nodes.Rz[i] /= this->bodies[b].nodes.m[i];
                 }
-                //this->bodies[b].Ry[i] /= this->bodies[b].node_m[i];
-                //this->bodies[b].Rz[i] /= this->bodies[b].node_m[i];
+                //this->bodies[b].Ry[i] /= this->bodies[b].nodes.m[i];
+                //this->bodies[b].Rz[i] /= this->bodies[b].nodes.m[i];
             }
 
         }
@@ -1398,9 +1290,9 @@ void job_t::moveGridImplicitCG() {
     //full conjugate gradient mathod for solving Js = -F(v)
 
     for (size_t b=0;b<this->num_bodies;b++){
-        this->bodies[b].node_mx_t_k = this->bodies[b].node_contact_mx_t;
-        this->bodies[b].node_my_t_k = this->bodies[b].node_contact_my_t;
-        this->bodies[b].node_mz_t_k = this->bodies[b].node_contact_mz_t;
+        this->bodies[b].nodes.mx_t_k = this->bodies[b].nodes.contact_mx_t;
+        this->bodies[b].nodes.my_t_k = this->bodies[b].nodes.contact_my_t;
+        this->bodies[b].nodes.mz_t_k = this->bodies[b].nodes.contact_mz_t;
     }
 
     //move grid
@@ -1408,42 +1300,21 @@ void job_t::moveGridImplicitCG() {
 
     //save forces and initial trial velocity
     for (size_t b=0;b<this->num_bodies;b++){
-        this->bodies[b].node_fx_k = this->bodies[b].node_contact_fx;
-        this->bodies[b].node_fy_k = this->bodies[b].node_contact_fy;
-        this->bodies[b].node_fz_k = this->bodies[b].node_contact_fz;
-
-        /*this->bodies[b].node_x_t_explicit.setZero();
-        this->bodies[b].node_y_t_explicit.setZero();
-        this->bodies[b].node_z_t_explicit.setZero();
+        this->bodies[b].nodes.x_t_n.setZero();
+        this->bodies[b].nodes.y_t_n.setZero();
+        this->bodies[b].nodes.z_t_n.setZero();
 
         for (size_t i=0;i<this->num_nodes;i++){
-            if (this->bodies[b].node_m[i] > TOL) {
-                this->bodies[b].node_x_t_explicit[i] = this->bodies[b].node_contact_mx_t[i] / this->bodies[b].node_m[i];
-                this->bodies[b].node_y_t_explicit[i] = this->bodies[b].node_contact_my_t[i] / this->bodies[b].node_m[i];
-                this->bodies[b].node_z_t_explicit[i] = this->bodies[b].node_contact_mz_t[i] / this->bodies[b].node_m[i];
+            if (this->bodies[b].nodes.m[i] > TOL) {
+                this->bodies[b].nodes.x_t_n[i] = this->bodies[b].nodes.contact_mx_t[i] / this->bodies[b].nodes.m[i];
+                this->bodies[b].nodes.y_t_n[i] = this->bodies[b].nodes.contact_my_t[i] / this->bodies[b].nodes.m[i];
+                this->bodies[b].nodes.z_t_n[i] = this->bodies[b].nodes.contact_mz_t[i] / this->bodies[b].nodes.m[i];
             }
         }
 
-        this->bodies[b].node_x_t_n = this->bodies[b].node_x_t_explicit;
-        this->bodies[b].node_y_t_n = this->bodies[b].node_y_t_explicit;
-        this->bodies[b].node_z_t_n = this->bodies[b].node_z_t_explicit;
-         */
-
-        this->bodies[b].node_x_t_n.setZero();
-        this->bodies[b].node_y_t_n.setZero();
-        this->bodies[b].node_z_t_n.setZero();
-
-        for (size_t i=0;i<this->num_nodes;i++){
-            if (this->bodies[b].node_m[i] > TOL) {
-                this->bodies[b].node_x_t_n[i] = this->bodies[b].node_contact_mx_t[i] / this->bodies[b].node_m[i];
-                this->bodies[b].node_y_t_n[i] = this->bodies[b].node_contact_my_t[i] / this->bodies[b].node_m[i];
-                this->bodies[b].node_z_t_n[i] = this->bodies[b].node_contact_mz_t[i] / this->bodies[b].node_m[i];
-            }
-        }
-
-        this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
-        this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
-        this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
+        this->bodies[b].nodes.x_t_trial = this->bodies[b].nodes.x_t_n;
+        this->bodies[b].nodes.y_t_trial = this->bodies[b].nodes.y_t_n;
+        this->bodies[b].nodes.z_t_trial = this->bodies[b].nodes.z_t_n;
     }
 
     //calculate L on particles
@@ -1469,13 +1340,9 @@ void job_t::moveGridImplicitCG() {
 
     //save explicit solution
     for (size_t b=0;b<this->num_bodies;b++){
-        //this->bodies[b].node_x_t_explicit = this->bodies[b].node_contact_mx_t.array()/this->bodies[b].node_m.array();
-        //this->bodies[b].node_y_t_explicit = this->bodies[b].node_contact_my_t.array()/this->bodies[b].node_m.array();
-        //this->bodies[b].node_z_t_explicit = this->bodies[b].node_contact_mz_t.array()/this->bodies[b].node_m.array();
-
-        this->bodies[b].node_fx_L = this->bodies[b].node_contact_fx;
-        this->bodies[b].node_fy_L = this->bodies[b].node_contact_fy;
-        this->bodies[b].node_fz_L = this->bodies[b].node_contact_fz;
+        this->bodies[b].nodes.fx_L = this->bodies[b].nodes.contact_fx;
+        this->bodies[b].nodes.fy_L = this->bodies[b].nodes.contact_fy;
+        this->bodies[b].nodes.fz_L = this->bodies[b].nodes.contact_fz;
     }
 
     //calculate residual for expicit step
@@ -1491,30 +1358,24 @@ void job_t::moveGridImplicitCG() {
         //setup iteration for s
         rhoSum = 0;
         for (size_t b = 0; b < this->num_bodies; b++) {
-            this->bodies[b].Rvx = this->bodies[b].Rx;
-            this->bodies[b].Rvy = this->bodies[b].Ry;
-            this->bodies[b].Rvz = this->bodies[b].Rz;
+            this->bodies[b].nodes.Rvx = this->bodies[b].nodes.Rx;
+            this->bodies[b].nodes.Rvy = this->bodies[b].nodes.Ry;
+            this->bodies[b].nodes.Rvz = this->bodies[b].nodes.Rz;
 
-            this->bodies[b].rk.setZero();
+            this->bodies[b].nodes.rk.setZero();
 
-            this->bodies[b].rk << -this->bodies[b].Rvx, -this->bodies[b].Rvy, -this->bodies[b].Rvz;
+            this->bodies[b].nodes.rk << -this->bodies[b].nodes.Rvx, -this->bodies[b].nodes.Rvy, -this->bodies[b].nodes.Rvz;
 
-            this->bodies[b].rhok = this->bodies[b].rk.squaredNorm();
+            this->bodies[b].nodes.rhok = this->bodies[b].nodes.rk.squaredNorm();
 
-            rhoSum += this->bodies[b].rhok;
+            rhoSum += this->bodies[b].nodes.rhok;
 
-            this->bodies[b].pk = this->bodies[b].rk / std::sqrt(this->bodies[b].rhok);
+            this->bodies[b].nodes.pk = this->bodies[b].nodes.rk / std::sqrt(this->bodies[b].nodes.rhok);
 
-            this->bodies[b].sk.setZero();
-
-            /*if (this->bodies[b].rhok > 2){
-                this->bodies[b].rhok = 1;
-            }*/
+            this->bodies[b].nodes.sk.setZero();
         }
 
-        /*std::cout << "RHO: " << rhoSum << " ?< " << rhoTOL <<  " vnorm: " << this->bodies[0].node_x_t_n.lpNorm<Eigen::Infinity>() <<
-        "," << this->bodies[0].node_y_t_n.lpNorm<Eigen::Infinity>() <<
-        "," << this->bodies[0].node_z_t_n.lpNorm<Eigen::Infinity>() << std::endl;*/
+        std::cout << "\nRHO: " << rhoSum << " ?< " << rhoTOL << std::endl;
 
         //solve for 's' to iterate 'v' [Sulsky 2003]
         size_t k = 0;
@@ -1523,32 +1384,32 @@ void job_t::moveGridImplicitCG() {
 
             for (size_t b = 0; b < this->num_bodies; b++) {
                 double vNorm = std::sqrt(
-                        this->bodies[b].node_x_t_n.squaredNorm() + this->bodies[b].node_y_t_n.squaredNorm()
-                        + this->bodies[b].node_z_t_n.squaredNorm());
+                        this->bodies[b].nodes.x_t_n.squaredNorm() + this->bodies[b].nodes.y_t_n.squaredNorm()
+                        + this->bodies[b].nodes.z_t_n.squaredNorm());
                 if (vNorm <= TOL) {
                     vNorm = 1.0;
                 }
-                double sNorm = this->bodies[b].pk.norm();
+                double sNorm = this->bodies[b].nodes.pk.norm();
                 if (sNorm>TOL) {
-                    this->bodies[b].node_x_t_trial =
-                            this->bodies[b].node_x_t_n + h * vNorm * this->bodies[b].pk.segment(0,this->bodies[b].n) / sNorm;
-                    this->bodies[b].node_y_t_trial =
-                            this->bodies[b].node_y_t_n + h * vNorm * this->bodies[b].pk.segment(this->bodies[b].n,this->bodies[b].n)/ sNorm;
-                    this->bodies[b].node_z_t_trial =
-                            this->bodies[b].node_z_t_n + h * vNorm * this->bodies[b].pk.segment(2*this->bodies[b].n,this->bodies[b].n) / sNorm;
+                    this->bodies[b].nodes.x_t_trial =
+                            this->bodies[b].nodes.x_t_n + h * vNorm * this->bodies[b].nodes.pk.segment(0,this->bodies[b].n) / sNorm;
+                    this->bodies[b].nodes.y_t_trial =
+                            this->bodies[b].nodes.y_t_n + h * vNorm * this->bodies[b].nodes.pk.segment(this->bodies[b].n,this->bodies[b].n)/ sNorm;
+                    this->bodies[b].nodes.z_t_trial =
+                            this->bodies[b].nodes.z_t_n + h * vNorm * this->bodies[b].nodes.pk.segment(2*this->bodies[b].n,this->bodies[b].n) / sNorm;
                 } else {
-                    this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
-                    this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
-                    this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
+                    this->bodies[b].nodes.x_t_trial = this->bodies[b].nodes.x_t_n;
+                    this->bodies[b].nodes.y_t_trial = this->bodies[b].nodes.y_t_n;
+                    this->bodies[b].nodes.z_t_trial = this->bodies[b].nodes.z_t_n;
                 }
 
-                this->bodies[b].node_mx_t = this->bodies[b].node_x_t_trial.array() * this->bodies[b].node_m.array();
-                this->bodies[b].node_my_t = this->bodies[b].node_y_t_trial.array() * this->bodies[b].node_m.array();
-                this->bodies[b].node_mz_t = this->bodies[b].node_z_t_trial.array() * this->bodies[b].node_m.array();
+                this->bodies[b].nodes.mx_t = this->bodies[b].nodes.x_t_trial.array() * this->bodies[b].nodes.m.array();
+                this->bodies[b].nodes.my_t = this->bodies[b].nodes.y_t_trial.array() * this->bodies[b].nodes.m.array();
+                this->bodies[b].nodes.mz_t = this->bodies[b].nodes.z_t_trial.array() * this->bodies[b].nodes.m.array();
 
-                this->bodies[b].node_x_t = this->bodies[b].node_x_t_trial;
-                this->bodies[b].node_y_t = this->bodies[b].node_y_t_trial;
-                this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
+                this->bodies[b].nodes.x_t = this->bodies[b].nodes.x_t_trial;
+                this->bodies[b].nodes.y_t = this->bodies[b].nodes.y_t_trial;
+                this->bodies[b].nodes.z_t = this->bodies[b].nodes.z_t_trial;
             }
 
             //add contact forces
@@ -1575,62 +1436,62 @@ void job_t::moveGridImplicitCG() {
             this->addBoundaryConditions();
 
             for (size_t b=0;b<this->num_bodies;b++) {
-                this->bodies[b].node_fx_L = this->bodies[b].node_contact_fx;
-                this->bodies[b].node_fy_L = this->bodies[b].node_contact_fy;
-                this->bodies[b].node_fz_L = this->bodies[b].node_contact_fz;
+                this->bodies[b].nodes.fx_L = this->bodies[b].nodes.contact_fx;
+                this->bodies[b].nodes.fy_L = this->bodies[b].nodes.contact_fy;
+                this->bodies[b].nodes.fz_L = this->bodies[b].nodes.contact_fz;
             }
 
             this->calculateImplicitResidual();
 
             for (size_t b = 0; b < this->num_bodies; b++) {
                 double vNorm = std::sqrt(
-                        this->bodies[b].node_x_t_n.squaredNorm() + this->bodies[b].node_y_t_n.squaredNorm() +
-                        this->bodies[b].node_z_t_n.squaredNorm());
+                        this->bodies[b].nodes.x_t_n.squaredNorm() + this->bodies[b].nodes.y_t_n.squaredNorm() +
+                        this->bodies[b].nodes.z_t_n.squaredNorm());
                 if (vNorm <= TOL) {
                     vNorm = 1.0;
                 }
-                double sNorm = this->bodies[b].pk.norm();
-                this->bodies[b].DhRx = sNorm / (h * vNorm) * (this->bodies[b].Rx - this->bodies[b].Rvx);
-                this->bodies[b].DhRy = sNorm / (h * vNorm) * (this->bodies[b].Ry - this->bodies[b].Rvy);
-                this->bodies[b].DhRz = sNorm / (h * vNorm) * (this->bodies[b].Rz - this->bodies[b].Rvz);
+                double sNorm = this->bodies[b].nodes.pk.norm();
+                this->bodies[b].nodes.DhRx = sNorm / (h * vNorm) * (this->bodies[b].nodes.Rx - this->bodies[b].nodes.Rvx);
+                this->bodies[b].nodes.DhRy = sNorm / (h * vNorm) * (this->bodies[b].nodes.Ry - this->bodies[b].nodes.Rvy);
+                this->bodies[b].nodes.DhRz = sNorm / (h * vNorm) * (this->bodies[b].nodes.Rz - this->bodies[b].nodes.Rvz);
 
-                this->bodies[b].wk << this->bodies[b].DhRx, this->bodies[b].DhRy, this->bodies[b].DhRz;
-                this->bodies[b].ak = this->bodies[b].rhok / (this->bodies[b].pk.transpose() * this->bodies[b].wk);
+                this->bodies[b].nodes.wk << this->bodies[b].nodes.DhRx, this->bodies[b].nodes.DhRy, this->bodies[b].nodes.DhRz;
+                this->bodies[b].nodes.ak = this->bodies[b].nodes.rhok / (this->bodies[b].nodes.pk.transpose() * this->bodies[b].nodes.wk);
 
-                this->bodies[b].sk += this->bodies[b].ak * this->bodies[b].pk;
+                this->bodies[b].nodes.sk += this->bodies[b].nodes.ak * this->bodies[b].nodes.pk;
 
-                this->bodies[b].rk -= this->bodies[b].ak * this->bodies[b].wk;
+                this->bodies[b].nodes.rk -= this->bodies[b].nodes.ak * this->bodies[b].nodes.wk;
 
-                this->bodies[b].bk = this->bodies[b].rk.squaredNorm() / this->bodies[b].rhok;
+                this->bodies[b].nodes.bk = this->bodies[b].nodes.rk.squaredNorm() / this->bodies[b].nodes.rhok;
 
-                this->bodies[b].rhok = this->bodies[b].rk.squaredNorm();
+                this->bodies[b].nodes.rhok = this->bodies[b].nodes.rk.squaredNorm();
 
-                this->bodies[b].pk = this->bodies[b].rk + this->bodies[b].bk * this->bodies[b].pk;
+                this->bodies[b].nodes.pk = this->bodies[b].nodes.rk + this->bodies[b].nodes.bk * this->bodies[b].nodes.pk;
             }
             k += 1;
             rhoSum = 0;
             for (size_t b = 0; b < this->num_bodies; b++) {
-                rhoSum += this->bodies[b].rhok;
+                rhoSum += this->bodies[b].nodes.rhok;
             }
-            //std::cout << "\rn: " << nIter << " k: " << k <<  " r: " << rhoSum << "      \r" << std::flush;
+            std::cout << "\rn: " << nIter << " k: " << k <<  " r: " << rhoSum << "      \r" << std::flush;
         }
 
         for (size_t b = 0; b < this->num_bodies; b++) {
-            this->bodies[b].node_x_t_n += this->bodies[b].sk.segment(0,this->bodies[b].n);
-            this->bodies[b].node_y_t_n += this->bodies[b].sk.segment(this->bodies[b].n,this->bodies[b].n);
-            this->bodies[b].node_z_t_n += this->bodies[b].sk.segment(2*this->bodies[b].n,this->bodies[b].n);
+            this->bodies[b].nodes.x_t_n += this->bodies[b].nodes.sk.segment(0,this->bodies[b].n);
+            this->bodies[b].nodes.y_t_n += this->bodies[b].nodes.sk.segment(this->bodies[b].n,this->bodies[b].n);
+            this->bodies[b].nodes.z_t_n += this->bodies[b].nodes.sk.segment(2*this->bodies[b].n,this->bodies[b].n);
 
-            this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
-            this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
-            this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
+            this->bodies[b].nodes.x_t_trial = this->bodies[b].nodes.x_t_n;
+            this->bodies[b].nodes.y_t_trial = this->bodies[b].nodes.y_t_n;
+            this->bodies[b].nodes.z_t_trial = this->bodies[b].nodes.z_t_n;
 
-            this->bodies[b].node_mx_t = this->bodies[b].node_x_t_trial.array() * this->bodies[b].node_m.array();
-            this->bodies[b].node_my_t = this->bodies[b].node_y_t_trial.array() * this->bodies[b].node_m.array();
-            this->bodies[b].node_mz_t = this->bodies[b].node_z_t_trial.array() * this->bodies[b].node_m.array();
+            this->bodies[b].nodes.mx_t = this->bodies[b].nodes.x_t_trial.array() * this->bodies[b].nodes.m.array();
+            this->bodies[b].nodes.my_t = this->bodies[b].nodes.y_t_trial.array() * this->bodies[b].nodes.m.array();
+            this->bodies[b].nodes.mz_t = this->bodies[b].nodes.z_t_trial.array() * this->bodies[b].nodes.m.array();
 
-            this->bodies[b].node_x_t = this->bodies[b].node_x_t_trial;
-            this->bodies[b].node_y_t = this->bodies[b].node_y_t_trial;
-            this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
+            this->bodies[b].nodes.x_t = this->bodies[b].nodes.x_t_trial;
+            this->bodies[b].nodes.y_t = this->bodies[b].nodes.y_t_trial;
+            this->bodies[b].nodes.z_t = this->bodies[b].nodes.z_t_trial;
         }
 
         //std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
@@ -1660,9 +1521,9 @@ void job_t::moveGridImplicitCG() {
         this->addBoundaryConditions();
 
         for (size_t b=0;b<this->num_bodies;b++) {
-            this->bodies[b].node_fx_L = this->bodies[b].node_contact_fx;
-            this->bodies[b].node_fy_L = this->bodies[b].node_contact_fy;
-            this->bodies[b].node_fz_L = this->bodies[b].node_contact_fz;
+            this->bodies[b].nodes.fx_L = this->bodies[b].nodes.contact_fx;
+            this->bodies[b].nodes.fy_L = this->bodies[b].nodes.contact_fy;
+            this->bodies[b].nodes.fz_L = this->bodies[b].nodes.contact_fz;
         }
 
         this->calculateImplicitResidual();
@@ -1670,19 +1531,11 @@ void job_t::moveGridImplicitCG() {
         //setup for next iteration
         rhoSum = 0;
         for (size_t b = 0; b < this->num_bodies; b++) {
-            //this->bodies[b].Rvx = this->bodies[b].Rx;
-            //this->bodies[b].Rvy = this->bodies[b].Ry;
-            //this->bodies[b].Rvz = this->bodies[b].Rz;
+            this->bodies[b].nodes.rk << -this->bodies[b].nodes.Rx, -this->bodies[b].nodes.Ry, -this->bodies[b].nodes.Rz;
 
-            this->bodies[b].rk << -this->bodies[b].Rx, -this->bodies[b].Ry, -this->bodies[b].Rz;
+            this->bodies[b].nodes.rhok = this->bodies[b].nodes.rk.squaredNorm();
 
-            this->bodies[b].rhok = this->bodies[b].rk.squaredNorm();
-
-            rhoSum += this->bodies[b].rhok;
-
-            //this->bodies[b].pk = this->bodies[b].rk / std::sqrt(this->bodies[b].rhok);
-
-            //this->bodies[b].sk.setZero();
+            rhoSum += this->bodies[b].nodes.rhok;
         }
         //std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
     } while (rhoSum>rhoTOL && rhoSum<R_MAX); //(this->num_bodies * this->num_nodes * R_TOL));
@@ -1720,9 +1573,9 @@ void job_t::moveGridImplicitBiCGSTAB() {
     //full biconjugate gradient stabilized mathod for solving Js = -F(v)
 
     for (size_t b=0;b<this->num_bodies;b++){
-        this->bodies[b].node_mx_t_k = this->bodies[b].node_contact_mx_t;
-        this->bodies[b].node_my_t_k = this->bodies[b].node_contact_my_t;
-        this->bodies[b].node_mz_t_k = this->bodies[b].node_contact_mz_t;
+        this->bodies[b].nodes.mx_t_k = this->bodies[b].nodes.contact_mx_t;
+        this->bodies[b].nodes.my_t_k = this->bodies[b].nodes.contact_my_t;
+        this->bodies[b].nodes.mz_t_k = this->bodies[b].nodes.contact_mz_t;
     }
 
     //move grid
@@ -1730,28 +1583,24 @@ void job_t::moveGridImplicitBiCGSTAB() {
 
     //save forces and initial trial velocity
     for (size_t b=0;b<this->num_bodies;b++){
-        this->bodies[b].node_fx_k = this->bodies[b].node_contact_fx;
-        this->bodies[b].node_fy_k = this->bodies[b].node_contact_fy;
-        this->bodies[b].node_fz_k = this->bodies[b].node_contact_fz;
-
-        this->bodies[b].node_x_t_n.setZero();
-        this->bodies[b].node_y_t_n.setZero();
-        this->bodies[b].node_z_t_n.setZero();
+        this->bodies[b].nodes.x_t_n.setZero();
+        this->bodies[b].nodes.y_t_n.setZero();
+        this->bodies[b].nodes.z_t_n.setZero();
 
         double activeNodes = 0;
         for (size_t i=0;i<this->num_nodes;i++){
-            if (this->bodies[b].node_m[i] > TOL) {
+            if (this->bodies[b].nodes.m[i] > TOL) {
                 activeNodes += 1;
-                this->bodies[b].node_x_t_n[i] = this->bodies[b].node_contact_mx_t[i] / this->bodies[b].node_m[i];
-                this->bodies[b].node_y_t_n[i] = this->bodies[b].node_contact_my_t[i] / this->bodies[b].node_m[i];
-                this->bodies[b].node_z_t_n[i] = this->bodies[b].node_contact_mz_t[i] / this->bodies[b].node_m[i];
+                this->bodies[b].nodes.x_t_n[i] = this->bodies[b].nodes.contact_mx_t[i] / this->bodies[b].nodes.m[i];
+                this->bodies[b].nodes.y_t_n[i] = this->bodies[b].nodes.contact_my_t[i] / this->bodies[b].nodes.m[i];
+                this->bodies[b].nodes.z_t_n[i] = this->bodies[b].nodes.contact_mz_t[i] / this->bodies[b].nodes.m[i];
             }
         }
         //std::cout << "\nactive nodes: " << activeNodes << std::endl;
 
-        this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
-        this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
-        this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
+        this->bodies[b].nodes.x_t_trial = this->bodies[b].nodes.x_t_n;
+        this->bodies[b].nodes.y_t_trial = this->bodies[b].nodes.y_t_n;
+        this->bodies[b].nodes.z_t_trial = this->bodies[b].nodes.z_t_n;
     }
 
     //calculate L on particles
@@ -1778,28 +1627,14 @@ void job_t::moveGridImplicitBiCGSTAB() {
     //save final forces on nodes
     for (size_t b=0;b<this->num_bodies;b++){
 
-        this->bodies[b].node_fx_L = this->bodies[b].node_contact_fx;
-        this->bodies[b].node_fy_L = this->bodies[b].node_contact_fy;
-        this->bodies[b].node_fz_L = this->bodies[b].node_contact_fz;
+        this->bodies[b].nodes.fx_L = this->bodies[b].nodes.contact_fx;
+        this->bodies[b].nodes.fy_L = this->bodies[b].nodes.contact_fy;
+        this->bodies[b].nodes.fz_L = this->bodies[b].nodes.contact_fz;
     }
 
     //calculate initial residual
     this->calculateImplicitResidual();
-
-    /*for (size_t b=0;b<this->num_bodies;b++) {
-        double nn = 0;
-        for (size_t i = 0; i < this->num_nodes; i++) {
-            if (this->bodies[b].node_m[i] > TOL) {
-                std::cout << "\nnodal force/mass: " << this->bodies[b].node_contact_fx[i] / this->bodies[b].node_m[i];
-                std::cout << " " << this->bodies[b].node_contact_fy[i] / this->bodies[b].node_m[i];
-                std::cout << " " << this->bodies[b].node_contact_fz[i] / this->bodies[b].node_m[i] << std::endl;
-                std::cout << this->bodies[b].Rx[i] << " " << this->bodies[b].Ry[i] << " " << this->bodies[b].Rz[i] << std::endl;
-                nn += 1;
-            }
-        }
-        std::cout << nn << std::endl;
-    }*/
-
+    
     double rhoSum = 0;
     double rhoTOL = 0;
     rhoTOL = this->newtonTOL;//R_TOL;//*this->num_bodies*this->num_nodes;
@@ -1810,23 +1645,23 @@ void job_t::moveGridImplicitBiCGSTAB() {
         //setup iteration for s
         rhoSum = 0;
         for (size_t b = 0; b < this->num_bodies; b++) {
-            this->bodies[b].Rvx = this->bodies[b].Rx;
-            this->bodies[b].Rvy = this->bodies[b].Ry;
-            this->bodies[b].Rvz = this->bodies[b].Rz;
+            this->bodies[b].nodes.Rvx = this->bodies[b].nodes.Rx;
+            this->bodies[b].nodes.Rvy = this->bodies[b].nodes.Ry;
+            this->bodies[b].nodes.Rvz = this->bodies[b].nodes.Rz;
 
             //initialize bicgstab variables
-            this->bodies[b].sk.setZero();
-            this->bodies[b].wk.setZero();
-            this->bodies[b].pk.setZero();
-            this->bodies[b].ak = 1;
-            this->bodies[b].rhok = 1;
-            this->bodies[b].ok = 1;
-            this->bodies[b].rk.setZero();
+            this->bodies[b].nodes.sk.setZero();
+            this->bodies[b].nodes.wk.setZero();
+            this->bodies[b].nodes.pk.setZero();
+            this->bodies[b].nodes.ak = 1;
+            this->bodies[b].nodes.rhok = 1;
+            this->bodies[b].nodes.ok = 1;
+            this->bodies[b].nodes.rk.setZero();
 
-            this->bodies[b].rk << -this->bodies[b].Rvx, -this->bodies[b].Rvy, -this->bodies[b].Rvz;
-            this->bodies[b].r0 = this->bodies[b].rk;
+            this->bodies[b].nodes.rk << -this->bodies[b].nodes.Rvx, -this->bodies[b].nodes.Rvy, -this->bodies[b].nodes.Rvz;
+            this->bodies[b].nodes.r0 = this->bodies[b].nodes.rk;
 
-            rhoSum += this->bodies[b].rk.squaredNorm();
+            rhoSum += this->bodies[b].nodes.rk.squaredNorm();
         }
 
         std::cout << "RHO: " << rhoSum << " ?< " << rhoTOL << std::endl;/*<<  " vnorm: " << this->bodies[0].node_x_t_n.lpNorm<Eigen::Infinity>() <<
@@ -1841,38 +1676,38 @@ void job_t::moveGridImplicitBiCGSTAB() {
 
             for (size_t b = 0; b < this->num_bodies; b++) {
 
-                this->bodies[b].bk = (this->bodies[b].r0.dot(this->bodies[b].rk))/(this->bodies[b].rhok)*this->bodies[b].ak/this->bodies[b].ok;
-                this->bodies[b].rhok = this->bodies[b].r0.dot(this->bodies[b].rk);
-                this->bodies[b].pk = this->bodies[b].rk + this->bodies[b].bk*(this->bodies[b].pk - this->bodies[b].ok*this->bodies[b].wk);
+                this->bodies[b].nodes.bk = (this->bodies[b].nodes.r0.dot(this->bodies[b].nodes.rk))/(this->bodies[b].nodes.rhok)*this->bodies[b].nodes.ak/this->bodies[b].nodes.ok;
+                this->bodies[b].nodes.rhok = this->bodies[b].nodes.r0.dot(this->bodies[b].nodes.rk);
+                this->bodies[b].nodes.pk = this->bodies[b].nodes.rk + this->bodies[b].nodes.bk*(this->bodies[b].nodes.pk - this->bodies[b].nodes.ok*this->bodies[b].nodes.wk);
 
                 //wk = DhDF(vn,pk)
                 double vNorm = std::sqrt(
-                        this->bodies[b].node_x_t_n.squaredNorm() + this->bodies[b].node_y_t_n.squaredNorm()
-                        + this->bodies[b].node_z_t_n.squaredNorm());
+                        this->bodies[b].nodes.x_t_n.squaredNorm() + this->bodies[b].nodes.y_t_n.squaredNorm()
+                        + this->bodies[b].nodes.z_t_n.squaredNorm());
                 if (vNorm <= TOL) {
                     vNorm = 1.0;
                 }
-                double sNorm = this->bodies[b].pk.norm();
+                double sNorm = this->bodies[b].nodes.pk.norm();
                 if (sNorm>TOL) {
-                    this->bodies[b].node_x_t_trial =
-                            this->bodies[b].node_x_t_n + h * vNorm * this->bodies[b].pk.segment(0,this->bodies[b].n) / sNorm;
-                    this->bodies[b].node_y_t_trial =
-                            this->bodies[b].node_y_t_n + h * vNorm * this->bodies[b].pk.segment(this->bodies[b].n,this->bodies[b].n)/ sNorm;
-                    this->bodies[b].node_z_t_trial =
-                            this->bodies[b].node_z_t_n + h * vNorm * this->bodies[b].pk.segment(2*this->bodies[b].n,this->bodies[b].n) / sNorm;
+                    this->bodies[b].nodes.x_t_trial =
+                            this->bodies[b].nodes.x_t_n + h * vNorm * this->bodies[b].nodes.pk.segment(0,this->bodies[b].n) / sNorm;
+                    this->bodies[b].nodes.y_t_trial =
+                            this->bodies[b].nodes.y_t_n + h * vNorm * this->bodies[b].nodes.pk.segment(this->bodies[b].n,this->bodies[b].n)/ sNorm;
+                    this->bodies[b].nodes.z_t_trial =
+                            this->bodies[b].nodes.z_t_n + h * vNorm * this->bodies[b].nodes.pk.segment(2*this->bodies[b].n,this->bodies[b].n) / sNorm;
                 } else {
-                    this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
-                    this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
-                    this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
+                    this->bodies[b].nodes.x_t_trial = this->bodies[b].nodes.x_t_n;
+                    this->bodies[b].nodes.y_t_trial = this->bodies[b].nodes.y_t_n;
+                    this->bodies[b].nodes.z_t_trial = this->bodies[b].nodes.z_t_n;
                 }
 
-                this->bodies[b].node_mx_t = this->bodies[b].node_x_t_trial.array() * this->bodies[b].node_m.array();
-                this->bodies[b].node_my_t = this->bodies[b].node_y_t_trial.array() * this->bodies[b].node_m.array();
-                this->bodies[b].node_mz_t = this->bodies[b].node_z_t_trial.array() * this->bodies[b].node_m.array();
+                this->bodies[b].nodes.mx_t = this->bodies[b].nodes.x_t_trial.array() * this->bodies[b].nodes.m.array();
+                this->bodies[b].nodes.my_t = this->bodies[b].nodes.y_t_trial.array() * this->bodies[b].nodes.m.array();
+                this->bodies[b].nodes.mz_t = this->bodies[b].nodes.z_t_trial.array() * this->bodies[b].nodes.m.array();
 
-                this->bodies[b].node_x_t = this->bodies[b].node_x_t_trial;
-                this->bodies[b].node_y_t = this->bodies[b].node_y_t_trial;
-                this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
+                this->bodies[b].nodes.x_t = this->bodies[b].nodes.x_t_trial;
+                this->bodies[b].nodes.y_t = this->bodies[b].nodes.y_t_trial;
+                this->bodies[b].nodes.z_t = this->bodies[b].nodes.z_t_trial;
             }
 
             //add contact forces
@@ -1899,67 +1734,67 @@ void job_t::moveGridImplicitBiCGSTAB() {
             this->addBoundaryConditions();
 
             for (size_t b=0;b<this->num_bodies;b++) {
-                this->bodies[b].node_fx_L = this->bodies[b].node_contact_fx;
-                this->bodies[b].node_fy_L = this->bodies[b].node_contact_fy;
-                this->bodies[b].node_fz_L = this->bodies[b].node_contact_fz;
+                this->bodies[b].nodes.fx_L = this->bodies[b].nodes.contact_fx;
+                this->bodies[b].nodes.fy_L = this->bodies[b].nodes.contact_fy;
+                this->bodies[b].nodes.fz_L = this->bodies[b].nodes.contact_fz;
             }
 
             this->calculateImplicitResidual();
 
             for (size_t b = 0; b < this->num_bodies; b++) {
                 double vNorm = std::sqrt(
-                        this->bodies[b].node_x_t_n.squaredNorm() + this->bodies[b].node_y_t_n.squaredNorm() +
-                        this->bodies[b].node_z_t_n.squaredNorm());
+                        this->bodies[b].nodes.x_t_n.squaredNorm() + this->bodies[b].nodes.y_t_n.squaredNorm() +
+                        this->bodies[b].nodes.z_t_n.squaredNorm());
                 if (vNorm <= TOL) {
                     vNorm = 1.0;
                 }
-                double sNorm = this->bodies[b].pk.norm();
+                double sNorm = this->bodies[b].nodes.pk.norm();
                 if (sNorm > TOL) {
                     //isConverging = true;
-                    this->bodies[b].DhRx = sNorm / (h * vNorm) * (this->bodies[b].Rx - this->bodies[b].Rvx);
-                    this->bodies[b].DhRy = sNorm / (h * vNorm) * (this->bodies[b].Ry - this->bodies[b].Rvy);
-                    this->bodies[b].DhRz = sNorm / (h * vNorm) * (this->bodies[b].Rz - this->bodies[b].Rvz);
+                    this->bodies[b].nodes.DhRx = sNorm / (h * vNorm) * (this->bodies[b].nodes.Rx - this->bodies[b].nodes.Rvx);
+                    this->bodies[b].nodes.DhRy = sNorm / (h * vNorm) * (this->bodies[b].nodes.Ry - this->bodies[b].nodes.Rvy);
+                    this->bodies[b].nodes.DhRz = sNorm / (h * vNorm) * (this->bodies[b].nodes.Rz - this->bodies[b].nodes.Rvz);
 
-                    this->bodies[b].wk << this->bodies[b].DhRx, this->bodies[b].DhRy, this->bodies[b].DhRz;
-                    this->bodies[b].ak = this->bodies[b].rhok / (this->bodies[b].r0.dot(this->bodies[b].wk));
-                    this->bodies[b].hk = this->bodies[b].sk + this->bodies[b].ak * this->bodies[b].pk;
+                    this->bodies[b].nodes.wk << this->bodies[b].nodes.DhRx, this->bodies[b].nodes.DhRy, this->bodies[b].nodes.DhRz;
+                    this->bodies[b].nodes.ak = this->bodies[b].nodes.rhok / (this->bodies[b].nodes.r0.dot(this->bodies[b].nodes.wk));
+                    this->bodies[b].nodes.hk = this->bodies[b].nodes.sk + this->bodies[b].nodes.ak * this->bodies[b].nodes.pk;
 
-                    if (!std::isfinite(this->bodies[b].ak)) {
+                    if (!std::isfinite(this->bodies[b].nodes.ak)) {
                         std::cout << "\nak is infinite\n";
                     }
 
                     //check hk for convergence?
 
-                    this->bodies[b].qk = this->bodies[b].rk - this->bodies[b].ak * this->bodies[b].wk;
+                    this->bodies[b].nodes.qk = this->bodies[b].nodes.rk - this->bodies[b].nodes.ak * this->bodies[b].nodes.wk;
                 } else {
                     //isConverging = false;
-                    this->bodies[b].hk = this->bodies[b].sk;
-                    this->bodies[b].qk = this->bodies[b].rk;
+                    this->bodies[b].nodes.hk = this->bodies[b].nodes.sk;
+                    this->bodies[b].nodes.qk = this->bodies[b].nodes.rk;
                     //let ak retain former value for bk calculation at beginning of step
                 }
 
                 //calculate t = DhDF(vn,q)
-                sNorm = this->bodies[b].qk.norm();
+                sNorm = this->bodies[b].nodes.qk.norm();
                 if (sNorm>TOL) {
-                    this->bodies[b].node_x_t_trial =
-                            this->bodies[b].node_x_t_n + h * vNorm * this->bodies[b].qk.segment(0,this->bodies[b].n) / sNorm;
-                    this->bodies[b].node_y_t_trial =
-                            this->bodies[b].node_y_t_n + h * vNorm * this->bodies[b].qk.segment(this->bodies[b].n,this->bodies[b].n)/ sNorm;
-                    this->bodies[b].node_z_t_trial =
-                            this->bodies[b].node_z_t_n + h * vNorm * this->bodies[b].qk.segment(2*this->bodies[b].n,this->bodies[b].n) / sNorm;
+                    this->bodies[b].nodes.x_t_trial =
+                            this->bodies[b].nodes.x_t_n + h * vNorm * this->bodies[b].nodes.qk.segment(0,this->bodies[b].n) / sNorm;
+                    this->bodies[b].nodes.y_t_trial =
+                            this->bodies[b].nodes.y_t_n + h * vNorm * this->bodies[b].nodes.qk.segment(this->bodies[b].n,this->bodies[b].n)/ sNorm;
+                    this->bodies[b].nodes.z_t_trial =
+                            this->bodies[b].nodes.z_t_n + h * vNorm * this->bodies[b].nodes.qk.segment(2*this->bodies[b].n,this->bodies[b].n) / sNorm;
                 } else {
-                    this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
-                    this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
-                    this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
+                    this->bodies[b].nodes.x_t_trial = this->bodies[b].nodes.x_t_n;
+                    this->bodies[b].nodes.y_t_trial = this->bodies[b].nodes.y_t_n;
+                    this->bodies[b].nodes.z_t_trial = this->bodies[b].nodes.z_t_n;
                 }
 
-                this->bodies[b].node_mx_t = this->bodies[b].node_x_t_trial.array() * this->bodies[b].node_m.array();
-                this->bodies[b].node_my_t = this->bodies[b].node_y_t_trial.array() * this->bodies[b].node_m.array();
-                this->bodies[b].node_mz_t = this->bodies[b].node_z_t_trial.array() * this->bodies[b].node_m.array();
+                this->bodies[b].nodes.mx_t = this->bodies[b].nodes.x_t_trial.array() * this->bodies[b].nodes.m.array();
+                this->bodies[b].nodes.my_t = this->bodies[b].nodes.y_t_trial.array() * this->bodies[b].nodes.m.array();
+                this->bodies[b].nodes.mz_t = this->bodies[b].nodes.z_t_trial.array() * this->bodies[b].nodes.m.array();
 
-                this->bodies[b].node_x_t = this->bodies[b].node_x_t_trial;
-                this->bodies[b].node_y_t = this->bodies[b].node_y_t_trial;
-                this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
+                this->bodies[b].nodes.x_t = this->bodies[b].nodes.x_t_trial;
+                this->bodies[b].nodes.y_t = this->bodies[b].nodes.y_t_trial;
+                this->bodies[b].nodes.z_t = this->bodies[b].nodes.z_t_trial;
             }
 
             //add contact forces
@@ -1986,70 +1821,70 @@ void job_t::moveGridImplicitBiCGSTAB() {
             this->addBoundaryConditions();
 
             for (size_t b=0;b<this->num_bodies;b++) {
-                this->bodies[b].node_fx_L = this->bodies[b].node_contact_fx;
-                this->bodies[b].node_fy_L = this->bodies[b].node_contact_fy;
-                this->bodies[b].node_fz_L = this->bodies[b].node_contact_fz;
+                this->bodies[b].nodes.fx_L = this->bodies[b].nodes.contact_fx;
+                this->bodies[b].nodes.fy_L = this->bodies[b].nodes.contact_fy;
+                this->bodies[b].nodes.fz_L = this->bodies[b].nodes.contact_fz;
             }
 
             this->calculateImplicitResidual();
 
             for (size_t b = 0; b < this->num_bodies; b++) {
                 double vNorm = std::sqrt(
-                        this->bodies[b].node_x_t_n.squaredNorm() + this->bodies[b].node_y_t_n.squaredNorm() +
-                        this->bodies[b].node_z_t_n.squaredNorm());
+                        this->bodies[b].nodes.x_t_n.squaredNorm() + this->bodies[b].nodes.y_t_n.squaredNorm() +
+                        this->bodies[b].nodes.z_t_n.squaredNorm());
                 if (vNorm <= TOL) {
                     vNorm = 1.0;
                 }
-                double sNorm = this->bodies[b].qk.norm();
+                double sNorm = this->bodies[b].nodes.qk.norm();
                 if (sNorm > TOL) {
                     //isConverging = true;
-                    this->bodies[b].DhRx = sNorm / (h * vNorm) * (this->bodies[b].Rx - this->bodies[b].Rvx);
-                    this->bodies[b].DhRy = sNorm / (h * vNorm) * (this->bodies[b].Ry - this->bodies[b].Rvy);
-                    this->bodies[b].DhRz = sNorm / (h * vNorm) * (this->bodies[b].Rz - this->bodies[b].Rvz);
+                    this->bodies[b].nodes.DhRx = sNorm / (h * vNorm) * (this->bodies[b].nodes.Rx - this->bodies[b].nodes.Rvx);
+                    this->bodies[b].nodes.DhRy = sNorm / (h * vNorm) * (this->bodies[b].nodes.Ry - this->bodies[b].nodes.Rvy);
+                    this->bodies[b].nodes.DhRz = sNorm / (h * vNorm) * (this->bodies[b].nodes.Rz - this->bodies[b].nodes.Rvz);
 
-                    this->bodies[b].tk << this->bodies[b].DhRx, this->bodies[b].DhRy, this->bodies[b].DhRz;
-                    this->bodies[b].ok =
-                            this->bodies[b].tk.dot(this->bodies[b].qk) / (this->bodies[b].tk.dot(this->bodies[b].tk));
-                    this->bodies[b].sk = this->bodies[b].hk + this->bodies[b].ok * this->bodies[b].qk;
+                    this->bodies[b].nodes.tk << this->bodies[b].nodes.DhRx, this->bodies[b].nodes.DhRy, this->bodies[b].nodes.DhRz;
+                    this->bodies[b].nodes.ok =
+                            this->bodies[b].nodes.tk.dot(this->bodies[b].nodes.qk) / (this->bodies[b].nodes.tk.dot(this->bodies[b].nodes.tk));
+                    this->bodies[b].nodes.sk = this->bodies[b].nodes.hk + this->bodies[b].nodes.ok * this->bodies[b].nodes.qk;
 
                     //check convergence of sk?
 
-                    if (!std::isfinite(this->bodies[b].ok)) {
+                    if (!std::isfinite(this->bodies[b].nodes.ok)) {
                         std::cout << "ok is infinite\n";
                     }
 
-                    this->bodies[b].rk = this->bodies[b].qk - this->bodies[b].ok * this->bodies[b].tk;
+                    this->bodies[b].nodes.rk = this->bodies[b].nodes.qk - this->bodies[b].nodes.ok * this->bodies[b].nodes.tk;
                 } else {
                     //isConverging = false;
-                    this->bodies[b].sk = this->bodies[b].hk;
-                    this->bodies[b].rk = this->bodies[b].qk;
+                    this->bodies[b].nodes.sk = this->bodies[b].nodes.hk;
+                    this->bodies[b].nodes.rk = this->bodies[b].nodes.qk;
                     //let ok retain previous value for calculation of bk at beginning of step
                 }
             }
             k += 1;
             rhoSum = 0;
             for (size_t b = 0; b < this->num_bodies; b++) {
-                rhoSum += this->bodies[b].rk.squaredNorm();
+                rhoSum += this->bodies[b].nodes.rk.squaredNorm();
             }
             std::cout << "\rn: " << nIter << " k: " << k <<  " r: " << rhoSum << "      \r" << std::flush;
         }
 
         for (size_t b = 0; b < this->num_bodies; b++) {
-            this->bodies[b].node_x_t_n += this->bodies[b].sk.segment(0,this->bodies[b].n);
-            this->bodies[b].node_y_t_n += this->bodies[b].sk.segment(this->bodies[b].n,this->bodies[b].n);
-            this->bodies[b].node_z_t_n += this->bodies[b].sk.segment(2*this->bodies[b].n,this->bodies[b].n);
+            this->bodies[b].nodes.x_t_n += this->bodies[b].nodes.sk.segment(0,this->bodies[b].n);
+            this->bodies[b].nodes.y_t_n += this->bodies[b].nodes.sk.segment(this->bodies[b].n,this->bodies[b].n);
+            this->bodies[b].nodes.z_t_n += this->bodies[b].nodes.sk.segment(2*this->bodies[b].n,this->bodies[b].n);
 
-            this->bodies[b].node_x_t_trial = this->bodies[b].node_x_t_n;
-            this->bodies[b].node_y_t_trial = this->bodies[b].node_y_t_n;
-            this->bodies[b].node_z_t_trial = this->bodies[b].node_z_t_n;
+            this->bodies[b].nodes.x_t_trial = this->bodies[b].nodes.x_t_n;
+            this->bodies[b].nodes.y_t_trial = this->bodies[b].nodes.y_t_n;
+            this->bodies[b].nodes.z_t_trial = this->bodies[b].nodes.z_t_n;
 
-            this->bodies[b].node_mx_t = this->bodies[b].node_x_t_trial.array() * this->bodies[b].node_m.array();
-            this->bodies[b].node_my_t = this->bodies[b].node_y_t_trial.array() * this->bodies[b].node_m.array();
-            this->bodies[b].node_mz_t = this->bodies[b].node_z_t_trial.array() * this->bodies[b].node_m.array();
+            this->bodies[b].nodes.mx_t = this->bodies[b].nodes.x_t_trial.array() * this->bodies[b].nodes.m.array();
+            this->bodies[b].nodes.my_t = this->bodies[b].nodes.y_t_trial.array() * this->bodies[b].nodes.m.array();
+            this->bodies[b].nodes.mz_t = this->bodies[b].nodes.z_t_trial.array() * this->bodies[b].nodes.m.array();
 
-            this->bodies[b].node_x_t = this->bodies[b].node_x_t_trial;
-            this->bodies[b].node_y_t = this->bodies[b].node_y_t_trial;
-            this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
+            this->bodies[b].nodes.x_t = this->bodies[b].nodes.x_t_trial;
+            this->bodies[b].nodes.y_t = this->bodies[b].nodes.y_t_trial;
+            this->bodies[b].nodes.z_t = this->bodies[b].nodes.z_t_trial;
         }
 
         std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
@@ -2079,9 +1914,9 @@ void job_t::moveGridImplicitBiCGSTAB() {
         this->addBoundaryConditions();
 
         for (size_t b=0;b<this->num_bodies;b++) {
-            this->bodies[b].node_fx_L = this->bodies[b].node_contact_fx;
-            this->bodies[b].node_fy_L = this->bodies[b].node_contact_fy;
-            this->bodies[b].node_fz_L = this->bodies[b].node_contact_fz;
+            this->bodies[b].nodes.fx_L = this->bodies[b].nodes.contact_fx;
+            this->bodies[b].nodes.fy_L = this->bodies[b].nodes.contact_fy;
+            this->bodies[b].nodes.fz_L = this->bodies[b].nodes.contact_fz;
         }
 
         this->calculateImplicitResidual();
@@ -2089,8 +1924,8 @@ void job_t::moveGridImplicitBiCGSTAB() {
         //setup for next iteration
         rhoSum = 0;
         for (size_t b = 0; b < this->num_bodies; b++) {
-            this->bodies[b].rk << -this->bodies[b].Rx, -this->bodies[b].Ry, -this->bodies[b].Rz;
-            rhoSum += this->bodies[b].rk.squaredNorm();
+            this->bodies[b].nodes.rk << -this->bodies[b].nodes.Rx, -this->bodies[b].nodes.Ry, -this->bodies[b].nodes.Rz;
+            rhoSum += this->bodies[b].nodes.rk.squaredNorm();
         }
         //std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
     } while (rhoSum>rhoTOL && rhoSum<R_MAX); //(this->num_bodies * this->num_nodes * R_TOL));

@@ -9,6 +9,8 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/objects/material1.cpp
         src/objects/material2.cpp
         src/objects/boundary.cpp
+        src/objects/node.cpp
+        src/objects/element.cpp
         src/objects/mpmio.cpp
         src/functions/process.cpp
         src/functions/tensor.cpp
@@ -22,7 +24,7 @@ include_directories(/usr/include/eigen3)
 
 add_executable(mpm_3d ${SOURCE_FILES})
 
-set(UNIT_TEST_SOURCE_FILES
-    src/tests/unitTestMain.cpp
-    src/tests/unitShapeFunctions.cpp)
-add_executable(unit ${UNIT_TEST_SOURCE_FILES}) 
+#set(UNIT_TEST_SOURCE_FILES
+#    src/tests/unitTestMain.cpp
+#    src/tests/unitShapeFunctions.cpp)
+#add_executable(unit ${UNIT_TEST_SOURCE_FILES})
