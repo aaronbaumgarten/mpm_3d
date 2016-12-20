@@ -1363,6 +1363,11 @@ void job_t::calculateImplicitResidual() {
                 this->bodies[b].Rx[i] = 0;
                 this->bodies[b].Ry[i] = 0;
                 this->bodies[b].Rz[i] = 0;
+            } else if (this->bodies[0].node_m[i] > TOL && this->bodies[1].node_m[i] > TOL){
+                //nodal contact
+                this->bodies[b].Rx[i] = 0;
+                this->bodies[b].Ry[i] = 0;
+                this->bodies[b].Rz[i] = 0;
             } else {
                 if (this->u_dirichlet_mask[NODAL_DOF*i] != 0){
                     this->bodies[b].Rx[i] = 0;
@@ -1513,7 +1518,7 @@ void job_t::moveGridImplicitCG() {
 
         //solve for 's' to iterate 'v' [Sulsky 2003]
         size_t k = 0;
-        while (/*k < 3*this->num_nodes &&*/ rhoSum > rhoTOL && rhoSum < R_MAX) { //(this->num_bodies * this->num_nodes * R_TOL)) {
+        while (k < 100 && rhoSum > rhoTOL && rhoSum < R_MAX) { //(this->num_bodies * this->num_nodes * R_TOL)) {
             double h = this->linearStepSize;//-6; //per paper suggestion
 
             for (size_t b = 0; b < this->num_bodies; b++) {
@@ -1824,13 +1829,14 @@ void job_t::moveGridImplicitBiCGSTAB() {
             rhoSum += this->bodies[b].rk.squaredNorm();
         }
 
-        /*std::cout << "RHO: " << rhoSum << " ?< " << rhoTOL <<  " vnorm: " << this->bodies[0].node_x_t_n.lpNorm<Eigen::Infinity>() <<
+        std::cout << "RHO: " << rhoSum << " ?< " << rhoTOL << std::endl;/*<<  " vnorm: " << this->bodies[0].node_x_t_n.lpNorm<Eigen::Infinity>() <<
         "," << this->bodies[0].node_y_t_n.lpNorm<Eigen::Infinity>() <<
         "," << this->bodies[0].node_z_t_n.lpNorm<Eigen::Infinity>() << std::endl;*/
 
         //solve for 's' to iterate 'v' [Sulsky 2003]
         size_t k = 0;
-        while (/*k < 3*this->num_nodes &&*/ rhoSum > rhoTOL && rhoSum < R_MAX) {
+        //bool isConverging = true;
+        while (k < 100 && rhoSum > rhoTOL && rhoSum < R_MAX /*&& isConverging*/) {
             double h = this->linearStepSize;
 
             for (size_t b = 0; b < this->num_bodies; b++) {
@@ -1909,6 +1915,7 @@ void job_t::moveGridImplicitBiCGSTAB() {
                 }
                 double sNorm = this->bodies[b].pk.norm();
                 if (sNorm > TOL) {
+                    //isConverging = true;
                     this->bodies[b].DhRx = sNorm / (h * vNorm) * (this->bodies[b].Rx - this->bodies[b].Rvx);
                     this->bodies[b].DhRy = sNorm / (h * vNorm) * (this->bodies[b].Ry - this->bodies[b].Rvy);
                     this->bodies[b].DhRz = sNorm / (h * vNorm) * (this->bodies[b].Rz - this->bodies[b].Rvz);
@@ -1925,6 +1932,7 @@ void job_t::moveGridImplicitBiCGSTAB() {
 
                     this->bodies[b].qk = this->bodies[b].rk - this->bodies[b].ak * this->bodies[b].wk;
                 } else {
+                    //isConverging = false;
                     this->bodies[b].hk = this->bodies[b].sk;
                     this->bodies[b].qk = this->bodies[b].rk;
                     //let ak retain former value for bk calculation at beginning of step
@@ -1994,6 +2002,7 @@ void job_t::moveGridImplicitBiCGSTAB() {
                 }
                 double sNorm = this->bodies[b].qk.norm();
                 if (sNorm > TOL) {
+                    //isConverging = true;
                     this->bodies[b].DhRx = sNorm / (h * vNorm) * (this->bodies[b].Rx - this->bodies[b].Rvx);
                     this->bodies[b].DhRy = sNorm / (h * vNorm) * (this->bodies[b].Ry - this->bodies[b].Rvy);
                     this->bodies[b].DhRz = sNorm / (h * vNorm) * (this->bodies[b].Rz - this->bodies[b].Rvz);
@@ -2011,6 +2020,7 @@ void job_t::moveGridImplicitBiCGSTAB() {
 
                     this->bodies[b].rk = this->bodies[b].qk - this->bodies[b].ok * this->bodies[b].tk;
                 } else {
+                    //isConverging = false;
                     this->bodies[b].sk = this->bodies[b].hk;
                     this->bodies[b].rk = this->bodies[b].qk;
                     //let ok retain previous value for calculation of bk at beginning of step
@@ -2021,7 +2031,7 @@ void job_t::moveGridImplicitBiCGSTAB() {
             for (size_t b = 0; b < this->num_bodies; b++) {
                 rhoSum += this->bodies[b].rk.squaredNorm();
             }
-            //std::cout << "\rn: " << nIter << " k: " << k <<  " r: " << rhoSum << "      \r" << std::flush;
+            std::cout << "\rn: " << nIter << " k: " << k <<  " r: " << rhoSum << "      \r" << std::flush;
         }
 
         for (size_t b = 0; b < this->num_bodies; b++) {
@@ -2042,7 +2052,7 @@ void job_t::moveGridImplicitBiCGSTAB() {
             this->bodies[b].node_z_t = this->bodies[b].node_z_t_trial;
         }
 
-        //std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
+        std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
         nIter += 1;
 
         //add contact forces
