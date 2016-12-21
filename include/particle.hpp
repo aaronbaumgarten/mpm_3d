@@ -6,6 +6,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <math.h>
+#include <Eigen/Core>
 
 #ifndef MPM_3D_PARTICLE_HPP
 #define MPM_3D_PARTICLE_HPP
@@ -43,204 +44,104 @@
 #define WHICH_ELEMENT9(px,py,pz,Nx,Ny,Nz,Lx,Ly,Lz,hx,hy,hz) \
     ((int)(((px)<Lx && (px)>=0 && (py)<Ly && (py)>=0 && (pz)<Lz && (pz)>=0)?(floor((px)/(hx)) + floor((py)/(hy))*((Nx-1)) + floor((pz)/(hz))*((Nx-1)*(Ny-1))):(-1)))
 
-class Particle {
+class Particles {
 public:
-    //dummy variables
-    double rmDouble = 0.0;
-    int rmInt = 0;
+    //number of particles
+    size_t numParticles;
 
     //position
-
-    double* x;
-    double* y;
-    double* z;
+    Eigen::VectorXd x;
+    Eigen::VectorXd y;
+    Eigen::VectorXd z;
 
     //volume
-    double* v;
-    double* v_trial;
-    double* v0;
-    double* v_averaging;
+    Eigen::VectorXd v;
+    Eigen::VectorXd v_trial;
+    Eigen::VectorXd v0;
+    Eigen::VectorXd v_averaging;
 
     //half side length
-    double* a;
+    Eigen::VectorXd a;
 
     //mass
-    double* m;
+    Eigen::VectorXd m;
 
     //velocity
-    double* x_t;
-    double* y_t;
-    double* z_t;
+    Eigen::VectorXd x_t;
+    Eigen::VectorXd y_t;
+    Eigen::VectorXd z_t;
 
     //body forces
-    double* bx;
-    double* by;
-    double* bz;
+    Eigen::VectorXd bx;
+    Eigen::VectorXd by;
+    Eigen::VectorXd bz;
 
     //full 3d stress tensor
     /* CAUTION: T is also used for templates */
-    double T[NDIM * NDIM];
-    double Ttrial[NDIM * NDIM];
+    //double T[NDIM * NDIM];
+    //double Ttrial[NDIM * NDIM];
+    Eigen::MatrixXd T;
+    Eigen::MatrixXd Ttrial;
 
     //velocity gradient
-    double L[NDIM*NDIM];
+    //double L[NDIM*NDIM];
+    Eigen::MatrixXd L;
 
     //full 3d deformation gradient
-    double F[NDIM * NDIM];
+    //double F[NDIM * NDIM];
+    Eigen::MatrixXd F;
 
     //full 3d plastic deformation gradient
-    double Fp[NDIM * NDIM];
+    //double Fp[NDIM * NDIM];
+    Eigen::MatrixXd Fp;
+
+    //Left Cauchy Green Tensor
+    Eigen::MatrixXd Be;
 
     //displacements
-    double* ux;
-    double* uy;
-    double* uz;
+    Eigen::VectorXd ux;
+    Eigen::VectorXd uy;
+    Eigen::VectorXd uz;
 
 
     //state variables (used for constitutive laws)
-    double state[DEPVAR];
+    //double state[DEPVAR];
+    Eigen::MatrixXd state;
 
     //flag for whether particle is active or not
-    int* active;
+    Eigen::VectorXi active;
 
-    //body type (for contact models)?
-    //size_t body;
-
-    //matrix of corner positions corner[#][x, y or z]
-    double corner[8][3];
+    //matrix of corner positions corner[id][#][x, y or z]
+    //double corner[8][3];
+    Eigen::MatrixXd corner_x;
+    Eigen::MatrixXd corner_y;
+    Eigen::MatrixXd corner_z;
 
     //which element owns each corner
-    int corner_elements[8];
-
-    //unique id for particle tracking
-    size_t id;
-
-    double *working;
-
-    //material specific data structure?
-    //void *material_data;
-
-    size_t blocksize;
+    //int corner_elements[8];
+    Eigen::MatrixXi corner_elements;
 
     //construcors
-    template<class bodyT>
-    Particle(bodyT* bd, size_t idIn):
-            id(idIn),
-            active(&(bd->particle_active[idIn])),
-
-            x(&(bd->particle_x[idIn])),
-            y(&(bd->particle_y[idIn])),
-            z(&(bd->particle_z[idIn])),
-
-            //volume
-            v(&(bd->particle_v[idIn])),
-            v_trial(&(bd->particle_v_trial[idIn])),
-            v0(&(bd->particle_v0[idIn])),
-            v_averaging(&(bd->particle_v_averaging[idIn])),
-
-            //half side length
-            a(&(bd->particle_a[idIn])),
-
-            //mass
-            m(&(bd->particle_m[idIn])),
-
-            //velocity
-            x_t(&(bd->particle_x_t[idIn])),
-            y_t(&(bd->particle_y_t[idIn])),
-            z_t(&(bd->particle_z_t[idIn])),
-
-            //body forces
-            bx(&(bd->particle_bx[idIn])),
-            by(&(bd->particle_by[idIn])),
-            bz(&(bd->particle_bz[idIn])),
-
-            //displacements
-            ux(&(bd->particle_ux[idIn])),
-            uy(&(bd->particle_uy[idIn])),
-            uz(&(bd->particle_uz[idIn]))
-    {
-        for (int i=0; i<NDIM*NDIM; i++){
-            T[i] = 0;
-            Ttrial[i] = 0;
-            L[i] = 0;
-            F[i] = 0;
-            Fp[i] = 0;
-        }
-        F[XX] = 1;
-        F[YY] = 1;
-        F[ZZ] = 1;
-
-        Fp[XX] = 1;
-        Fp[YY] = 1;
-        Fp[ZZ] = 1;
-
-        state[9] = 0;
-        state[10] = 0;
-
-        for (int i=0; i<8; i++){
-            for (int j=0; j<3; j++){
-                corner[i][j] = 0;
-            }
-        }
-    };
-
-    Particle() {}
+    Particles(size_t p);
+    Particles(){}
 
     //functions
-    template<class jobT>
-    void updateCorners(jobT* job){
-        int sx = 1;
-        int sy = 1;
-        int sz = 1;
-        ///implement corner math really just to be clever
-        for (size_t i=0;i<8;i++){
-            if (i%4 == 0){
-                sz *= -1;
-            }
-            if (i%2 == 0){
-                sy *= -1;
-            }
-            sx *= -1;
-            corner[i][0] = x[0]+sx*a[0];
-            corner[i][1] = y[0]+sy*a[0];
-            corner[i][2] = z[0]+sz*a[0];
-
-            //assumes regular cartesian grid
-            corner_elements[i] = WHICH_ELEMENT9(corner[i][0],corner[i][1],corner[i][2],
-                                                job->Nx,job->Ny,job->Nz,
-                                                job->Lx,job->Ly,job->Lz,
-                                                job->hx,job->hy,job->hz);
-        }
-        return;
-    }
+    void addParticle(double,double,double,double,double,double,double,double,size_t);
 
     template<class jobT>
-    void resetCorners(jobT* job){
-        for (size_t i=0;i<8;i++){
-            //resets corners to particle position
-            corner[i][0] = x[0];
-            corner[i][1] = y[0];
-            corner[i][2] = z[0];
-            corner_elements[i] = WHICH_ELEMENT9(corner[i][0],corner[i][1],corner[i][2],
-                                                job->Nx,job->Ny,job->Nz,
-                                                job->Lx,job->Ly,job->Lz,
-                                                job->hx,job->hy,job->hz);
-        }
-        return;
-    }
+    void updateCorners(jobT* job, size_t id);
 
     template<class jobT>
-    int updateActive(jobT* job){
-        if (WHICH_ELEMENT9(x[0],y[0],z[0],
-                       job->Nx,job->Ny,job->Nz,
-                       job->Lx,job->Ly,job->Lz,
-                       job->hx,job->hy,job->hz) == -1) {
-            active[0] = 0;
-        } else {
-            active[0] = 1;
-        }
-        return active[0];
-    }
+    void updateAllCorners(jobT* job);
+
+    template<class jobT>
+    void resetCorners(jobT* job, size_t id);
+
+    template<class jobT>
+    void resetAllCorners(jobT* job);
+
+    template<class jobT>
+    int updateActive(jobT* job, size_t id);
 };
 
 #endif //MPM_3D_PARTICLE_HPP

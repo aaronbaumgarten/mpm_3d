@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string>
 #include <algorithm>
+#include <Eigen/Core>
 
 #include "tensor.hpp"
 #include "process.hpp"
@@ -160,7 +161,7 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
                     this->bodies.push_back(Body(numNodes, numParticles1, numElements, ++numBodies));
                 }
                 if (numParticles2 != 0) {
-                    this->bodies.push_back(Body(numNodes, numParticles1, numElements, ++numBodies));
+                    this->bodies.push_back(Body(numNodes, numParticles2, numElements, ++numBodies));
                 }
             } else {
                 return -1;
@@ -189,7 +190,7 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
                     idOut = pb2;
                     pb2 += 1;
                 }
-                this->bodies[b - 1].addParticle(m, v, x, y, z, x_t, y_t, z_t, idOut); //0-index particles
+                this->bodies[b - 1].particles.addParticle(m, v, x, y, z, x_t, y_t, z_t, idOut); //0-index particles
             }
         } else {
             std::cout << "Cannot parse particle file: " << pfilename << "\n";
@@ -320,7 +321,7 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
                 this->bodies.push_back(Body(numNodes,numParticles1,numElements,++numBodies));
             }
             if (numParticles2 != 0){
-                this->bodies.push_back(Body(numNodes,numParticles1,numElements,++numBodies));
+                this->bodies.push_back(Body(numNodes,numParticles2,numElements,++numBodies));
             }
         } else {
             return -1;
@@ -350,7 +351,7 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
                 pb2+=1;
             }
             //std::cout << "{" << x << " " << y << " " << z << "} -> " << idOut << "\n";
-            this->bodies[b-1].addParticle(m,v,x,y,z,x_t,y_t,z_t,idOut); //0-index particles
+            this->bodies[b-1].particles.addParticle(m,v,x,y,z,x_t,y_t,z_t,idOut); //0-index particles
         }
     } else {
         std::cout << "Cannot parse particle file: " << pfilename << "\n";
@@ -457,19 +458,20 @@ int job_t::createMappings() {
         this->bodies[b].gradPhiZTriplets.clear();
         //loop over particles
         for (size_t p = 0; p < this->bodies[b].p; p++) {
-            if((this->bodies[b].particles[p].updateActive(this))==1) {
-                this->bodies[b].particles[p].updateCorners(this);
+            if((this->bodies[b].particles.updateActive(this,p))==1) {
+                this->bodies[b].particles.updateCorners(this,p);
                 //check that all corners are in domain
-                if (this->use_cpdi==0 || std::count(this->bodies[b].particles[p].corner_elements,
-                               std::end(this->bodies[b].particles[p].corner_elements), -1) > 0) {
+                int useExtent = 1;
+                if (this->use_cpdi==0 || this->bodies[b].particles.corner_elements.row(p).minCoeff() == -1){
                     //set corners to particle position
-                    this->bodies[b].particles[p].resetCorners(this);
+                    this->bodies[b].particles.resetCorners(this,p);
+                    useExtent = 0;
                 }
 
                 //use cpdi (or count center 8 times if corners reset)
                 for (size_t c=0;c<8;c++) {
-                    size_t e = this->bodies[b].particles[p].corner_elements[c];
-                    this->elements.calculatePhic(&(this->bodies[b]), &(this->bodies[b].particles[p]), e, c, this->use_cpdi);
+                    size_t e = this->bodies[b].particles.corner_elements(p,c);
+                    this->elements.calculatePhic(&(this->bodies[b]), e, p, c, useExtent);
                     //std::cout << "b:" << b << " p:" << p << " c:" << c << "\r";
                 }
             }
@@ -494,16 +496,16 @@ void job_t::mapParticles2Grid() {
         Eigen::MatrixXd p_m_x_t(numRowsP,numColsP);
         Eigen::MatrixXd p_m_y_t(numRowsP,numColsP);
         Eigen::MatrixXd p_m_z_t(numRowsP,numColsP);
-        p_m_x_t = this->bodies[b].particle_m.array()*this->bodies[b].particle_x_t.array();
-        p_m_y_t = this->bodies[b].particle_m.array()*this->bodies[b].particle_y_t.array();
-        p_m_z_t = this->bodies[b].particle_m.array()*this->bodies[b].particle_z_t.array();
+        p_m_x_t = this->bodies[b].particles.m.array()*this->bodies[b].particles.x_t.array();
+        p_m_y_t = this->bodies[b].particles.m.array()*this->bodies[b].particles.y_t.array();
+        p_m_z_t = this->bodies[b].particles.m.array()*this->bodies[b].particles.z_t.array();
 
         Eigen::MatrixXd p_m_bx(numRowsP,numColsP);
         Eigen::MatrixXd p_m_by(numRowsP,numColsP);
         Eigen::MatrixXd p_m_bz(numRowsP,numColsP);
-        p_m_bx = this->bodies[b].particle_m.array()*this->bodies[b].particle_bx.array();
-        p_m_by = this->bodies[b].particle_m.array()*this->bodies[b].particle_by.array();
-        p_m_bz = this->bodies[b].particle_m.array()*this->bodies[b].particle_bz.array();
+        p_m_bx = this->bodies[b].particles.m.array()*this->bodies[b].particles.bx.array();
+        p_m_by = this->bodies[b].particles.m.array()*this->bodies[b].particles.by.array();
+        p_m_bz = this->bodies[b].particles.m.array()*this->bodies[b].particles.bz.array();
 
         //use Eigen Map to point to node array
         size_t numRowsN = this->bodies[b].n;
@@ -513,7 +515,7 @@ void job_t::mapParticles2Grid() {
         Eigen::VectorXd pvec(numRowsP);
 
         //use Phi to map particles to nodes
-        this->bodies[b].nodes.m = this->bodies[b].Phi*this->bodies[b].particle_m;
+        this->bodies[b].nodes.m = this->bodies[b].Phi*this->bodies[b].particles.m;
         this->bodies[b].nodes.mx_t = this->bodies[b].Phi*p_m_x_t;
         this->bodies[b].nodes.my_t = this->bodies[b].Phi*p_m_y_t;
         this->bodies[b].nodes.mz_t = this->bodies[b].Phi*p_m_z_t;
@@ -536,37 +538,25 @@ void job_t::mapParticles2Grid() {
         this->bodies[b].node_contact_normal_z = this->bodies[b].node_contact_normal_z.array()/normMag.array().sqrt();
          */
 
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XX];
-        }
+        pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.T.col(XX).array();
         this->bodies[b].nodes.fx -= this->bodies[b].gradPhiX*pvec;
 
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XY];
-        }
+        pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.T.col(XY).array();
         this->bodies[b].nodes.fx -= this->bodies[b].gradPhiY*pvec;
         this->bodies[b].nodes.fy -= this->bodies[b].gradPhiX*pvec;
 
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[XZ];
-        }
+        pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.T.col(XZ).array();
         this->bodies[b].nodes.fx -= this->bodies[b].gradPhiZ*pvec;
         this->bodies[b].nodes.fz -= this->bodies[b].gradPhiX*pvec;
 
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[YY];
-        }
+        pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.T.col(YY).array();
         this->bodies[b].nodes.fy -= this->bodies[b].gradPhiY*pvec;
 
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[YZ];
-        }
+        pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.T.col(YZ).array();
         this->bodies[b].nodes.fy -= this->bodies[b].gradPhiZ*pvec;
         this->bodies[b].nodes.fz -= this->bodies[b].gradPhiY*pvec;
 
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].T[ZZ];
-        }
+        pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.T.col(ZZ).array();
         this->bodies[b].nodes.fz -= this->bodies[b].gradPhiZ*pvec;
 
     }
@@ -858,17 +848,17 @@ void job_t::moveParticlesExplicit(){
         }
 
         //map back to particles using S transpose
-        this->bodies[b].particle_x += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.ux;
-        this->bodies[b].particle_y += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uy;
-        this->bodies[b].particle_z += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uz;
+        this->bodies[b].particles.x += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.ux;
+        this->bodies[b].particles.y += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uy;
+        this->bodies[b].particles.z += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uz;
 
-        this->bodies[b].particle_ux += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.ux;
-        this->bodies[b].particle_uy += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uy;
-        this->bodies[b].particle_uz += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uz;
+        this->bodies[b].particles.ux += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.ux;
+        this->bodies[b].particles.uy += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uy;
+        this->bodies[b].particles.uz += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uz;
 
-        this->bodies[b].particle_x_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_x_t;
-        this->bodies[b].particle_y_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_y_t;
-        this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_z_t;
+        this->bodies[b].particles.x_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_x_t;
+        this->bodies[b].particles.y_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_y_t;
+        this->bodies[b].particles.z_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_z_t;
 
     }
     return;
@@ -917,17 +907,17 @@ void job_t::moveParticlesImplicit(){
         }
 
         //map back to particles using S transpose
-        this->bodies[b].particle_x += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.ux;
-        this->bodies[b].particle_y += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uy;
-        this->bodies[b].particle_z += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uz;
+        this->bodies[b].particles.x += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.ux;
+        this->bodies[b].particles.y += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uy;
+        this->bodies[b].particles.z += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uz;
 
-        this->bodies[b].particle_ux += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.ux;
-        this->bodies[b].particle_uy += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uy;
-        this->bodies[b].particle_uz += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uz;
+        this->bodies[b].particles.ux += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.ux;
+        this->bodies[b].particles.uy += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uy;
+        this->bodies[b].particles.uz += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uz;
 
-        this->bodies[b].particle_x_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_x_t;
-        this->bodies[b].particle_y_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_y_t;
-        this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_z_t;
+        this->bodies[b].particles.x_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_x_t;
+        this->bodies[b].particles.y_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_y_t;
+        this->bodies[b].particles.z_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_z_t;
 
     }
     return;
@@ -972,17 +962,17 @@ void job_t::moveParticlesExplicit2D(){
         }
 
         //map back to particles using S transpose
-        this->bodies[b].particle_x += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.ux;
-        this->bodies[b].particle_y += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.uy;
-        //this->bodies[b].particle_z += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.uz;
+        this->bodies[b].particles.x += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.ux;
+        this->bodies[b].particles.y += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.uy;
+        //this->bodies[b].particles.z += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.uz;
 
-        this->bodies[b].particle_ux += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.ux;
-        this->bodies[b].particle_uy += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.uy;
-        //this->bodies[b].particle_uz += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.uz;
+        this->bodies[b].particles.ux += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.ux;
+        this->bodies[b].particles.uy += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.uy;
+        //this->bodies[b].particles.uz += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.uz;
 
-        this->bodies[b].particle_x_t += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.diff_x_t;
-        this->bodies[b].particle_y_t += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.diff_y_t;
-        //this->bodies[b].particle_z_t += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.diff_z_t;
+        this->bodies[b].particles.x_t += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.diff_x_t;
+        this->bodies[b].particles.y_t += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.diff_y_t;
+        //this->bodies[b].particles.z_t += this->bodies[b].Phi.transpose()*this->bodies[b].nodes.diff_z_t;
 
     }
     return;
@@ -1010,49 +1000,31 @@ void job_t::calculateStrainRate() {
 
         //calculate particle[i].L[9]
         pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].nodes.contact_x_t;
-        for (size_t i = 0; i < this->bodies[b].p; i++) {
-            this->bodies[b].particles[i].L[XX] = pvec[i];
-        }
+        this->bodies[b].particles.L.col(XX) << pvec;
 
         pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].nodes.contact_x_t;
-        for (size_t i = 0; i < this->bodies[b].p; i++) {
-            this->bodies[b].particles[i].L[XY] = pvec[i];
-        }
+        this->bodies[b].particles.L.col(XY) << pvec;
 
         pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].nodes.contact_x_t;
-        for (size_t i = 0; i < this->bodies[b].p; i++) {
-            this->bodies[b].particles[i].L[XZ] = pvec[i];
-        }
+        this->bodies[b].particles.L.col(XZ) << pvec;
 
         pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].nodes.contact_y_t;
-        for (size_t i = 0; i < this->bodies[b].p; i++) {
-            this->bodies[b].particles[i].L[YX] = pvec[i];
-        }
+        this->bodies[b].particles.L.col(YX) << pvec;
 
         pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].nodes.contact_y_t;
-        for (size_t i = 0; i < this->bodies[b].p; i++) {
-            this->bodies[b].particles[i].L[YY] = pvec[i];
-        }
+        this->bodies[b].particles.L.col(YY) << pvec;
 
         pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].nodes.contact_y_t;
-        for (size_t i = 0; i < this->bodies[b].p; i++) {
-            this->bodies[b].particles[i].L[YZ] = pvec[i];
-        }
+        this->bodies[b].particles.L.col(YZ) << pvec;
 
         pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].nodes.contact_z_t;
-        for (size_t i = 0; i < this->bodies[b].p; i++) {
-            this->bodies[b].particles[i].L[ZX] = pvec[i];
-        }
+        this->bodies[b].particles.L.col(ZX) << pvec;
 
         pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].nodes.contact_z_t;
-        for (size_t i = 0; i < this->bodies[b].p; i++) {
-            this->bodies[b].particles[i].L[ZY] = pvec[i];
-        }
+        this->bodies[b].particles.L.col(ZY) << pvec;
 
         pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].nodes.contact_z_t;
-        for (size_t i = 0; i < this->bodies[b].p; i++) {
-            this->bodies[b].particles[i].L[ZZ] = pvec[i];
-        }
+        this->bodies[b].particles.L.col(ZZ) << pvec;
     }
     return;
     //} else {
@@ -1078,50 +1050,32 @@ void job_t::calculateStrainRate2D() {
         Eigen::VectorXd pvec(numRowsP);
 
         //calculate particle[i].L[9]
-        pvec = this->bodies[b].gradPhiX.transpose()*this->bodies[b].nodes.contact_x_t;
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[XX] = pvec[i];
-        }
+        pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].nodes.contact_x_t;
+        this->bodies[b].particles.L.col(XX) << pvec;
 
-        pvec = this->bodies[b].gradPhiY.transpose()*this->bodies[b].nodes.contact_x_t;
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[XY] = pvec[i];
-        }
+        pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].nodes.contact_x_t;
+        this->bodies[b].particles.L.col(XY) << pvec;
 
-        //pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].nodes.contact_x_t;
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[XZ] = 0;
-        }
+        //pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].nodes.contact_x_t;
+        this->bodies[b].particles.L.col(XZ).setZero();
 
-        pvec = this->bodies[b].gradPhiX.transpose()*this->bodies[b].nodes.contact_y_t;
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[YX] = pvec[i];
-        }
+        pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].nodes.contact_y_t;
+        this->bodies[b].particles.L.col(YX) << pvec;
 
-        pvec = this->bodies[b].gradPhiY.transpose()*this->bodies[b].nodes.contact_y_t;
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[YY] = pvec[i];
-        }
+        pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].nodes.contact_y_t;
+        this->bodies[b].particles.L.col(YY) << pvec;
 
-        //pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].nodes.contact_y_t;
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[YZ] = 0;
-        }
+        //pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].nodes.contact_y_t;
+        this->bodies[b].particles.L.col(YZ).setZero();
 
-        //pvec = this->bodies[b].gradPhiX.transpose()*this->bodies[b].nodes.contact_z_t;
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[ZX] = 0;
-        }
+        //pvec = this->bodies[b].gradPhiX.transpose() * this->bodies[b].nodes.contact_z_t;
+        this->bodies[b].particles.L.col(ZX).setZero();
 
-        //pvec = this->bodies[b].gradPhiY.transpose()*this->bodies[b].nodes.contact_z_t;
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[ZY] = 0;
-        }
+        //pvec = this->bodies[b].gradPhiY.transpose() * this->bodies[b].nodes.contact_z_t;
+        this->bodies[b].particles.L.col(ZY).setZero();
 
-        //pvec = this->bodies[b].gradPhiZ.transpose()*this->bodies[b].nodes.contact_z_t;
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            this->bodies[b].particles[i].L[ZZ] = 0;
-        }
+        //pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].nodes.contact_z_t;
+        this->bodies[b].particles.L.col(ZZ).setZero();
     }
     return;
 }
@@ -1130,9 +1084,8 @@ void job_t::updateDensity(){
     //update density of particles per sachiths code
     for (size_t b=0;b<this->num_bodies;b++){
         for (size_t i=0;i<this->bodies[b].p;i++){
-            double trL = 0;
-            tensor_trace3(&trL,this->bodies[b].particles[i].L);
-            this->bodies[b].particles[i].v[0] *= exp(this->dt * trL);
+            double trL = this->bodies[b].particles.L(i,XX)+this->bodies[b].particles.L(i,YY)+this->bodies[b].particles.L(i,ZZ);
+            this->bodies[b].particles.v[i] *= exp(this->dt * trL);
         }
     }
     return;
@@ -1142,9 +1095,8 @@ void job_t::updateTrialDensity(){
     //update density of particles per sachiths code
     for (size_t b=0;b<this->num_bodies;b++){
         for (size_t i=0;i<this->bodies[b].p;i++){
-            double trL = 0;
-            tensor_trace3(&trL,this->bodies[b].particles[i].L);
-            this->bodies[b].particles[i].v_trial[0] = this->bodies[b].particles[i].v[0] * exp(this->dt * trL);
+            double trL = this->bodies[b].particles.L(i,XX)+this->bodies[b].particles.L(i,YY)+this->bodies[b].particles.L(i,ZZ);
+            this->bodies[b].particles.v_trial[i] = this->bodies[b].particles.v[i] * exp(this->dt * trL);
         }
     }
     return;
@@ -1175,9 +1127,9 @@ void job_t::mapTrialStress2Grid() {
         Eigen::MatrixXd p_m_bx(numRowsP, numColsP);
         Eigen::MatrixXd p_m_by(numRowsP, numColsP);
         Eigen::MatrixXd p_m_bz(numRowsP, numColsP);
-        p_m_bx = this->bodies[b].particle_m.array() * this->bodies[b].particle_bx.array();
-        p_m_by = this->bodies[b].particle_m.array() * this->bodies[b].particle_by.array();
-        p_m_bz = this->bodies[b].particle_m.array() * this->bodies[b].particle_bz.array();
+        p_m_bx = this->bodies[b].particles.m.array() * this->bodies[b].particles.bx.array();
+        p_m_by = this->bodies[b].particles.m.array() * this->bodies[b].particles.by.array();
+        p_m_bz = this->bodies[b].particles.m.array() * this->bodies[b].particles.bz.array();
 
         this->bodies[b].nodes.fx = this->bodies[b].Phi * p_m_bx; //need to add stress
         this->bodies[b].nodes.fy = this->bodies[b].Phi * p_m_by; //need to add stress
@@ -1186,37 +1138,25 @@ void job_t::mapTrialStress2Grid() {
         //use to create dummy pvec and ones
         Eigen::VectorXd pvec(numRowsP);
 
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[XX];
-        }
+        pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.Ttrial.col(XX).array();
         this->bodies[b].nodes.fx -= this->bodies[b].gradPhiX*pvec;
 
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[XY];
-        }
+        pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.Ttrial.col(XY).array();
         this->bodies[b].nodes.fx -= this->bodies[b].gradPhiY*pvec;
         this->bodies[b].nodes.fy -= this->bodies[b].gradPhiX*pvec;
 
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[XZ];
-        }
+        pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.Ttrial.col(XZ).array();
         this->bodies[b].nodes.fx -= this->bodies[b].gradPhiZ*pvec;
         this->bodies[b].nodes.fz -= this->bodies[b].gradPhiX*pvec;
 
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[YY];
-        }
+        pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.Ttrial.col(YY).array();
         this->bodies[b].nodes.fy -= this->bodies[b].gradPhiY*pvec;
 
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[YZ];
-        }
+        pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.Ttrial.col(YZ).array();
         this->bodies[b].nodes.fy -= this->bodies[b].gradPhiZ*pvec;
         this->bodies[b].nodes.fz -= this->bodies[b].gradPhiY*pvec;
 
-        for (size_t i=0;i<this->bodies[b].p;i++){
-            pvec[i] = this->bodies[b].particle_v[i] * this->bodies[b].particles[i].Ttrial[ZZ];
-        }
+        pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.Ttrial.col(ZZ).array();
         this->bodies[b].nodes.fz -= this->bodies[b].gradPhiZ*pvec;
     }
     return;

@@ -32,47 +32,14 @@ public:
     size_t id;
 
     //***** objects *****
-    std::vector<Particle> particles;
+    Particles particles;
     Nodes nodes;
 
     //***** nodal vectors *****
     // stored on nodes now
 
     //***** particle values *****
-    //position
-    Eigen::VectorXd particle_x;
-    Eigen::VectorXd particle_y;
-    Eigen::VectorXd particle_z;
-
-    //volume
-    Eigen::VectorXd particle_v;
-    Eigen::VectorXd particle_v_trial;
-    Eigen::VectorXd particle_v0;
-    Eigen::VectorXd particle_v_averaging;
-
-    //half side length
-    Eigen::VectorXd particle_a;
-
-    //mass
-    Eigen::VectorXd particle_m;
-
-    //velocity
-    Eigen::VectorXd particle_x_t;
-    Eigen::VectorXd particle_y_t;
-    Eigen::VectorXd particle_z_t;
-
-    //body forces
-    Eigen::VectorXd particle_bx;
-    Eigen::VectorXd particle_by;
-    Eigen::VectorXd particle_bz;
-
-    //displacements
-    Eigen::VectorXd particle_ux;
-    Eigen::VectorXd particle_uy;
-    Eigen::VectorXd particle_uz;
-
-    //active
-    Eigen::VectorXi particle_active;
+    // stored on particles now
 
     //S and gradS triplets
     std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> PhiTriplets;
@@ -92,7 +59,7 @@ public:
     //~Body();
 
     //functions
-    void addParticle(double,double,double,double,double,double,double,double,size_t);
+    //void addParticle(double,double,double,double,double,double,double,double,size_t);
     //void addNode(double,double,double,size_t);
     void defineMaterial(double*,size_t,int*,size_t);
 };

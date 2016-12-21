@@ -17,11 +17,9 @@
 
 void initial_loads(job_t *job){
     for (size_t b=0;b<job->num_bodies;b++){
-        for (size_t i=0;i<job->bodies[b].p;i++){
-            job->bodies[b].particles[i].bx[0] = 0;
-            job->bodies[b].particles[i].by[0] = 0;
-            job->bodies[b].particles[i].bz[0] = 0;
-        }
+        job->bodies[b].particles.bx.setZero();
+        job->bodies[b].particles.by.setZero();
+        job->bodies[b].particles.bz.setZero();
     }
     return;
 }
@@ -37,9 +35,9 @@ void time_varying_loads(job_t *job){
 
         for (size_t b = 0; b < job->num_bodies; b++) {
             for (size_t i = 0; i < job->bodies[b].p; i++) {
-                job->bodies[b].particles[i].bx[0] = 0;
-                job->bodies[b].particles[i].by[0] = 0;
-                job->bodies[b].particles[i].bz[0] = gravity;
+                job->bodies[b].particles.bx[i] = 0;
+                job->bodies[b].particles.by[i] = 0;
+                job->bodies[b].particles.bz[i] = gravity;
             }
         }
 
@@ -59,9 +57,9 @@ void time_varying_loads2D(job_t *job){
 
     for (size_t b=0;b<job->num_bodies;b++){
         for (size_t i=0; i<job->bodies[b].p; i++){
-            job->bodies[b].particles[i].bx[0] = 0;
-            job->bodies[b].particles[i].by[0] = gravity;
-            job->bodies[b].particles[i].bz[0] = 0;
+            job->bodies[b].particles.bx[i] = 0;
+            job->bodies[b].particles.by[i] = gravity;
+            job->bodies[b].particles.bz[i] = 0;
         }
     }
 

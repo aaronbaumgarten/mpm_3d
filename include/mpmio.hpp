@@ -51,9 +51,9 @@ public:
 
         job = jobIn;
 
-        xLimit = 2*jobIn->Lx;
-        yLimit = 2*jobIn->Ly;
-        zLimit = 2*jobIn->Lz;
+        xLimit = jobIn->Lx;
+        yLimit = jobIn->Ly;
+        zLimit = jobIn->Lz;
     }
 
     void setDefaultFiles();

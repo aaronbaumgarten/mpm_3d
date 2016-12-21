@@ -10,6 +10,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/objects/material2.cpp
         src/objects/boundary.cpp
         src/objects/node.cpp
+        src/objects/particle.cpp
         src/objects/element.cpp
         src/objects/mpmio.cpp
         src/functions/process.cpp

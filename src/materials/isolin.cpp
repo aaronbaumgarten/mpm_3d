@@ -43,7 +43,7 @@ void material_init(Body *body) {
 
     for (i = 0; i < body->p; i++) {
         for (j = 0; j < DEPVAR; j++) {
-            body->particles[i].state[j] = 0;
+            body->particles.state(i,j) = 0;
         }
     }
 
@@ -86,45 +86,35 @@ void calculate_stress_implicit(Body *body, double dtIn) {
     dt = dtIn;
 
     for (size_t i = 0; i < body->p; i++) {
-        if (body->particle_active[i] == 0) {
+        if (body->particles.active[i] == 0) {
             continue;
         }
 
-        double D[9];
-        double W[9];
-        tensor_sym3(D,body->particles[i].L);
-        tensor_skw3(W,body->particles[i].L);
+        Eigen::VectorXd tmpVec(9);
 
-        double trD;
-        tensor_trace3(&trD,body->particles[i].L);
+        tmpVec << body->particles.L.row(i).transpose();
+        Eigen::Matrix3d L(tmpVec.data());
 
-        double gleft[9];
-        tensor_multiply3(gleft, W, body->particles[i].T);
-        double gright[9];
-        tensor_multiply3(gright, body->particles[i].T, W);
-        tensor_scale3(gright, -1);
-        double tmp[9];
-        tensor_add3(tmp, gleft, gright);
+        tmpVec << body->particles.T.row(i).transpose();
+        Eigen::Matrix3d T(tmpVec.data());
 
-        double CD[9];
-        tensor_copy3(CD, D);
-        tensor_scale3(CD, 2*G);
-        CD[XX] += lambda * trD;
-        CD[YY] += lambda * trD;
-        CD[ZZ] += lambda * trD;
+        Eigen::Matrix3d D = 0.5*(L+L.transpose());
+        Eigen::Matrix3d W = 0.5*(L-L.transpose());
 
-        double dsj[9];
-        tensor_add3(dsj, CD, tmp);
+        double trD = D.trace();
 
-        body->particles[i].Ttrial[XX] = body->particles[i].T[XX] + dt * dsj[XX];
-        body->particles[i].Ttrial[XY] = body->particles[i].T[XY] + dt * dsj[XY];
-        body->particles[i].Ttrial[XZ] = body->particles[i].T[XZ] + dt * dsj[XZ];
-        body->particles[i].Ttrial[YX] = body->particles[i].T[YX] + dt * dsj[XY];
-        body->particles[i].Ttrial[YY] = body->particles[i].T[YY] + dt * dsj[YY];
-        body->particles[i].Ttrial[YZ] = body->particles[i].T[YZ] + dt * dsj[YZ];
-        body->particles[i].Ttrial[ZX] = body->particles[i].T[ZX] + dt * dsj[XZ];
-        body->particles[i].Ttrial[ZY] = body->particles[i].T[ZY] + dt * dsj[YZ];
-        body->particles[i].Ttrial[ZZ] = body->particles[i].T[ZZ] + dt * dsj[ZZ];
+        Eigen::Matrix3d gleft = W*T;
+        Eigen::Matrix3d gright = T*W;
+
+        Eigen::Matrix3d tmpMat = gleft*gright;
+
+        Eigen::Matrix3d CD = 2*G*D + lambda*trD*Eigen::Matrix3d::Identity();
+
+        Eigen::Matrix3d dsj = CD + tmpMat;
+
+        for (size_t pos=0;pos<9;pos++){
+            body->particles.Ttrial(i,pos) = body->particles.T(i,pos) + dt*dsj(pos);
+        }
     }
 
 }
@@ -148,47 +138,36 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
     size_t p_start = task->offset;
     size_t p_stop = task->offset + task->blocksize;
 
-    for (size_t i = p_start; i < p_stop; i++) {
-        if (body->particle_active[i] == 0) {
+    for (size_t i = 0; i < body->p; i++) {
+        if (body->particles.active[i] == 0) {
             continue;
         }
 
-        double D[9];
-        double W[9];
-        tensor_sym3(D,body->particles[i].L);
-        tensor_skw3(W,body->particles[i].L);
+        Eigen::VectorXd tmpVec(9);
 
-        double trD;
-        tensor_trace3(&trD,body->particles[i].L);
+        tmpVec << body->particles.L.row(i).transpose();
+        Eigen::Matrix3d L(tmpVec.data());
 
-        double gleft[9];
-        tensor_multiply3(gleft, W, body->particles[i].T);
-        double gright[9];
-        tensor_multiply3(gright, body->particles[i].T, W);
-        tensor_scale3(gright, -1);
-        double tmp[9];
-        tensor_add3(tmp, gleft, gright);
+        tmpVec << body->particles.T.row(i).transpose();
+        Eigen::Matrix3d T(tmpVec.data());
 
-        double CD[9];
-        tensor_copy3(CD, D);
-        tensor_scale3(CD, 2*G);
-        CD[XX] += lambda * trD;
-        CD[YY] += lambda * trD;
-        CD[ZZ] += lambda * trD;
+        Eigen::Matrix3d D = 0.5*(L+L.transpose());
+        Eigen::Matrix3d W = 0.5*(L-L.transpose());
 
-        double dsj[9];
-        tensor_add3(dsj, CD, tmp);
+        double trD = D.trace();
 
-        body->particles[i].T[XX] += dt * dsj[XX];
-        body->particles[i].T[XY] += dt * dsj[XY];
-        body->particles[i].T[XZ] += dt * dsj[XZ];
-        body->particles[i].T[YX] += dt * dsj[XY];
-        body->particles[i].T[YY] += dt * dsj[YY];
-        body->particles[i].T[YZ] += dt * dsj[YZ];
-        body->particles[i].T[ZX] += dt * dsj[XZ];
-        body->particles[i].T[ZY] += dt * dsj[YZ];
-        body->particles[i].T[ZZ] += dt * dsj[ZZ];
+        Eigen::Matrix3d gleft = W*T;
+        Eigen::Matrix3d gright = T*W;
 
+        Eigen::Matrix3d tmp = gleft*gright;
+
+        Eigen::Matrix3d CD = 2*G*D + lambda*trD*Eigen::Matrix3d::Identity();
+
+        Eigen::Matrix3d dsj = CD + tmp;
+
+        for (size_t pos=0;pos<9;pos++){
+            body->particles.T(i,pos) += dt*dsj(pos);
+        }
     }
 
     return;

@@ -12,8 +12,8 @@
 
 void testParticlePositions(job_t *job){
     std::cout << "particles[0].{x,y,x} : particles[1].{x,y,z}\n";
-    std::cout << "{" << job->bodies[0].particles[0].x[0] << " " << job->bodies[0].particles[0].y[0] << " " << job->bodies[0].particles[0].z[0] << "} : ";
-    std::cout << "{" << job->bodies[0].particles[1].x[0] << " " << job->bodies[0].particles[1].y[0] << " " << job->bodies[0].particles[1].z[0] << "}\n";
+    std::cout << "{" << job->bodies[0].particles.x[0] << " " << job->bodies[0].particles.y[0] << " " << job->bodies[0].particles.z[0] << "} : ";
+    std::cout << "{" << job->bodies[0].particles.x[1] << " " << job->bodies[0].particles.y[1] << " " << job->bodies[0].particles.z[1] << "}\n";
     return;
 }
 
@@ -34,25 +34,11 @@ void testNodePositions(job_t *job){
     return;
 }
 
-void testNodeandParticleSums(job_t *job) {
-    double sumX = 0;
-    for (size_t i = 0; i < job->num_nodes; i++) {
-        sumX += job->bodies[0].nodes.x[i];
-    }
-    std::cout << "test: " << sumX << " =? 515150\n";
-    sumX = 0;
-    for (size_t i = 0; i < job->num_particles; i++) {
-        sumX += job->bodies[0].particles[i].id;
-    }
-    std::cout << "test: " << sumX << " =? " << 7999 * 8000 / 2 << "\n";
-    return;
-}
-
 void testParticleCorners(job_t *job) {
-    int elementID = job->bodies[0].particles[0].corner_elements[0];
-    job->bodies[0].particles[0].updateCorners(job);
+    int elementID = job->bodies[0].particles.corner_elements(0,0);
+    job->bodies[0].particles.updateCorners(job,0);
     std::cout << "element number: " << elementID << "\n";
-    std::cout << "particle x: " << job->bodies[0].particles[0].x[0] << "\n";
+    std::cout << "particle x: " << job->bodies[0].particles.x[0] << "\n";
     for (size_t i = 0; i < 8; i++) {
         std::cout << "node x: " << job->bodies[0].nodes.x[job->elements.nodeID(elementID,i)] << "\n";
     }
@@ -65,10 +51,10 @@ void testPhiSize(job_t *job) {
 }
 
 void testElementCorners(job_t *job) {
-    int elementID = job->bodies[0].particles[0].corner_elements[0];
-    job->bodies[0].particles[0].updateCorners(job);
+    int elementID = job->bodies[0].particles.corner_elements(0,0);
+    job->bodies[0].particles.updateCorners(job,0);
     std::cout << "element number: " << elementID << "\n";
-    std::cout << "particle x,y,z: " << job->bodies[0].particles[0].corner[0][0] << ", " << job->bodies[0].particles[0].corner[0][1] << ", " << job->bodies[0].particles[0].corner[0][2] << "\n";
+    std::cout << "particle x,y,z: " << job->bodies[0].particles.corner_x(0,0) << ", " << job->bodies[0].particles.corner_y(0,0) << ", " << job->bodies[0].particles.corner_z(0,0) << "\n";
     for (size_t i = 0; i < 8; i++) {
         std::cout << "node x,y,z: " << job->bodies[0].nodes.x[job->elements.nodeID(elementID,i)] << " , ";
         std::cout << job->bodies[0].nodes.y[job->elements.nodeID(elementID,i)] << " , ";

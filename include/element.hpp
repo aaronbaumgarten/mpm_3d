@@ -44,7 +44,7 @@ public:
 
     void resizeElements(size_t,size_t);
     void addElement(Eigen::VectorXi nodeIDs, size_t idIn);
-    void calculatePhic(Body *body, Particle *particle, size_t ide, size_t idc, int use_cpdi);
+    void calculatePhic(Body *body, size_t ide, size_t idp, size_t idc, int use_cpdi);
 };
 
 #endif //MPM_3D_ELEMENT_HPP

@@ -118,7 +118,110 @@ Nodes::Nodes(size_t n):
         rhok(1),//*
         bk(1),//*
         pk(3*n)
-{ }
+{
+    //mass
+    m.setZero();
+
+    //position
+    x.setZero();
+    y.setZero();
+    z.setZero();
+
+    //displacement
+    ux.setZero();
+    uy.setZero();
+    uz.setZero();
+
+    //velocity
+    x_t.setZero();
+    y_t.setZero();
+    z_t.setZero();
+
+    //velocity difference
+    diff_x_t.setZero();
+    diff_y_t.setZero();
+    diff_z_t.setZero();
+
+    //momentum
+    mx_t.setZero();
+    my_t.setZero();
+    mz_t.setZero();
+
+    //force
+    fx.setZero();
+    fy.setZero();
+    fz.setZero();
+
+    //density
+    rho.setZero();
+
+    //body contact resolution
+    contact_mx_t.setZero();
+    contact_my_t.setZero();
+    contact_mz_t.setZero();
+
+    contact_x_t.setZero();
+    contact_y_t.setZero();
+    contact_z_t.setZero();
+
+    contact_fx.setZero();
+    contact_fy.setZero();
+    contact_fz.setZero();
+
+    contact_normal_x.setZero();
+    contact_normal_y.setZero();
+    contact_normal_z.setZero();
+
+    //nodal initial momentum
+    mx_t_k.setZero();
+    my_t_k.setZero();
+    mz_t_k.setZero();
+
+    //nodal trial velocity
+    x_t_trial.setZero();
+    y_t_trial.setZero();
+    z_t_trial.setZero();
+
+    //nodal iterated velocity
+    x_t_n.setZero();
+    y_t_n.setZero();
+    z_t_n.setZero();
+
+    //nodal initial force
+    //fx_k.setZero();
+    //fy_k.setZero();
+    //fz_k.setZero();
+
+    //nodal final force
+    fx_L.setZero();
+    fy_L.setZero();
+    fz_L.setZero();
+
+    //nodal residuals
+    Rx.setZero();
+    Ry.setZero();
+    Rz.setZero();
+
+    //saved residuals
+    Rvx.setZero();
+    Rvy.setZero();
+    Rvz.setZero();
+
+    //directional residual derivative
+    DhRx.setZero();
+    DhRy.setZero();
+    DhRz.setZero();
+
+    //implicit algorithm
+    wk.setZero();
+    sk.setZero();
+    rk.setZero();
+    r0.setZero();
+    qk.setZero();
+    tk.setZero();
+    hk.setZero();
+    pk.setZero();
+}
 
 void Nodes::addNode(double xIn, double yIn, double zIn, size_t idIn) {
     //Add node from job. Zero out unset terms

@@ -10,7 +10,6 @@
 
 void testParticlePositions(job_t *job);
 void testNodePositions(job_t *job);
-void testNodeandParticleSum(job_t *job);
 void testParticleCorners(job_t *job);
 void testPhiSize(job_t *job);
 void testElementCorners(job_t *job);
