@@ -10,12 +10,7 @@
 #include "body.hpp"
 #include "particle.hpp"
 #include "node.hpp"
-
-/*#define WHICH_ELEMENT WHICH_ELEMENT9
-//very ugly but it should work
-#define WHICH_ELEMENT9(px,py,pz,Nx,Ny,Nz,Lx,Ly,Lz,hx,hy,hz) \
-    ((int)(((px)<Lx && (px)>=0 && (py)<Ly && (py)>=0 && (pz)<Lz && (pz)>=0)?((floor((px)/(hx)) + floor((py)/(hy))*((Nx)-1) + floor((pz)/(hz))*((Nx*Ny)-1)):(-1))))
-*/
+#include "material.hpp"
 
 Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t bodyID):
         n(numNodes),
@@ -57,14 +52,14 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
     nodes.addNode(xIn,yIn,xIn,idIn);
 }*/
 
-void Body::defineMaterial(double * fp64_props, size_t num_fp64_props , int * int_props, size_t num_int_props) {
+void Body::defineMaterial(std::string filename, double * fp64_props, size_t num_fp64_props , int * int_props, size_t num_int_props) {
     //this->material = Material();
-    this->material.fp64_props = fp64_props;
+    /*this->material.fp64_props = fp64_props;
     this->material.int_props = int_props;
     this->material.num_fp64_props = num_fp64_props;
-    this->material.num_int_props = num_int_props;
+    this->material.num_int_props = num_int_props;*/
 
-    this->material.material_init(this);
+    this->material.setMaterial(filename,num_fp64_props,num_int_props,fp64_props,int_props);
     return;
 }
 

@@ -29,11 +29,13 @@ double dt = 1e-6;
 double E, nu, G, K;
 double lambda;
 
-void material_init(Body *body);
+extern "C" void material_init(Body *body);
 
-void calculate_stress_threaded(threadtask_t *task, Body *body, double dt);
+extern "C" void calculate_stress_threaded(threadtask_t *task, Body *body, double dt);
 
-void calculate_stress(Body *body, double dt);
+extern "C" void calculate_stress(Body *body, double dt);
+
+extern "C" void calculate_stress_implicit(Body *body, double dt);
 
 #define SZZ_STATE 0
 

@@ -401,18 +401,9 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
 }
 
 int job_t::assignMaterials() {
+    std::string filename = "isolin.so";
     for (size_t i=0;i<num_bodies;i++){
-        if (i==0) {
-            this->bodies[i].material.calculate_stress = material1::calculate_stress;
-            this->bodies[i].material.calculate_stress_threaded = material1::calculate_stress_threaded;
-            this->bodies[i].material.material_init = material1::material_init;
-            this->bodies[i].material.calculate_stress_implicit = material1::calculate_stress_implicit;
-        } else {
-            this->bodies[i].material.calculate_stress = material2::calculate_stress;
-            this->bodies[i].material.calculate_stress_threaded = material2::calculate_stress_threaded;
-            this->bodies[i].material.material_init = material2::material_init;
-            this->bodies[i].material.calculate_stress_implicit = material2::calculate_stress_implicit;
-        }
+        this->bodies[i].defineMaterial(filename,0,0,NULL,NULL);
     }
     std::cout << "Materials assigned (" << num_bodies << ").\n";
     return 1;
@@ -425,22 +416,22 @@ int job_t::assignMaterials(const char* matFile1, const char* matFile2){
 
 
 int job_t::assignBoundaryConditions(){
-    this->boundary.bc_init = boundary::bc_init;
-    this->boundary.bc_validate = boundary::bc_validate;
-    this->boundary.bc_time_varying = boundary::bc_time_varying;
-    this->boundary.generate_dirichlet_bcs = boundary::generate_dirichlet_bcs;
-    this->boundary.generate_node_number_override = boundary::generate_node_number_override;
-    this->boundary.bc_momentum = boundary::bc_momentum;
-    this->boundary.bc_force = boundary::bc_force;
+    //default value
+    std::string filename = "boxBC.so";
+    this->boundary.setBoundary(filename,0,0,NULL,NULL);
 
     std::cout << "Boundary Conditions assigned (1).\n";
 
     return 1;
 }
 
-int job_t::assignBoundaryConditions(const char* bcFile){
-    // for defining boundary condition based on .so files (not implemented as of 10/26/16)
-    return -1;
+int job_t::assignBoundaryConditions(std::string bcFile, size_t nfp64, size_t nint, double *bcfp64, int *bcint){
+
+    this->boundary.setBoundary(bcFile,nfp64,nint,bcfp64,bcint);
+
+    std::cout << "Boundary Conditions assigned (1).\n";
+
+    return 1;
 }
 
 int job_t::createMappings() {
@@ -631,25 +622,27 @@ void job_t::addContactForces(){
                 this->bodies[1].nodes.contact_fy[i] = -fcti[1];
                 this->bodies[1].nodes.contact_fz[i] = -fcti[2];
 
-                //adjust nodal velocities for non-penetration
-                mv1i = mv1i - n1i.dot(mv1i-m1*vCMi)*n1i;
-                mv2i = mv2i - n1i.dot(mv2i-m2*vCMi)*n1i;
+                if (this->use_implicit==0) {
+                    //adjust nodal velocities for non-penetration
+                    mv1i = mv1i - n1i.dot(mv1i - m1 * vCMi) * n1i;
+                    mv2i = mv2i - n1i.dot(mv2i - m2 * vCMi) * n1i;
 
-                this->bodies[0].nodes.contact_mx_t[i] = mv1i[0];
-                this->bodies[0].nodes.contact_my_t[i] = mv1i[1];
-                this->bodies[0].nodes.contact_mz_t[i] = mv1i[2];
+                    this->bodies[0].nodes.contact_mx_t[i] = mv1i[0];
+                    this->bodies[0].nodes.contact_my_t[i] = mv1i[1];
+                    this->bodies[0].nodes.contact_mz_t[i] = mv1i[2];
 
-                this->bodies[0].nodes.contact_x_t[i] = mv1i[0]/m1;
-                this->bodies[0].nodes.contact_y_t[i] = mv1i[1]/m1;
-                this->bodies[0].nodes.contact_z_t[i] = mv1i[2]/m1;
+                    this->bodies[0].nodes.contact_x_t[i] = mv1i[0] / m1;
+                    this->bodies[0].nodes.contact_y_t[i] = mv1i[1] / m1;
+                    this->bodies[0].nodes.contact_z_t[i] = mv1i[2] / m1;
 
-                this->bodies[1].nodes.contact_mx_t[i] = mv2i[0];
-                this->bodies[1].nodes.contact_my_t[i] = mv2i[1];
-                this->bodies[1].nodes.contact_mz_t[i] = mv2i[2];
+                    this->bodies[1].nodes.contact_mx_t[i] = mv2i[0];
+                    this->bodies[1].nodes.contact_my_t[i] = mv2i[1];
+                    this->bodies[1].nodes.contact_mz_t[i] = mv2i[2];
 
-                this->bodies[1].nodes.contact_x_t[i] = mv2i[0]/m2;
-                this->bodies[1].nodes.contact_y_t[i] = mv2i[1]/m2;
-                this->bodies[1].nodes.contact_z_t[i] = mv2i[2]/m2;
+                    this->bodies[1].nodes.contact_x_t[i] = mv2i[0] / m2;
+                    this->bodies[1].nodes.contact_y_t[i] = mv2i[1] / m2;
+                    this->bodies[1].nodes.contact_z_t[i] = mv2i[2] / m2;
+                }
             }
         }
     }
@@ -724,21 +717,23 @@ void job_t::addContactForces2D(){
                 this->bodies[1].nodes.contact_fx[i] = -fcti[0];
                 this->bodies[1].nodes.contact_fy[i] = -fcti[1];
 
-                //adjust nodal velocities for non-penetration
-                mv1i = mv1i - n1i.dot(mv1i-m1*vCMi)*n1i;
-                mv2i = mv2i - n1i.dot(mv2i-m2*vCMi)*n1i;
+                if (this->use_implicit==0) {
+                    //adjust nodal velocities for non-penetration
+                    mv1i = mv1i - n1i.dot(mv1i - m1 * vCMi) * n1i;
+                    mv2i = mv2i - n1i.dot(mv2i - m2 * vCMi) * n1i;
 
-                this->bodies[0].nodes.contact_mx_t[i] = mv1i[0];
-                this->bodies[0].nodes.contact_my_t[i] = mv1i[1];
+                    this->bodies[0].nodes.contact_mx_t[i] = mv1i[0];
+                    this->bodies[0].nodes.contact_my_t[i] = mv1i[1];
 
-                this->bodies[0].nodes.contact_x_t[i] = mv1i[0]/m1;
-                this->bodies[0].nodes.contact_y_t[i] = mv1i[1]/m1;
+                    this->bodies[0].nodes.contact_x_t[i] = mv1i[0] / m1;
+                    this->bodies[0].nodes.contact_y_t[i] = mv1i[1] / m1;
 
-                this->bodies[1].nodes.contact_mx_t[i] = mv2i[0];
-                this->bodies[1].nodes.contact_my_t[i] = mv2i[1];
+                    this->bodies[1].nodes.contact_mx_t[i] = mv2i[0];
+                    this->bodies[1].nodes.contact_my_t[i] = mv2i[1];
 
-                this->bodies[1].nodes.contact_x_t[i] = mv2i[0]/m2;
-                this->bodies[1].nodes.contact_y_t[i] = mv2i[1]/m2;
+                    this->bodies[1].nodes.contact_x_t[i] = mv2i[0] / m2;
+                    this->bodies[1].nodes.contact_y_t[i] = mv2i[1] / m2;
+                }
             }
         }
     }
@@ -1195,11 +1190,11 @@ void job_t::calculateImplicitResidual() {
                 this->bodies[b].nodes.Rx[i] = 0;
                 this->bodies[b].nodes.Ry[i] = 0;
                 this->bodies[b].nodes.Rz[i] = 0;
-            } else if (this->bodies[0].nodes.m[i] > TOL && this->bodies[1].nodes.m[i] > TOL){
+            /*} else if (this->bodies[0].nodes.m[i] > TOL && this->bodies[1].nodes.m[i] > TOL){
                 //nodal contact
                 this->bodies[b].nodes.Rx[i] = 0;
                 this->bodies[b].nodes.Ry[i] = 0;
-                this->bodies[b].nodes.Rz[i] = 0;
+                this->bodies[b].nodes.Rz[i] = 0;*/
             } else {
                 if (this->u_dirichlet_mask[NODAL_DOF*i] != 0){
                     this->bodies[b].nodes.Rx[i] = 0;

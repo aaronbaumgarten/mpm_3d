@@ -15,17 +15,19 @@ class threadtask_t;
 
 class Boundary{
 public:
-    char *boundary_filename;
+    std::string boundary_filename;
     int use_builtin;
 
-    std::function<void(job_t *)> bc_init;
-    std::function<void(job_t *)> bc_validate;
-    std::function<void(job_t *)> bc_time_varying;
+    void *handle;
 
-    std::function<void(job_t *)> generate_dirichlet_bcs;
-    std::function<void(job_t *)> generate_node_number_override;
-    std::function<void(job_t *)> bc_momentum;
-    std::function<void(job_t *)> bc_force;
+    void (*bc_init)(job_t*);
+    void (*bc_validate)(job_t*);
+    void (*bc_time_varying)(job_t*);
+
+    void (*generate_dirichlet_bcs)(job_t*);
+    void (*generate_node_number_override)(job_t*);
+    void (*bc_momentum)(job_t*);
+    void (*bc_force)(job_t*);
 
 
     double *fp64_props;
@@ -33,26 +35,9 @@ public:
     size_t num_fp64_props;
     size_t num_int_props;
 
-    Boundary(){
-        num_fp64_props = 0;
-        num_int_props = 0;
-        fp64_props = NULL;
-        int_props = NULL;
-        boundary_filename = NULL;
-
-        /*material_init = NULL;
-        calculate_stress = NULL;
-        calculate_stress_threaded = NULL;*/
-    }
+    Boundary();
+    Boundary(std::string,size_t,size_t,double*,int*);
+    ~Boundary();
+    void setBoundary(std::string,size_t,size_t,double*,int*);
 };
-
-namespace boundary {
-    void bc_init(job_t *job);
-    int bc_validate(job_t *job);
-    void bc_time_varying(job_t *job);
-    void generate_dirichlet_bcs(job_t *job);
-    void generate_node_number_override(job_t *job);
-    void bc_momentum(job_t *job);
-    void bc_force(job_t *job);
-}
 #endif //MPM_3D_BOUNDARY_HPP

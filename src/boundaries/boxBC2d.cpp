@@ -15,24 +15,24 @@
 #include "tensor.hpp"
 #include "element.hpp"
 
-void generate_dirichlet_bcs(job_t *job);
-void generate_node_number_override(job_t *job);
+extern "C" void generate_dirichlet_bcs(job_t *job);
+extern "C" void generate_node_number_override(job_t *job);
 
-void bc_init(job_t *job)
+extern "C" void bc_init(job_t *job)
 {
     // suppress unused argument warning
     (void)job;
     return;
 }
 
-int bc_validate(job_t *job)
+extern "C" int bc_validate(job_t *job)
 {
     //return 0 for failure to validate properties in configuration file
     //not implemented as of 10/26/16
     return 1;
 }
 
-void bc_time_varying(job_t *job)
+extern "C" void bc_time_varying(job_t *job)
 {
     generate_dirichlet_bcs(job);
     generate_node_number_override(job);
@@ -90,7 +90,7 @@ void generate_node_number_override(job_t *job)
 }
 
 /* Only zeros out entries for now... */
-void bc_momentum(job_t *job)
+extern "C" void bc_momentum(job_t *job)
 {
     for (size_t i = 0; i < job->num_nodes; i++) {
         for (size_t j = 0; j < NODAL_DOF; j++) {
@@ -116,7 +116,7 @@ void bc_momentum(job_t *job)
 }
 
 /* Only zero out entries for now... */
-void bc_force(job_t *job)
+extern "C" void bc_force(job_t *job)
 {
     for (size_t i = 0; i < job->num_nodes; i++) {
         for (size_t j = 0; j < NODAL_DOF; j++) {

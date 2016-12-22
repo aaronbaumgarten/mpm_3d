@@ -52,7 +52,11 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
     for (size_t i=0;i<job->num_bodies;i++){
-        job->bodies[i].defineMaterial(fp64_props,2,int_props,0);
+        job->bodies[i].material.fp64_props=fp64_props;
+        job->bodies[i].material.num_fp64_props=2;
+        job->bodies[i].material.int_props=int_props;
+        job->bodies[i].material.num_int_props=0;
+        job->bodies[i].material.material_init(&(job->bodies[i]));
     }
     if(!(job->assignBoundaryConditions())){
         std::cout << "failed to assign boundary conditions" << std::endl;

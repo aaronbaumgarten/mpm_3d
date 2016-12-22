@@ -85,7 +85,7 @@ public:
     int assignMaterials();
     int assignMaterials(const char*, const char*);
     int assignBoundaryConditions();
-    int assignBoundaryConditions(const char*);
+    int assignBoundaryConditions(std::string, size_t, size_t ,double*, int*);
 
     int mpmStepUSLExplicit();
     int mpmStepUSLImplicit();

@@ -4,50 +4,37 @@
 //
 
 #include <stdlib.h>
-#include <functional>
+#include <string>
 
 #ifndef MPM_3D_MATERIAL_HPP
 #define MPM_3D_MATERIAL_HPP
-
-#endif //MPM_3D_MATERIAL_HPP
 
 class Body;
 class threadtask_t;
 
 class Material{
 public:
-    char *material_filename;
+    std::string material_filename;
     int use_builtin;
+    void *handle;
 
-    //template <class bodyT, class taskT>
-    /*void (*material_init)(Body *);
-    void (*calculate_stress)(Body *, double);
-    void (*calculate_stress_threaded)(threadtask_t *, Body *);*/
-
-    std::function<void(Body *)> material_init;
-    std::function<void(Body *, double)> calculate_stress;
-    std::function<void(Body *, double)> calculate_stress_implicit;
-    std::function<void(threadtask_t *, Body *, double)> calculate_stress_threaded;
+    void (*material_init)(Body*);
+    void (*calculate_stress)(Body*, double);
+    void (*calculate_stress_implicit)(Body*, double);
+    void (*calculate_stress_threaded)(threadtask_t*,Body*,double);
 
     double *fp64_props;
     int *int_props;
     size_t num_fp64_props;
     size_t num_int_props;
 
-    Material(){
-        num_fp64_props = 0;
-        num_int_props = 0;
-        fp64_props = NULL;
-        int_props = NULL;
-        material_filename = NULL;
-
-        /*material_init = NULL;
-        calculate_stress = NULL;
-        calculate_stress_threaded = NULL;*/
-    }
+    Material();
+    Material(std::string,size_t,size_t,double*,int*);
+    ~Material();
+    void setMaterial(std::string,size_t,size_t,double*,int*);
 };
 
-namespace material1 {
+/*namespace material1 {
     //template <class bodyT>
     //template <class taskT>
     void material_init(Body *);
@@ -63,4 +50,6 @@ namespace material2 {
     void calculate_stress(Body *, double);
     void calculate_stress_threaded(threadtask_t *, Body *, double);
     void calculate_stress_implicit(Body *, double);
-}
+}*/
+
+#endif //MPM_3D_MATERIAL_HPP
