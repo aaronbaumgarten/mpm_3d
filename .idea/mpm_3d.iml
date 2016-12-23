@@ -6,30 +6,38 @@
       <sourceFolder url="file://$MODULE_DIR$/src/functions/loading.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/functions/process.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/driver/main.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/materials/isolin.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/materials/CMakeLists.txt" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/objects/node.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/objects/particle.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/objects/contact.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/objects/body.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/objects/material.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/objects/element.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/objects/mpmio.cpp" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/src/objects/material1.cpp" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/src/objects/material2.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/objects/boundary.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/boundaries/floorBC.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/boundaries/boxBC.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/boundaries/boxBC2d.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/boundaries/floorBC2D.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/boundaries/CMakeLists.txt" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/tests/test.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/CMakeLists.txt" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/cmake/FindDL.cmake" isTestSource="false" />
     </content>
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module-library">
       <library name="Header Search Paths">
         <CLASSES>
-          <root url="file:///usr/include" />
-          <root url="file:///usr/lib/gcc/x86_64-linux-gnu/5/include" />
           <root url="file:///usr/lib/gcc/x86_64-linux-gnu/5/include-fixed" />
+          <root url="file:///usr/lib/gcc/x86_64-linux-gnu/5/include" />
+          <root url="file:///usr/include" />
           <root url="file:///usr/local/include" />
         </CLASSES>
         <SOURCES>
-          <root url="file:///usr/include" />
-          <root url="file:///usr/lib/gcc/x86_64-linux-gnu/5/include" />
           <root url="file:///usr/lib/gcc/x86_64-linux-gnu/5/include-fixed" />
+          <root url="file:///usr/lib/gcc/x86_64-linux-gnu/5/include" />
+          <root url="file:///usr/include" />
           <root url="file:///usr/local/include" />
         </SOURCES>
       </library>

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 #include <math.h>
 
 #include "particle.hpp"
@@ -21,7 +22,7 @@ extern "C" void generate_node_number_override(job_t *job);
 extern "C" void bc_init(job_t *job)
 {
     // suppress unused argument warning
-    (void)job;
+    //(void)job;
     return;
 }
 

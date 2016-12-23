@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 #include <math.h>
 #include "particle.hpp"
 #include "node.hpp"
@@ -61,12 +62,11 @@ void material_init(Body *body) {
         G = E / (2.0 * (1.0 + nu));
         K = E / (3.0 * (1.0 - 2 * nu));
         lambda = K - 2.0 * G / 3.0;
-        printf("%s:%s: properties (E = %g, nu = %g, G = %g, K = %g).\n",
-               __FILE__, __func__, E, nu, G, K);
+        printf("Material properties (E = %g, nu = %g, G = %g, K = %g).\n",
+               E, nu, G, K);
     }
 
-    printf("%s:%s: (material version %s) done initializing material.\n",
-           __FILE__, __func__, MAT_VERSION_STRING);
+    std::cout << "Done initializing material (" << body->id << ").\n";
     return;
 }
 /*----------------------------------------------------------------------------*/

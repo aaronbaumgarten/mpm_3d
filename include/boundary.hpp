@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <functional>
+#include <vector>
 
 #ifndef MPM_3D_BOUNDARY_HPP
 #define MPM_3D_BOUNDARY_HPP
@@ -30,14 +31,14 @@ public:
     void (*bc_force)(job_t*);
 
 
-    double *fp64_props;
-    int *int_props;
+    std::vector<double> fp64_props;
+    std::vector<int> int_props;
     size_t num_fp64_props;
     size_t num_int_props;
 
     Boundary();
-    Boundary(std::string,size_t,size_t,double*,int*);
+    Boundary(std::string,std::vector<double>,std::vector<int>);
     ~Boundary();
-    void setBoundary(std::string,size_t,size_t,double*,int*);
+    void setBoundary(std::string,std::vector<double>,std::vector<int>);
 };
 #endif //MPM_3D_BOUNDARY_HPP

@@ -36,8 +36,8 @@ int main(int argc, char *argv[]) {
     //parse configuration files
     //char *fileParticle = "s.particles";
     //char *fileNodes = "s.grid";
-    std::string fileParticle = "kk.particles";
-    std::string fileNodes = "kk.grid";
+    std::string fileParticle = "test.particles";
+    std::string fileNodes = "test.grid";
     if(!(job->importNodesandParticles(fileNodes,fileParticle))){
         std::cout << "failed to import nodes and particles" << std::endl;
         exit(0);
@@ -45,21 +45,18 @@ int main(int argc, char *argv[]) {
 
     //initialize and allocate memory
     /* hard-coding material properties for initial run */
-    double fp64_props[2] = {1e9,0.3};
-    int *int_props = NULL;
-    if(!(job->assignMaterials())){
+    if(!(job->assignDefaultMaterials())){
         std::cout << "failed to assign materials" << std::endl;
         exit(0);
     }
-    for (size_t i=0;i<job->num_bodies;i++){
-        job->bodies[i].material.fp64_props=fp64_props;
-        job->bodies[i].material.num_fp64_props=2;
-        job->bodies[i].material.int_props=int_props;
-        job->bodies[i].material.num_int_props=0;
-        job->bodies[i].material.material_init(&(job->bodies[i]));
-    }
+
     if(!(job->assignBoundaryConditions())){
         std::cout << "failed to assign boundary conditions" << std::endl;
+        exit(0);
+    }
+
+    if(!(job->assignDefaultContacts())){
+        std::cout << "failed to assign contact rules" << std::endl;
         exit(0);
     }
 

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 #include <math.h>
 #include "boundary.hpp"
 #include "process.hpp"
@@ -25,8 +26,8 @@ Boundary::Boundary(){
 
     num_fp64_props = 0;
     num_int_props = 0;
-    fp64_props = NULL;
-    int_props = NULL;
+    fp64_props = std::vector<double>();
+    int_props = std::vector<int>();
 
     bc_init = NULL;
     bc_validate = NULL;
@@ -38,7 +39,7 @@ Boundary::Boundary(){
     bc_force = NULL;
 }
 
-Boundary::Boundary(std::string filename, size_t nfp64, size_t nint, double *fp64props, int *intprops){
+Boundary::Boundary(std::string filename, std::vector<double> fp64props, std::vector<int> intprops){
     std::string filepath = "src/boundaries/";
     filepath += filename;
 
@@ -46,8 +47,8 @@ Boundary::Boundary(std::string filename, size_t nfp64, size_t nint, double *fp64
     handle = dlopen(filepath.c_str(), RTLD_LAZY);
     boundary_filename = filename;
 
-    num_fp64_props = nfp64;
-    num_int_props = nint;
+    num_fp64_props = fp64props.size();
+    num_int_props = intprops.size();
     fp64_props = fp64props;
     int_props = intprops;
 
@@ -117,7 +118,7 @@ Boundary::~Boundary(){
 }
 
 
-void Boundary::setBoundary(std::string filename, size_t nfp64, size_t nint, double *fp64props, int *intprops){
+void Boundary::setBoundary(std::string filename, std::vector<double> fp64props, std::vector<int> intprops){
     std::string filepath = "src/boundaries/";
     filepath += filename;
 
@@ -125,8 +126,8 @@ void Boundary::setBoundary(std::string filename, size_t nfp64, size_t nint, doub
     this->handle = dlopen(filepath.c_str(), RTLD_LAZY);
     this->boundary_filename = filename;
 
-    this->num_fp64_props = nfp64;
-    this->num_int_props = nint;
+    this->num_fp64_props = fp64props.size();
+    this->num_int_props = intprops.size();
     this->fp64_props = fp64props;
     this->int_props = intprops;
 

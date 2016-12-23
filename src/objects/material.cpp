@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 #include <math.h>
 #include "material.hpp"
 #include "process.hpp"
@@ -14,8 +15,8 @@
 Material::Material(){
         num_fp64_props = 0;
         num_int_props = 0;
-        fp64_props = NULL;
-        int_props = NULL;
+        fp64_props = std::vector<double>();
+        int_props = std::vector<int>();
         material_filename = "";
         handle = NULL;
 
@@ -25,7 +26,7 @@ Material::Material(){
         calculate_stress_implicit = NULL;
 }
 
-Material::Material(std::string filename, size_t nfp64, size_t nint, double *fp64props, int *intprops){
+Material::Material(std::string filename, std::vector<double> fp64props, std::vector<int> intprops){
     std::string filepath = "src/materials/";
     filepath += filename;
 
@@ -33,8 +34,8 @@ Material::Material(std::string filename, size_t nfp64, size_t nint, double *fp64
     handle = dlopen(filepath.c_str(), RTLD_LAZY);
     material_filename = filename;
 
-    num_fp64_props = nfp64;
-    num_int_props = nint;
+    num_fp64_props = fp64props.size();
+    num_int_props = intprops.size();
     fp64_props = fp64props;
     int_props = intprops;
 
@@ -81,7 +82,7 @@ Material::~Material() {
     }
 }
 
-void Material::setMaterial(std::string filename, size_t nfp64, size_t nint, double *fp64props, int *intprops){
+void Material::setMaterial(std::string filename, std::vector<double> fp64props, std::vector<int> intprops){
     std::string filepath = "src/materials/";
     filepath += filename;
 
@@ -89,8 +90,8 @@ void Material::setMaterial(std::string filename, size_t nfp64, size_t nint, doub
     this->handle = dlopen(filepath.c_str(), RTLD_LAZY);
     this->material_filename = filename;
 
-    this->num_fp64_props = nfp64;
-    this->num_int_props = nint;
+    this->num_fp64_props = fp64props.size();
+    this->num_int_props = intprops.size();
     this->fp64_props = fp64props;
     this->int_props = intprops;
 

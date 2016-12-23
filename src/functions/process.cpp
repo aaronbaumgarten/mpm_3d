@@ -8,6 +8,7 @@
 #include <sstream>
 #include <stdlib.h>
 #include <string>
+#include <vector>
 #include <algorithm>
 #include <Eigen/Core>
 
@@ -23,7 +24,7 @@
 //contact friction
 #define MU_F 0.4
 //squared norm error tolerance
-#define R_TOL 1e-5
+//#define R_TOL 1e-5
 #define R_MAX 1e10
 
 //hard coded for now. need to change
@@ -38,7 +39,8 @@ job_t::job_t():
         step_start_time(0.0),
         stepcount(0),
         newtonTOL(1e-5),
-        linearStepSize(1e-6)
+        linearStepSize(1e-6),
+        contacts(0)
 {
     std::cout << "Job created.\n";
     boundary = Boundary();
@@ -94,11 +96,7 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
         //double Lx;
         //double hx;
         size_t numParticles = 0;
-        size_t numParticles1 = 0;
-        size_t numParticles2 = 0;
         size_t numBodies = 0;
-
-        char s[16384]; //#from mpm-2d-legacy
 
         //open grid file and parse
         std::ifstream fin(nfilename);
@@ -148,55 +146,57 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
             //parse header
             if (getline(fin, line)) {
                 std::stringstream ss(line);
-                if (!(ss >> numParticles >> numParticles1 >> numParticles2)) {
+                if (!(ss >> numBodies)) {
                     std::cout << "Cannot parse particle file: " << pfilename << "\n";
-                    std::cout << "Expected 3 particle counts at file header." << "\n";
+                    std::cout << "Expected body count at file header." << "\n";
                     return -1;
                 }
             }
             //create body objects
-            numBodies = 0;
-            if (numParticles != 0) {
-                if (numParticles1 != 0) {
-                    this->bodies.push_back(Body(numNodes, numParticles1, numElements, ++numBodies));
+            double np = 0;
+            for (size_t b=0;b<numBodies;b++){
+                if (getline(fin, line)) {
+                    std::stringstream ss(line);
+                    if (!(ss >> np)) {
+                        std::cout << "Cannot parse particle file: " << pfilename << "\n";
+                        std::cout << "Expected particle counts after body count at file header." << "\n";
+                        return -1;
+                    }
+                    this->bodies.push_back(Body(numNodes, np, numElements, b));
+                    numParticles += np;
                 }
-                if (numParticles2 != 0) {
-                    this->bodies.push_back(Body(numNodes, numParticles2, numElements, ++numBodies));
-                }
-            } else {
-                return -1;
             }
+
             this->num_particles = numParticles;
             this->num_bodies = numBodies;
+            this->num_contacts = numBodies*(numBodies-1)/2;
+            this->contacts.resize(num_contacts);
             std::cout << "Bodies created (" << numBodies << ").\n";
 
             //assign particle to bodies for each particle in particle file
-            size_t pb1 = 0;
-            size_t pb2 = 0;
             while (getline(fin, line)) {
                 std::stringstream ss(line);
-                double b, m, v, x, y, z, x_t, y_t, z_t;
+                double b, pID, m, v, x, y, z, x_t, y_t, z_t;
                 size_t idOut;
 
-                if (!(ss >> b >> m >> v >> x >> y >> z >> x_t >> y_t >> z_t)) {
+                assert(b<this->num_bodies);
+
+                if (!(ss >> b >> pID >> m >> v >> x >> y >> z >> x_t >> y_t >> z_t)) {
                     std::cout << "Cannot parse particle file: " << pfilename << "\n";
                     return -1;
                 }
-                //currently assumes that bodies are 1-indexed
-                if (b == 1) {
-                    idOut = pb1;
-                    pb1 += 1;
-                } else {
-                    idOut = pb2;
-                    pb2 += 1;
-                }
-                this->bodies[b - 1].particles.addParticle(m, v, x, y, z, x_t, y_t, z_t, idOut); //0-index particles
+
+                assert(pID<this->bodies[b].p);
+
+                this->bodies[b].particles.addParticle(m, v, x, y, z, x_t, y_t, z_t, (size_t)pID); //0-index particles
             }
         } else {
             std::cout << "Cannot parse particle file: " << pfilename << "\n";
             return -1;
         }
         fin.close();
+
+        std::cout << "Particles created (" << numParticles << ").\n";
 
         //assign nodes to bodies
         for (size_t i = 0; i < numBodies; i++) {
@@ -302,56 +302,53 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
 
     //open particle file
     fin.open(pfilename);
-    if (fin.is_open()){
+    if (fin.is_open()) {
         std::string line;
 
         //parse header
-        if (getline(fin,line)){
+        if (getline(fin, line)) {
             std::stringstream ss(line);
-            if (!(ss >> numParticles >> numParticles1 >> numParticles2)){
+            if (!(ss >> numBodies)) {
                 std::cout << "Cannot parse particle file: " << pfilename << "\n";
-                std::cout << "Expected 3 particle counts at file header." << "\n";
+                std::cout << "Expected body count at file header." << "\n";
                 return -1;
             }
         }
         //create body objects
-        numBodies = 0;
-        if (numParticles != 0){
-            if (numParticles1 != 0){
-                this->bodies.push_back(Body(numNodes,numParticles1,numElements,++numBodies));
+        double np = 0;
+        for (size_t b=0;b<numBodies;b++){
+            std::stringstream ss(line);
+            if (!(ss >> np)) {
+                std::cout << "Cannot parse particle file: " << pfilename << "\n";
+                std::cout << "Expected particle counts after body count at file header." << "\n";
+                return -1;
             }
-            if (numParticles2 != 0){
-                this->bodies.push_back(Body(numNodes,numParticles2,numElements,++numBodies));
-            }
-        } else {
-            return -1;
+            this->bodies.push_back(Body(numNodes,np,numElements,b));
+            numParticles += np;
         }
+
         this->num_particles = numParticles;
         this->num_bodies = numBodies;
+        this->num_contacts = numBodies*(numBodies-1)/2;
+        this->contacts.resize(num_contacts);
         std::cout << "Bodies created (" << numBodies << ").\n";
 
         //assign particle to bodies for each particle in particle file
-        size_t pb1 = 0;
-        size_t pb2 = 0;
-        while(getline(fin,line)){
+        while (getline(fin, line)) {
             std::stringstream ss(line);
-            double b, m, v, x, y, z, x_t, y_t, z_t;
+            double b, pID, m, v, x, y, z, x_t, y_t, z_t;
             size_t idOut;
 
-            if (!(ss >> b >> m >> v >> x >> y >> z >> x_t >> y_t >> z_t)){
+            assert(b<this->num_bodies);
+
+            if (!(ss >> b >> pID >> m >> v >> x >> y >> z >> x_t >> y_t >> z_t)) {
                 std::cout << "Cannot parse particle file: " << pfilename << "\n";
                 return -1;
             }
-            //currently assumes that bodies are 1-indexed
-            if (b==1){
-                idOut = pb1;
-                pb1+=1;
-            } else {
-                idOut = pb2;
-                pb2+=1;
-            }
-            //std::cout << "{" << x << " " << y << " " << z << "} -> " << idOut << "\n";
-            this->bodies[b-1].particles.addParticle(m,v,x,y,z,x_t,y_t,z_t,idOut); //0-index particles
+
+            assert(pID<this->bodies[b].p);
+
+            this->bodies[b].particles.addParticle(m, v, x, y, z, x_t, y_t, z_t, (size_t)pID); //0-index particles
         }
     } else {
         std::cout << "Cannot parse particle file: " << pfilename << "\n";
@@ -400,37 +397,66 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
     return 1;
 }
 
-int job_t::assignMaterials() {
+int job_t::assignDefaultMaterials() {
     std::string filename = "isolin.so";
-    for (size_t i=0;i<num_bodies;i++){
-        this->bodies[i].defineMaterial(filename,0,0,NULL,NULL);
+    std::vector<double> matprops = {1e9,0.3};
+    for (size_t i=0;i<this->num_bodies;i++){
+        this->bodies[i].defineMaterial(filename,matprops,std::vector<int>());
     }
-    std::cout << "Materials assigned (" << num_bodies << ").\n";
+    std::cout << "Materials assigned (" << this->num_bodies << ").\n";
     return 1;
 }
 
-int job_t::assignMaterials(const char* matFile1, const char* matFile2){
-    // for defining material based on .so files (not implemented as of 9/8/16
-    return -1;
+int job_t::assignMaterial(std::string filename, size_t id, std::vector<double> fp64props, std::vector<int> intprops) {
+    this->bodies[id].defineMaterial(filename,fp64props,intprops);
+    std::cout << "Material reassigned [" << id << "].\n";
+    return 1;
 }
-
 
 int job_t::assignBoundaryConditions(){
     //default value
     std::string filename = "boxBC.so";
-    this->boundary.setBoundary(filename,0,0,NULL,NULL);
+    this->boundary.setBoundary(filename,std::vector<double>(),std::vector<int>());
+    this->boundary.bc_init(this);
 
     std::cout << "Boundary Conditions assigned (1).\n";
 
     return 1;
 }
 
-int job_t::assignBoundaryConditions(std::string bcFile, size_t nfp64, size_t nint, double *bcfp64, int *bcint){
+int job_t::assignBoundaryConditions(std::string bcFile, std::vector<double> bcfp64, std::vector<int> bcint){
 
-    this->boundary.setBoundary(bcFile,nfp64,nint,bcfp64,bcint);
+    this->boundary.setBoundary(bcFile,bcfp64,bcint);
+    this->boundary.bc_init(this);
 
     std::cout << "Boundary Conditions assigned (1).\n";
 
+    return 1;
+}
+
+int job_t::assignDefaultContacts() {
+    std::string filename = "nocontact.so";
+    std::vector<int> bodyIDs = {0,1};
+    int b1 = 0;
+    int b2 = 0;
+    for(size_t i=0;i<this->num_contacts;i++){
+        b2++;
+        if (b2 > this->num_bodies){
+            b1++;
+            b2 = b1+1;
+        }
+        bodyIDs = {b1,b2};
+        this->contacts[i].setContact(filename,i,bodyIDs,std::vector<double>(),std::vector<int>());
+        this->contacts[i].contact_init(this,i);
+    }
+    std::cout << "Contact Rules assigned (" << this->num_contacts << ")\n";
+    return 1;
+}
+
+int job_t::assignContact(std::string filename, size_t id, std::vector<int> bodyIDs, std::vector<double> fp64props, std::vector<int> intprops) {
+    this->contacts[id].setContact(filename,id,bodyIDs,fp64props,intprops);
+    this->contacts[id].contact_init(this,id);
+    std::cout << "Contact Rule reassigned [" << id << "]";
     return 1;
 }
 
@@ -570,7 +596,10 @@ void job_t::addContactForces(){
         this->bodies[b].nodes.contact_fy = this->bodies[b].nodes.fy;
         this->bodies[b].nodes.contact_fz = this->bodies[b].nodes.fz;
     }
-
+    for (size_t c=0;c<this->num_contacts;c++){
+        this->contacts[c].resolve_contact(this,c);
+    }
+    /*
     if (this->num_bodies > 1) {
         //look for contacts if there are two bodies
         for (size_t i = 0; i < this->num_nodes; i++) {
@@ -645,7 +674,7 @@ void job_t::addContactForces(){
                 }
             }
         }
-    }
+    }*/
 
     return;
     //} else {
@@ -671,6 +700,10 @@ void job_t::addContactForces2D(){
         this->bodies[b].nodes.contact_fz = this->bodies[b].nodes.fz;
     }
 
+    for (size_t c=0;c<this->num_contacts;c++){
+        this->contacts[c].resolve_contact(this,c);
+    }
+    /*
     if (this->num_bodies > 1) {
         //look for contacts if there are two bodies
         for (size_t i = 0; i < this->num_nodes; i++) {
@@ -736,7 +769,7 @@ void job_t::addContactForces2D(){
                 }
             }
         }
-    }
+    }*/
 
     return;
 }

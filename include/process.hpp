@@ -6,12 +6,16 @@
 #ifndef MPM_3D_PROCESS_HPP
 #define MPM_3D_PROCESS_HPP
 
+//mass tolerance
+#define TOL 5e-11
+
 #include <stdlib.h>
 #include <string>
 #include <vector>
 #include "body.hpp"
 #include "element.hpp"
 #include "boundary.hpp"
+#include "contact.hpp"
 
 class job_t{
 public:
@@ -32,6 +36,7 @@ public:
     size_t num_particles;
     size_t num_nodes;
     size_t num_elements;
+    size_t num_contacts;
 
     //thread coloring
     /*size_t num_colors;
@@ -60,6 +65,7 @@ public:
 
     //object vector
     std::vector<Body> bodies;
+    std::vector<Contact> contacts;
 
     //element object
     Elements elements;
@@ -82,10 +88,12 @@ public:
     int importNodesandParticles(std::string ,std::string);
     int importNodesandParticles2D(std::string, std::string);
     void createBody(Body*,size_t,size_t,size_t,size_t);
-    int assignMaterials();
-    int assignMaterials(const char*, const char*);
+    int assignDefaultMaterials();
+    int assignMaterial(std::string,size_t,std::vector<double>,std::vector<int>);
     int assignBoundaryConditions();
-    int assignBoundaryConditions(std::string, size_t, size_t ,double*, int*);
+    int assignBoundaryConditions(std::string, std::vector<double>, std::vector<int>);
+    int assignDefaultContacts();
+    int assignContact(std::string,size_t,std::vector<int>,std::vector<double>,std::vector<int>);
 
     int mpmStepUSLExplicit();
     int mpmStepUSLImplicit();
