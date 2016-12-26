@@ -93,7 +93,7 @@ public:
     int assignBoundaryConditions();
     int assignBoundaryConditions(std::string, std::vector<double>, std::vector<int>);
     int assignDefaultContacts();
-    int assignContact(std::string,size_t,std::vector<int>,std::vector<double>,std::vector<int>);
+    int assignContact(std::string,std::vector<int>,std::vector<double>,std::vector<int>);
 
     int mpmStepUSLExplicit();
     int mpmStepUSLImplicit();

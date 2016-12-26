@@ -40,7 +40,7 @@ job_t::job_t():
         stepcount(0),
         newtonTOL(1e-5),
         linearStepSize(1e-6),
-        contacts(0)
+        num_contacts(0)
 {
     std::cout << "Job created.\n";
     boundary = Boundary();
@@ -83,7 +83,7 @@ inline int job_t::ijkton_safe(int i, int j, int k,
 }
 
 int job_t::importNodesandParticles(std::string nfilename, std::string pfilename){
-    //only reads particle file for 2 bodies
+    //only reads particle file for n bodies
 
     if (this->use_3d == 1) {
         FILE *fp;
@@ -169,8 +169,6 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
 
             this->num_particles = numParticles;
             this->num_bodies = numBodies;
-            this->num_contacts = numBodies*(numBodies-1)/2;
-            this->contacts.resize(num_contacts);
             std::cout << "Bodies created (" << numBodies << ").\n";
 
             //assign particle to bodies for each particle in particle file
@@ -329,8 +327,6 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
 
         this->num_particles = numParticles;
         this->num_bodies = numBodies;
-        this->num_contacts = numBodies*(numBodies-1)/2;
-        this->contacts.resize(num_contacts);
         std::cout << "Bodies created (" << numBodies << ").\n";
 
         //assign particle to bodies for each particle in particle file
@@ -435,8 +431,16 @@ int job_t::assignBoundaryConditions(std::string bcFile, std::vector<double> bcfp
 }
 
 int job_t::assignDefaultContacts() {
-    std::string filename = "nocontact.so";
+    std::string filename;
+    if (this->use_3d==1){
+        filename = "huang.so";
+    } else {
+        filename = "huang2d.so";
+    }
+    this->num_contacts = this->num_bodies*(this->num_bodies-1)/2;
+    this->contacts.resize(this->num_contacts);
     std::vector<int> bodyIDs = {0,1};
+    std::vector<double> contactProps = {0.4};
     int b1 = 0;
     int b2 = 0;
     for(size_t i=0;i<this->num_contacts;i++){
@@ -446,15 +450,17 @@ int job_t::assignDefaultContacts() {
             b2 = b1+1;
         }
         bodyIDs = {b1,b2};
-        this->contacts[i].setContact(filename,i,bodyIDs,std::vector<double>(),std::vector<int>());
+        this->contacts[i].setContact(filename,i,bodyIDs,contactProps,std::vector<int>());
         this->contacts[i].contact_init(this,i);
     }
     std::cout << "Contact Rules assigned (" << this->num_contacts << ")\n";
     return 1;
 }
 
-int job_t::assignContact(std::string filename, size_t id, std::vector<int> bodyIDs, std::vector<double> fp64props, std::vector<int> intprops) {
-    this->contacts[id].setContact(filename,id,bodyIDs,fp64props,intprops);
+int job_t::assignContact(std::string filename, std::vector<int> bodyIDs, std::vector<double> fp64props, std::vector<int> intprops) {
+    this->num_contacts += 1;
+    size_t id = this->num_contacts;
+    this->contacts.push_back(Contact(filename,id,bodyIDs,fp64props,intprops));
     this->contacts[id].contact_init(this,id);
     std::cout << "Contact Rule reassigned [" << id << "]";
     return 1;
