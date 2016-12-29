@@ -54,6 +54,11 @@ void MPMio::setSampleRate(double rateIn) {
     return;
 }
 
+void MPMio::setSampleTime(double timeIn) {
+    this->sampleTime = timeIn;
+    return;
+}
+
 void MPMio::setJob(job_t *jobIn) {
     this->job = jobIn;
 

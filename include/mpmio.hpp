@@ -33,6 +33,7 @@ public:
     //sampling info
     double sampleRate;
     size_t sampledFrames;
+    double sampleTime;
 
     //job
     job_t* job;
@@ -63,6 +64,7 @@ public:
     void defineFrameDirectory(std::string);
 
     void setSampleRate(double);
+    void setSampleTime(double);
 
     void setJob(job_t*);
 

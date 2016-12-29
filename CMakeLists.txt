@@ -17,6 +17,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/objects/particle.cpp
         src/objects/element.cpp
         src/objects/mpmio.cpp
+        src/objects/mpmconfig.cpp
         src/functions/process.cpp
         src/functions/tensor.cpp
         src/functions/loading.cpp

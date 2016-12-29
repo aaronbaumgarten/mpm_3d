@@ -19,6 +19,10 @@
 
 class job_t{
 public:
+    //file
+    std::string particleFile;
+    std::string nodeFile;
+
     //time tracking
     double t;
     double dt;

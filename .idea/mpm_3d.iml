@@ -2,6 +2,7 @@
 <module type="CPP_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/src/tests/test.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/functions/tensor.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/functions/loading.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/functions/process.cpp" isTestSource="false" />
@@ -10,8 +11,9 @@
       <sourceFolder url="file://$MODULE_DIR$/src/materials/CMakeLists.txt" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/objects/node.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/objects/particle.cpp" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/src/objects/contact.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/objects/body.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/objects/contact.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/objects/mpmconfig.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/objects/material.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/objects/element.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/objects/mpmio.cpp" isTestSource="false" />
@@ -21,7 +23,10 @@
       <sourceFolder url="file://$MODULE_DIR$/src/boundaries/boxBC2d.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/boundaries/floorBC2D.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/boundaries/CMakeLists.txt" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/src/tests/test.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/contacts/huang2d.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/contacts/huang.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/contacts/nocontact.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/contacts/CMakeLists.txt" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/CMakeLists.txt" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/cmake/FindDL.cmake" isTestSource="false" />
     </content>

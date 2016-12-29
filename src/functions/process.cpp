@@ -40,7 +40,11 @@ job_t::job_t():
         stepcount(0),
         newtonTOL(1e-5),
         linearStepSize(1e-6),
-        num_contacts(0)
+        num_contacts(0),
+        num_bodies(0),
+        num_particles(0),
+        num_nodes(0),
+        num_elements(0)
 {
     std::cout << "Job created.\n";
     boundary = Boundary();
@@ -84,6 +88,8 @@ inline int job_t::ijkton_safe(int i, int j, int k,
 
 int job_t::importNodesandParticles(std::string nfilename, std::string pfilename){
     //only reads particle file for n bodies
+    this->particleFile = pfilename;
+    this->nodeFile = nfilename;
 
     if (this->use_3d == 1) {
         FILE *fp;
@@ -177,13 +183,12 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
                 double b, pID, m, v, x, y, z, x_t, y_t, z_t;
                 size_t idOut;
 
-                assert(b<this->num_bodies);
-
                 if (!(ss >> b >> pID >> m >> v >> x >> y >> z >> x_t >> y_t >> z_t)) {
                     std::cout << "Cannot parse particle file: " << pfilename << "\n";
                     return -1;
                 }
 
+                assert(b<this->num_bodies);
                 assert(pID<this->bodies[b].p);
 
                 this->bodies[b].particles.addParticle(m, v, x, y, z, x_t, y_t, z_t, (size_t)pID); //0-index particles
@@ -335,13 +340,12 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
             double b, pID, m, v, x, y, z, x_t, y_t, z_t;
             size_t idOut;
 
-            assert(b<this->num_bodies);
-
             if (!(ss >> b >> pID >> m >> v >> x >> y >> z >> x_t >> y_t >> z_t)) {
                 std::cout << "Cannot parse particle file: " << pfilename << "\n";
                 return -1;
             }
 
+            assert(b<this->num_bodies);
             assert(pID<this->bodies[b].p);
 
             this->bodies[b].particles.addParticle(m, v, x, y, z, x_t, y_t, z_t, (size_t)pID); //0-index particles
@@ -458,11 +462,12 @@ int job_t::assignDefaultContacts() {
 }
 
 int job_t::assignContact(std::string filename, std::vector<int> bodyIDs, std::vector<double> fp64props, std::vector<int> intprops) {
-    this->num_contacts += 1;
     size_t id = this->num_contacts;
-    this->contacts.push_back(Contact(filename,id,bodyIDs,fp64props,intprops));
+    this->num_contacts += 1;
+    this->contacts.push_back(Contact());
+    this->contacts[id].setContact(filename,id,bodyIDs,fp64props,intprops);
     this->contacts[id].contact_init(this,id);
-    std::cout << "Contact Rule reassigned [" << id << "]";
+    std::cout << "Contact Rule reassigned [" << id << "]\n";
     return 1;
 }
 

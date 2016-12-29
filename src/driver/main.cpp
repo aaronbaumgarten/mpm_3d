@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <string>
+#include <vector>
 #include <memory>
 #include <Eigen/Core>
 
@@ -12,8 +13,17 @@
 #include "element.hpp"
 #include "process.hpp"
 #include "mpmio.hpp"
+#include "mpmconfig.hpp"
 
-#define T_STOP 1.0
+
+void usage(char* program_name){
+    std::cout << program_name << " [OPTION]" << std::endl;
+    std::cout << "    OPTION is any of the following (only one expected)." << std::endl;
+    std::cout << "        -c CFGFILE, run simulation using specified configuration file." << std::endl;
+    std::cout << "        -d, run default simulation using default files." << std::endl;
+    std::cout << "        -r SIMFILE, **TO BE ADDED**." << std::endl;
+    return;
+}
 
 int main(int argc, char *argv[]) {
 
@@ -22,65 +32,105 @@ int main(int argc, char *argv[]) {
 
     std::cout << "Hello, World!" << std::endl;
 
-    //initialize job
+    //initialize job and objects
     job_t *job(new job_t);
-    job->dt = 1e-3;
-    //job->dt_base = job->dt;
-    //job->dt_minimum = 1e-6;
-    job->use_3d = 1;
-    job->use_implicit = 1;
-    job->use_cpdi = 1;
-    job->newtonTOL = 1e-10;
-    job->linearStepSize = 1e-5;
-
-    //parse configuration files
-    //char *fileParticle = "s.particles";
-    //char *fileNodes = "s.grid";
-    std::string fileParticle = "test.particles";
-    std::string fileNodes = "test.grid";
-    if(!(job->importNodesandParticles(fileNodes,fileParticle))){
-        std::cout << "failed to import nodes and particles" << std::endl;
-        exit(0);
-    }
-
-    //initialize and allocate memory
-    /* hard-coding material properties for initial run */
-    if(!(job->assignDefaultMaterials())){
-        std::cout << "failed to assign materials" << std::endl;
-        exit(0);
-    }
-
-    if(!(job->assignBoundaryConditions())){
-        std::cout << "failed to assign boundary conditions" << std::endl;
-        exit(0);
-    }
-
-    if(!(job->assignDefaultContacts())){
-        std::cout << "failed to assign contact rules" << std::endl;
-        exit(0);
-    }
-
-    if(!(job->createMappings())){
-        std::cout << "failed to create mappings" << std::endl;
-        exit(0);
-    }
-    std::cout << "Mapping created (" << job->bodies[0].Phi.nonZeros() << ").\n";
-
-    //testMappingGradient(job);
-
-    //colorize for threading
-
-    //pre-run setup
     MPMio mpmOut;
-    mpmOut.setDefaultFiles();
-    mpmOut.setJob(job);
-    mpmOut.setSampleRate(120.0);
+    MPMconfig config;
+
+    //read command line args and initialize simulation
+    if (argc < 2) {
+        std::cout << "No arguments passed, expected 1. Exiting." << std::endl;
+        usage(argv[0]);
+        delete(job);
+        exit(0);
+    } else {
+        std::vector<std::string> inputOptions = {"-c","-d","-r"};
+        std::string inputArg(argv[1]);
+        switch (config.findStringID(inputOptions,inputArg)){
+            case -1:
+                //unexpected arg
+                std::cout << "Unexpected argument \"" << inputArg << "\". Exiting." << std::endl;
+                usage(argv[0]);
+                delete(job);
+                exit(0);
+                break;
+            case 0:
+                // -c CFGFILE
+                config.setConfigFile(argv[2]);
+                config.checkConfigFile(argv[2]);
+                if(!(config.configJob(job))){delete(job); exit(0);}
+                if(!(config.configInput(job))){delete(job); exit(0);}
+                if(!(config.configBoundary(job))){delete(job); exit(0);}
+                if(!(config.configMaterial(job))){delete(job); exit(0);}
+                if(!(config.configContact(job))){delete(job); exit(0);}
+                if(!(config.configOutput(job,&(mpmOut)))){delete(job); exit(0);}
+                break;
+            case 1:
+                // -d (default)
+                job->dt = 1e-3;
+                job->use_3d = 1;
+                job->use_implicit = 1;
+                job->use_cpdi = 1;
+                job->newtonTOL = 1e-10;
+                job->linearStepSize = 1e-5;
+
+                //parse configuration files
+                {
+                    std::string fileParticle = "test.particles";
+                    std::string fileNodes = "test.grid";
+                    if (!(job->importNodesandParticles(fileNodes, fileParticle))) {
+                        std::cout << "failed to import nodes and particles" << std::endl;
+                        delete(job);
+                        exit(0);
+                    }
+                }
+
+                //initialize and allocate memory
+                if (!(job->assignDefaultMaterials())) {
+                    std::cout << "failed to assign materials" << std::endl;
+                    delete(job);
+                    exit(0);
+                }
+                if (!(job->assignBoundaryConditions())) {
+                    std::cout << "failed to assign boundary conditions" << std::endl;
+                    delete(job);
+                    exit(0);
+                }
+                if (!(job->assignDefaultContacts())) {
+                    std::cout << "failed to assign contact rules" << std::endl;
+                    delete(job);
+                    exit(0);
+                }
+                if (!(job->createMappings())) {
+                    std::cout << "failed to create mappings" << std::endl;
+                    delete(job);
+                    exit(0);
+                }
+                std::cout << "Mapping created (" << job->bodies[0].Phi.nonZeros() << ").\n";
+
+                //pre-run setup
+                mpmOut.setDefaultFiles();
+                mpmOut.setJob(job);
+                mpmOut.setSampleRate(120.0);
+                mpmOut.setSampleTime(1.0);
+                break;
+            case 2:
+                // -r SIMFILE (to be added)
+                std::cout << "\"" << inputArg << "\" not yet implemented. Exiting." << std::endl;
+                usage(argv[0]);
+                delete(job);
+                exit(0);
+                break;
+
+        }
+    }
+
 
     //process_usl
-    while (job->t < T_STOP) {
+    while (job->t < mpmOut.sampleTime) {
         //job->mpmStepUSLExplicit();
-        if (job->use_3d==1) {
-            if (job->use_implicit==1){
+        if (job->use_3d == 1) {
+            if (job->use_implicit == 1) {
                 job->mpmStepUSLImplicit();
             } else {
                 job->mpmStepUSLExplicit();
@@ -92,7 +142,7 @@ int main(int argc, char *argv[]) {
         if (job->t * mpmOut.sampleRate > mpmOut.sampledFrames) {
             mpmOut.writeFrame();
             mpmOut.sampledFrames += 1;
-            std::cout << " Frame captured (" << mpmOut.sampledFrames-1 << ")." << std::flush;
+            std::cout << " Frame captured (" << mpmOut.sampledFrames - 1 << ")." << std::flush;
         }
 
         /*std::ostringstream s;
@@ -114,12 +164,8 @@ int main(int argc, char *argv[]) {
     }
     std::cout << "\n";
 
-    //serialize??
-
-    //testing
-
     //kill threads and cleanup
-    delete(job);
+    delete (job);
 
     return 0;
 }
