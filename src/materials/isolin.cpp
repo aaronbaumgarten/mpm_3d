@@ -108,7 +108,7 @@ void calculate_stress_implicit(Body *body, double dtIn) {
         Eigen::Matrix3d gleft = W*T;
         Eigen::Matrix3d gright = T*W;
 
-        Eigen::Matrix3d tmpMat = gleft*gright;
+        Eigen::Matrix3d tmpMat = gleft-gright;
 
         Eigen::Matrix3d CD = 2*G*D + lambda*trD*Eigen::Matrix3d::Identity();
 
@@ -161,7 +161,7 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
         Eigen::Matrix3d gleft = W*T;
         Eigen::Matrix3d gright = T*W;
 
-        Eigen::Matrix3d tmp = gleft*gright;
+        Eigen::Matrix3d tmp = gleft-gright;
 
         Eigen::Matrix3d CD = 2*G*D + lambda*trD*Eigen::Matrix3d::Identity();
 

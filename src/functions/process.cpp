@@ -699,16 +699,16 @@ void job_t::addContactForces2D(){
     for (size_t b=0;b<this->num_bodies;b++) {
         this->bodies[b].nodes.contact_mx_t = this->bodies[b].nodes.mx_t;
         this->bodies[b].nodes.contact_my_t = this->bodies[b].nodes.my_t;
-        this->bodies[b].nodes.contact_mz_t = this->bodies[b].nodes.mz_t;
+        //this->bodies[b].nodes.contact_mz_t = this->bodies[b].nodes.mz_t;
 
         //the following appear unused
         this->bodies[b].nodes.contact_x_t = this->bodies[b].nodes.mx_t.array()/this->bodies[b].nodes.m.array();
         this->bodies[b].nodes.contact_y_t = this->bodies[b].nodes.my_t.array()/this->bodies[b].nodes.m.array();
-        this->bodies[b].nodes.contact_z_t = this->bodies[b].nodes.mz_t.array()/this->bodies[b].nodes.m.array();
+        //this->bodies[b].nodes.contact_z_t = this->bodies[b].nodes.mz_t.array()/this->bodies[b].nodes.m.array();
 
         this->bodies[b].nodes.contact_fx = this->bodies[b].nodes.fx;
         this->bodies[b].nodes.contact_fy = this->bodies[b].nodes.fy;
-        this->bodies[b].nodes.contact_fz = this->bodies[b].nodes.fz;
+        //this->bodies[b].nodes.contact_fz = this->bodies[b].nodes.fz;
     }
 
     for (size_t c=0;c<this->num_contacts;c++){
@@ -1296,7 +1296,7 @@ void job_t::moveGridImplicitCG() {
         this->bodies[b].nodes.z_t_trial = this->bodies[b].nodes.z_t_n;
     }
 
-    //calculate L on particles
+    //calculate L on particles from initial contact velocity
     this->calculateStrainRate();
 
     //update particle densities
@@ -1324,7 +1324,7 @@ void job_t::moveGridImplicitCG() {
         this->bodies[b].nodes.fz_L = this->bodies[b].nodes.contact_fz;
     }
 
-    //calculate residual for expicit step
+    //calculate residual
     this->calculateImplicitResidual();
 
     double rhoSum = 0;
@@ -1365,11 +1365,11 @@ void job_t::moveGridImplicitCG() {
                 double vNorm = std::sqrt(
                         this->bodies[b].nodes.x_t_n.squaredNorm() + this->bodies[b].nodes.y_t_n.squaredNorm()
                         + this->bodies[b].nodes.z_t_n.squaredNorm());
-                if (vNorm <= TOL) {
+                if (vNorm <= 0) {
                     vNorm = 1.0;
                 }
                 double sNorm = this->bodies[b].nodes.pk.norm();
-                if (sNorm>TOL) {
+                if (sNorm>0) {
                     this->bodies[b].nodes.x_t_trial =
                             this->bodies[b].nodes.x_t_n + h * vNorm * this->bodies[b].nodes.pk.segment(0,this->bodies[b].n) / sNorm;
                     this->bodies[b].nodes.y_t_trial =
@@ -1391,7 +1391,7 @@ void job_t::moveGridImplicitCG() {
                 this->bodies[b].nodes.z_t = this->bodies[b].nodes.z_t_trial;
             }
 
-            //add contact forces
+            //add contact forces to trial velocity
             this->addContactForces();
 
             //enforce boundary conditions
@@ -1426,7 +1426,7 @@ void job_t::moveGridImplicitCG() {
                 double vNorm = std::sqrt(
                         this->bodies[b].nodes.x_t_n.squaredNorm() + this->bodies[b].nodes.y_t_n.squaredNorm() +
                         this->bodies[b].nodes.z_t_n.squaredNorm());
-                if (vNorm <= TOL) {
+                if (vNorm <= 0) {
                     vNorm = 1.0;
                 }
                 double sNorm = this->bodies[b].nodes.pk.norm();
@@ -1476,7 +1476,7 @@ void job_t::moveGridImplicitCG() {
         //std::cout << "n: " << nIter << " k: " << k <<  " r: " << rhoSum << std::endl;
         nIter += 1;
 
-        //add contact forces
+        //add contact forces to trial velocity
         this->addContactForces();
 
         //enforce boundary conditions
@@ -1582,7 +1582,7 @@ void job_t::moveGridImplicitBiCGSTAB() {
         this->bodies[b].nodes.z_t_trial = this->bodies[b].nodes.z_t_n;
     }
 
-    //calculate L on particles
+    //calculate L on particles from initial contact velocities
     this->calculateStrainRate();
 
     //update particle densities
@@ -1649,8 +1649,8 @@ void job_t::moveGridImplicitBiCGSTAB() {
 
         //solve for 's' to iterate 'v' [Sulsky 2003]
         size_t k = 0;
-        //bool isConverging = true;
-        while (k < 100 && rhoSum > rhoTOL && rhoSum < R_MAX /*&& isConverging*/) {
+        bool isConverging = true;
+        while (k < 100 && rhoSum > rhoTOL && rhoSum < R_MAX && isConverging) {
             double h = this->linearStepSize;
 
             for (size_t b = 0; b < this->num_bodies; b++) {
@@ -1663,11 +1663,11 @@ void job_t::moveGridImplicitBiCGSTAB() {
                 double vNorm = std::sqrt(
                         this->bodies[b].nodes.x_t_n.squaredNorm() + this->bodies[b].nodes.y_t_n.squaredNorm()
                         + this->bodies[b].nodes.z_t_n.squaredNorm());
-                if (vNorm <= TOL) {
+                if (vNorm <= 0) {
                     vNorm = 1.0;
                 }
                 double sNorm = this->bodies[b].nodes.pk.norm();
-                if (sNorm>TOL) {
+                if (sNorm>0) {
                     this->bodies[b].nodes.x_t_trial =
                             this->bodies[b].nodes.x_t_n + h * vNorm * this->bodies[b].nodes.pk.segment(0,this->bodies[b].n) / sNorm;
                     this->bodies[b].nodes.y_t_trial =
@@ -1675,9 +1675,11 @@ void job_t::moveGridImplicitBiCGSTAB() {
                     this->bodies[b].nodes.z_t_trial =
                             this->bodies[b].nodes.z_t_n + h * vNorm * this->bodies[b].nodes.pk.segment(2*this->bodies[b].n,this->bodies[b].n) / sNorm;
                 } else {
+                    isConverging = false;
+                    /*std::cout << k << " 1 " << sNorm << std::endl;
                     this->bodies[b].nodes.x_t_trial = this->bodies[b].nodes.x_t_n;
                     this->bodies[b].nodes.y_t_trial = this->bodies[b].nodes.y_t_n;
-                    this->bodies[b].nodes.z_t_trial = this->bodies[b].nodes.z_t_n;
+                    this->bodies[b].nodes.z_t_trial = this->bodies[b].nodes.z_t_n;*/
                 }
 
                 this->bodies[b].nodes.mx_t = this->bodies[b].nodes.x_t_trial.array() * this->bodies[b].nodes.m.array();
@@ -1689,7 +1691,10 @@ void job_t::moveGridImplicitBiCGSTAB() {
                 this->bodies[b].nodes.z_t = this->bodies[b].nodes.z_t_trial;
             }
 
-            //add contact forces
+            //if failing to converge, break
+            if(!isConverging){break;}
+
+            //add contact forces to trial velocity
             this->addContactForces();
 
             //enforce boundary conditions
@@ -1724,11 +1729,11 @@ void job_t::moveGridImplicitBiCGSTAB() {
                 double vNorm = std::sqrt(
                         this->bodies[b].nodes.x_t_n.squaredNorm() + this->bodies[b].nodes.y_t_n.squaredNorm() +
                         this->bodies[b].nodes.z_t_n.squaredNorm());
-                if (vNorm <= TOL) {
+                if (vNorm <= 0) {
                     vNorm = 1.0;
                 }
                 double sNorm = this->bodies[b].nodes.pk.norm();
-                if (sNorm > TOL) {
+                if (sNorm > 0) {
                     //isConverging = true;
                     this->bodies[b].nodes.DhRx = sNorm / (h * vNorm) * (this->bodies[b].nodes.Rx - this->bodies[b].nodes.Rvx);
                     this->bodies[b].nodes.DhRy = sNorm / (h * vNorm) * (this->bodies[b].nodes.Ry - this->bodies[b].nodes.Rvy);
@@ -1746,15 +1751,18 @@ void job_t::moveGridImplicitBiCGSTAB() {
 
                     this->bodies[b].nodes.qk = this->bodies[b].nodes.rk - this->bodies[b].nodes.ak * this->bodies[b].nodes.wk;
                 } else {
-                    //isConverging = false;
+                    isConverging = false;
+                    //std::cout << "sNorm <= " << TOL << std::endl;
+                    /*std::cout << k << " 2 " << sNorm << std::endl;
+                    isConverging = false;
                     this->bodies[b].nodes.hk = this->bodies[b].nodes.sk;
-                    this->bodies[b].nodes.qk = this->bodies[b].nodes.rk;
+                    this->bodies[b].nodes.qk = this->bodies[b].nodes.rk;*/
                     //let ak retain former value for bk calculation at beginning of step
                 }
 
                 //calculate t = DhDF(vn,q)
                 sNorm = this->bodies[b].nodes.qk.norm();
-                if (sNorm>TOL) {
+                if (sNorm>0) {
                     this->bodies[b].nodes.x_t_trial =
                             this->bodies[b].nodes.x_t_n + h * vNorm * this->bodies[b].nodes.qk.segment(0,this->bodies[b].n) / sNorm;
                     this->bodies[b].nodes.y_t_trial =
@@ -1762,9 +1770,11 @@ void job_t::moveGridImplicitBiCGSTAB() {
                     this->bodies[b].nodes.z_t_trial =
                             this->bodies[b].nodes.z_t_n + h * vNorm * this->bodies[b].nodes.qk.segment(2*this->bodies[b].n,this->bodies[b].n) / sNorm;
                 } else {
+                    isConverging = false;
+                    /*std::cout << k << " 3 " << sNorm << std::endl;
                     this->bodies[b].nodes.x_t_trial = this->bodies[b].nodes.x_t_n;
                     this->bodies[b].nodes.y_t_trial = this->bodies[b].nodes.y_t_n;
-                    this->bodies[b].nodes.z_t_trial = this->bodies[b].nodes.z_t_n;
+                    this->bodies[b].nodes.z_t_trial = this->bodies[b].nodes.z_t_n;*/
                 }
 
                 this->bodies[b].nodes.mx_t = this->bodies[b].nodes.x_t_trial.array() * this->bodies[b].nodes.m.array();
@@ -1776,7 +1786,10 @@ void job_t::moveGridImplicitBiCGSTAB() {
                 this->bodies[b].nodes.z_t = this->bodies[b].nodes.z_t_trial;
             }
 
-            //add contact forces
+            //if failing to converge, break
+            if(!isConverging){break;}
+
+            //add contact forces to trial velocity
             this->addContactForces();
 
             //enforce boundary conditions
@@ -1811,11 +1824,11 @@ void job_t::moveGridImplicitBiCGSTAB() {
                 double vNorm = std::sqrt(
                         this->bodies[b].nodes.x_t_n.squaredNorm() + this->bodies[b].nodes.y_t_n.squaredNorm() +
                         this->bodies[b].nodes.z_t_n.squaredNorm());
-                if (vNorm <= TOL) {
+                if (vNorm <= 0) {
                     vNorm = 1.0;
                 }
                 double sNorm = this->bodies[b].nodes.qk.norm();
-                if (sNorm > TOL) {
+                if (sNorm > 0) {
                     //isConverging = true;
                     this->bodies[b].nodes.DhRx = sNorm / (h * vNorm) * (this->bodies[b].nodes.Rx - this->bodies[b].nodes.Rvx);
                     this->bodies[b].nodes.DhRy = sNorm / (h * vNorm) * (this->bodies[b].nodes.Ry - this->bodies[b].nodes.Rvy);
@@ -1834,12 +1847,19 @@ void job_t::moveGridImplicitBiCGSTAB() {
 
                     this->bodies[b].nodes.rk = this->bodies[b].nodes.qk - this->bodies[b].nodes.ok * this->bodies[b].nodes.tk;
                 } else {
-                    //isConverging = false;
+                    isConverging = false;
+                    /*std::cout << k << " 4 " << sNorm << std::endl;
+                    //std::cout << "sNorm <= " << TOL << std::endl;
+                    isConverging = false;
                     this->bodies[b].nodes.sk = this->bodies[b].nodes.hk;
                     this->bodies[b].nodes.rk = this->bodies[b].nodes.qk;
-                    //let ok retain previous value for calculation of bk at beginning of step
+                    //let ok retain previous value for calculation of bk at beginning of step*/
                 }
             }
+
+            //if failing to converge, break
+            if(!isConverging){break;}
+
             k += 1;
             rhoSum = 0;
             for (size_t b = 0; b < this->num_bodies; b++) {
@@ -1874,6 +1894,7 @@ void job_t::moveGridImplicitBiCGSTAB() {
 
         //enforce boundary conditions
         this->addBoundaryConditions();
+
         //calculate L on particles
         this->calculateStrainRate();
 
