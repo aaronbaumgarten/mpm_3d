@@ -175,8 +175,9 @@ void MPMio::writeParticles(job_t* jobIn) {
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
                 std::ostringstream line;
-                line << "1 " << countCell << "\n";
-                ffile << line.str();
+                ffile << "1 " << countCell << "\n";
+                //line << "1 " << countCell << "\n";
+                //ffile << line.str();
                 countCell += 1;
             }
         }
@@ -193,9 +194,7 @@ void MPMio::writeParticles(job_t* jobIn) {
         ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
-                line << jobIn->bodies[b].particles.m[i] << "\n";
-                ffile << line.str();
+                ffile << jobIn->bodies[b].particles.m[i] << "\n";
             }
         }
 
@@ -203,9 +202,7 @@ void MPMio::writeParticles(job_t* jobIn) {
         ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
-                line << b << "\n";
-                ffile << line.str();
+                ffile << b << "\n";
             }
         }
 
@@ -213,14 +210,14 @@ void MPMio::writeParticles(job_t* jobIn) {
         ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
+
                 //set volume to 0 if nan
                 if (std::isnan(jobIn->bodies[b].particles.v[i]) || std::isinf(jobIn->bodies[b].particles.v[i])){
-                    line << 0 << "\n";
+                    ffile << 0 << "\n";
                 } else {
-                    line << jobIn->bodies[b].particles.v[i] << "\n";
+                    ffile << jobIn->bodies[b].particles.v[i] << "\n";
                 }
-                ffile << line.str();
+
             }
         }
 
@@ -228,14 +225,14 @@ void MPMio::writeParticles(job_t* jobIn) {
         ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
+
                 //set density to zero if nan
                 if (std::isnan(jobIn->bodies[b].particles.m[i]/jobIn->bodies[b].particles.v[i]) || std::isinf(jobIn->bodies[b].particles.m[i]/jobIn->bodies[b].particles.v[i])){
-                    line << 0 << "\n";
+                    ffile << 0 << "\n";
                 } else {
-                    line << jobIn->bodies[b].particles.m[i] / jobIn->bodies[b].particles.v[i] << "\n";
+                    ffile << jobIn->bodies[b].particles.m[i] / jobIn->bodies[b].particles.v[i] << "\n";
                 }
-                ffile << line.str();
+
             }
         }
 
@@ -243,7 +240,7 @@ void MPMio::writeParticles(job_t* jobIn) {
         //ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
+
                 //set velocity to zeros if nan
                 double x_t = jobIn->bodies[b].particles.x_t[i];
                 double y_t = jobIn->bodies[b].particles.y_t[i];
@@ -257,8 +254,7 @@ void MPMio::writeParticles(job_t* jobIn) {
                 if (std::isnan(z_t) || std::isinf(z_t)){
                     z_t = 0;
                 }
-                line << x_t << " " << y_t << " " << z_t << "\n";
-                ffile << line.str();
+                ffile << x_t << " " << y_t << " " << z_t << "\n";
             }
         }
 
@@ -266,7 +262,6 @@ void MPMio::writeParticles(job_t* jobIn) {
         //ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
                 //set body force to zero is nan
                 double bx = jobIn->bodies[b].particles.bx[i];
                 double by = jobIn->bodies[b].particles.by[i];
@@ -280,8 +275,7 @@ void MPMio::writeParticles(job_t* jobIn) {
                 if (std::isnan(bz) || std::isinf(bz)){
                     bz = 0;
                 }
-                line << bx << " " << by << " " << bz << "\n";
-                ffile << line.str();
+                ffile << bx << " " << by << " " << bz << "\n";
             }
         }
 
@@ -289,7 +283,6 @@ void MPMio::writeParticles(job_t* jobIn) {
         ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
                 double P = (jobIn->bodies[b].particles.T(i,XX)+jobIn->bodies[b].particles.T(i,YY)+jobIn->bodies[b].particles.T(i,ZZ));
                 if (jobIn->use_3d==1){
                     P = -P/3.0;
@@ -301,8 +294,7 @@ void MPMio::writeParticles(job_t* jobIn) {
                 if (std::isnan(P) || std::isinf(P)){
                     P=0;
                 }
-                line << P << "\n";
-                ffile << line.str();
+                ffile << P << "\n";
             }
         }
 
@@ -310,7 +302,6 @@ void MPMio::writeParticles(job_t* jobIn) {
         //ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
                 //set nan stresses to 0
                 double txx = jobIn->bodies[b].particles.T(i,XX);
                 double txy = jobIn->bodies[b].particles.T(i,XY);
@@ -354,11 +345,11 @@ void MPMio::writeParticles(job_t* jobIn) {
                 //line << jobIn->bodies[b].particles[i].T[YX] << " " << jobIn->bodies[b].particles[i].T[YY] << " " << jobIn->bodies[b].particles[i].T[YZ] << "\n";
                 //line << jobIn->bodies[b].particles[i].T[ZX] << " " << jobIn->bodies[b].particles[i].T[ZY] << " " << jobIn->bodies[b].particles[i].T[ZZ] << "\n";
 
-                line << txx << " " << txy << " " << txz << "\n";
-                line << tyx << " " << tyy << " " << tyz << "\n";
-                line << tzx << " " << tzy << " " << tzz << "\n";
+                ffile << txx << " " << txy << " " << txz << "\n";
+                ffile << tyx << " " << tyy << " " << tyz << "\n";
+                ffile << tzx << " " << tzy << " " << tzz << "\n";
 
-                ffile << line.str() << std::endl;
+                ffile << "\n";
             }
         }
 
@@ -366,7 +357,6 @@ void MPMio::writeParticles(job_t* jobIn) {
         //ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
 
                 //set nan gradients to 0
                 double lxx = jobIn->bodies[b].particles.L(i,XX);
@@ -411,10 +401,10 @@ void MPMio::writeParticles(job_t* jobIn) {
                 //line << jobIn->bodies[b].particles[i].L[YX] << " " << jobIn->bodies[b].particles[i].L[YY] << " " << jobIn->bodies[b].particles[i].L[YZ] << "\n";
                 //line << jobIn->bodies[b].particles[i].L[ZX] << " " << jobIn->bodies[b].particles[i].L[ZY] << " " << jobIn->bodies[b].particles[i].L[ZZ] << "\n";
 
-                line << lxx << " " << lxy << " " << lxz << "\n";
-                line << lyx << " " << lyy << " " << lyz << "\n";
-                line << lzx << " " << lzy << " " << lzz << "\n";
-                ffile << line.str() << std::endl;
+                ffile << lxx << " " << lxy << " " << lxz << "\n";
+                ffile << lyx << " " << lyy << " " << lyz << "\n";
+                ffile << lzx << " " << lzy << " " << lzz << "\n";
+                ffile << "\n";
             }
         }
 
@@ -422,7 +412,6 @@ void MPMio::writeParticles(job_t* jobIn) {
         //ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
 
                 //set nan gradients to 0
                 double fxx = jobIn->bodies[b].particles.F(i,XX);
@@ -467,10 +456,10 @@ void MPMio::writeParticles(job_t* jobIn) {
                 //line << jobIn->bodies[b].particles[i].F[YX] << " " << jobIn->bodies[b].particles[i].F[YY] << " " << jobIn->bodies[b].particles[i].F[YZ] << "\n";
                 //line << jobIn->bodies[b].particles[i].F[ZX] << " " << jobIn->bodies[b].particles[i].F[ZY] << " " << jobIn->bodies[b].particles[i].F[ZZ] << "\n";
 
-                line << fxx << " " << fxy << " " << fxz << "\n";
-                line << fyx << " " << fyy << " " << fyz << "\n";
-                line << fzx << " " << fzy << " " << fzz << "\n";
-                ffile << line.str() << std::endl;
+                ffile << fxx << " " << fxy << " " << fxz << "\n";
+                ffile << fyx << " " << fyy << " " << fyz << "\n";
+                ffile << fzx << " " << fzy << " " << fzz << "\n";
+                ffile << "\n";
             }
         }
 
@@ -478,7 +467,6 @@ void MPMio::writeParticles(job_t* jobIn) {
         //ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
 
                 //set nan gradients to 0
                 double fxx = jobIn->bodies[b].particles.Fp(i,XX);
@@ -523,10 +511,10 @@ void MPMio::writeParticles(job_t* jobIn) {
                 //line << jobIn->bodies[b].particles[i].Fp[YX] << " " << jobIn->bodies[b].particles[i].Fp[YY] << " " << jobIn->bodies[b].particles[i].Fp[YZ] << "\n";
                 //line << jobIn->bodies[b].particles[i].Fp[ZX] << " " << jobIn->bodies[b].particles[i].Fp[ZY] << " " << jobIn->bodies[b].particles[i].Fp[ZZ] << "\n";
 
-                line << fxx << " " << fxy << " " << fxz << "\n";
-                line << fyx << " " << fyy << " " << fyz << "\n";
-                line << fzx << " " << fzy << " " << fzz << "\n";
-                ffile << line.str() << std::endl;
+                ffile << fxx << " " << fxy << " " << fxz << "\n";
+                ffile << fyx << " " << fyy << " " << fyz << "\n";
+                ffile << fzx << " " << fzy << " " << fzz << "\n";
+                ffile << "\n";
             }
         }
 
@@ -534,7 +522,6 @@ void MPMio::writeParticles(job_t* jobIn) {
         //ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
 
                 //set nan gradients to 0
                 double fxx = jobIn->bodies[b].particles.Be(i,XX);
@@ -579,10 +566,10 @@ void MPMio::writeParticles(job_t* jobIn) {
                 //line << jobIn->bodies[b].particles[i].Fp[YX] << " " << jobIn->bodies[b].particles[i].Fp[YY] << " " << jobIn->bodies[b].particles[i].Fp[YZ] << "\n";
                 //line << jobIn->bodies[b].particles[i].Fp[ZX] << " " << jobIn->bodies[b].particles[i].Fp[ZY] << " " << jobIn->bodies[b].particles[i].Fp[ZZ] << "\n";
 
-                line << fxx << " " << fxy << " " << fxz << "\n";
-                line << fyx << " " << fyy << " " << fyz << "\n";
-                line << fzx << " " << fzy << " " << fzz << "\n";
-                ffile << line.str() << std::endl;
+                ffile << fxx << " " << fxy << " " << fxz << "\n";
+                ffile << fyx << " " << fyy << " " << fyz << "\n";
+                ffile << fzx << " " << fzy << " " << fzz << "\n";
+                ffile << "\n";
             }
         }
 
@@ -590,7 +577,6 @@ void MPMio::writeParticles(job_t* jobIn) {
         //ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
 
                 //set nan gradients to 0
                 double fxx = jobIn->bodies[b].particles.state(i,XX);
@@ -635,10 +621,10 @@ void MPMio::writeParticles(job_t* jobIn) {
                 //line << jobIn->bodies[b].particles[i].Fp[YX] << " " << jobIn->bodies[b].particles[i].Fp[YY] << " " << jobIn->bodies[b].particles[i].Fp[YZ] << "\n";
                 //line << jobIn->bodies[b].particles[i].Fp[ZX] << " " << jobIn->bodies[b].particles[i].Fp[ZY] << " " << jobIn->bodies[b].particles[i].Fp[ZZ] << "\n";
 
-                line << fxx << " " << fxy << " " << fxz << "\n";
-                line << fyx << " " << fyy << " " << fyz << "\n";
-                line << fzx << " " << fzy << " " << fzz << "\n";
-                ffile << line.str() << std::endl;
+                ffile << fxx << " " << fxy << " " << fxz << "\n";
+                ffile << fyx << " " << fyy << " " << fyz << "\n";
+                ffile << fzx << " " << fzy << " " << fzz << "\n";
+                ffile << "\n";
             }
         }
 
@@ -646,14 +632,12 @@ void MPMio::writeParticles(job_t* jobIn) {
         ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
                 double P = jobIn->bodies[b].particles.state(i,9);
                 //if p is nan set to zero
                 if (std::isnan(P) || std::isinf(P)){
                     P=0;
                 }
-                line << P << "\n";
-                ffile << line.str();
+                ffile << P << "\n";
             }
         }
 
@@ -661,14 +645,13 @@ void MPMio::writeParticles(job_t* jobIn) {
         ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
+
                 double P = jobIn->bodies[b].particles.state(i,10);
                 //if p is nan set to zero
                 if (std::isnan(P) || std::isinf(P)){
                     P=0;
                 }
-                line << P << "\n";
-                ffile << line.str();
+                ffile << P << "\n";
             }
         }
 
@@ -723,9 +706,7 @@ void MPMio::writeNodes(job_t* jobIn) {
 
             ffile << "CELLS " << numPoints.str() << " " << strSize.str() << "\n";
             for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
-                std::ostringstream line;
-                line << "1 " << i << "\n";
-                ffile << line.str();
+                ffile << "1 " << i << "\n";
             }
 
             ffile << "CELL_TYPES " << numPoints.str() << "\n";
@@ -737,15 +718,12 @@ void MPMio::writeNodes(job_t* jobIn) {
             ffile << "SCALARS mass double 1\n";
             ffile << "LOOKUP_TABLE default\n";
             for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
-                std::ostringstream line;
-                line << jobIn->bodies[b].nodes.m[i] << "\n";
-                ffile << line.str();
+                ffile << jobIn->bodies[b].nodes.m[i] << "\n";
             }
 
             ffile << "VECTORS velocity double\n";
             //ffile << "LOOKUP_TABLE default\n";
             for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
-                std::ostringstream line;
                 //set velocity to zeros if nan
                 double x_t = jobIn->bodies[b].nodes.contact_x_t[i];
                 double y_t = jobIn->bodies[b].nodes.contact_y_t[i];
@@ -759,14 +737,12 @@ void MPMio::writeNodes(job_t* jobIn) {
                 if (std::isnan(z_t) || std::isinf(z_t)) {
                     z_t = 0;
                 }
-                line << x_t << " " << y_t << " " << z_t << "\n";
-                ffile << line.str();
+                ffile << x_t << " " << y_t << " " << z_t << "\n";
             }
 
             ffile << "VECTORS force double\n";
             //ffile << "LOOKUP_TABLE default\n";
             for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
-                std::ostringstream line;
                 //set body force to zero is nan
                 double bx = jobIn->bodies[b].nodes.contact_fx[i];
                 double by = jobIn->bodies[b].nodes.contact_fy[i];
@@ -780,8 +756,7 @@ void MPMio::writeNodes(job_t* jobIn) {
                 if (std::isnan(bz) || std::isinf(bz)) {
                     bz = 0;
                 }
-                line << bx << " " << by << " " << bz << "\n";
-                ffile << line.str();
+                ffile << bx << " " << by << " " << bz << "\n";
             }
 
             ffile.close();
@@ -823,9 +798,7 @@ void MPMio::writeCorner(job_t* jobIn, size_t cornerID){
         ffile << "CELLS " << numPoints.str() << " " << strSize.str() << "\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
-                line << "1 " << i << "\n";
-                ffile << line.str();
+                ffile << "1 " << i << "\n";
             }
         }
 
@@ -841,9 +814,7 @@ void MPMio::writeCorner(job_t* jobIn, size_t cornerID){
         ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
-                line << jobIn->bodies[b].particles.m[i] << "\n";
-                ffile << line.str();
+                ffile << jobIn->bodies[b].particles.m[i] << "\n";
             }
         }
 
@@ -851,9 +822,7 @@ void MPMio::writeCorner(job_t* jobIn, size_t cornerID){
         ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
             for (size_t i=0; i<jobIn->bodies[b].p; i++){
-                std::ostringstream line;
-                line << b << "\n";
-                ffile << line.str();
+                ffile << b << "\n";
             }
         }
 
