@@ -358,7 +358,7 @@ void MPMio::writeParticles(job_t* jobIn) {
                 line << tyx << " " << tyy << " " << tyz << "\n";
                 line << tzx << " " << tzy << " " << tzz << "\n";
 
-                ffile << line.str() << std::endl;
+                ffile << line.str() << "\n";
             }
         }
 
@@ -414,7 +414,7 @@ void MPMio::writeParticles(job_t* jobIn) {
                 line << lxx << " " << lxy << " " << lxz << "\n";
                 line << lyx << " " << lyy << " " << lyz << "\n";
                 line << lzx << " " << lzy << " " << lzz << "\n";
-                ffile << line.str() << std::endl;
+                ffile << line.str() << "\n";
             }
         }
 
@@ -470,7 +470,7 @@ void MPMio::writeParticles(job_t* jobIn) {
                 line << fxx << " " << fxy << " " << fxz << "\n";
                 line << fyx << " " << fyy << " " << fyz << "\n";
                 line << fzx << " " << fzy << " " << fzz << "\n";
-                ffile << line.str() << std::endl;
+                ffile << line.str() << "\n";
             }
         }
 
@@ -526,7 +526,7 @@ void MPMio::writeParticles(job_t* jobIn) {
                 line << fxx << " " << fxy << " " << fxz << "\n";
                 line << fyx << " " << fyy << " " << fyz << "\n";
                 line << fzx << " " << fzy << " " << fzz << "\n";
-                ffile << line.str() << std::endl;
+                ffile << line.str() << "\n";
             }
         }
 
@@ -582,7 +582,7 @@ void MPMio::writeParticles(job_t* jobIn) {
                 line << fxx << " " << fxy << " " << fxz << "\n";
                 line << fyx << " " << fyy << " " << fyz << "\n";
                 line << fzx << " " << fzy << " " << fzz << "\n";
-                ffile << line.str() << std::endl;
+                ffile << line.str() << "\n";
             }
         }
 
@@ -638,7 +638,7 @@ void MPMio::writeParticles(job_t* jobIn) {
                 line << fxx << " " << fxy << " " << fxz << "\n";
                 line << fyx << " " << fyy << " " << fyz << "\n";
                 line << fzx << " " << fzy << " " << fzz << "\n";
-                ffile << line.str() << std::endl;
+                ffile << line.str() << "\n";
             }
         }
 

@@ -75,13 +75,13 @@ inline void job_t::node_number_to_coords(
 inline int job_t::ijkton_safe(int i, int j, int k,
                        int imax, int jmax, int kmax){
     if (i>imax || i<0){
-        return -1;
+        return 0;
     }
     if (j>jmax || j<0){
-        return -1;
+        return 0;
     }
     if (k>kmax || k<0){
-        return -1;
+        return 0;
     }
     return i + j*imax + k*jmax*imax;
 }
@@ -112,7 +112,7 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
                 std::stringstream ss(line);
                 if (!(ss >> numLinearNodesX >> numLinearNodesY >> numLinearNodesZ)) {
                     std::cout << "Cannot parse grid file: " << nfilename << "\n";
-                    return -1;
+                    return 0;
                 }
                 this->Nx = numLinearNodesX;
                 this->Ny = numLinearNodesY;
@@ -131,7 +131,7 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
                 std::stringstream ss(line);
                 if (!(ss >> this->Lx >> this->Ly >> this->Lz)) {
                     std::cout << "Cannot parse grid file: " << nfilename << "\n";
-                    return -1;
+                    return 0;
                 }
                 this->hx = this->Lx / (numLinearNodesX - 1);
                 this->hy = this->Ly / (numLinearNodesY - 1);
@@ -139,7 +139,7 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
             }
         } else {
             std::cout << "Cannot parse grid file: " << nfilename << "\n";
-            return -1;
+            return 0;
         }
 
         fin.close();
@@ -155,7 +155,7 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
                 if (!(ss >> numBodies)) {
                     std::cout << "Cannot parse particle file: " << pfilename << "\n";
                     std::cout << "Expected body count at file header." << "\n";
-                    return -1;
+                    return 0;
                 }
             }
             //create body objects
@@ -166,7 +166,7 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
                     if (!(ss >> np)) {
                         std::cout << "Cannot parse particle file: " << pfilename << "\n";
                         std::cout << "Expected particle counts after body count at file header." << "\n";
-                        return -1;
+                        return 0;
                     }
                     this->bodies.push_back(Body(numNodes, np, numElements, b));
                     numParticles += np;
@@ -185,7 +185,8 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
 
                 if (!(ss >> b >> pID >> m >> v >> x >> y >> z >> x_t >> y_t >> z_t)) {
                     std::cout << "Cannot parse particle file: " << pfilename << "\n";
-                    return -1;
+                    std::cout << "Line parsing failed: " << ss.str() << "\n";
+                    return 0;
                 }
 
                 assert(b<this->num_bodies);
@@ -195,7 +196,8 @@ int job_t::importNodesandParticles(std::string nfilename, std::string pfilename)
             }
         } else {
             std::cout << "Cannot parse particle file: " << pfilename << "\n";
-            return -1;
+            std::cout << "Unable to open file." << "\n";
+            return 0;
         }
         fin.close();
 
@@ -272,7 +274,7 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
             std::stringstream ss(line);
             if (!(ss >> numLinearNodesX >> numLinearNodesY >> numLinearNodesZ)){
                 std::cout << "Cannot parse grid file: " << nfilename << "\n";
-                return -1;
+                return 0;
             }
             this->Nx = numLinearNodesX;
             this->Ny = numLinearNodesY;
@@ -290,15 +292,15 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
             std::stringstream ss(line);
             if (!(ss >> this->Lx >> this->Ly >> this->Lz)) {
                 std::cout << "Cannot parse grid file: " << nfilename << "\n";
-                return -1;
+                return 0;
             }
             this->hx = this->Lx / (numLinearNodesX - 1);
             this->hy = this->Ly / (numLinearNodesY - 1);
-            this->hz = this->Lz / 2;
+            this->hz = this->Lz;
         }
     } else {
         std::cout << "Cannot parse grid file: " << nfilename << "\n";
-        return -1;
+        return 0;
     }
 
     fin.close();
@@ -314,20 +316,22 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
             if (!(ss >> numBodies)) {
                 std::cout << "Cannot parse particle file: " << pfilename << "\n";
                 std::cout << "Expected body count at file header." << "\n";
-                return -1;
+                return 0;
             }
         }
         //create body objects
         double np = 0;
         for (size_t b=0;b<numBodies;b++){
-            std::stringstream ss(line);
-            if (!(ss >> np)) {
-                std::cout << "Cannot parse particle file: " << pfilename << "\n";
-                std::cout << "Expected particle counts after body count at file header." << "\n";
-                return -1;
+            if (getline(fin, line)) {
+                std::stringstream ss(line);
+                if (!(ss >> np)) {
+                    std::cout << "Cannot parse particle file: " << pfilename << "\n";
+                    std::cout << "Expected particle counts after body count at file header." << "\n";
+                    return 0;
+                }
+                this->bodies.push_back(Body(numNodes, np, numElements, b));
+                numParticles += np;
             }
-            this->bodies.push_back(Body(numNodes,np,numElements,b));
-            numParticles += np;
         }
 
         this->num_particles = numParticles;
@@ -342,7 +346,8 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
 
             if (!(ss >> b >> pID >> m >> v >> x >> y >> z >> x_t >> y_t >> z_t)) {
                 std::cout << "Cannot parse particle file: " << pfilename << "\n";
-                return -1;
+                std::cout << "Line parsing failed: " << ss.str() << "\n";
+                return 0;
             }
 
             assert(b<this->num_bodies);
@@ -352,7 +357,8 @@ int job_t::importNodesandParticles2D(std::string nfilename, std::string pfilenam
         }
     } else {
         std::cout << "Cannot parse particle file: " << pfilename << "\n";
-        return -1;
+        std::cout << "Unable to open file.\n";
+        return 0;
     }
     fin.close();
 
@@ -714,74 +720,6 @@ void job_t::addContactForces2D(){
     for (size_t c=0;c<this->num_contacts;c++){
         this->contacts[c].resolve_contact(this,c);
     }
-    /*
-    if (this->num_bodies > 1) {
-        //look for contacts if there are two bodies
-        for (size_t i = 0; i < this->num_nodes; i++) {
-            //test every node for contact
-            if (this->bodies[0].nodes.m[i] > TOL && this->bodies[1].nodes.m[i] > TOL) {
-                //use normal from body 1
-                Eigen::Vector2d n1i;
-                n1i << this->bodies[0].nodes.contact_normal_x[i],
-                        this->bodies[0].nodes.contact_normal_y[i];
-                //enforce unit length
-                n1i /= sqrt(n1i.dot(n1i));
-
-                //determine 'center of mass' velocity
-                double m1 = this->bodies[0].nodes.m[i];
-                double m2 = this->bodies[1].nodes.m[i];
-                Eigen::Vector2d mv1i;
-                Eigen::Vector2d mv2i;
-                Eigen::Vector2d vCMi;
-                mv1i << this->bodies[0].nodes.contact_mx_t[i],
-                        this->bodies[0].nodes.contact_my_t[i];
-                mv2i << this->bodies[1].nodes.contact_mx_t[i],
-                        this->bodies[1].nodes.contact_my_t[i];
-                vCMi = (mv1i + mv2i) / (m1 + m2);
-
-                //determine normal force
-                double fn1i;
-                fn1i = m1 * m2 / (this->dt * (m1 + m2)) * (mv2i.dot(n1i) / m2 - mv1i.dot(n1i) / m1);
-
-                //determine shear force and shear vector
-                double ft1i;
-                Eigen::Vector2d s1i;
-                s1i = m1 / this->dt * (vCMi - mv1i / m1) - fn1i * n1i;
-                ft1i = sqrt(s1i.dot(s1i));
-                s1i /= ft1i;
-
-                //add forces
-                Eigen::Vector2d fcti;
-                fcti = std::min(0.0, fn1i)*n1i + std::min(MU_F*std::abs(fn1i),std::abs(ft1i))*s1i;
-
-                //set contact forces
-                this->bodies[0].nodes.contact_fx[i] = fcti[0];
-                this->bodies[0].nodes.contact_fy[i] = fcti[1];
-
-                this->bodies[1].nodes.contact_fx[i] = -fcti[0];
-                this->bodies[1].nodes.contact_fy[i] = -fcti[1];
-
-                if (this->use_implicit==0) {
-                    //adjust nodal velocities for non-penetration
-                    mv1i = mv1i - n1i.dot(mv1i - m1 * vCMi) * n1i;
-                    mv2i = mv2i - n1i.dot(mv2i - m2 * vCMi) * n1i;
-
-                    this->bodies[0].nodes.contact_mx_t[i] = mv1i[0];
-                    this->bodies[0].nodes.contact_my_t[i] = mv1i[1];
-
-                    this->bodies[0].nodes.contact_x_t[i] = mv1i[0] / m1;
-                    this->bodies[0].nodes.contact_y_t[i] = mv1i[1] / m1;
-
-                    this->bodies[1].nodes.contact_mx_t[i] = mv2i[0];
-                    this->bodies[1].nodes.contact_my_t[i] = mv2i[1];
-
-                    this->bodies[1].nodes.contact_x_t[i] = mv2i[0] / m2;
-                    this->bodies[1].nodes.contact_y_t[i] = mv2i[1] / m2;
-                }
-            }
-        }
-    }*/
-
     return;
 }
 
@@ -963,6 +901,55 @@ void job_t::moveParticlesImplicit(){
     //} else {
     //    return this->moveParticlesExplicit2D();
     //}
+}
+
+void job_t::moveParticlesImplicit2D(){
+    //REQUIRES NODE mx_t TO BE STORED AT START OF TIMESTEP
+    for (size_t b = 0; b < this->num_bodies; b++) {
+        //use Eigen Map to point to particle array
+        size_t numRowsP = this->bodies[b].p;
+        size_t numColsP = 1;
+
+        //use Eigen Map to point to node array
+        size_t numRowsN = this->bodies[b].n;
+        size_t numColsN = 1;
+
+        //use to create dummy pvec
+        Eigen::VectorXd pvec(numRowsP);
+
+        for (size_t i = 0; i < this->bodies[b].n; i++) {
+            double m = this->bodies[b].nodes.m[i];
+            if (m != 0) {
+                this->bodies[b].nodes.ux[i] = this->dt * (this->bodies[b].nodes.mx_t_k[i] + this->bodies[b].nodes.contact_mx_t[i]) / (2*m);
+                this->bodies[b].nodes.uy[i] = this->dt * (this->bodies[b].nodes.my_t_k[i] + this->bodies[b].nodes.contact_my_t[i]) / (2*m);
+                this->bodies[b].nodes.uz[i] = 0;
+
+                this->bodies[b].nodes.diff_x_t[i] = this->dt * this->bodies[b].nodes.contact_fx[i] / m;
+                this->bodies[b].nodes.diff_y_t[i] = this->dt * this->bodies[b].nodes.contact_fy[i] / m;
+                this->bodies[b].nodes.diff_z_t[i] = 0;
+            } else {
+                this->bodies[b].nodes.ux[i] = 0;
+                this->bodies[b].nodes.uy[i] = 0;
+                this->bodies[b].nodes.uz[i] = 0;
+
+                this->bodies[b].nodes.diff_x_t[i] = 0;
+                this->bodies[b].nodes.diff_y_t[i] = 0;
+                this->bodies[b].nodes.diff_z_t[i] = 0;
+            }
+        }
+
+        //map back to particles using S transpose
+        this->bodies[b].particles.x += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.ux;
+        this->bodies[b].particles.y += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uy;
+
+        this->bodies[b].particles.ux += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.ux;
+        this->bodies[b].particles.uy += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.uy;
+
+        this->bodies[b].particles.x_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_x_t;
+        this->bodies[b].particles.y_t += this->bodies[b].Phi.transpose() * this->bodies[b].nodes.diff_y_t;
+
+    }
+    return;
 }
 
 void job_t::moveParticlesExplicit2D(){
@@ -1302,11 +1289,11 @@ void job_t::moveGridImplicitCG() {
     //update particle densities
     this->updateTrialDensity();
 
-    //material stress update
-    this->updateTrialStress();
-
     //add body forces
     time_varying_loads(this);
+
+    //material stress update
+    this->updateTrialStress();
 
     //map particle stress back to nodes
     this->mapTrialStress2Grid();
@@ -1588,11 +1575,11 @@ void job_t::moveGridImplicitBiCGSTAB() {
     //update particle densities
     this->updateTrialDensity();
 
-    //material stress update
-    this->updateTrialStress();
-
     //add body forces
     time_varying_loads(this);
+
+    //material stress update
+    this->updateTrialStress();
 
     //map particle stress back to nodes
     this->mapTrialStress2Grid();
@@ -1972,11 +1959,11 @@ int job_t::mpmStepUSLExplicit() {
     //update particle densities
     this->updateDensity();
 
-    //material stress update
-    this->updateStress();
-
     //add boddy forces
     time_varying_loads(this);
+
+    //material stress update
+    this->updateStress();
 
     return 1;
 }
@@ -2010,11 +1997,11 @@ int job_t::mpmStepUSLExplicit2D() {
     //update particle densities
     this->updateDensity();
 
-    //material stress update
-    this->updateStress();
-
     //add boddy forces
     time_varying_loads(this);
+
+    //material stress update
+    this->updateStress();
 
     return 1;
 }
@@ -2057,11 +2044,57 @@ int job_t::mpmStepUSLImplicit() {
     //update particle densities
     this->updateDensity();
 
+    //add boddy forces
+    time_varying_loads(this);
+
     //material stress update
     this->updateStress();
 
+    return 1;
+}
+
+int job_t::mpmStepUSLImplicit2D() {
+    //forward step
+    this->t += this->dt;
+    this->stepcount += 1;
+
+    //create particle map
+    this->createMappings();
+
+    //map particles to grid
+    this->mapParticles2Grid();
+
+    //add contact forces
+    this->addContactForces();
+
+    //enforce boundary conditions
+    this->addBoundaryConditions();
+
+    //move grid
+    //this->moveGridExplicit();
+    //this->moveGridImplicitCG();
+    this->moveGridImplicitBiCGSTAB();
+
+    //add contact forces
+    this->addContactForces();
+
+    //enforce boundary conditions
+    this->addBoundaryConditions();
+
+    //move particles
+    this->moveParticlesImplicit2D();
+
+    //calculate L on particles
+    this->calculateStrainRate2D();
+
+    //update particle densities
+    this->updateDensity();
+
     //add boddy forces
     time_varying_loads(this);
+
+    //material stress update
+    this->updateStress();
 
     return 1;
 }

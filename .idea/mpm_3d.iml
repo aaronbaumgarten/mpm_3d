@@ -21,7 +21,7 @@
       <sourceFolder url="file://$MODULE_DIR$/src/boundaries/floorBC.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/boundaries/boxBC.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/boundaries/boxBC2d.cpp" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/src/boundaries/floorBC2D.cpp" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src/boundaries/floorBC2d.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/boundaries/CMakeLists.txt" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/contacts/huang2d.cpp" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src/contacts/huang.cpp" isTestSource="false" />

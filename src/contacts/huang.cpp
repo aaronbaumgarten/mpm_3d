@@ -78,50 +78,53 @@ void resolve_contact(job_t *job, size_t id) {
                     job->bodies[b2].nodes.contact_mz_t[i];
             vCMi = (mv1i + mv2i) / (m1 + m2);
 
-            //determine normal force
-            double fn1i;
-            fn1i = m1 * m2 / (job->dt * (m1 + m2)) * (mv2i.dot(n1i) / m2 - mv1i.dot(n1i) / m1);
+            //check if converging
+            if ((mv1i/m1 - vCMi).dot(n1i) > 0 ) {
+                //determine normal force
+                double fn1i;
+                fn1i = m1 * m2 / (job->dt * (m1 + m2)) * (mv2i.dot(n1i) / m2 - mv1i.dot(n1i) / m1);
 
-            //determine shear force and shear vector
-            double ft1i;
-            Eigen::Vector3d s1i;
-            s1i = m1 / job->dt * (vCMi - mv1i / m1) - fn1i * n1i;
-            ft1i = sqrt(s1i.dot(s1i));
-            s1i /= ft1i;
+                //determine shear force and shear vector
+                double ft1i;
+                Eigen::Vector3d s1i;
+                s1i = m1 / job->dt * (vCMi - mv1i / m1) - fn1i * n1i;
+                ft1i = sqrt(s1i.dot(s1i));
+                s1i /= ft1i;
 
-            //add forces
-            Eigen::Vector3d fcti;
-            fcti = std::min(0.0, fn1i)*n1i + std::min(mu_f*std::abs(fn1i),std::abs(ft1i))*s1i;
+                //add forces
+                Eigen::Vector3d fcti;
+                fcti = std::min(0.0, fn1i) * n1i + std::min(mu_f * std::abs(fn1i), std::abs(ft1i)) * s1i;
 
-            //set contact forces
-            job->bodies[b1].nodes.contact_fx[i] = fcti[0];
-            job->bodies[b1].nodes.contact_fy[i] = fcti[1];
-            job->bodies[b1].nodes.contact_fz[i] = fcti[2];
+                //set contact forces
+                job->bodies[b1].nodes.contact_fx[i] = fcti[0];
+                job->bodies[b1].nodes.contact_fy[i] = fcti[1];
+                job->bodies[b1].nodes.contact_fz[i] = fcti[2];
 
-            job->bodies[b2].nodes.contact_fx[i] = -fcti[0];
-            job->bodies[b2].nodes.contact_fy[i] = -fcti[1];
-            job->bodies[b2].nodes.contact_fz[i] = -fcti[2];
+                job->bodies[b2].nodes.contact_fx[i] = -fcti[0];
+                job->bodies[b2].nodes.contact_fy[i] = -fcti[1];
+                job->bodies[b2].nodes.contact_fz[i] = -fcti[2];
 
-            if (job->use_implicit==0) {
-                //adjust nodal velocities for non-penetration
-                mv1i = mv1i - n1i.dot(mv1i - m1 * vCMi) * n1i;
-                mv2i = mv2i - n1i.dot(mv2i - m2 * vCMi) * n1i;
+                if (job->use_implicit == 0) {
+                    //adjust nodal velocities for non-penetration
+                    mv1i = mv1i - n1i.dot(mv1i - m1 * vCMi) * n1i;
+                    mv2i = mv2i - n1i.dot(mv2i - m2 * vCMi) * n1i;
 
-                job->bodies[b1].nodes.contact_mx_t[i] = mv1i[0];
-                job->bodies[b1].nodes.contact_my_t[i] = mv1i[1];
-                job->bodies[b1].nodes.contact_mz_t[i] = mv1i[2];
+                    job->bodies[b1].nodes.contact_mx_t[i] = mv1i[0];
+                    job->bodies[b1].nodes.contact_my_t[i] = mv1i[1];
+                    job->bodies[b1].nodes.contact_mz_t[i] = mv1i[2];
 
-                job->bodies[b1].nodes.contact_x_t[i] = mv1i[0] / m1;
-                job->bodies[b1].nodes.contact_y_t[i] = mv1i[1] / m1;
-                job->bodies[b1].nodes.contact_z_t[i] = mv1i[2] / m1;
+                    job->bodies[b1].nodes.contact_x_t[i] = mv1i[0] / m1;
+                    job->bodies[b1].nodes.contact_y_t[i] = mv1i[1] / m1;
+                    job->bodies[b1].nodes.contact_z_t[i] = mv1i[2] / m1;
 
-                job->bodies[b2].nodes.contact_mx_t[i] = mv2i[0];
-                job->bodies[b2].nodes.contact_my_t[i] = mv2i[1];
-                job->bodies[b2].nodes.contact_mz_t[i] = mv2i[2];
+                    job->bodies[b2].nodes.contact_mx_t[i] = mv2i[0];
+                    job->bodies[b2].nodes.contact_my_t[i] = mv2i[1];
+                    job->bodies[b2].nodes.contact_mz_t[i] = mv2i[2];
 
-                job->bodies[b2].nodes.contact_x_t[i] = mv2i[0] / m2;
-                job->bodies[b2].nodes.contact_y_t[i] = mv2i[1] / m2;
-                job->bodies[b2].nodes.contact_z_t[i] = mv2i[2] / m2;
+                    job->bodies[b2].nodes.contact_x_t[i] = mv2i[0] / m2;
+                    job->bodies[b2].nodes.contact_y_t[i] = mv2i[1] / m2;
+                    job->bodies[b2].nodes.contact_z_t[i] = mv2i[2] / m2;
+                }
             }
         }
     }

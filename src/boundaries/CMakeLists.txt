@@ -2,7 +2,7 @@ set(BOUNDARIES
         boxBC.cpp
         boxBC2d.cpp
         floorBC.cpp
-        floorBC2D.cpp
+        floorBC2d.cpp
     )
 
 foreach(bcc ${BOUNDARIES})

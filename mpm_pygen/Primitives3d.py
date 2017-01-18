@@ -43,6 +43,12 @@ class Vector:
     def magnitude(self):
         return math.sqrt(self.x*self.x + self.y*self.y + self.z*self.z)
 
+    def dot(self,vec):
+        return (self.x*vec.x + self.y*vec.y + self.z*vec.z)
+
+    def cross(self,vec):
+        return Vector(self.y*vec.z-self.z*vec.y,-self.x*vec.z+self.z*vec.x,self.x*vec.y-self.y*vec.x)
+
     def __neg__(self):
         return Vector(-self.x, -self.y, -self.z)
     def __pos__(self):
@@ -58,7 +64,12 @@ class Vector:
     def __rsub__(self, lhs):
         return (lhs + (-self))
 
-class Circle:
+    def __mul__(self, rhs):
+        return (Vector(self.x*rhs,self.y*rhs,self.z*rhs))
+    def __rmul__(self,lhs):
+        return (self*lhs)
+
+class Sphere:
     def __init__(self, center, radius):
         self.center = center
         self.radius = float(radius)
@@ -66,6 +77,20 @@ class Circle:
         return '[center: ' + str(self.center) + ', radius: ' + str(self.radius) + ']'
     def encompasses(self, point):
         return (((point - self.center).magnitude() - self.radius) <= 0)
+
+class Cylinder:
+    def __init__(self, center_start, center_end, radius):
+        self.center_start = center_start
+	self.center_end = center_end
+        self.radius = float(radius)
+    def __repr__(self):
+        return '[start center-line: ' + str(self.center_start) + ', end center-line: ' + str(self.center_end) + ', radius: ' + str(self.radius) + ']'
+    def encompasses(self, point):
+        avec = self.center_end - self.center_start
+        bvec = point - self.center_start
+        cval = avec.dot(bvec) * 1.0/(avec.magnitude())
+        rvec = bvec - (avec*(cval/avec.magnitude()))
+        return ((rvec.magnitude() - self.radius) <= 0 and cval >= 0 and cval <= avec.magnitude())
 
 class Box:
     def __init__(self, xmin, xmax, ymin, ymax, zmin, zmax):

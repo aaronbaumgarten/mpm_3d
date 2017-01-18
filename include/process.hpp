@@ -102,6 +102,7 @@ public:
     int mpmStepUSLExplicit();
     int mpmStepUSLImplicit();
     int mpmStepUSLExplicit2D();
+    int mpmStepUSLImplicit2D();
     int mpmTrialStepUSLExplicit();
     //usl step
     int createMappings();
@@ -114,6 +115,7 @@ public:
     void moveParticlesExplicit();
     void moveParticlesImplicit();
     void moveParticlesExplicit2D();
+    void moveParticlesImplicit2D();
     void calculateStrainRate();
     void calculateStrainRate2D();
     void updateDensity();

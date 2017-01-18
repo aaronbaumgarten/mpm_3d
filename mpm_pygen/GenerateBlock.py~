@@ -20,12 +20,11 @@ Lx = 1.0
 Ly = 0.2
 Lz = 1.0
 #Ne = 40
-Nx = 50
-Ny = 10
-Nz = 50
+Nx = 20
+Ny = 4
+Nz = 20
 lmpp = 2
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
-grid2 = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
 print "grid created"
 
 # global properties
@@ -68,8 +67,9 @@ print "body 2 created"
 
 # add points to arrays
 block2_point_array = []
-grid2.generate_point_array(block2_primitive)
-block2_point_array = grid2.point_array
+grid.point_array = []
+grid.generate_point_array(block2_primitive)
+block2_point_array = grid.point_array
 
 print "point array 2 created"
 
@@ -80,7 +80,10 @@ nb2 = len(block2_point_array)
 
 grid.write_grid_file(grid_filename)
 with open(particle_filename, 'w') as f:
-    f.write("%d %d %d\n" % (nb1+nb2,nb1,nb2))
+    f.write("%d\n" % 2)
+    f.write("%d\n" % nb1)
+    f.write("%d\n" % nb2)
+    pID = 0
     for p in block_point_array:
     #    mpm_point = {
     #                    'body': 1,
@@ -93,9 +96,11 @@ with open(particle_filename, 'w') as f:
     #    if (mpm_point['body'] == 1):
     #        nb1 += 1
     #    mpm_points.append(mpm_point)
-        f.write("%g %g %g %g %g %g %g %g %g\n" % (1, block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 1, 0, 1))
+        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (0, pID, block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 1, 0, 1))
+        pID += 1
+    pID = 0
     for p in block2_point_array:
-        f.write("%g %g %g %g %g %g %g %g %g\n" % (2, block2_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, -1, 0, 1))
-    
+        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (1, pID, block2_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, -1, 0, 1))
+        pID += 1
 
 print "file written"
