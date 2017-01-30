@@ -407,22 +407,22 @@ int job_t::assignDefaultMaterials() {
     std::string filename = "isolin.so";
     std::vector<double> matprops = {1e9,0.3};
     for (size_t i=0;i<this->num_bodies;i++){
-        this->bodies[i].defineMaterial(filename,matprops,std::vector<int>());
+        this->bodies[i].defineMaterial(filename,"./",matprops,std::vector<int>());
     }
     std::cout << "Materials assigned (" << this->num_bodies << ").\n";
     return 1;
 }
 
-int job_t::assignMaterial(std::string filename, size_t id, std::vector<double> fp64props, std::vector<int> intprops) {
-    this->bodies[id].defineMaterial(filename,fp64props,intprops);
+int job_t::assignMaterial(std::string filename, std::string filepath, size_t id, std::vector<double> fp64props, std::vector<int> intprops) {
+    this->bodies[id].defineMaterial(filename,filepath,fp64props,intprops);
     std::cout << "Material reassigned [" << id << "].\n";
     return 1;
 }
 
-int job_t::assignBoundaryConditions(){
+int job_t::assignDefaultBoundaryConditions(){
     //default value
     std::string filename = "boxBC.so";
-    this->boundary.setBoundary(filename,std::vector<double>(),std::vector<int>());
+    this->boundary.setBoundary(filename,"./",std::vector<double>(),std::vector<int>());
     this->boundary.bc_init(this);
 
     std::cout << "Boundary Conditions assigned (1).\n";
@@ -430,9 +430,9 @@ int job_t::assignBoundaryConditions(){
     return 1;
 }
 
-int job_t::assignBoundaryConditions(std::string bcFile, std::vector<double> bcfp64, std::vector<int> bcint){
+int job_t::assignBoundaryConditions(std::string bcFile, std::string bcPath, std::vector<double> bcfp64, std::vector<int> bcint){
 
-    this->boundary.setBoundary(bcFile,bcfp64,bcint);
+    this->boundary.setBoundary(bcFile,bcPath,bcfp64,bcint);
     this->boundary.bc_init(this);
 
     std::cout << "Boundary Conditions assigned (1).\n";
@@ -460,18 +460,18 @@ int job_t::assignDefaultContacts() {
             b2 = b1+1;
         }
         bodyIDs = {b1,b2};
-        this->contacts[i].setContact(filename,i,bodyIDs,contactProps,std::vector<int>());
+        this->contacts[i].setContact(filename,"./",i,bodyIDs,contactProps,std::vector<int>());
         this->contacts[i].contact_init(this,i);
     }
     std::cout << "Contact Rules assigned (" << this->num_contacts << ")\n";
     return 1;
 }
 
-int job_t::assignContact(std::string filename, std::vector<int> bodyIDs, std::vector<double> fp64props, std::vector<int> intprops) {
+int job_t::assignContact(std::string filename, std::string filepath, std::vector<int> bodyIDs, std::vector<double> fp64props, std::vector<int> intprops) {
     size_t id = this->num_contacts;
     this->num_contacts += 1;
     this->contacts.push_back(Contact());
-    this->contacts[id].setContact(filename,id,bodyIDs,fp64props,intprops);
+    this->contacts[id].setContact(filename,filepath,id,bodyIDs,fp64props,intprops);
     this->contacts[id].contact_init(this,id);
     std::cout << "Contact Rule reassigned [" << id << "]\n";
     return 1;

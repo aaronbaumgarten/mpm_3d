@@ -99,32 +99,32 @@ void Elements::calculatePhic(Body *body, size_t ide, size_t idp, size_t idc, int
             body->gradPhiZTriplets.emplace_back(nID[7],idp , S_R(r)*S_R(s)*0.125/dz);//(1+r)*(1+s)*(1+t)*(1+sp)*(1+rp));
         } else {
             //use cpdi method of element crossover
-            body->gradPhiXTriplets.emplace_back(nID[0],idp , a*a/v*S_L(r)*S_L(s)*S_L(t)*Ap[0][idc]);//(1-r)*(1-s)*(1-t)*(1-sp)*(1-tp));
-            body->gradPhiXTriplets.emplace_back(nID[1],idp , a*a/v*S_R(r)*S_L(s)*S_L(t)*Ap[0][idc]);//(1+r)*(1-s)*(1-t)*(1-sp)*(1-tp));
-            body->gradPhiXTriplets.emplace_back(nID[2],idp , a*a/v*S_L(r)*S_R(s)*S_L(t)*Ap[0][idc]);//(1-r)*(1+s)*(1-t)*(1+sp)*(1-tp));
-            body->gradPhiXTriplets.emplace_back(nID[3],idp , a*a/v*S_R(r)*S_R(s)*S_L(t)*Ap[0][idc]);//(1+r)*(1+s)*(1-t)*(1+sp)*(1-tp));
-            body->gradPhiXTriplets.emplace_back(nID[4],idp , a*a/v*S_L(r)*S_L(s)*S_R(t)*Ap[0][idc]);//(1-r)*(1-s)*(1+t)*(1-sp)*(1+tp));
-            body->gradPhiXTriplets.emplace_back(nID[5],idp , a*a/v*S_R(r)*S_L(s)*S_R(t)*Ap[0][idc]);//(1+r)*(1-s)*(1+t)*(1-sp)*(1+tp));
-            body->gradPhiXTriplets.emplace_back(nID[6],idp , a*a/v*S_L(r)*S_R(s)*S_R(t)*Ap[0][idc]);//(1-r)*(1+s)*(1+t)*(1+sp)*(1+tp));
-            body->gradPhiXTriplets.emplace_back(nID[7],idp , a*a/v*S_R(r)*S_R(s)*S_R(t)*Ap[0][idc]);//(1+r)*(1+s)*(1+t)*(1+sp)*(1+tp));
+            body->gradPhiXTriplets.emplace_back(nID[0],idp , 1/(8*a)*S_L(r)*S_L(s)*S_L(t)*Ap[0][idc]);//(1-r)*(1-s)*(1-t)*(1-sp)*(1-tp));
+            body->gradPhiXTriplets.emplace_back(nID[1],idp , 1/(8*a)*S_R(r)*S_L(s)*S_L(t)*Ap[0][idc]);//(1+r)*(1-s)*(1-t)*(1-sp)*(1-tp));
+            body->gradPhiXTriplets.emplace_back(nID[2],idp , 1/(8*a)*S_L(r)*S_R(s)*S_L(t)*Ap[0][idc]);//(1-r)*(1+s)*(1-t)*(1+sp)*(1-tp));
+            body->gradPhiXTriplets.emplace_back(nID[3],idp , 1/(8*a)*S_R(r)*S_R(s)*S_L(t)*Ap[0][idc]);//(1+r)*(1+s)*(1-t)*(1+sp)*(1-tp));
+            body->gradPhiXTriplets.emplace_back(nID[4],idp , 1/(8*a)*S_L(r)*S_L(s)*S_R(t)*Ap[0][idc]);//(1-r)*(1-s)*(1+t)*(1-sp)*(1+tp));
+            body->gradPhiXTriplets.emplace_back(nID[5],idp , 1/(8*a)*S_R(r)*S_L(s)*S_R(t)*Ap[0][idc]);//(1+r)*(1-s)*(1+t)*(1-sp)*(1+tp));
+            body->gradPhiXTriplets.emplace_back(nID[6],idp , 1/(8*a)*S_L(r)*S_R(s)*S_R(t)*Ap[0][idc]);//(1-r)*(1+s)*(1+t)*(1+sp)*(1+tp));
+            body->gradPhiXTriplets.emplace_back(nID[7],idp , 1/(8*a)*S_R(r)*S_R(s)*S_R(t)*Ap[0][idc]);//(1+r)*(1+s)*(1+t)*(1+sp)*(1+tp));
 
-            body->gradPhiYTriplets.emplace_back(nID[0],idp , a*a/v*S_L(r)*S_L(s)*S_L(t)*Ap[1][idc]);//(1-r)*(1-s)*(1-t)*(1-rp)*(1-tp));
-            body->gradPhiYTriplets.emplace_back(nID[1],idp , a*a/v*S_R(r)*S_L(s)*S_L(t)*Ap[1][idc]);//(1+r)*(1-s)*(1-t)*(1+rp)*(1-tp));
-            body->gradPhiYTriplets.emplace_back(nID[2],idp , a*a/v*S_L(r)*S_R(s)*S_L(t)*Ap[1][idc]);//(1-r)*(1+s)*(1-t)*(1-rp)*(1-tp));
-            body->gradPhiYTriplets.emplace_back(nID[3],idp , a*a/v*S_R(r)*S_R(s)*S_L(t)*Ap[1][idc]);//(1+r)*(1+s)*(1-t)*(1+rp)*(1-tp));
-            body->gradPhiYTriplets.emplace_back(nID[4],idp , a*a/v*S_L(r)*S_L(s)*S_R(t)*Ap[1][idc]);//(1-r)*(1-s)*(1+t)*(1-rp)*(1+tp));
-            body->gradPhiYTriplets.emplace_back(nID[5],idp , a*a/v*S_R(r)*S_L(s)*S_R(t)*Ap[1][idc]);//(1+r)*(1-s)*(1+t)*(1+rp)*(1+tp));
-            body->gradPhiYTriplets.emplace_back(nID[6],idp , a*a/v*S_L(r)*S_R(s)*S_R(t)*Ap[1][idc]);//(1-r)*(1+s)*(1+t)*(1-rp)*(1+tp));
-            body->gradPhiYTriplets.emplace_back(nID[7],idp , a*a/v*S_R(r)*S_R(s)*S_R(t)*Ap[1][idc]);//(1+r)*(1+s)*(1+t)*(1+rp)*(1+tp));
+            body->gradPhiYTriplets.emplace_back(nID[0],idp , 1/(8*a)*S_L(r)*S_L(s)*S_L(t)*Ap[1][idc]);//(1-r)*(1-s)*(1-t)*(1-rp)*(1-tp));
+            body->gradPhiYTriplets.emplace_back(nID[1],idp , 1/(8*a)*S_R(r)*S_L(s)*S_L(t)*Ap[1][idc]);//(1+r)*(1-s)*(1-t)*(1+rp)*(1-tp));
+            body->gradPhiYTriplets.emplace_back(nID[2],idp , 1/(8*a)*S_L(r)*S_R(s)*S_L(t)*Ap[1][idc]);//(1-r)*(1+s)*(1-t)*(1-rp)*(1-tp));
+            body->gradPhiYTriplets.emplace_back(nID[3],idp , 1/(8*a)*S_R(r)*S_R(s)*S_L(t)*Ap[1][idc]);//(1+r)*(1+s)*(1-t)*(1+rp)*(1-tp));
+            body->gradPhiYTriplets.emplace_back(nID[4],idp , 1/(8*a)*S_L(r)*S_L(s)*S_R(t)*Ap[1][idc]);//(1-r)*(1-s)*(1+t)*(1-rp)*(1+tp));
+            body->gradPhiYTriplets.emplace_back(nID[5],idp , 1/(8*a)*S_R(r)*S_L(s)*S_R(t)*Ap[1][idc]);//(1+r)*(1-s)*(1+t)*(1+rp)*(1+tp));
+            body->gradPhiYTriplets.emplace_back(nID[6],idp , 1/(8*a)*S_L(r)*S_R(s)*S_R(t)*Ap[1][idc]);//(1-r)*(1+s)*(1+t)*(1-rp)*(1+tp));
+            body->gradPhiYTriplets.emplace_back(nID[7],idp , 1/(8*a)*S_R(r)*S_R(s)*S_R(t)*Ap[1][idc]);//(1+r)*(1+s)*(1+t)*(1+rp)*(1+tp));
 
-            body->gradPhiZTriplets.emplace_back(nID[0],idp , a*a/v*S_L(r)*S_L(s)*S_L(t)*Ap[2][idc]);//(1-r)*(1-s)*(1-t)*(1-sp)*(1-rp));
-            body->gradPhiZTriplets.emplace_back(nID[1],idp , a*a/v*S_R(r)*S_L(s)*S_L(t)*Ap[2][idc]);//(1+r)*(1-s)*(1-t)*(1-sp)*(1+rp));
-            body->gradPhiZTriplets.emplace_back(nID[2],idp , a*a/v*S_L(r)*S_R(s)*S_L(t)*Ap[2][idc]);//(1-r)*(1+s)*(1-t)*(1+sp)*(1-rp));
-            body->gradPhiZTriplets.emplace_back(nID[3],idp , a*a/v*S_R(r)*S_R(s)*S_L(t)*Ap[2][idc]);//(1+r)*(1+s)*(1-t)*(1+sp)*(1+rp));
-            body->gradPhiZTriplets.emplace_back(nID[4],idp , a*a/v*S_L(r)*S_L(s)*S_R(t)*Ap[2][idc]);//(1-r)*(1-s)*(1+t)*(1-sp)*(1-rp));
-            body->gradPhiZTriplets.emplace_back(nID[5],idp , a*a/v*S_R(r)*S_L(s)*S_R(t)*Ap[2][idc]);//(1+r)*(1-s)*(1+t)*(1-sp)*(1+rp));
-            body->gradPhiZTriplets.emplace_back(nID[6],idp , a*a/v*S_L(r)*S_R(s)*S_R(t)*Ap[2][idc]);//(1-r)*(1+s)*(1+t)*(1+sp)*(1-rp));
-            body->gradPhiZTriplets.emplace_back(nID[7],idp , a*a/v*S_R(r)*S_R(s)*S_R(t)*Ap[2][idc]);//(1+r)*(1+s)*(1+t)*(1+sp)*(1+rp));
+            body->gradPhiZTriplets.emplace_back(nID[0],idp , 1/(8*a)*S_L(r)*S_L(s)*S_L(t)*Ap[2][idc]);//(1-r)*(1-s)*(1-t)*(1-sp)*(1-rp));
+            body->gradPhiZTriplets.emplace_back(nID[1],idp , 1/(8*a)*S_R(r)*S_L(s)*S_L(t)*Ap[2][idc]);//(1+r)*(1-s)*(1-t)*(1-sp)*(1+rp));
+            body->gradPhiZTriplets.emplace_back(nID[2],idp , 1/(8*a)*S_L(r)*S_R(s)*S_L(t)*Ap[2][idc]);//(1-r)*(1+s)*(1-t)*(1+sp)*(1-rp));
+            body->gradPhiZTriplets.emplace_back(nID[3],idp , 1/(8*a)*S_R(r)*S_R(s)*S_L(t)*Ap[2][idc]);//(1+r)*(1+s)*(1-t)*(1+sp)*(1+rp));
+            body->gradPhiZTriplets.emplace_back(nID[4],idp , 1/(8*a)*S_L(r)*S_L(s)*S_R(t)*Ap[2][idc]);//(1-r)*(1-s)*(1+t)*(1-sp)*(1-rp));
+            body->gradPhiZTriplets.emplace_back(nID[5],idp , 1/(8*a)*S_R(r)*S_L(s)*S_R(t)*Ap[2][idc]);//(1+r)*(1-s)*(1+t)*(1-sp)*(1+rp));
+            body->gradPhiZTriplets.emplace_back(nID[6],idp , 1/(8*a)*S_L(r)*S_R(s)*S_R(t)*Ap[2][idc]);//(1-r)*(1+s)*(1+t)*(1+sp)*(1-rp));
+            body->gradPhiZTriplets.emplace_back(nID[7],idp , 1/(8*a)*S_R(r)*S_R(s)*S_R(t)*Ap[2][idc]);//(1+r)*(1+s)*(1+t)*(1+sp)*(1+rp));
         }
     }
     return;

@@ -17,6 +17,7 @@ class MPMconfig{
 public:
     //config filename
     std::string configFile;
+    std::string mainPath;
 
     //input parameters
     std::vector<std::string> jobParams;
@@ -32,6 +33,7 @@ public:
 
     //functions
     void setConfigFile(std::string);
+    void setMainPath(std::string);
     int checkConfigFile(std::string);
     std::string removeSpaces(std::string);
     std::string removeComments(std::string);

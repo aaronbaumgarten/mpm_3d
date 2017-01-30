@@ -16,12 +16,12 @@ print "files named"
 
 #grid properties
 #Ly = Lx = Lz = 0.4
-Lx = 2.0
-Ly = 2.0
-Lz = 0.02
+Lx = 3.0
+Ly = 0.9
+Lz = 0.03
 #Ne = 40
 Nx = 100
-Ny = 100
+Ny = 30
 Nz = 1
 lmpp = 2
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
@@ -36,8 +36,8 @@ block_width = 0.3#*Lx
 block_height = 0.5*Lz
 block_depth = 0.3#*Ly
 
-block_primitive = Primitives3d.Cylinder(Primitives3d.Point(Lx-block_width,1.0+block_depth/2,0),
-                                        Primitives3d.Point(Lx-block_width,1.0+block_depth/2,block_height),
+block_primitive = Primitives3d.Cylinder(Primitives3d.Point(Lx-block_width,0.3+block_depth/2,0),
+                                        Primitives3d.Point(Lx-block_width,0.3+block_depth/2,block_height),
                                         block_width/2)
                   #Primitives3d.Box(#(Lx-block_width)/2, (Lx+block_width)/2,
                   #               block_width,block_width+block_width,
@@ -59,7 +59,7 @@ print "point array 1 created"
 block2_properties = { 'rho': 1500.0 }
 block2_width = Lx
 block2_height = 0.5*Lz
-block2_depth = 1.0#Ly
+block2_depth = 0.3#Ly
 
 block2_primitive = Primitives3d.Box(0,block2_width,
                                  0,block2_depth,

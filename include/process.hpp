@@ -93,11 +93,11 @@ public:
     int importNodesandParticles2D(std::string, std::string);
     void createBody(Body*,size_t,size_t,size_t,size_t);
     int assignDefaultMaterials();
-    int assignMaterial(std::string,size_t,std::vector<double>,std::vector<int>);
-    int assignBoundaryConditions();
-    int assignBoundaryConditions(std::string, std::vector<double>, std::vector<int>);
+    int assignMaterial(std::string,std::string,size_t,std::vector<double>,std::vector<int>);
+    int assignDefaultBoundaryConditions();
+    int assignBoundaryConditions(std::string, std::string, std::vector<double>, std::vector<int>);
     int assignDefaultContacts();
-    int assignContact(std::string,std::vector<int>,std::vector<double>,std::vector<int>);
+    int assignContact(std::string,std::string,std::vector<int>,std::vector<double>,std::vector<int>);
 
     int mpmStepUSLExplicit();
     int mpmStepUSLImplicit();

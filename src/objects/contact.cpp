@@ -26,10 +26,10 @@ Contact::Contact(){
     resolve_contact = NULL;
 }
 
-Contact::Contact(std::string filename, size_t idIn, std::vector<int> bodyIDsIn, std::vector<double> fp64props, std::vector<int> intprops){
+Contact::Contact(std::string filename, std::string filepath, size_t idIn, std::vector<int> bodyIDsIn, std::vector<double> fp64props, std::vector<int> intprops){
     id = idIn;
     bodyIDs = bodyIDsIn;
-    std::string filepath = "src/contacts/";
+    //std::string filepath = "src/contacts/";
     filepath += filename;
 
     use_builtin = 0;
@@ -70,10 +70,10 @@ Contact::~Contact() {
     }
 }
 
-void Contact::setContact(std::string filename, size_t idIn, std::vector<int> bodyIDsIn, std::vector<double> fp64props, std::vector<int> intprops){
+void Contact::setContact(std::string filename, std::string filepath, size_t idIn, std::vector<int> bodyIDsIn, std::vector<double> fp64props, std::vector<int> intprops){
     this->id = idIn;
     this->bodyIDs = bodyIDsIn;
-    std::string filepath = "src/contacts/";
+    //std::string filepath = "src/contacts/";
     filepath += filename;
 
     this->use_builtin = 0;

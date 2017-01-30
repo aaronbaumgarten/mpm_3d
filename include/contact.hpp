@@ -30,9 +30,9 @@ public:
     size_t num_int_props;
 
     Contact();
-    Contact(std::string,size_t,std::vector<int>,std::vector<double>,std::vector<int>);
+    Contact(std::string,std::string,size_t,std::vector<int>,std::vector<double>,std::vector<int>);
     ~Contact();
-    void setContact(std::string,size_t,std::vector<int>,std::vector<double>,std::vector<int>);
+    void setContact(std::string,std::string,size_t,std::vector<int>,std::vector<double>,std::vector<int>);
 };
 
 #endif //MPM_3D_CONTACT_HPP

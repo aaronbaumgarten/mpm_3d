@@ -30,9 +30,9 @@ public:
     size_t num_int_props;
 
     Material();
-    Material(std::string,std::vector<double>,std::vector<int>);
+    Material(std::string,std::string,std::vector<double>,std::vector<int>);
     ~Material();
-    void setMaterial(std::string,std::vector<double>,std::vector<int>);
+    void setMaterial(std::string,std::string,std::vector<double>,std::vector<int>);
 };
 
 #endif //MPM_3D_MATERIAL_HPP

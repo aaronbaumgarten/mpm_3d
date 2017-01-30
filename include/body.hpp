@@ -61,7 +61,7 @@ public:
     //functions
     //void addParticle(double,double,double,double,double,double,double,double,size_t);
     //void addNode(double,double,double,size_t);
-    void defineMaterial(std::string,std::vector<double>,std::vector<int>);
+    void defineMaterial(std::string,std::string,std::vector<double>,std::vector<int>);
 };
 
 #endif //MPM_3D_BODY_HPP

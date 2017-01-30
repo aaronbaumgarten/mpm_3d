@@ -26,8 +26,8 @@ Material::Material(){
         calculate_stress_implicit = NULL;
 }
 
-Material::Material(std::string filename, std::vector<double> fp64props, std::vector<int> intprops){
-    std::string filepath = "src/materials/";
+Material::Material(std::string filename, std::string filepath, std::vector<double> fp64props, std::vector<int> intprops){
+    //std::string filepath = "src/materials/";
     filepath += filename;
 
     use_builtin = 0;
@@ -82,8 +82,8 @@ Material::~Material() {
     }
 }
 
-void Material::setMaterial(std::string filename, std::vector<double> fp64props, std::vector<int> intprops){
-    std::string filepath = "src/materials/";
+void Material::setMaterial(std::string filename, std::string filepath, std::vector<double> fp64props, std::vector<int> intprops){
+    //std::string filepath = "src/materials/";
     filepath += filename;
 
     this->use_builtin = 0;

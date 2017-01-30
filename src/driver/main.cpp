@@ -31,11 +31,13 @@ int main(int argc, char *argv[]) {
     Eigen::setNbThreads(0);
 
     std::cout << "Hello, World!" << std::endl;
+    //std::cout << argv[0] << std::endl;
 
     //initialize job and objects
     job_t *job(new job_t);
     MPMio mpmOut;
     MPMconfig config;
+    config.setMainPath(std::string(argv[0]));
 
     //read command line args and initialize simulation
     if (argc < 2) {
@@ -91,7 +93,7 @@ int main(int argc, char *argv[]) {
                     delete(job);
                     exit(0);
                 }
-                if (!(job->assignBoundaryConditions())) {
+                if (!(job->assignDefaultBoundaryConditions())) {
                     std::cout << "failed to assign boundary conditions" << std::endl;
                     delete(job);
                     exit(0);
@@ -136,7 +138,11 @@ int main(int argc, char *argv[]) {
                 job->mpmStepUSLExplicit();
             }
         } else {
-            job->mpmStepUSLExplicit2D();
+            if (job->use_implicit == 1){
+                job->mpmStepUSLImplicit2D();
+            } else {
+                job->mpmStepUSLExplicit2D();
+            }
         }
         std::cout << "\rStep completed (" << job->stepcount << ")." << std::flush;
         if (job->t * mpmOut.sampleRate > mpmOut.sampledFrames) {

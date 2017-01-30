@@ -52,14 +52,14 @@ Body::Body(size_t numNodes, size_t numParticles, size_t numElements, size_t body
     nodes.addNode(xIn,yIn,xIn,idIn);
 }*/
 
-void Body::defineMaterial(std::string filename, std::vector<double> fp64_props, std::vector<int> int_props) {
+void Body::defineMaterial(std::string filename, std::string filepath, std::vector<double> fp64_props, std::vector<int> int_props) {
     //this->material = Material();
     /*this->material.fp64_props = fp64_props;
     this->material.int_props = int_props;
     this->material.num_fp64_props = num_fp64_props;
     this->material.num_int_props = num_int_props;*/
 
-    this->material.setMaterial(filename,fp64_props,int_props);
+    this->material.setMaterial(filename,filepath,fp64_props,int_props);
     this->material.material_init(this);
     return;
 }

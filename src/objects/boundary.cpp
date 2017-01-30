@@ -39,8 +39,8 @@ Boundary::Boundary(){
     bc_force = NULL;
 }
 
-Boundary::Boundary(std::string filename, std::vector<double> fp64props, std::vector<int> intprops){
-    std::string filepath = "src/boundaries/";
+Boundary::Boundary(std::string filename, std::string filepath, std::vector<double> fp64props, std::vector<int> intprops){
+    //std::string filepath = "src/boundaries/";
     filepath += filename;
 
     use_builtin = 0;
@@ -118,8 +118,8 @@ Boundary::~Boundary(){
 }
 
 
-void Boundary::setBoundary(std::string filename, std::vector<double> fp64props, std::vector<int> intprops){
-    std::string filepath = "src/boundaries/";
+void Boundary::setBoundary(std::string filename, std::string filepath, std::vector<double> fp64props, std::vector<int> intprops){
+    //std::string filepath = "src/boundaries/";
     filepath += filename;
 
     this->use_builtin = 0;

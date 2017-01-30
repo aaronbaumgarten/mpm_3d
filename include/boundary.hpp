@@ -37,8 +37,8 @@ public:
     size_t num_int_props;
 
     Boundary();
-    Boundary(std::string,std::vector<double>,std::vector<int>);
+    Boundary(std::string,std::string,std::vector<double>,std::vector<int>);
     ~Boundary();
-    void setBoundary(std::string,std::vector<double>,std::vector<int>);
+    void setBoundary(std::string,std::string,std::vector<double>,std::vector<int>);
 };
 #endif //MPM_3D_BOUNDARY_HPP

@@ -95,10 +95,12 @@ void calculate_stress_implicit(Body *body, double dtIn) {
         Eigen::VectorXd tmpVec(9);
 
         tmpVec << body->particles.L.row(i).transpose();
-        Eigen::Matrix3d L(tmpVec.data());
+        //Eigen::Matrix3d L(tmpVec.data());
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> L(tmpVec.data());
 
         tmpVec << body->particles.T.row(i).transpose();
-        Eigen::Matrix3d T(tmpVec.data());
+        //Eigen::Matrix3d T(tmpVec.data());
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> T(tmpVec.data());
 
         Eigen::Matrix3d D = 0.5*(L+L.transpose());
         Eigen::Matrix3d W = 0.5*(L-L.transpose());
@@ -118,6 +120,8 @@ void calculate_stress_implicit(Body *body, double dtIn) {
             body->particles.Ttrial(i,pos) = body->particles.T(i,pos) + dt*dsj(pos);
         }
     }
+
+    return;
 
 }
 /*----------------------------------------------------------------------------*/
@@ -145,13 +149,16 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
             continue;
         }
 
+
         Eigen::VectorXd tmpVec(9);
 
         tmpVec << body->particles.L.row(i).transpose();
-        Eigen::Matrix3d L(tmpVec.data());
+        //Eigen::Matrix3d L(tmpVec.data());
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> L(tmpVec.data());
 
         tmpVec << body->particles.T.row(i).transpose();
-        Eigen::Matrix3d T(tmpVec.data());
+        //Eigen::Matrix3d T(tmpVec.data());
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> T(tmpVec.data());
 
         Eigen::Matrix3d D = 0.5*(L+L.transpose());
         Eigen::Matrix3d W = 0.5*(L-L.transpose());
@@ -161,11 +168,11 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
         Eigen::Matrix3d gleft = W*T;
         Eigen::Matrix3d gright = T*W;
 
-        Eigen::Matrix3d tmp = gleft-gright;
+        Eigen::Matrix3d tmpMat = gleft-gright;
 
         Eigen::Matrix3d CD = 2*G*D + lambda*trD*Eigen::Matrix3d::Identity();
 
-        Eigen::Matrix3d dsj = CD + tmp;
+        Eigen::Matrix3d dsj = CD + tmpMat;
 
         for (size_t pos=0;pos<9;pos++){
             body->particles.T(i,pos) += dt*dsj(pos);

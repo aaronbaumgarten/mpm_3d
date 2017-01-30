@@ -1,5 +1,7 @@
 set(MATERIALS
         isolin.cpp
+        g_local_mu2.cpp
+        isolin_wheel.cpp
         )
 
 foreach(matc ${MATERIALS})

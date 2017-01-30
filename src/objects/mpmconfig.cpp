@@ -15,6 +15,7 @@
 
 MPMconfig::MPMconfig(){
     configFile = "default.cfg";
+    mainPath = "./";
     //knownHeaders = {"job","input","output","material","boundary","contact"};
     jobParams = {"dt","use_3d","use_implicit","use_cpdi","newtonTOL","linearStepSize"};
     inputParams = {"particle-file","grid-file"};
@@ -26,6 +27,7 @@ MPMconfig::MPMconfig(){
 
 MPMconfig::MPMconfig(std::string fileIn) {
     configFile = fileIn;
+    mainPath = "./";
     jobParams = {"dt","use_3d","use_implicit","use_cpdi","newtonTOL","linearStepSize"};
     inputParams = {"particle-file","grid-file"};
     materialParams = {"bodies","material-file","properties","int-properties"};
@@ -36,6 +38,18 @@ MPMconfig::MPMconfig(std::string fileIn) {
 
 void MPMconfig::setConfigFile(std::string fileIn){
     this->configFile = fileIn;
+    return;
+}
+
+void MPMconfig::setMainPath(std::string program){
+    std::vector<std::string> svec;
+    svec = this->splitString(program,'/');
+    std::string filepath = "";
+    for (size_t i=0; i<(svec.size()-1); i++){
+        filepath += svec[i];
+        filepath += '/';
+    }
+    this->mainPath = filepath;
     return;
 }
 
@@ -357,7 +371,7 @@ int MPMconfig::configMaterial(job_t * job){
                 if (mfilename.size() != 0 && bodyIDs.size() != 0){
                     std::cout << "Material configured. material: " << mfilename << std::endl;
                     for (size_t i=0;i<bodyIDs.size();i++){
-                        job->assignMaterial(mfilename,bodyIDs[i],fp64_props,int_props);
+                        job->assignMaterial(mfilename,(this->mainPath + "src/materials/"),bodyIDs[i],fp64_props,int_props);
                     }
                 } else {
                     std::cout << "Cannot configure material without material-file or bodies." << std::endl;
@@ -452,7 +466,7 @@ int MPMconfig::configBoundary(job_t * job){
                 }
                 if (bfilename.size() != 0){
                     std::cout << "Boundary configured. boundary: " << bfilename << std::endl;
-                    job->assignBoundaryConditions(bfilename,fp64_props,int_props);
+                    job->assignBoundaryConditions(bfilename,(this->mainPath + "src/boundaries/"),fp64_props,int_props);
                 } else {
                     std::cout << "Cannot configure boundary without boundary-file." << std::endl;
                 }
@@ -545,7 +559,7 @@ int MPMconfig::configContact(job_t * job){
                 }
                 if (cfilename.size() != 0 && bodyIDs.size() == 2){
                     std::cout << "Contact configured. contact: " << cfilename << std::endl;
-                    job->assignContact(cfilename,bodyIDs,fp64_props,int_props);
+                    job->assignContact(cfilename,(this->mainPath + "src/contacts/"), bodyIDs,fp64_props,int_props);
                 } else {
                     std::cout << "Cannot configure contact without contact-file or bodies." << std::endl;
                 }
