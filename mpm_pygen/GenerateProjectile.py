@@ -101,7 +101,7 @@ with open(particle_filename, 'w') as f:
         pID += 1
     pID = 0
     for p in block_point_array:
-        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (1, pID, block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 0, -100, 0))
+        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (1, pID, block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 0, -10, 0))
         pID += 1
 
 print "file written"

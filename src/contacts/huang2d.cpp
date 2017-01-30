@@ -52,6 +52,11 @@ void contact_init(job_t *job, size_t id) {
 void resolve_contact(job_t *job, size_t id) {
     size_t b1 = job->contacts[id].bodyIDs[0];
     size_t b2 = job->contacts[id].bodyIDs[1];
+
+    //zero forces in z
+    job->bodies[b1].nodes.contact_fz.setZero();
+    job->bodies[b2].nodes.contact_fz.setZero();
+
     //look for contacts if there are two bodies
     for (size_t i = 0; i < job->num_nodes; i++) {
         //test every node for contact
@@ -69,10 +74,21 @@ void resolve_contact(job_t *job, size_t id) {
             Eigen::Vector2d mv1i;
             Eigen::Vector2d mv2i;
             Eigen::Vector2d vCMi;
-            mv1i << job->bodies[b1].nodes.contact_mx_t[i] + job->dt*job->bodies[b1].nodes.contact_fx[i],
-                    job->bodies[b1].nodes.contact_my_t[i] + job->dt*job->bodies[b1].nodes.contact_fy[i];
-            mv2i << job->bodies[b2].nodes.contact_mx_t[i] + job->dt*job->bodies[b2].nodes.contact_fx[i],
-                    job->bodies[b2].nodes.contact_my_t[i] + job->dt*job->bodies[b2].nodes.contact_fy[i];
+            if (job->use_implicit == 1){
+                /*mv1i << job->bodies[b1].nodes.mx_t_k[i] + job->dt*job->bodies[b1].nodes.contact_fx[i],
+                        job->bodies[b1].nodes.my_t_k[i] + job->dt*job->bodies[b1].nodes.contact_fy[i];
+                mv2i << job->bodies[b2].nodes.mx_t_k[i] + job->dt*job->bodies[b2].nodes.contact_fx[i],
+                        job->bodies[b2].nodes.my_t_k[i] + job->dt*job->bodies[b2].nodes.contact_fy[i];*/
+                mv1i << job->bodies[b1].nodes.contact_mx_t[i],
+                        job->bodies[b1].nodes.contact_my_t[i];
+                mv2i << job->bodies[b2].nodes.contact_mx_t[i],
+                        job->bodies[b2].nodes.contact_my_t[i];
+            } else {
+                mv1i << job->bodies[b1].nodes.contact_mx_t[i] + job->dt * job->bodies[b1].nodes.contact_fx[i],
+                        job->bodies[b1].nodes.contact_my_t[i] + job->dt * job->bodies[b1].nodes.contact_fy[i];
+                mv2i << job->bodies[b2].nodes.contact_mx_t[i] + job->dt * job->bodies[b2].nodes.contact_fx[i],
+                        job->bodies[b2].nodes.contact_my_t[i] + job->dt * job->bodies[b2].nodes.contact_fy[i];
+            }
             vCMi = (mv1i + mv2i) / (m1 + m2);
 
             //check if converging
