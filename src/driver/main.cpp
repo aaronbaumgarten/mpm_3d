@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
     Eigen::setNbThreads(0);
 
     std::cout << "Hello, World!" << std::endl;
-    //std::cout << argv[0] << std::endl;
+    std::cout << argv[0] << std::endl;
 
     //initialize job and objects
     job_t *job(new job_t);

@@ -71,12 +71,18 @@ void resolve_contact(job_t *job, size_t id) {
             Eigen::Vector3d mv2i;
             Eigen::Vector3d vCMi;
             if (job->use_implicit == 1){
-                mv1i << job->bodies[b1].nodes.contact_mx_t[i],
+                mv1i << job->bodies[b1].nodes.mx_t_k[i] + job->dt * job->bodies[b1].nodes.contact_fx[i],
+                        job->bodies[b1].nodes.my_t_k[i] + job->dt * job->bodies[b1].nodes.contact_fy[i],
+                        job->bodies[b1].nodes.mz_t_k[i] + job->dt * job->bodies[b1].nodes.contact_fz[i];
+                mv2i << job->bodies[b2].nodes.mx_t_k[i] + job->dt * job->bodies[b2].nodes.contact_fx[i],
+                        job->bodies[b2].nodes.my_t_k[i] + job->dt * job->bodies[b2].nodes.contact_fy[i],
+                        job->bodies[b2].nodes.mz_t_k[i] + job->dt * job->bodies[b2].nodes.contact_fz[i];
+                /*mv1i << job->bodies[b1].nodes.contact_mx_t[i],
                         job->bodies[b1].nodes.contact_my_t[i],
                         job->bodies[b1].nodes.contact_mz_t[i];
                 mv2i << job->bodies[b2].nodes.contact_mx_t[i],
                         job->bodies[b2].nodes.contact_my_t[i],
-                        job->bodies[b2].nodes.contact_mz_t[i];
+                        job->bodies[b2].nodes.contact_mz_t[i];*/
             } else {
                 mv1i << job->bodies[b1].nodes.contact_mx_t[i] + job->dt * job->bodies[b1].nodes.contact_fx[i],
                         job->bodies[b1].nodes.contact_my_t[i] + job->dt * job->bodies[b1].nodes.contact_fy[i],

@@ -3,6 +3,9 @@ set(BOUNDARIES
         boxBC2d.cpp
         floorBC.cpp
         floorBC2d.cpp
+        syringeBC2d.cpp
+        periodicBC2d.cpp
+        periodicBC.cpp
     )
 
 foreach(bcc ${BOUNDARIES})

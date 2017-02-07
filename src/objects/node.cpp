@@ -117,7 +117,11 @@ Nodes::Nodes(size_t n):
         ok(1),//*
         rhok(1),//*
         bk(1),//*
-        pk(3*n)
+        pk(3*n),
+
+        //minimum residuals
+        skMin(3*n),
+        rkMin(3*n)
 {
     //mass
     m.setZero();
@@ -221,6 +225,10 @@ Nodes::Nodes(size_t n):
     tk.setZero();
     hk.setZero();
     pk.setZero();
+
+    //minimum residuals
+    skMin.setZero();
+    rkMin.setZero();
 }
 
 void Nodes::addNode(double xIn, double yIn, double zIn, size_t idIn) {

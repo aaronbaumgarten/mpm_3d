@@ -20,12 +20,12 @@
 #include "element.hpp"
 
 //mass tolerance
-#define TOL 5e-11
+//#define TOL 0//5e-11
 //contact friction
 #define MU_F 0.4
 //squared norm error tolerance
 //#define R_TOL 1e-5
-#define R_MAX 1e10
+#define R_MAX 2e32//1e10
 
 //hard coded for now. need to change
 job_t::job_t():
@@ -866,8 +866,9 @@ void job_t::moveParticlesImplicit(){
                 this->bodies[b].nodes.uy[i] = this->dt * (this->bodies[b].nodes.my_t_k[i] + this->bodies[b].nodes.contact_my_t[i]) / (2*m);
                 this->bodies[b].nodes.uz[i] = this->dt * (this->bodies[b].nodes.mz_t_k[i] + this->bodies[b].nodes.contact_mz_t[i]) / (2*m);
 
-                //this->bodies[b].nodes.uy[i] = this->dt * this->bodies[b].nodes.contact_my_t[i] / m;
-                //this->bodies[b].nodes.uz[i] = this->dt * this->bodies[b].nodes.contact_mz_t[i] / m;
+                /*this->bodies[b].nodes.ux[i] = this->dt * this->bodies[b].nodes.contact_mx_t[i] / m;
+                this->bodies[b].nodes.uy[i] = this->dt * this->bodies[b].nodes.contact_my_t[i] / m;
+                this->bodies[b].nodes.uz[i] = this->dt * this->bodies[b].nodes.contact_mz_t[i] / m;*/
 
                 this->bodies[b].nodes.diff_x_t[i] = this->dt * this->bodies[b].nodes.contact_fx[i] / m;
                 this->bodies[b].nodes.diff_y_t[i] = this->dt * this->bodies[b].nodes.contact_fy[i] / m;
@@ -923,6 +924,9 @@ void job_t::moveParticlesImplicit2D(){
                 this->bodies[b].nodes.ux[i] = this->dt * (this->bodies[b].nodes.mx_t_k[i] + this->bodies[b].nodes.contact_mx_t[i]) / (2*m);
                 this->bodies[b].nodes.uy[i] = this->dt * (this->bodies[b].nodes.my_t_k[i] + this->bodies[b].nodes.contact_my_t[i]) / (2*m);
                 this->bodies[b].nodes.uz[i] = 0;
+                /*this->bodies[b].nodes.ux[i] = this->dt * this->bodies[b].nodes.contact_mx_t[i] / m;
+                this->bodies[b].nodes.uy[i] = this->dt * this->bodies[b].nodes.contact_my_t[i] / m;
+                this->bodies[b].nodes.uz[i] = 0;*/
 
                 this->bodies[b].nodes.diff_x_t[i] = this->dt * this->bodies[b].nodes.contact_fx[i] / m;
                 this->bodies[b].nodes.diff_y_t[i] = this->dt * this->bodies[b].nodes.contact_fy[i] / m;
@@ -1111,7 +1115,7 @@ void job_t::updateDensity(){
     for (size_t b=0;b<this->num_bodies;b++){
         for (size_t i=0;i<this->bodies[b].p;i++){
             double trL = this->bodies[b].particles.L(i,XX)+this->bodies[b].particles.L(i,YY)+this->bodies[b].particles.L(i,ZZ);
-            this->bodies[b].particles.v[i] *= exp(this->dt * trL);
+            this->bodies[b].particles.v[i] *= std::exp(this->dt * trL);
         }
     }
     return;
@@ -1122,7 +1126,7 @@ void job_t::updateTrialDensity(){
     for (size_t b=0;b<this->num_bodies;b++){
         for (size_t i=0;i<this->bodies[b].p;i++){
             double trL = this->bodies[b].particles.L(i,XX)+this->bodies[b].particles.L(i,YY)+this->bodies[b].particles.L(i,ZZ);
-            this->bodies[b].particles.v_trial[i] = this->bodies[b].particles.v[i] * exp(this->dt * trL);
+            this->bodies[b].particles.v_trial[i] = this->bodies[b].particles.v[i] * std::exp(this->dt * trL);
         }
     }
     return;
@@ -1216,7 +1220,7 @@ void job_t::calculateImplicitResidual() {
         this->bodies[b].nodes.Rz -= this->bodies[b].nodes.mz_t_k;
 
         for (size_t i=0;i<this->num_nodes;i++){
-            if (this->bodies[b].nodes.m[i] <= TOL){
+            if (this->bodies[b].nodes.m[i] == 0){//<= TOL){
                 //nodal boundary
                 this->bodies[b].nodes.Rx[i] = 0;
                 this->bodies[b].nodes.Ry[i] = 0;
@@ -1227,19 +1231,19 @@ void job_t::calculateImplicitResidual() {
                 this->bodies[b].nodes.Ry[i] = 0;
                 this->bodies[b].nodes.Rz[i] = 0;*/
             } else {
-                if (this->u_dirichlet_mask[NODAL_DOF*i] != 0){
+                if (this->u_dirichlet_mask[NODAL_DOF*i + XDOF_IDX] != 0){
                     this->bodies[b].nodes.Rx[i] = 0;
                 } else {
                     this->bodies[b].nodes.Rx[i] /= this->bodies[b].nodes.m[i];
                 }
 
-                if (this->u_dirichlet_mask[NODAL_DOF*i + 1] != 0){
+                if (this->u_dirichlet_mask[NODAL_DOF*i + YDOF_IDX] != 0){
                     this->bodies[b].nodes.Ry[i] = 0;
                 } else {
                     this->bodies[b].nodes.Ry[i] /= this->bodies[b].nodes.m[i];
                 }
 
-                if (this->u_dirichlet_mask[NODAL_DOF*i + 2] != 0){
+                if (this->u_dirichlet_mask[NODAL_DOF*i + ZDOF_IDX] != 0){
                     this->bodies[b].nodes.Rz[i] = 0;
                 } else {
                     this->bodies[b].nodes.Rz[i] /= this->bodies[b].nodes.m[i];
@@ -1331,6 +1335,9 @@ void job_t::moveGridImplicitCG() {
             this->bodies[b].nodes.rk.setZero();
 
             this->bodies[b].nodes.rk << -this->bodies[b].nodes.Rvx, -this->bodies[b].nodes.Rvy, -this->bodies[b].nodes.Rvz;
+
+            this->bodies[b].nodes.rkMin = this->bodies[b].nodes.rk;
+            this->bodies[b].nodes.skMin = this->bodies[b].nodes.sk;
 
             this->bodies[b].nodes.rhok = this->bodies[b].nodes.rk.squaredNorm();
 
@@ -1433,6 +1440,12 @@ void job_t::moveGridImplicitCG() {
                 this->bodies[b].nodes.rhok = this->bodies[b].nodes.rk.squaredNorm();
 
                 this->bodies[b].nodes.pk = this->bodies[b].nodes.rk + this->bodies[b].nodes.bk * this->bodies[b].nodes.pk;
+
+                //store if minimum
+                if (this->bodies[b].nodes.rk.norm() < this->bodies[b].nodes.rkMin.norm() || k == 0){
+                    this->bodies[b].nodes.rkMin = this->bodies[b].nodes.rk;
+                    this->bodies[b].nodes.skMin = this->bodies[b].nodes.sk;
+                }
             }
             k += 1;
             rhoSum = 0;
@@ -1443,9 +1456,12 @@ void job_t::moveGridImplicitCG() {
         }
 
         for (size_t b = 0; b < this->num_bodies; b++) {
-            this->bodies[b].nodes.x_t_n += this->bodies[b].nodes.sk.segment(0,this->bodies[b].n);
+            /*this->bodies[b].nodes.x_t_n += this->bodies[b].nodes.sk.segment(0,this->bodies[b].n);
             this->bodies[b].nodes.y_t_n += this->bodies[b].nodes.sk.segment(this->bodies[b].n,this->bodies[b].n);
-            this->bodies[b].nodes.z_t_n += this->bodies[b].nodes.sk.segment(2*this->bodies[b].n,this->bodies[b].n);
+            this->bodies[b].nodes.z_t_n += this->bodies[b].nodes.sk.segment(2*this->bodies[b].n,this->bodies[b].n);*/
+            this->bodies[b].nodes.x_t_n += this->bodies[b].nodes.skMin.segment(0,this->bodies[b].n);
+            this->bodies[b].nodes.y_t_n += this->bodies[b].nodes.skMin.segment(this->bodies[b].n,this->bodies[b].n);
+            this->bodies[b].nodes.z_t_n += this->bodies[b].nodes.skMin.segment(2*this->bodies[b].n,this->bodies[b].n);
 
             this->bodies[b].nodes.x_t_trial = this->bodies[b].nodes.x_t_n;
             this->bodies[b].nodes.y_t_trial = this->bodies[b].nodes.y_t_n;
@@ -1626,6 +1642,9 @@ void job_t::moveGridImplicitBiCGSTAB() {
 
             this->bodies[b].nodes.rk << -this->bodies[b].nodes.Rvx, -this->bodies[b].nodes.Rvy, -this->bodies[b].nodes.Rvz;
             this->bodies[b].nodes.r0 = this->bodies[b].nodes.rk;
+
+            this->bodies[b].nodes.rkMin = this->bodies[b].nodes.rk;
+            this->bodies[b].nodes.skMin = this->bodies[b].nodes.sk;
 
             rhoSum += this->bodies[b].nodes.rk.squaredNorm();
         }
@@ -1833,6 +1852,12 @@ void job_t::moveGridImplicitBiCGSTAB() {
                     }
 
                     this->bodies[b].nodes.rk = this->bodies[b].nodes.qk - this->bodies[b].nodes.ok * this->bodies[b].nodes.tk;
+
+                    //store if minimum
+                    if (this->bodies[b].nodes.rk.norm() < this->bodies[b].nodes.rkMin.norm() || k==0){
+                        this->bodies[b].nodes.rkMin = this->bodies[b].nodes.rk;
+                        this->bodies[b].nodes.skMin = this->bodies[b].nodes.sk;
+                    }
                 } else {
                     isConverging = false;
                     /*std::cout << k << " 4 " << sNorm << std::endl;
@@ -1856,9 +1881,13 @@ void job_t::moveGridImplicitBiCGSTAB() {
         }
 
         for (size_t b = 0; b < this->num_bodies; b++) {
-            this->bodies[b].nodes.x_t_n += this->bodies[b].nodes.sk.segment(0,this->bodies[b].n);
+            /*this->bodies[b].nodes.x_t_n += this->bodies[b].nodes.sk.segment(0,this->bodies[b].n);
             this->bodies[b].nodes.y_t_n += this->bodies[b].nodes.sk.segment(this->bodies[b].n,this->bodies[b].n);
-            this->bodies[b].nodes.z_t_n += this->bodies[b].nodes.sk.segment(2*this->bodies[b].n,this->bodies[b].n);
+            this->bodies[b].nodes.z_t_n += this->bodies[b].nodes.sk.segment(2*this->bodies[b].n,this->bodies[b].n);*/
+
+            this->bodies[b].nodes.x_t_n += this->bodies[b].nodes.skMin.segment(0,this->bodies[b].n);
+            this->bodies[b].nodes.y_t_n += this->bodies[b].nodes.skMin.segment(this->bodies[b].n,this->bodies[b].n);
+            this->bodies[b].nodes.z_t_n += this->bodies[b].nodes.skMin.segment(2*this->bodies[b].n,this->bodies[b].n);
 
             this->bodies[b].nodes.x_t_trial = this->bodies[b].nodes.x_t_n;
             this->bodies[b].nodes.y_t_trial = this->bodies[b].nodes.y_t_n;

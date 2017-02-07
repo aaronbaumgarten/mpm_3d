@@ -7,7 +7,7 @@
 #define MPM_3D_PROCESS_HPP
 
 //mass tolerance
-#define TOL 5e-11
+#define TOL 0.0//5e-11
 
 #include <stdlib.h>
 #include <string>

@@ -120,6 +120,10 @@ public:
     double bk;
     Eigen::VectorXd pk;
 
+    //minimum residuals
+    Eigen::VectorXd skMin;
+    Eigen::VectorXd rkMin;
+
     //construcors
     Nodes(size_t);
     Nodes() {}

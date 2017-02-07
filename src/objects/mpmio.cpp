@@ -258,6 +258,28 @@ void MPMio::writeParticles(job_t* jobIn) {
             }
         }
 
+        ffile << "VECTORS displacement double\n";
+        //ffile << "LOOKUP_TABLE default\n";
+        for (size_t b=0; b<jobIn->num_bodies; b++){
+            for (size_t i=0; i<jobIn->bodies[b].p; i++){
+
+                //set velocity to zeros if nan
+                double ux = jobIn->bodies[b].particles.ux[i];
+                double uy = jobIn->bodies[b].particles.uy[i];
+                double uz = jobIn->bodies[b].particles.uz[i];
+                if (std::isnan(ux) || std::isinf(ux)){
+                    ux = 0;
+                }
+                if (std::isnan(uy) || std::isinf(uy)){
+                    uy = 0;
+                }
+                if (std::isnan(uz) || std::isinf(uz)){
+                    uz = 0;
+                }
+                ffile << ux << " " << uy << " " << uz << "\n";
+            }
+        }
+
         ffile << "VECTORS bodyForce double\n";
         //ffile << "LOOKUP_TABLE default\n";
         for (size_t b=0; b<jobIn->num_bodies; b++){
@@ -742,6 +764,25 @@ void MPMio::writeNodes(job_t* jobIn) {
                 ffile << x_t << " " << y_t << " " << z_t << "\n";
             }
 
+            ffile << "VECTORS momentum double\n";
+            //ffile << "LOOKUP_TABLE default\n";
+            for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
+                //set velocity to zeros if nan
+                double x_t = jobIn->bodies[b].nodes.contact_mx_t[i];
+                double y_t = jobIn->bodies[b].nodes.contact_my_t[i];
+                double z_t = jobIn->bodies[b].nodes.contact_mz_t[i];
+                if (std::isnan(x_t) || std::isinf(x_t)) {
+                    x_t = 0;
+                }
+                if (std::isnan(y_t) || std::isinf(y_t)) {
+                    y_t = 0;
+                }
+                if (std::isnan(z_t) || std::isinf(z_t)) {
+                    z_t = 0;
+                }
+                ffile << x_t << " " << y_t << " " << z_t << "\n";
+            }
+
             ffile << "VECTORS force double\n";
             //ffile << "LOOKUP_TABLE default\n";
             for (size_t i = 0; i < jobIn->bodies[b].n; i++) {
@@ -749,6 +790,25 @@ void MPMio::writeNodes(job_t* jobIn) {
                 double bx = jobIn->bodies[b].nodes.contact_fx[i];
                 double by = jobIn->bodies[b].nodes.contact_fy[i];
                 double bz = jobIn->bodies[b].nodes.contact_fz[i];
+                if (std::isnan(bx) || std::isinf(bx)) {
+                    bx = 0;
+                }
+                if (std::isnan(by) || std::isinf(by)) {
+                    by = 0;
+                }
+                if (std::isnan(bz) || std::isinf(bz)) {
+                    bz = 0;
+                }
+                ffile << bx << " " << by << " " << bz << "\n";
+            }
+
+            ffile << "VECTORS dirichlet_mask double\n";
+            //ffile << "LOOKUP_TABLE default\n";
+            for (size_t i = 0; i < jobIn->num_nodes; i++) {
+                //set body force to zero is nan
+                double bx = jobIn->u_dirichlet_mask[NODAL_DOF*i + XDOF_IDX];
+                double by = jobIn->u_dirichlet_mask[NODAL_DOF*i + YDOF_IDX];
+                double bz = jobIn->u_dirichlet_mask[NODAL_DOF*i + ZDOF_IDX];
                 if (std::isnan(bx) || std::isinf(bx)) {
                     bx = 0;
                 }

@@ -75,14 +75,14 @@ void resolve_contact(job_t *job, size_t id) {
             Eigen::Vector2d mv2i;
             Eigen::Vector2d vCMi;
             if (job->use_implicit == 1){
-                /*mv1i << job->bodies[b1].nodes.mx_t_k[i] + job->dt*job->bodies[b1].nodes.contact_fx[i],
+                mv1i << job->bodies[b1].nodes.mx_t_k[i] + job->dt*job->bodies[b1].nodes.contact_fx[i],
                         job->bodies[b1].nodes.my_t_k[i] + job->dt*job->bodies[b1].nodes.contact_fy[i];
                 mv2i << job->bodies[b2].nodes.mx_t_k[i] + job->dt*job->bodies[b2].nodes.contact_fx[i],
-                        job->bodies[b2].nodes.my_t_k[i] + job->dt*job->bodies[b2].nodes.contact_fy[i];*/
-                mv1i << job->bodies[b1].nodes.contact_mx_t[i],
+                        job->bodies[b2].nodes.my_t_k[i] + job->dt*job->bodies[b2].nodes.contact_fy[i];
+                /*mv1i << job->bodies[b1].nodes.contact_mx_t[i],
                         job->bodies[b1].nodes.contact_my_t[i];
                 mv2i << job->bodies[b2].nodes.contact_mx_t[i],
-                        job->bodies[b2].nodes.contact_my_t[i];
+                        job->bodies[b2].nodes.contact_my_t[i];*/
             } else {
                 mv1i << job->bodies[b1].nodes.contact_mx_t[i] + job->dt * job->bodies[b1].nodes.contact_fx[i],
                         job->bodies[b1].nodes.contact_my_t[i] + job->dt * job->bodies[b1].nodes.contact_fy[i];
@@ -116,9 +116,10 @@ void resolve_contact(job_t *job, size_t id) {
                 job->bodies[b2].nodes.contact_fx[i] -= fcti[0];
                 job->bodies[b2].nodes.contact_fy[i] -= fcti[1];
 
-                /*if (job->use_implicit == 0) {
+                if (job->use_implicit == 1) {
                     //adjust nodal velocities for non-penetration
-                    mv1i = mv1i - n1i.dot(mv1i - m1 * vCMi) * n1i;
+
+                    /*mv1i = mv1i - n1i.dot(mv1i - m1 * vCMi) * n1i;
                     mv2i = mv2i - n1i.dot(mv2i - m2 * vCMi) * n1i;
 
                     job->bodies[b1].nodes.contact_mx_t[i] = mv1i[0];
@@ -131,8 +132,8 @@ void resolve_contact(job_t *job, size_t id) {
                     job->bodies[b2].nodes.contact_my_t[i] = mv2i[1];
 
                     job->bodies[b2].nodes.contact_x_t[i] = mv2i[0] / m2;
-                    job->bodies[b2].nodes.contact_y_t[i] = mv2i[1] / m2;
-                }*/
+                    job->bodies[b2].nodes.contact_y_t[i] = mv2i[1] / m2;*/
+                }
             }
         }
     }
