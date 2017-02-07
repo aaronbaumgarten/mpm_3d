@@ -135,12 +135,12 @@ void generate_dirichlet_bcs(job_t *job)
             //job->bodies[b].nodes.m[job->Nx * ny] = m;
             //job->bodies[b].nodes.m[job->Nx * (ny+1) - 2] = m;
 
-            job->bodies[b].nodes.contact_fx[job->Nx * ny] = fx*m1/m;;
-            job->bodies[b].nodes.contact_fy[job->Nx * ny] = fy*m1/m;;
-            job->bodies[b].nodes.contact_fz[job->Nx * ny] = fz*m1/m;;
+            job->bodies[b].nodes.contact_fx[job->Nx * ny] = fx*m1/m;
+            job->bodies[b].nodes.contact_fy[job->Nx * ny] = fy*m1/m;
+            job->bodies[b].nodes.contact_fz[job->Nx * ny] = fz*m1/m;
             job->bodies[b].nodes.contact_fx[job->Nx * (ny+1) - 2] = fx*m2/m;
-            job->bodies[b].nodes.contact_fy[job->Nx * (ny+1) - 2] = fy*m2/m;;
-            job->bodies[b].nodes.contact_fz[job->Nx * (ny+1) - 2] = fz*m2/m;;
+            job->bodies[b].nodes.contact_fy[job->Nx * (ny+1) - 2] = fy*m2/m;
+            job->bodies[b].nodes.contact_fz[job->Nx * (ny+1) - 2] = fz*m2/m;
 
             //set lhs+1 to rhs
             mx_t = 0;
@@ -169,22 +169,22 @@ void generate_dirichlet_bcs(job_t *job)
             m2 = job->bodies[b].nodes.m[job->Nx * (ny+1) - 1];
             m = m1+m2;
 
-            job->bodies[b].nodes.contact_mx_t[job->Nx * ny + 1] = mx_t;
-            job->bodies[b].nodes.contact_my_t[job->Nx * ny + 1] = my_t;
-            job->bodies[b].nodes.contact_mz_t[job->Nx * ny + 1] = mz_t;
-            job->bodies[b].nodes.contact_mx_t[job->Nx * (ny+1) - 1] = mx_t;
-            job->bodies[b].nodes.contact_my_t[job->Nx * (ny+1) - 1] = my_t;
-            job->bodies[b].nodes.contact_mz_t[job->Nx * (ny+1) - 1] = mz_t;
+            job->bodies[b].nodes.contact_mx_t[job->Nx * ny + 1] = mx_t*m1/m;
+            job->bodies[b].nodes.contact_my_t[job->Nx * ny + 1] = my_t*m1/m;
+            job->bodies[b].nodes.contact_mz_t[job->Nx * ny + 1] = mz_t*m1/m;
+            job->bodies[b].nodes.contact_mx_t[job->Nx * (ny+1) - 1] = mx_t*m2/m;
+            job->bodies[b].nodes.contact_my_t[job->Nx * (ny+1) - 1] = my_t*m2/m;
+            job->bodies[b].nodes.contact_mz_t[job->Nx * (ny+1) - 1] = mz_t*m2/m;
 
-            job->bodies[b].nodes.m[job->Nx * ny + 1] = m;
-            job->bodies[b].nodes.m[job->Nx * (ny+1) - 1] = m;
+            //job->bodies[b].nodes.m[job->Nx * ny + 1] = m;
+            //job->bodies[b].nodes.m[job->Nx * (ny+1) - 1] = m;
 
-            job->bodies[b].nodes.contact_fx[job->Nx * ny + 1] = fx;
-            job->bodies[b].nodes.contact_fy[job->Nx * ny + 1] = fy;
-            job->bodies[b].nodes.contact_fz[job->Nx * ny + 1] = fz;
-            job->bodies[b].nodes.contact_fx[job->Nx * (ny+1) - 1] = fx;
-            job->bodies[b].nodes.contact_fy[job->Nx * (ny+1) - 1] = fy;
-            job->bodies[b].nodes.contact_fz[job->Nx * (ny+1) - 1] = fz;
+            job->bodies[b].nodes.contact_fx[job->Nx * ny + 1] = fx*m1/m;
+            job->bodies[b].nodes.contact_fy[job->Nx * ny + 1] = fy*m1/m;
+            job->bodies[b].nodes.contact_fz[job->Nx * ny + 1] = fz*m1/m;
+            job->bodies[b].nodes.contact_fx[job->Nx * (ny+1) - 1] = fx*m2/m;
+            job->bodies[b].nodes.contact_fy[job->Nx * (ny+1) - 1] = fy*m2/m;
+            job->bodies[b].nodes.contact_fz[job->Nx * (ny+1) - 1] = fz*m2/m;
 
             //wrap particle positions
             for (size_t i=0;i<job->bodies[b].p;i++){
