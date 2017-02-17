@@ -32,6 +32,10 @@ extern "C" void calculate_stress(Body *body, double dt);
 
 extern "C" void calculate_stress_implicit(Body *body, double dt);
 
+extern "C" void volumetric_smoothing(Body *body, Eigen::VectorXd trE, Eigen::VectorXd trT);
+
+extern "C" void volumetric_smoothing_implicit(Body *body, Eigen::VectorXd trE, Eigen::VectorXd trT);
+
 #define SZZ_STATE 0
 
 /*----------------------------------------------------------------------------*/
@@ -104,6 +108,10 @@ void calculate_stress_implicit(Body *body, double dtIn) {
         Eigen::Matrix3d Sv = 2 * mu * (D - trD/3.0 * Eigen::Matrix3d::Identity());
         Eigen::Matrix3d Se = (trT/3.0 + K*std::log(dJ))*Eigen::Matrix3d::Identity();
 
+        //surface tension
+        /*if (Se.trace() > 0){
+            Se = Se - Se.trace()/3.0 * Eigen::Matrix3d::Identity();
+        }*/
         for (size_t pos=0;pos<9;pos++){
             body->particles.Ttrial(i,pos) = Se(pos) + Sv(pos);
         }
@@ -132,19 +140,54 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
     size_t p_start = task->offset;
     size_t p_stop = task->offset + task->blocksize;
 
-    for (size_t i = 0; i < body->p; i++) {
-        if (body->particles.active[i] == 0) {
-            continue;
-        }
 
-        body->material.calculate_stress_implicit(body,dtIn);
-
-        for (size_t pos=0;pos<9;pos++){
-            body->particles.T(i,pos) = body->particles.Ttrial(i,pos);
-        }
-    }
+    body->material.calculate_stress_implicit(body,dtIn);
+    body->particles.T = body->particles.Ttrial;
 
     return;
 }
 /*----------------------------------------------------------------------------*/
+
+void volumetric_smoothing(Body *body, Eigen::VectorXd trE, Eigen::VectorXd trT) {
+    assert(trE.size() == body->p);
+    assert(trT.size() == body->p);
+    /*for (size_t i = 0; i < body->p; i++) {
+        body->particles.T(i,XX) = trT[i]/3.0;
+        body->particles.T(i,YY) = trT[i]/3.0;
+        body->particles.T(i,ZZ) = trT[i]/3.0;
+    }*/
+    Eigen::VectorXd tmpVec(9);
+    for (size_t i=0;i<body->p;i++) {
+        tmpVec << body->particles.T.row(i).transpose();
+        //Eigen::Matrix3d T(tmpVec.data());
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> T(tmpVec.data());
+        T = T - (T.trace() - trT[i])/3.0*Eigen::Matrix3d::Identity();
+        body->particles.T(i,XX) = T(XX);
+        body->particles.T(i,YY) = T(YY);
+        body->particles.T(i,ZZ) = T(ZZ);
+    }
+
+    return;
+}
+
+void volumetric_smoothing_implicit(Body *body, Eigen::VectorXd trE, Eigen::VectorXd trT) {
+    assert(trE.size() == body->p);
+    assert(trT.size() == body->p);
+    /*for (size_t i = 0; i < body->p; i++) {
+        body->particles.Ttrial(i,XX) = trT[i]/3.0;
+        body->particles.Ttrial(i,YY) = trT[i]/3.0;
+        body->particles.Ttrial(i,ZZ) = trT[i]/3.0;
+    }*/
+    Eigen::VectorXd tmpVec(9);
+    for (size_t i=0;i<body->p;i++) {
+        tmpVec << body->particles.Ttrial.row(i).transpose();
+        //Eigen::Matrix3d T(tmpVec.data());
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> T(tmpVec.data());
+        T = T - (T.trace() - trT[i])/3.0*Eigen::Matrix3d::Identity();
+        body->particles.Ttrial(i,XX) = T(XX);
+        body->particles.Ttrial(i,YY) = T(YY);
+        body->particles.Ttrial(i,ZZ) = T(ZZ);
+    }
+    return;
+}
 

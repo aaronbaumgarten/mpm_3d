@@ -48,10 +48,10 @@ public:
     std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> gradPhiZTriplets;
 
     //Phi and gradPhi
-    Eigen::SparseMatrix<double> Phi;
-    Eigen::SparseMatrix<double> gradPhiX;
-    Eigen::SparseMatrix<double> gradPhiY;
-    Eigen::SparseMatrix<double> gradPhiZ;
+    Eigen::SparseMatrix<double,Eigen::RowMajor> Phi;
+    Eigen::SparseMatrix<double,Eigen::RowMajor> gradPhiX;
+    Eigen::SparseMatrix<double,Eigen::RowMajor> gradPhiY;
+    Eigen::SparseMatrix<double,Eigen::RowMajor> gradPhiZ;
 
     //construcors
     Body(size_t,size_t,size_t,size_t);

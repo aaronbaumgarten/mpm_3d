@@ -2,6 +2,7 @@ set(CONTACTS
         huang2d.cpp
         huang.cpp
         nocontact.cpp
+        slurry.cpp
         )
 
 foreach(conc ${CONTACTS})

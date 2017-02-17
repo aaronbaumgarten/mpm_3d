@@ -57,7 +57,7 @@ void time_varying_loads2D(job_t *job){
 
     for (size_t b=0;b<job->num_bodies;b++){
         for (size_t i=0; i<job->bodies[b].p; i++){
-            job->bodies[b].particles.bx[i] = 0;
+            job->bodies[b].particles.bx[i] = 1;
             job->bodies[b].particles.by[i] = gravity;
             job->bodies[b].particles.bz[i] = 0;
         }

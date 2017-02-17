@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string>
 #include <vector>
+#include <Eigen/Core>
 
 #ifndef MPM_3D_MATERIAL_HPP
 #define MPM_3D_MATERIAL_HPP
@@ -23,6 +24,8 @@ public:
     void (*calculate_stress)(Body*, double);
     void (*calculate_stress_implicit)(Body*, double);
     void (*calculate_stress_threaded)(threadtask_t*,Body*,double);
+    void (*volumetric_smoothing)(Body *, Eigen::VectorXd trE, Eigen::VectorXd trT);
+    void (*volumetric_smoothing_implicit)(Body *, Eigen::VectorXd trE, Eigen::VectorXd trT);
 
     std::vector<double> fp64_props;
     std::vector<int> int_props;

@@ -57,6 +57,7 @@ public:
     int use_3d;
     int use_implicit;
     int use_cpdi;
+    int use_smoothing;
 
     //which DOF are bc controlled
     std::vector<double> u_dirichlet;

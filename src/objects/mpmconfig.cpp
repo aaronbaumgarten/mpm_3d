@@ -17,7 +17,7 @@ MPMconfig::MPMconfig(){
     configFile = "default.cfg";
     mainPath = "./";
     //knownHeaders = {"job","input","output","material","boundary","contact"};
-    jobParams = {"dt","use_3d","use_implicit","use_cpdi","newtonTOL","linearStepSize"};
+    jobParams = {"dt","use_3d","use_implicit","use_cpdi","newtonTOL","linearStepSize","use_smoothing"};
     inputParams = {"particle-file","grid-file"};
     materialParams = {"bodies","material-file","properties","int-properties"};
     boundaryParams = {"boundary-file","properties","int-properties"};
@@ -28,7 +28,7 @@ MPMconfig::MPMconfig(){
 MPMconfig::MPMconfig(std::string fileIn) {
     configFile = fileIn;
     mainPath = "./";
-    jobParams = {"dt","use_3d","use_implicit","use_cpdi","newtonTOL","linearStepSize"};
+    jobParams = {"dt","use_3d","use_implicit","use_cpdi","newtonTOL","linearStepSize","use_smoothing"};
     inputParams = {"particle-file","grid-file"};
     materialParams = {"bodies","material-file","properties","int-properties"};
     boundaryParams = {"boundary-file","properties","int-properties"};
@@ -175,7 +175,7 @@ int MPMconfig::configJob(job_t * job){
                             //check if property name matches job inputs
                             switch (this->findStringID(this->jobParams, propName)) {
                                 //cases for setting job values need to process strings
-                                //{"dt","use_3d","use_implicit","use_cpdi","newtonTOL","linearStepSize"}
+                                //{"dt","use_3d","use_implicit","use_cpdi","newtonTOL","linearStepSize","use_smoothing"}
                                 case 0 :
                                     job->dt = std::stod(propValue);
                                     break;
@@ -193,6 +193,9 @@ int MPMconfig::configJob(job_t * job){
                                     break;
                                 case 5 :
                                     job->linearStepSize = std::stod(propValue);
+                                    break;
+                                case 6 :
+                                    job->use_smoothing = std::stoi(propValue);
                                     break;
                                 default:
                                     std::cout << "Parameter \"" << propName <<

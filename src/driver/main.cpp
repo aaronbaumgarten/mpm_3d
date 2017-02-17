@@ -73,6 +73,7 @@ int main(int argc, char *argv[]) {
                 job->use_3d = 1;
                 job->use_implicit = 1;
                 job->use_cpdi = 1;
+                job->use_smoothing = 0;
                 job->newtonTOL = 1e-10;
                 job->linearStepSize = 1e-5;
 

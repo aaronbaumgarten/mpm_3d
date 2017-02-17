@@ -72,7 +72,8 @@ Particles::Particles(size_t p):
         corner_z(p,8),
 
         //corner elements
-        corner_elements(p,8)
+        corner_elements(p,8),
+        elementIDs(p)
 {
     //position
     x.setZero();
@@ -131,6 +132,7 @@ Particles::Particles(size_t p):
 
     //corner elements
     corner_elements.setZero();
+    elementIDs.setZero();
 };
 
 //functions
@@ -249,4 +251,15 @@ int Particles::updateActive(job_t* job, size_t id){
         this->active[id] = 1;
     }
     return this->active[id];
+}
+
+template<>
+void Particles::updateElementIDs(job_t *job) {
+    for (size_t p=0;p<this->numParticles;p++){
+        this->elementIDs[p] = WHICH_ELEMENT9(this->x[p], this->y[p], this->z[p],
+                                             job->Nx, job->Ny, job->Nz,
+                                             job->Lx, job->Ly, job->Lz,
+                                             job->hx, job->hy, job->hz);
+    }
+    return;
 }

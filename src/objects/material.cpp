@@ -24,6 +24,8 @@ Material::Material(){
         calculate_stress = NULL;
         calculate_stress_threaded = NULL;
         calculate_stress_implicit = NULL;
+        volumetric_smoothing = NULL;
+        volumetric_smoothing_implicit = NULL;
 }
 
 Material::Material(std::string filename, std::string filepath, std::vector<double> fp64props, std::vector<int> intprops){
@@ -46,6 +48,8 @@ Material::Material(std::string filename, std::string filepath, std::vector<doubl
         calculate_stress = NULL;
         calculate_stress_threaded = NULL;
         calculate_stress_implicit = NULL;
+        volumetric_smoothing = NULL;
+        volumetric_smoothing_implicit = NULL;
     } else {
         dlerror();
         material_init = reinterpret_cast<void (*)(Body *)>(dlsym(handle, "material_init"));
@@ -70,6 +74,18 @@ Material::Material(std::string filename, std::string filepath, std::vector<doubl
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'calculate_stress_implicit': " << dlsym_error <<
+            '\n';
+        }
+        volumetric_smoothing = reinterpret_cast<void (*)(Body *, Eigen::VectorXd, Eigen::VectorXd)>(dlsym(handle, "volumetric_smoothing"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'volumetric_smoothing': " << dlsym_error <<
+            '\n';
+        }
+        volumetric_smoothing_implicit = reinterpret_cast<void (*)(Body *, Eigen::VectorXd, Eigen::VectorXd)>(dlsym(handle, "volumetric_smoothing_implicit"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'volumetric_smoothing_implicit': " << dlsym_error <<
             '\n';
         }
     }
@@ -102,6 +118,8 @@ void Material::setMaterial(std::string filename, std::string filepath, std::vect
         this->calculate_stress = NULL;
         this->calculate_stress_threaded = NULL;
         this->calculate_stress_implicit = NULL;
+        this->volumetric_smoothing = NULL;
+        this->volumetric_smoothing_implicit = NULL;
     } else {
         dlerror();
         this->material_init = reinterpret_cast<void (*)(Body *)>(dlsym(this->handle, "material_init"));
@@ -126,6 +144,18 @@ void Material::setMaterial(std::string filename, std::string filepath, std::vect
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'calculate_stress_implicit': " << dlsym_error <<
+            '\n';
+        }
+        this->volumetric_smoothing = reinterpret_cast<void (*)(Body *,Eigen::VectorXd, Eigen::VectorXd)>(dlsym(handle, "volumetric_smoothing"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'volumetric_smoothing': " << dlsym_error <<
+            '\n';
+        }
+        this->volumetric_smoothing_implicit = reinterpret_cast<void (*)(Body *, Eigen::VectorXd, Eigen::VectorXd)>(dlsym(handle, "volumetric_smoothing_implicit"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'volumetric_smoothing_implicit': " << dlsym_error <<
             '\n';
         }
     }

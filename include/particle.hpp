@@ -119,6 +119,7 @@ public:
 
     //which element owns each corner
     //int corner_elements[8];
+    Eigen::VectorXi elementIDs;
     Eigen::MatrixXi corner_elements;
 
     //construcors
@@ -142,6 +143,9 @@ public:
 
     template<class jobT>
     int updateActive(jobT* job, size_t id);
+
+    template<class jobT>
+    void updateElementIDs(jobT* job);
 };
 
 #endif //MPM_3D_PARTICLE_HPP

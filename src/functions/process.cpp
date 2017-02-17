@@ -32,6 +32,7 @@ job_t::job_t():
         use_cpdi(1), //default cpdi
         use_3d(1), //default 3d
         use_implicit(0), //default explicit
+        use_smoothing(0),
         dt(1e-3),
         dt_base(dt),
         dt_minimum(1e-6),
@@ -1016,12 +1017,26 @@ void job_t::calculateStrainRate() {
         size_t numColsN = 1;
 
         //nodal velocities
-        this->bodies[b].nodes.contact_x_t =
+        //unsafe with current periodic BC
+        /*this->bodies[b].nodes.contact_x_t =
                 this->bodies[b].nodes.contact_mx_t.array() / this->bodies[b].nodes.m.array();
         this->bodies[b].nodes.contact_y_t =
                 this->bodies[b].nodes.contact_my_t.array() / this->bodies[b].nodes.m.array();
         this->bodies[b].nodes.contact_z_t =
-                this->bodies[b].nodes.contact_mz_t.array() / this->bodies[b].nodes.m.array();
+                this->bodies[b].nodes.contact_mz_t.array() / this->bodies[b].nodes.m.array();*/
+        this->bodies[b].nodes.contact_x_t.setZero();
+        this->bodies[b].nodes.contact_y_t.setZero();
+        this->bodies[b].nodes.contact_z_t.setZero();
+        for (size_t i=0;i<this->num_nodes;i++){
+            if (this->bodies[b].nodes.m[i] != 0){
+                this->bodies[b].nodes.contact_x_t[i] =
+                        this->bodies[b].nodes.contact_mx_t[i] / this->bodies[b].nodes.m[i];
+                this->bodies[b].nodes.contact_y_t[i] =
+                        this->bodies[b].nodes.contact_my_t[i] / this->bodies[b].nodes.m[i];
+                this->bodies[b].nodes.contact_z_t[i] =
+                        this->bodies[b].nodes.contact_mz_t[i] / this->bodies[b].nodes.m[i];
+            }
+        }
 
         //use to create dummy pvec
         size_t numRowsP = this->bodies[b].p;
@@ -1069,9 +1084,22 @@ void job_t::calculateStrainRate2D() {
         size_t numColsN = 1;
 
         //nodal velocities
-        this->bodies[b].nodes.contact_x_t = this->bodies[b].nodes.contact_mx_t.array()/this->bodies[b].nodes.m.array();
-        this->bodies[b].nodes.contact_y_t = this->bodies[b].nodes.contact_my_t.array()/this->bodies[b].nodes.m.array();
+        //this->bodies[b].nodes.contact_x_t = this->bodies[b].nodes.contact_mx_t.array()/this->bodies[b].nodes.m.array();
+        //this->bodies[b].nodes.contact_y_t = this->bodies[b].nodes.contact_my_t.array()/this->bodies[b].nodes.m.array();
         //this->bodies[b].nodes.contact_z_t = this->bodies[b].nodes.contact_mz_t.array()/this->bodies[b].nodes.m.array();
+        this->bodies[b].nodes.contact_x_t.setZero();
+        this->bodies[b].nodes.contact_y_t.setZero();
+        //this->bodies[b].nodes.contact_z_t.setZero();
+        for (size_t i=0;i<this->num_nodes;i++){
+            if (this->bodies[b].nodes.m[i] != 0){
+                this->bodies[b].nodes.contact_x_t[i] =
+                        this->bodies[b].nodes.contact_mx_t[i] / this->bodies[b].nodes.m[i];
+                this->bodies[b].nodes.contact_y_t[i] =
+                        this->bodies[b].nodes.contact_my_t[i] / this->bodies[b].nodes.m[i];
+                //this->bodies[b].nodes.contact_z_t[i] =
+                //        this->bodies[b].nodes.contact_mz_t[i] / this->bodies[b].nodes.m[i];
+            }
+        }
 
         //use to create dummy pvec
         size_t numRowsP = this->bodies[b].p;
@@ -1137,6 +1165,98 @@ void job_t::updateStress(){
     for (size_t b=0;b<this->num_bodies;b++){
         this->bodies[b].material.calculate_stress(&(this->bodies[b]),this->dt);
     }
+
+    if (this->use_smoothing == 1) {
+        //smoothing [see Mast et. al. 2012 for kinematic locking solution]
+        Eigen::VectorXd alpha(this->num_nodes);
+        Eigen::VectorXd beta(this->num_nodes);
+        for (size_t b = 0; b < this->num_bodies; b++) {
+            Eigen::VectorXd pvec(this->bodies[b].p);
+            pvec = (this->bodies[b].particles.v - this->bodies[b].particles.v0).array() / this->bodies[b].particles.v0.array() *
+                   this->bodies[b].particles.m.array();
+            alpha = (this->bodies[b].Phi * pvec).array() / this->bodies[b].nodes.m.array();
+
+            pvec = (this->bodies[b].particles.T.col(XX) + this->bodies[b].particles.T.col(YY) +
+                    this->bodies[b].particles.T.col(ZZ)).array() * this->bodies[b].particles.m.array();
+            beta = (this->bodies[b].Phi * pvec).array() / this->bodies[b].nodes.m.array();
+
+            for (size_t i=0;i<this->num_nodes;i++){
+                if (this->bodies[b].nodes.m[i] == 0){
+                    alpha[i] = 0;
+                    beta[i] = 0;
+                }
+            }
+
+            //trE and trT
+            Eigen::VectorXd trE = this->bodies[b].Phi.transpose() * alpha;
+            Eigen::VectorXd trT = this->bodies[b].Phi.transpose() * beta;
+            this->bodies[b].material.volumetric_smoothing(&(this->bodies[b]), trE, trT);
+
+            //adjust particle volume and density
+            this->bodies[b].particles.v =
+                    this->bodies[b].particles.v0.array() + this->bodies[b].particles.v0.array() * trE.array();
+        }
+        /*Eigen::VectorXd alpha(this->num_elements);
+        Eigen::VectorXd beta(this->num_elements);
+        Eigen::VectorXd m(this->num_elements);
+        for (size_t b=0;b<this->num_bodies;b++) {
+            alpha.setZero();
+            beta.setZero();
+            m.setZero();
+            this->bodies[b].particles.updateElementIDs(this);
+            Eigen::VectorXd pvec(this->bodies[b].p);
+
+            //trE
+            pvec = (this->bodies[b].particles.v - this->bodies[b].particles.v0).array() / this->bodies[b].particles.v0.array() *
+                   this->bodies[b].particles.m.array();
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                size_t e = this->bodies[b].particles.elementIDs[i];
+                if (this->bodies[b].particles.active[i]) {
+                    alpha[e] += pvec[i];
+                }
+            }
+
+            //trA
+            pvec = (this->bodies[b].particles.T.col(XX) + this->bodies[b].particles.T.col(YY) +
+                    this->bodies[b].particles.T.col(ZZ)).array() * this->bodies[b].particles.m.array();
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                size_t e = this->bodies[b].particles.elementIDs[i];
+                if (this->bodies[b].particles.active[i]) {
+                    beta[e] += pvec[i];
+                }
+            }
+
+            //m
+            pvec = this->bodies[b].particles.m.array();
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                size_t e = this->bodies[b].particles.elementIDs[i];
+                if (this->bodies[b].particles.active[i]) {
+                    m[e] += pvec[i];
+                }
+            }
+
+            //trE and trT
+            Eigen::VectorXd trE(this->bodies[b].p);
+            Eigen::VectorXd trT(this->bodies[b].p);
+            trE.setZero();
+            trT.setZero();
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                size_t e = this->bodies[b].particles.elementIDs[i];
+                if (this->bodies[b].particles.active[i]) {
+                    trE[i] = alpha[e] / m[e];
+                    trT[i] = beta[e] / m[e];
+                }
+            }
+
+            this->bodies[b].material.volumetric_smoothing(&(this->bodies[b]), trE, trT);
+
+            //adjust particle volume and density
+            this->bodies[b].particles.v =
+                    this->bodies[b].particles.v0.array() + this->bodies[b].particles.v0.array() * trE.array();
+
+        }*/
+    }
+
     return;
 }
 
@@ -1145,6 +1265,99 @@ void job_t::updateTrialStress(){
     for (size_t b=0;b<this->num_bodies;b++){
         this->bodies[b].material.calculate_stress_implicit(&(this->bodies[b]),this->dt);
     }
+
+    if (this->use_smoothing == 1) {
+        //smoothing [see Mast et. al. 2012 for kinematic locking solution]
+        Eigen::VectorXd alpha(this->num_nodes);
+        Eigen::VectorXd beta(this->num_nodes);
+        for (size_t b = 0; b < this->num_bodies; b++) {
+            Eigen::VectorXd pvec(this->bodies[b].p);
+            pvec = (this->bodies[b].particles.v_trial - this->bodies[b].particles.v0).array() / this->bodies[b].particles.v0.array() *
+                   this->bodies[b].particles.m.array();
+            alpha = (this->bodies[b].Phi * pvec).array() / this->bodies[b].nodes.m.array();
+
+            pvec = (this->bodies[b].particles.Ttrial.col(XX) + this->bodies[b].particles.Ttrial.col(YY) +
+                    this->bodies[b].particles.Ttrial.col(ZZ)).array() * this->bodies[b].particles.m.array();
+            beta = (this->bodies[b].Phi * pvec).array() / this->bodies[b].nodes.m.array();
+
+
+            for (size_t i=0;i<this->num_nodes;i++){
+                if (this->bodies[b].nodes.m[i] == 0){
+                    alpha[i] = 0;
+                    beta[i] = 0;
+                }
+            }
+
+            //trE and trT
+            Eigen::VectorXd trE = this->bodies[b].Phi.transpose() * alpha;
+            Eigen::VectorXd trT = this->bodies[b].Phi.transpose() * beta;
+            this->bodies[b].material.volumetric_smoothing_implicit(&(this->bodies[b]), trE, trT);
+
+            //adjust particle volume and density
+            this->bodies[b].particles.v_trial =
+                    this->bodies[b].particles.v0.array() + this->bodies[b].particles.v0.array() * trE.array();
+        }
+        /*Eigen::VectorXd alpha(this->num_elements);
+        Eigen::VectorXd beta(this->num_elements);
+        Eigen::VectorXd m(this->num_elements);
+        for (size_t b=0;b<this->num_bodies;b++) {
+            alpha.setZero();
+            beta.setZero();
+            m.setZero();
+            this->bodies[b].particles.updateElementIDs(this);
+            Eigen::VectorXd pvec(this->bodies[b].p);
+
+            //trE
+            pvec = (this->bodies[b].particles.v_trial - this->bodies[b].particles.v0).array() / this->bodies[b].particles.v0.array() *
+                   this->bodies[b].particles.m.array();
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                size_t e = this->bodies[b].particles.elementIDs[i];
+                if (this->bodies[b].particles.active[i]) {
+                    alpha[e] += pvec[i];
+                }
+            }
+
+            //trA
+            pvec = (this->bodies[b].particles.Ttrial.col(XX) + this->bodies[b].particles.Ttrial.col(YY) +
+                    this->bodies[b].particles.Ttrial.col(ZZ)).array() * this->bodies[b].particles.m.array();
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                size_t e = this->bodies[b].particles.elementIDs[i];
+                if (this->bodies[b].particles.active[i]) {
+                    beta[e] += pvec[i];
+                }
+            }
+
+            //m
+            pvec = this->bodies[b].particles.m.array();
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                size_t e = this->bodies[b].particles.elementIDs[i];
+                if (this->bodies[b].particles.active[i]) {
+                    m[e] += pvec[i];
+                }
+            }
+
+            //trE and trT
+            Eigen::VectorXd trE(this->bodies[b].p);
+            Eigen::VectorXd trT(this->bodies[b].p);
+            trE.setZero();
+            trT.setZero();
+            for (size_t i = 0; i < this->bodies[b].p; i++) {
+                size_t e = this->bodies[b].particles.elementIDs[i];
+                if (this->bodies[b].particles.active[i]) {
+                    trE[i] = alpha[e] / m[e];
+                    trT[i] = beta[e] / m[e];
+                }
+            }
+
+            this->bodies[b].material.volumetric_smoothing_implicit(&(this->bodies[b]), trE, trT);
+
+            //adjust particle volume and density
+            this->bodies[b].particles.v_trial =
+                    this->bodies[b].particles.v0.array() + this->bodies[b].particles.v0.array() * trE.array();
+
+        }*/
+    }
+
     return;
 }
 
@@ -1251,6 +1464,10 @@ void job_t::calculateImplicitResidual() {
                 //this->bodies[b].Ry[i] /= this->bodies[b].nodes.m[i];
                 //this->bodies[b].Rz[i] /= this->bodies[b].nodes.m[i];
             }
+
+            /*if (!std::isfinite(this->bodies[b].nodes.Rx[i])){
+                std::cout << i << ", " << this->bodies[b].nodes.m[i] << ", " << this->bodies[b].nodes.fx_L[i] << ", " << this->bodies[b].nodes.mx_t_k[i] << ", " << this->bodies[b].nodes.x_t_trial[i] << std::endl;
+            }*/
 
         }
     }

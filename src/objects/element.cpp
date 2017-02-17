@@ -13,6 +13,7 @@
 #include "body.hpp"
 #include "particle.hpp"
 #include "element.hpp"
+#include "process.hpp"
 
 Elements::Elements(size_t e, size_t npe){
     numElements = e;
@@ -128,4 +129,4 @@ void Elements::calculatePhic(Body *body, size_t ide, size_t idp, size_t idc, int
         }
     }
     return;
-};
+}

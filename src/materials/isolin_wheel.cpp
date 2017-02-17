@@ -36,6 +36,10 @@ extern "C" void calculate_stress(Body *body, double dt);
 
 extern "C" void calculate_stress_implicit(Body *body, double dt);
 
+extern "C" void volumetric_smoothing(Body* body, Eigen::VectorXd trE, Eigen::VectorXd trT);
+
+extern "C" void volumetric_smoothing_implicit(Body * body, Eigen::VectorXd trE, Eigen::VectorXd trT);
+
 #define SZZ_STATE 0
 
 /*----------------------------------------------------------------------------*/
@@ -242,4 +246,46 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
 }
 /*----------------------------------------------------------------------------*/
 
+void volumetric_smoothing(Body *body, Eigen::VectorXd trE, Eigen::VectorXd trT) {
+    assert(trE.size() == body->p);
+    assert(trT.size() == body->p);
+    /*for (size_t i = 0; i < body->p; i++) {
+        body->particles.T(i,XX) = trT[i]/3.0;
+        body->particles.T(i,YY) = trT[i]/3.0;
+        body->particles.T(i,ZZ) = trT[i]/3.0;
+    }*/
+    Eigen::VectorXd tmpVec(9);
+    for (size_t i=0;i<body->p;i++) {
+        tmpVec << body->particles.T.row(i).transpose();
+        //Eigen::Matrix3d T(tmpVec.data());
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> T(tmpVec.data());
+        T = T - (T.trace() - trT[i])/3.0*Eigen::Matrix3d::Identity();
+        body->particles.T(i,XX) = T(XX);
+        body->particles.T(i,YY) = T(YY);
+        body->particles.T(i,ZZ) = T(ZZ);
+    }
+
+    return;
+}
+
+void volumetric_smoothing_implicit(Body *body, Eigen::VectorXd trE, Eigen::VectorXd trT) {
+    assert(trE.size() == body->p);
+    assert(trT.size() == body->p);
+    /*for (size_t i = 0; i < body->p; i++) {
+        body->particles.Ttrial(i,XX) = trT[i]/3.0;
+        body->particles.Ttrial(i,YY) = trT[i]/3.0;
+        body->particles.Ttrial(i,ZZ) = trT[i]/3.0;
+    }*/
+    Eigen::VectorXd tmpVec(9);
+    for (size_t i=0;i<body->p;i++) {
+        tmpVec << body->particles.Ttrial.row(i).transpose();
+        //Eigen::Matrix3d T(tmpVec.data());
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> T(tmpVec.data());
+        T = T - (T.trace() - trT[i])/3.0*Eigen::Matrix3d::Identity();
+        body->particles.Ttrial(i,XX) = T(XX);
+        body->particles.Ttrial(i,YY) = T(YY);
+        body->particles.Ttrial(i,ZZ) = T(ZZ);
+    }
+    return;
+}
 
