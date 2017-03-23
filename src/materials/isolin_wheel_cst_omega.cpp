@@ -1,6 +1,6 @@
 //
-// Created by aaron on 1/26/17.
-// isolin_wheel.cpp.cpp
+// Created by aaron on 2/28/17.
+// isolin_wheel_cst_omega.cpp
 //
 
 
@@ -25,7 +25,7 @@ double t_start = 0;
 double w_min = 1e0;
 
 /* Material Constants (set by configuration file). */
-double E, nu, g_in, axle_r, power_in, wheel_area, axle_x, axle_y, axle_z;
+double E, nu, omega_in, axle_x, axle_y, axle_z;
 double G, K, lambda;
 
 extern "C" void material_init(Body *body);
@@ -55,45 +55,39 @@ void material_init(Body *body) {
     if (body->material.num_fp64_props < 5) {
         std::cout << body->material.num_fp64_props << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 5 properties defined (E, nu, axle_r, power_in, wheel_area, [t_start], [axle_x, axle_y, axle_z]).\n",
+                "%s:%s: Need at least 5 properties defined (E, nu, omega, [t_start], [axle_x, axle_y, axle_z]).\n",
                 __FILE__, __func__);
         exit(0); //replace error code handler from sachith's work with 0
-    } else if (body->material.num_fp64_props == 9) {
+    } else if (body->material.num_fp64_props == 7) {
         E = body->material.fp64_props[0];
         nu = body->material.fp64_props[1];
-        axle_r = body->material.fp64_props[2];
-        power_in = body->material.fp64_props[3];
-        wheel_area = body->material.fp64_props[4];
-        t_start = body->material.fp64_props[5];
-        axle_x = body->material.fp64_props[6];
-        axle_y = body->material.fp64_props[7];
-        axle_z = body->material.fp64_props[8];
+        omega_in = body->material.fp64_props[2];
+        t_start = body->material.fp64_props[3];
+        axle_x = body->material.fp64_props[4];
+        axle_y = body->material.fp64_props[5];
+        axle_z = body->material.fp64_props[6];
         G = E / (2.0 * (1.0 + nu));
         K = E / (3.0 * (1.0 - 2 * nu));
         lambda = K - 2.0 * G / 3.0;
-        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, P/M = %g, Axle = < %g , %g , %g >).\n",
-               E, nu, G, K, power_in, axle_x, axle_y, axle_z);
-    } else if (body->material.num_fp64_props == 6) {
+        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, omega = %g, Axle = < %g , %g , %g >).\n",
+               E, nu, G, K, omega_in, axle_x, axle_y, axle_z);
+    } else if (body->material.num_fp64_props == 4) {
         E = body->material.fp64_props[0];
         nu = body->material.fp64_props[1];
-        axle_r = body->material.fp64_props[2];
-        power_in = body->material.fp64_props[3];
-        wheel_area = body->material.fp64_props[4];
-        t_start = body->material.fp64_props[5];
+        omega_in = body->material.fp64_props[2];
+        t_start = body->material.fp64_props[3];
         axle_x = 0;
         axle_y = 0;
         axle_z = 1;
         G = E / (2.0 * (1.0 + nu));
         K = E / (3.0 * (1.0 - 2 * nu));
         lambda = K - 2.0 * G / 3.0;
-        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, P/M = %g, Axle = < %g , %g , %g >).\n",
-               E, nu, G, K, power_in, axle_x, axle_y, axle_z);
+        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, omega = %g, Axle = < %g , %g , %g >).\n",
+               E, nu, G, K, omega_in, axle_x, axle_y, axle_z);
     } else {
         E = body->material.fp64_props[0];
         nu = body->material.fp64_props[1];
-        axle_r = body->material.fp64_props[2];
-        power_in = body->material.fp64_props[3];
-        wheel_area = body->material.fp64_props[4];
+        omega_in = body->material.fp64_props[2];
         t_start = 0;
         axle_x = 0;
         axle_y = 0;
@@ -101,8 +95,8 @@ void material_init(Body *body) {
         G = E / (2.0 * (1.0 + nu));
         K = E / (3.0 * (1.0 - 2 * nu));
         lambda = K - 2.0 * G / 3.0;
-        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, P/M = %g, Axle = < %g , %g , %g >).\n",
-               E, nu, G, K, power_in, axle_x, axle_y, axle_z);
+        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, omega = %g, Axle = < %g , %g , %g >).\n",
+               E, nu, G, K, omega_in, axle_x, axle_y, axle_z);
     }
 
     std::cout << "Done initializing material (" << body->id << ").\n";
@@ -204,18 +198,16 @@ void calculate_stress_implicit(Body *body, double dtIn) {
             Eigen::Vector3d dv_cp;
             dv_cp << (body->particles.x_t[i] - v_cp[0]), (body->particles.y_t[i] - v_cp[1]), (body->particles.z_t[i] - v_cp[2]);
 
-            //rotational velocity
-            double w_cp = (r.cross(dv_cp)).norm() / r.squaredNorm();
-            w_cp = (w_cp > w_min) ? w_cp : w_min;
+            //normal velocity
+            Eigen::Vector3d v_n = dv_cp.dot(r)*r/r.squaredNorm();
 
-            if (r.norm() > 0 && r.norm() < axle_r) {
-                double A = power_in * wheel_area * 2.0 / (3.14159 * axle_r * axle_r * axle_r * axle_r *
-                                                          w_cp);//12500/w_cp; //Pa (for 0.123 W/kg output on 0.3m diameter axle)
+            //theta velocity
+            Eigen::Vector3d v_t = omega_in*r.norm()*c;
 
-                body->particles.bx[i] += A * c[0]/c.norm() * r.norm();
-                body->particles.by[i] += A * c[1]/c.norm() * r.norm();
-                body->particles.bz[i] += A * c[2]/c.norm() * r.norm();
-            }
+            body->particles.x_t[i] = v_n[0] + v_t[0] + v_cp[0];
+            body->particles.y_t[i] = v_n[1] + v_t[1] + v_cp[1];
+            body->particles.z_t[i] = v_n[2] + v_t[2] + v_cp[2];
+
         }
 
     }

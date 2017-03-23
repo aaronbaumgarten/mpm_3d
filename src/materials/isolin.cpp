@@ -174,6 +174,9 @@ void volumetric_smoothing(Body *body, Eigen::VectorXd trE, Eigen::VectorXd trT) 
         body->particles.T(i,ZZ) = T(ZZ);
     }
 
+    //volume smoothing
+    body->particles.v = body->particles.v0.array() * trE.array().exp();
+
     return;
 }
 
@@ -195,6 +198,9 @@ void volumetric_smoothing_implicit(Body *body, Eigen::VectorXd trE, Eigen::Vecto
         body->particles.Ttrial(i,YY) = T(YY);
         body->particles.Ttrial(i,ZZ) = T(ZZ);
     }
+
+    //volume smoothing
+    body->particles.v_trial = body->particles.v0.array() * trE.array().exp();
     return;
 }
 

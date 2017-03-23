@@ -227,17 +227,16 @@ void generate_dirichlet_bcs(job_t *job)
                 job->bodies[b].nodes.contact_fx[job->Nx * (ny + 1) - 1] = 0;//fx*m2/m;
                 job->bodies[b].nodes.contact_fy[job->Nx * (ny + 1) - 1] = 0;//fy*m2/m;
                 job->bodies[b].nodes.contact_fz[job->Nx * (ny + 1) - 1] = 0;//fz*m2/m;
-
-                //wrap particle positions
-                for (size_t i = 0; i < job->bodies[b].p; i++) {
-                    if (job->bodies[b].particles.x[i] > (job->Lx - job->hx / 2.0)) {
-                        job->bodies[b].particles.x[i] = job->bodies[b].particles.x[i] - (job->Lx - job->hx);
-                    } else if (job->bodies[b].particles.x[i] < (job->hx / 2.0)) {
-                        job->bodies[b].particles.x[i] = job->bodies[b].particles.x[i] + (job->Lx - job->hx);
-                    }
-                }
             }
 
+            //wrap particle positions
+            for (size_t i = 0; i < job->bodies[b].p; i++) {
+                if (job->bodies[b].particles.x[i] > (job->Lx - job->hx / 2.0)) {
+                    job->bodies[b].particles.x[i] = job->bodies[b].particles.x[i] - (job->Lx - job->hx);
+                } else if (job->bodies[b].particles.x[i] < (job->hx / 2.0)) {
+                    job->bodies[b].particles.x[i] = job->bodies[b].particles.x[i] + (job->Lx - job->hx);
+                }
+            }
             //std::cout << ny << ", " << job->bodies[b].Phi.sum() << ", " << job->bodies[b].gradPhiX.sum() << ", " << job->bodies[b].gradPhiY.sum() << ", " << job->bodies[b].gradPhiZ.sum() << std::endl;
             //std::cout << ny << ", " << job->bodies[b].nodes.contact_fx[job->Nx * ny] << ", " << job->bodies[b].nodes.contact_fx[job->Nx * (ny+1) - 2] << ", " << job->bodies[b].nodes.contact_fx[job->Nx * ny + 1] << ", " << job->bodies[b].nodes.contact_fx[job->Nx * (ny+1) - 1] << std::endl;
             //exit(0);

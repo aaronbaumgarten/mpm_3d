@@ -14,6 +14,7 @@
 #include "process.hpp"
 #include "tensor.hpp"
 #include <Eigen/Dense>
+#include <unsupported/Eigen/MatrixFunctions>
 
 #define MAT_VERSION_STRING "1.0" __DATE__ " " __TIME__
 
@@ -93,20 +94,34 @@ void calculate_stress_implicit(Body *body, double dtIn) {
         //Eigen::Matrix3d L(tmpVec.data());
         Eigen::Matrix<double, 3, 3, Eigen::RowMajor> L(tmpVec.data());
 
-        tmpVec << body->particles.T.row(i).transpose();
+        //tmpVec << body->particles.T.row(i).transpose();
         //Eigen::Matrix3d T(tmpVec.data());
-        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> T(tmpVec.data());
+        //Eigen::Matrix<double, 3, 3, Eigen::RowMajor> T(tmpVec.data());
 
         Eigen::Matrix3d D = 0.5*(L+L.transpose());
 
-        double trT = T.trace();
+        //double trT = T.trace();
         double trD = D.trace();
 
         //assume Je = J and F(n+1) ~ (1+L*dt)F(n)
-        double dJ = (dt*L + Eigen::Matrix3d::Identity()).determinant();
+        //double dJ = (dt*L + Eigen::Matrix3d::Identity()).determinant();
+        //double dJ = (dt*L).exp().determinant();
+
+        //if in slurry mixture, state9 will be 1
+        if (body->particles.state(i,9) != 0){
+            //undo previous strainrate update and do other strainrate update
+            body->particles.v_trial[i] *= std::exp(dt*(body->particles.state(i,10)-L.trace()));
+        }
+        if (!std::isfinite(body->particles.v_trial[i])){
+            std::cout << body->particles.v_trial[i] << "," << body->particles.state(i,10) << "," << L.trace() << std::endl;
+        }
+
+        double J = body->particles.v_trial[i]/body->particles.v0[i];
 
         Eigen::Matrix3d Sv = 2 * mu * (D - trD/3.0 * Eigen::Matrix3d::Identity());
-        Eigen::Matrix3d Se = (trT/3.0 + K*std::log(dJ))*Eigen::Matrix3d::Identity();
+        Eigen::Matrix3d Se = K*std::log(J)*Eigen::Matrix3d::Identity();
+        //Eigen::Matrix3d Se = (trT/3.0 + K*std::log(dJ))*Eigen::Matrix3d::Identity();
+        //Eigen::Matrix3d Se = K*std::log(body->particles.v[i]/body->particles.v0[i])*Eigen::Matrix3d::Identity();
 
         //surface tension
         /*if (Se.trace() > 0){
@@ -140,9 +155,10 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn) {
     size_t p_start = task->offset;
     size_t p_stop = task->offset + task->blocksize;
 
-
+    body->particles.v_trial = body->particles.v; //for implicit method
     body->material.calculate_stress_implicit(body,dtIn);
     body->particles.T = body->particles.Ttrial;
+    body->particles.v = body->particles.v_trial; //in case v needs to be updated (slurry)
 
     return;
 }
@@ -167,6 +183,9 @@ void volumetric_smoothing(Body *body, Eigen::VectorXd trE, Eigen::VectorXd trT) 
         body->particles.T(i,ZZ) = T(ZZ);
     }
 
+    //volume smoothing
+    body->particles.v = body->particles.v0.array() * trE.array().exp();
+
     return;
 }
 
@@ -188,6 +207,9 @@ void volumetric_smoothing_implicit(Body *body, Eigen::VectorXd trE, Eigen::Vecto
         body->particles.Ttrial(i,YY) = T(YY);
         body->particles.Ttrial(i,ZZ) = T(ZZ);
     }
+
+    //volume smoothing
+    body->particles.v_trial = body->particles.v0.array() * trE.array().exp();
     return;
 }
 

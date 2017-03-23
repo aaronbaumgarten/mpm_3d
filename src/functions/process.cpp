@@ -25,7 +25,7 @@
 #define MU_F 0.4
 //squared norm error tolerance
 //#define R_TOL 1e-5
-#define R_MAX 2e32//1e10
+#define R_MAX 1e32
 
 //hard coded for now. need to change
 job_t::job_t():
@@ -523,6 +523,7 @@ int job_t::createMappings() {
 
 
 void job_t::mapParticles2Grid() {
+    this->boundary.generate_dirichlet_bcs(this);
     for (size_t b=0; b<this->num_bodies; b++) {
         //use Eigen Map to point to particle array
         size_t numRowsP = this->bodies[b].p;
@@ -573,6 +574,26 @@ void job_t::mapParticles2Grid() {
         this->bodies[b].node_contact_normal_z = this->bodies[b].node_contact_normal_z.array()/normMag.array().sqrt();
          */
 
+         //a poor smoothing technique which better conserves particle histories
+        /*Eigen::VectorXd trTOLD = this->bodies[b].particles.T.col(XX) + this->bodies[b].particles.T.col(YY) + this->bodies[b].particles.T.col(ZZ);
+        Eigen::VectorXd trT = trTOLD;
+        if (this->use_smoothing == 1){
+            //smoothing [see Mast et. al. 2012 for kinematic locking solution]
+            Eigen::VectorXd alpha(this->num_nodes);
+            pvec = trTOLD.array() * this->bodies[b].particles.m.array();
+            alpha = (this->bodies[b].Phi * pvec).array();
+
+            alpha = alpha.array()/this->bodies[b].nodes.m.array();
+
+            for (size_t i=0;i<this->num_nodes;i++){
+                if (this->bodies[b].nodes.m[i] == 0){
+                    alpha[i] = 0;
+                }
+            }
+            trT = this->bodies[b].Phi.transpose() * alpha;
+        }*/
+
+        //pvec = this->bodies[b].particles.v.array() * (this->bodies[b].particles.T.col(XX) + (trT - trTOLD)/3.0).array();
         pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.T.col(XX).array();
         this->bodies[b].nodes.fx -= this->bodies[b].gradPhiX*pvec;
 
@@ -584,6 +605,7 @@ void job_t::mapParticles2Grid() {
         this->bodies[b].nodes.fx -= this->bodies[b].gradPhiZ*pvec;
         this->bodies[b].nodes.fz -= this->bodies[b].gradPhiX*pvec;
 
+        //pvec = this->bodies[b].particles.v.array() * (this->bodies[b].particles.T.col(YY) + (trT - trTOLD)/3.0).array();
         pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.T.col(YY).array();
         this->bodies[b].nodes.fy -= this->bodies[b].gradPhiY*pvec;
 
@@ -591,6 +613,7 @@ void job_t::mapParticles2Grid() {
         this->bodies[b].nodes.fy -= this->bodies[b].gradPhiZ*pvec;
         this->bodies[b].nodes.fz -= this->bodies[b].gradPhiY*pvec;
 
+        //pvec = this->bodies[b].particles.v.array() * (this->bodies[b].particles.T.col(ZZ) + (trT - trTOLD)/3.0).array();
         pvec = this->bodies[b].particles.v.array() * this->bodies[b].particles.T.col(ZZ).array();
         this->bodies[b].nodes.fz -= this->bodies[b].gradPhiZ*pvec;
 
@@ -609,6 +632,14 @@ void job_t::addContactForces(){
         this->bodies[b].nodes.contact_x_t = this->bodies[b].nodes.mx_t.array()/this->bodies[b].nodes.m.array();
         this->bodies[b].nodes.contact_y_t = this->bodies[b].nodes.my_t.array()/this->bodies[b].nodes.m.array();
         this->bodies[b].nodes.contact_z_t = this->bodies[b].nodes.mz_t.array()/this->bodies[b].nodes.m.array();
+
+        for (size_t i=0;i<this->num_nodes;i++){
+            if (this->bodies[b].nodes.m[i] == 0){
+                this->bodies[b].nodes.contact_x_t[i] = 0;
+                this->bodies[b].nodes.contact_y_t[i] = 0;
+                this->bodies[b].nodes.contact_z_t[i] = 0;
+            }
+        }
 
         this->bodies[b].nodes.contact_fx = this->bodies[b].nodes.fx;
         this->bodies[b].nodes.contact_fy = this->bodies[b].nodes.fy;
@@ -712,6 +743,12 @@ void job_t::addContactForces2D(){
         this->bodies[b].nodes.contact_x_t = this->bodies[b].nodes.mx_t.array()/this->bodies[b].nodes.m.array();
         this->bodies[b].nodes.contact_y_t = this->bodies[b].nodes.my_t.array()/this->bodies[b].nodes.m.array();
         //this->bodies[b].nodes.contact_z_t = this->bodies[b].nodes.mz_t.array()/this->bodies[b].nodes.m.array();
+        for (size_t i=0;i<this->num_nodes;i++){
+            if (this->bodies[b].nodes.m[i] == 0){
+                this->bodies[b].nodes.contact_x_t[i] = 0;
+                this->bodies[b].nodes.contact_y_t[i] = 0;
+            }
+        }
 
         this->bodies[b].nodes.contact_fx = this->bodies[b].nodes.fx;
         this->bodies[b].nodes.contact_fy = this->bodies[b].nodes.fy;
@@ -1134,7 +1171,38 @@ void job_t::calculateStrainRate2D() {
 
         //pvec = this->bodies[b].gradPhiZ.transpose() * this->bodies[b].nodes.contact_z_t;
         this->bodies[b].particles.L.col(ZZ).setZero();
+
+        //a poor smoothing technique which smooths strain rate instead of strain
+        /*if (this->use_smoothing == 1){
+            //smoothing [see Mast et. al. 2012 for kinematic locking solution]
+            Eigen::VectorXd alpha(this->num_nodes);
+            Eigen::VectorXd beta(this->num_nodes);
+            for (size_t b = 0; b < this->num_bodies; b++) {
+                Eigen::VectorXd pvec(this->bodies[b].p);
+                pvec = (this->bodies[b].particles.L.col(XX) + this->bodies[b].particles.L.col(YY)).array();
+                alpha = (this->bodies[b].Phi * pvec).array();
+
+                pvec = Eigen::VectorXd::Ones(this->bodies[b].p);
+                beta = this->bodies[b].Phi * pvec;
+
+                alpha = alpha.array()/beta.array();
+
+                for (size_t i=0;i<this->num_nodes;i++){
+                    if (this->bodies[b].nodes.m[i] == 0){
+                        alpha[i] = 0;
+                    }
+                }
+
+                //trE and trT
+                Eigen::VectorXd trL = this->bodies[b].Phi.transpose() * alpha;
+                pvec = (trL - this->bodies[b].particles.L.col(XX) - this->bodies[b].particles.L.col(YY))/2.0;
+
+                this->bodies[b].particles.L.col(XX) += pvec;
+                this->bodies[b].particles.L.col(YY) += pvec;
+            }
+        }*/
     }
+
     return;
 }
 
@@ -1166,14 +1234,16 @@ void job_t::updateStress(){
         this->bodies[b].material.calculate_stress(&(this->bodies[b]),this->dt);
     }
 
+    //return;
+
     if (this->use_smoothing == 1) {
         //smoothing [see Mast et. al. 2012 for kinematic locking solution]
         Eigen::VectorXd alpha(this->num_nodes);
         Eigen::VectorXd beta(this->num_nodes);
         for (size_t b = 0; b < this->num_bodies; b++) {
             Eigen::VectorXd pvec(this->bodies[b].p);
-            pvec = (this->bodies[b].particles.v - this->bodies[b].particles.v0).array() / this->bodies[b].particles.v0.array() *
-                   this->bodies[b].particles.m.array();
+            //pvec = (this->bodies[b].particles.v - this->bodies[b].particles.v0).array() / this->bodies[b].particles.v0.array() *
+            pvec = (this->bodies[b].particles.v.array() / this->bodies[b].particles.v0.array()).array().log() * this->bodies[b].particles.m.array();
             alpha = (this->bodies[b].Phi * pvec).array() / this->bodies[b].nodes.m.array();
 
             pvec = (this->bodies[b].particles.T.col(XX) + this->bodies[b].particles.T.col(YY) +
@@ -1188,13 +1258,19 @@ void job_t::updateStress(){
             }
 
             //trE and trT
-            Eigen::VectorXd trE = this->bodies[b].Phi.transpose() * alpha;
-            Eigen::VectorXd trT = this->bodies[b].Phi.transpose() * beta;
+            /*double mu = 1;
+            pvec = (this->bodies[b].Phi.transpose() * alpha);
+            Eigen::VectorXd trE = pvec.array() * mu + (this->bodies[b].particles.v.array() / this->bodies[b].particles.v0.array()).array().log() * (1-mu);
+            pvec = (this->bodies[b].Phi.transpose() * beta);
+            Eigen::VectorXd trT = pvec.array() * mu + (this->bodies[b].particles.T.col(XX) + this->bodies[b].particles.T.col(YY) + this->bodies[b].particles.T.col(ZZ)).array() * (1-mu);
             this->bodies[b].material.volumetric_smoothing(&(this->bodies[b]), trE, trT);
-
+            */
+            Eigen::VectorXd trE = (this->bodies[b].Phi.transpose() * alpha);
+            Eigen::VectorXd trT = (this->bodies[b].Phi.transpose() * beta);
+            this->bodies[b].material.volumetric_smoothing(&(this->bodies[b]), trE, trT);
             //adjust particle volume and density
-            this->bodies[b].particles.v =
-                    this->bodies[b].particles.v0.array() + this->bodies[b].particles.v0.array() * trE.array();
+            //this->bodies[b].particles.v = this->bodies[b].particles.v0.array() * trE.array().exp();
+            //        this->bodies[b].particles.v0.array() + this->bodies[b].particles.v0.array() * trE.array();
         }
         /*Eigen::VectorXd alpha(this->num_elements);
         Eigen::VectorXd beta(this->num_elements);
@@ -1272,8 +1348,7 @@ void job_t::updateTrialStress(){
         Eigen::VectorXd beta(this->num_nodes);
         for (size_t b = 0; b < this->num_bodies; b++) {
             Eigen::VectorXd pvec(this->bodies[b].p);
-            pvec = (this->bodies[b].particles.v_trial - this->bodies[b].particles.v0).array() / this->bodies[b].particles.v0.array() *
-                   this->bodies[b].particles.m.array();
+            pvec = (this->bodies[b].particles.v_trial.array() / this->bodies[b].particles.v0.array()).array().log() * this->bodies[b].particles.m.array();
             alpha = (this->bodies[b].Phi * pvec).array() / this->bodies[b].nodes.m.array();
 
             pvec = (this->bodies[b].particles.Ttrial.col(XX) + this->bodies[b].particles.Ttrial.col(YY) +
@@ -1292,10 +1367,6 @@ void job_t::updateTrialStress(){
             Eigen::VectorXd trE = this->bodies[b].Phi.transpose() * alpha;
             Eigen::VectorXd trT = this->bodies[b].Phi.transpose() * beta;
             this->bodies[b].material.volumetric_smoothing_implicit(&(this->bodies[b]), trE, trT);
-
-            //adjust particle volume and density
-            this->bodies[b].particles.v_trial =
-                    this->bodies[b].particles.v0.array() + this->bodies[b].particles.v0.array() * trE.array();
         }
         /*Eigen::VectorXd alpha(this->num_elements);
         Eigen::VectorXd beta(this->num_elements);
@@ -2319,6 +2390,7 @@ int job_t::mpmStepUSLImplicit2D() {
     //move grid
     //this->moveGridExplicit();
     //this->moveGridImplicitCG();
+
     this->moveGridImplicitBiCGSTAB();
 
     //add contact forces

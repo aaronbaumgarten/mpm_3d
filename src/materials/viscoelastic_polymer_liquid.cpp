@@ -527,7 +527,7 @@ void volumetric_smoothing(Body *body, Eigen::VectorXd trE, Eigen::VectorXd trT) 
         body->particles.T(i,YY) = trT[i]/3.0;
         body->particles.T(i,ZZ) = trT[i]/3.0;
     }*/
-    Eigen::VectorXd tmpVec(9);
+    /*Eigen::VectorXd tmpVec(9);
     for (size_t i=0;i<body->p;i++) {
         tmpVec << body->particles.T.row(i).transpose();
         //Eigen::Matrix3d T(tmpVec.data());
@@ -548,7 +548,11 @@ void volumetric_smoothing(Body *body, Eigen::VectorXd trE, Eigen::VectorXd trT) 
         for (size_t pos=0;pos<NDIM*NDIM;pos++) {
             body->particles.F(i, pos) = F(pos); //OK because F is RowMajor
         }
-    }
+    }*/
+
+
+    //volume smoothing
+    ///body->particles.v = body->particles.v0.array() * trE.array().exp();
 
     return;
 }
@@ -561,7 +565,7 @@ void volumetric_smoothing_implicit(Body *body, Eigen::VectorXd trE, Eigen::Vecto
         body->particles.Ttrial(i,YY) = trT[i]/3.0;
         body->particles.Ttrial(i,ZZ) = trT[i]/3.0;
     }*/
-    Eigen::VectorXd tmpVec(9);
+    /*Eigen::VectorXd tmpVec(9);
     for (size_t i=0;i<body->p;i++) {
         tmpVec << body->particles.Ttrial.row(i).transpose();
         //Eigen::Matrix3d T(tmpVec.data());
@@ -570,6 +574,9 @@ void volumetric_smoothing_implicit(Body *body, Eigen::VectorXd trE, Eigen::Vecto
         body->particles.Ttrial(i,XX) = T(XX);
         body->particles.Ttrial(i,YY) = T(YY);
         body->particles.Ttrial(i,ZZ) = T(ZZ);
-    }
+    }*/
+
+    //volume smoothing
+    //body->particles.v_trial = body->particles.v0.array() * trE.array().exp();
     return;
 }

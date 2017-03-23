@@ -4,6 +4,8 @@ set(MATERIALS
         isolin_wheel.cpp
         viscoelastic_polymer_liquid.cpp
         viscofluid.cpp
+        isolin_wheel_cst_omega.cpp
+        gravitational_body.cpp
         )
 
 foreach(matc ${MATERIALS})

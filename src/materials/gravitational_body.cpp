@@ -1,6 +1,6 @@
 //
-// Created by aaron on 1/18/17.
-// g_local_mu2_plane_strain.cpp
+// Created by aaron on 3/9/17.
+// gravitational_body.cpp
 //
 
 /**
@@ -16,6 +16,7 @@
 #include <vector>
 #include <math.h>
 #include <Eigen/Core>
+#include <Eigen/Dense>
 #include "particle.hpp"
 #include "node.hpp"
 #include "body.hpp"
@@ -23,10 +24,10 @@
 #include "tensor.hpp"
 
 /* Estimated (see Kamrin and Koval 2014 paper) */
-#define MU_S 0.13//0.6745//0.3819//0.280
+#define MU_S 0.6745//0.3819//0.280
 #define GRAINS_RHO 2500//2450
-#define RHO_CRITICAL (GRAINS_RHO*0.8)//1500
-#define MU_2 0.428//MU_S//(I_0+MU_S)
+#define RHO_CRITICAL (GRAINS_RHO*0.6)//1500
+#define MU_2 MU_S//(I_0+MU_S)
 #define DELTA_MU (MU_2 - MU_S)
 #define I_0 0.278
 
@@ -60,6 +61,7 @@ static double G;
 static double K;
 static double lambda;
 static double grains_d;
+static double rate_in;
 
 void quadratic_roots(double *x1, double *x2, double a, double b, double c)
 {
@@ -91,6 +93,60 @@ double negative_root(double a, double b, double c)
     return x;
 }
 
+void gravity_field(Body *body)
+{
+    //sum potentials over nodes with mass
+    double Gr = 6.674e-11;
+    double dx, dy, dz;
+    Eigen::VectorXd g_potential(body->n);
+    g_potential.setZero();
+    /*for (size_t i = 0; i < body->n; i++){
+        if (body->nodes.m[i] > 0){
+            for (size_t p = 0; p < body->p; p++) {
+                if (body->particles.active[p] == 1) {
+                    dx = body->particles.x[p] - body->nodes.x[i];
+                    dy = body->particles.y[p] - body->nodes.y[i];
+                    dz = body->particles.z[p] - body->nodes.z[i];
+                    g_potential[i] -= Gr * body->particles.m[p] / std::sqrt(dx * dx + dy * dy + dz * dz);
+                }
+            }
+        }
+    }*/
+    body->particles.bx.setZero();// = -body->gradPhiX.transpose()*g_potential;
+    body->particles.by.setZero();// = -body->gradPhiY.transpose()*g_potential;
+    body->particles.bz.setZero();// = -body->gradPhiZ.transpose()*g_potential;
+
+    //add coriolis and centrifugal terms
+    double x_cm;
+    double y_cm;
+    double z_cm;
+    x_cm = (body->particles.x.array()*body->particles.m.array()).sum()/body->particles.m.sum();
+    y_cm = (body->particles.y.array()*body->particles.m.array()).sum()/body->particles.m.sum();
+    z_cm = (body->particles.z.array()*body->particles.m.array()).sum()/body->particles.m.sum();
+
+    Eigen::Vector3d v;
+    Eigen::Vector3d r;
+    Eigen::Vector3d w;
+    Eigen::Vector3d b_co;
+    Eigen::Vector3d b_ce;
+    for (size_t p=0;p<body->p;p++){
+        r[0] = body->particles.x[p] - x_cm;
+        r[1] = body->particles.y[p] - y_cm;
+        r[2] = body->particles.z[p] - z_cm;
+        v[0] = body->particles.x_t[p];
+        v[1] = body->particles.y_t[p];
+        v[2] = body->particles.z_t[p];
+        w.setZero();
+        w[2] = rate_in;
+        b_co = -2.0*w.cross(v);
+        b_ce = -w.cross(w.cross(r));//-w.dot(r)*w + w.dot(w)*r;
+        body->particles.bx[p] += b_co[0] + b_ce[0];
+        body->particles.by[p] += b_co[1] + b_ce[1];
+        body->particles.bz[p] += b_co[2] + b_ce[2];
+    }
+    return;
+}
+
 /*----------------------------------------------------------------------------*/
 void material_init(Body *body)
 {
@@ -100,16 +156,17 @@ void material_init(Body *body)
         }
     }
 
-    if (body->material.num_fp64_props < 3) {
+    if (body->material.num_fp64_props < 4) {
         // Bit of a hack, but it's okay for now. Just close your eyes and code it anyways.
         fprintf(stderr,
-                "%s:%s: Need at least 3 properties defined (E, nu, grain diameter).\n",
+                "%s:%s: Need at least 4 properties defined (E, nu, grain diameter, rate).\n",
                 __FILE__, __func__);
         exit(EXIT_FAILURE);
     } else {
         E = body->material.fp64_props[0];
         nu = body->material.fp64_props[1];
         grains_d = body->material.fp64_props[2];
+        rate_in = body->material.fp64_props[3];
         G = E / (2.0 * (1.0 + nu));
         K = E / (3.0 * (1.0 - 2*nu));
         lambda = K - 2.0 * G / 3.0;
@@ -122,6 +179,14 @@ void material_init(Body *body)
         body->particles.state(i, GAMMAP_STATE) = 0;
         body->particles.state(i, GAMMADOTP_STATE) = 0;
     }
+
+    //z-axis rotation
+    /*double x_cm;
+    double y_cm;
+    x_cm = (body->particles.x.array()*body->particles.m.array()).sum()/body->particles.m.sum();
+    y_cm = (body->particles.y.array()*body->particles.m.array()).sum()/body->particles.m.sum();
+    body->particles.x_t = -(body->particles.y.array() - y_cm)*rate_in;
+    body->particles.y_t = (body->particles.x.array() - x_cm)*rate_in;*/
 
     std::cout << "Done initializing material (" << body->id << ").\n";
 
@@ -237,6 +302,8 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn)
         body->particles.state(i,GAMMADOTP_STATE) = nup_tau;
     }
 
+    gravity_field(body);
+
     return;
 }
 /*----------------------------------------------------------------------------*/
@@ -331,6 +398,8 @@ void calculate_stress_implicit(Body *body, double dtIn)
             nup_tau = 0;
         }
     }
+
+    gravity_field(body);
 
     return;
 }

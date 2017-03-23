@@ -103,7 +103,9 @@ void resolve_contact(job_t *job, size_t id) {
                 Eigen::Vector2d s1i;
                 s1i = m1 / job->dt * (vCMi - mv1i / m1) - fn1i * n1i;
                 ft1i = sqrt(s1i.dot(s1i));
-                s1i /= ft1i;
+                if(ft1i != 0){
+                    s1i /= ft1i;
+                }
 
                 //add forces
                 Eigen::Vector2d fcti;

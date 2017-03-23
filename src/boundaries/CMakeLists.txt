@@ -7,6 +7,7 @@ set(BOUNDARIES
         periodicBC2d.cpp
         periodicBC.cpp
         pipeBC2d.cpp
+        drivenboxBC2d.cpp
     )
 
 foreach(bcc ${BOUNDARIES})
