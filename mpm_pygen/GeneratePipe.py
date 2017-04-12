@@ -18,15 +18,15 @@ print "files named"
 #Ly = Lx = Lz = 0.4
 Lx = 1.0
 Ly = 1.0
-Lz = 0.025
+Lz = 0.05
 #Ne = 40
 Nx = 20
 Ny = 20
 Nz = 1
-lmpp = 2
+lmpp = 4
 hx = Lx/Nx
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
-grid_fine = Grid3d.CartesianPointGrid(Lx,Ly,Lz,Nx,Ny,Nz,2*lmpp)
+grid_fine = Grid3d.CartesianPointGrid(Lx,Ly,Lz,Nx,Ny,Nz, lmpp)
 print "grid created"
 
 # global properties
@@ -56,7 +56,7 @@ bulk_point_array = grid.point_array
 # free block properties
 block_properties = { 'rho': 1000.0 }
 block_width = Lx
-block_height = 1.0*Lz/(lmpp*2.0)
+block_height = 1.0*Lz/(lmpp)
 block_depth = fluid_depth#Ly
 
 block_primitive = Primitives3d.Box(hx/2.0,(Lx-grain_width)/2.0,#Lx-hx/2.0,
@@ -112,7 +112,7 @@ with open(particle_filename, 'w') as f:
     #    if (mpm_point['body'] == 1):
     #        nb1 += 1
     #    mpm_points.append(mpm_point)
-        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (0, pID, bulk_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 0, 0, 0))
+        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (0, pID, bulk_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, Lz/2.0, 0, 0, 0))
         pID += 1
     pID = 0
     for p in block_point_array:
@@ -121,7 +121,7 @@ with open(particle_filename, 'w') as f:
         #if p.y < grain_depth and p.x < (Lx+hx)/2.0:
             #pointMass *= 0.4
             #pointVolume *= 0.4
-        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (1, pID, pointMass, pointVolume, p.x, p.y, p.z, 0, 0, 0))
+        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (1, pID, pointMass, pointVolume, p.x, p.y, Lz/2.0, 0, 0, 0))
         pID += 1
 
 print "file written"

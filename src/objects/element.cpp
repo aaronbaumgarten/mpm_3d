@@ -72,6 +72,7 @@ void Elements::calculatePhic(Body *body, size_t ide, size_t idp, size_t idc, int
 
         if (use_cpdi==0){
             //calculate gradient explicitly
+            //std::cout << "use_cpdi==0" << std::endl;
             body->gradPhiXTriplets.emplace_back(nID[0],idp , -0.125/dx*S_L(s)*S_L(t));//(1-r)*(1-s)*(1-t)*(1-sp)*(1-tp));
             body->gradPhiXTriplets.emplace_back(nID[1],idp , 0.125/dx*S_L(s)*S_L(t));//(1+r)*(1-s)*(1-t)*(1-sp)*(1-tp));
             body->gradPhiXTriplets.emplace_back(nID[2],idp , -0.125/dx*S_R(s)*S_L(t));//(1-r)*(1+s)*(1-t)*(1+sp)*(1-tp));

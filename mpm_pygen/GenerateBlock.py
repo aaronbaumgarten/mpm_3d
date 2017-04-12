@@ -16,11 +16,11 @@ print "files named"
 
 #grid properties
 #Ly = Lx = Lz = 0.4
-Lx = 1.0
+Lx = 0.2
 Ly = 1.0
 Lz = 0.05
 #Ne = 40
-Nx = 20
+Nx = 4
 Ny = 20
 Nz = 1
 lmpp = 4
@@ -33,12 +33,12 @@ g = -9.81
 # free block properties
 block_properties = { 'rho': 1000.0 }
 block_width = Lx
-block_height = 0.5*Lz
+block_height = Lz/lmpp
 block_depth = Ly
 hx = Lx/Nx
 block_primitive = Primitives3d.Box(#(Lx-block_width)/2, (Lx+block_width)/2,
                                  0, Lx,
-                                 0, Ly-hx/2.0,
+                                 0, Ly*0.8,
                                  #0,block_height,
                                  0, block_height,
                                  )
@@ -53,36 +53,36 @@ block_point_array = grid.point_array
 print "point array 1 created"
 
 # free block properties
-#block2_properties = { 'rho': 1500.0 }
-#block2_width = Lx
-#block2_height = 0.5*Lz
-#block2_depth = 0.3#Ly
+block2_properties = { 'rho': 1500.0 }
+block2_width = Lx
+block2_height = Lz/lmpp
+block2_depth = 0.2*Ly
 
-#block2_primitive = Primitives3d.Box(0,block2_width,
-#                                 0,block2_depth,
-#                                 0,block2_height,
-#                                 )
-#block2_body = CSGTree3d.Node(block2_primitive)
-#print "body 2 created"
+block2_primitive = Primitives3d.Box(0,block2_width,
+                                 Ly-block2_depth, Ly,
+                                 0,block2_height,
+                                 )
+block2_body = CSGTree3d.Node(block2_primitive)
+print "body 2 created"
 
 # add points to arrays
-#block2_point_array = []
-#grid.point_array = []
-#grid.generate_point_array(block2_primitive)
-#block2_point_array = grid.point_array
+block2_point_array = []
+grid.point_array = []
+grid.generate_point_array(block2_primitive)
+block2_point_array = grid.point_array
 
 print "point array 2 created"
 
 # add arrays to mpm dictionary
 mpm_points = []
 nb1 = len(block_point_array) #number of material points in body 1
-#nb2 = len(block2_point_array)
+nb2 = len(block2_point_array)
 
 grid.write_grid_file(grid_filename)
 with open(particle_filename, 'w') as f:
-    f.write("%d\n" % 1)
+    f.write("%d\n" % 2)
     f.write("%d\n" % nb1)
-#   f.write("%d\n" % nb2)
+    f.write("%d\n" % nb2)
     pID = 0
     for p in block_point_array:
     #    mpm_point = {
@@ -99,8 +99,8 @@ with open(particle_filename, 'w') as f:
         f.write("%g %g %g %g %g %g %g %g %g %g\n" % (0, pID, block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 0, 0, 0))
         pID += 1
     pID = 0
-#    for p in block2_point_array:
-#        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (1, pID, block2_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 0, 0, 0))
-#        pID += 1
+    for p in block2_point_array:
+        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (1, pID, block2_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 0, 0, 0))
+        pID += 1
 
 print "file written"

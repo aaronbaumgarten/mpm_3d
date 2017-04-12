@@ -210,6 +210,7 @@ void volumetric_smoothing_implicit(Body *body, Eigen::VectorXd trE, Eigen::Vecto
 
     //volume smoothing
     body->particles.v_trial = body->particles.v0.array() * trE.array().exp();
+
     return;
 }
 

@@ -100,7 +100,7 @@ void gravity_field(Body *body)
     double dx, dy, dz;
     Eigen::VectorXd g_potential(body->n);
     g_potential.setZero();
-    /*for (size_t i = 0; i < body->n; i++){
+    for (size_t i = 0; i < body->n; i++){
         if (body->nodes.m[i] > 0){
             for (size_t p = 0; p < body->p; p++) {
                 if (body->particles.active[p] == 1) {
@@ -111,10 +111,10 @@ void gravity_field(Body *body)
                 }
             }
         }
-    }*/
-    body->particles.bx.setZero();// = -body->gradPhiX.transpose()*g_potential;
-    body->particles.by.setZero();// = -body->gradPhiY.transpose()*g_potential;
-    body->particles.bz.setZero();// = -body->gradPhiZ.transpose()*g_potential;
+    }
+    body->particles.bx = -body->gradPhiX.transpose()*g_potential;
+    body->particles.by = -body->gradPhiY.transpose()*g_potential;
+    body->particles.bz = -body->gradPhiZ.transpose()*g_potential;
 
     //add coriolis and centrifugal terms
     double x_cm;

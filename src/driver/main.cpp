@@ -146,7 +146,7 @@ int main(int argc, char *argv[]) {
             }
         }
         std::cout << "\rStep completed (" << job->stepcount << ")." << std::flush;
-        if (job->t * mpmOut.sampleRate > mpmOut.sampledFrames) {
+        if (job->t * mpmOut.sampleRate > mpmOut.sampledFrames){// || job->stepcount > 1000) {
             mpmOut.writeFrame();
             mpmOut.sampledFrames += 1;
             std::cout << " Frame captured (" << mpmOut.sampledFrames - 1 << ")." << std::flush;
