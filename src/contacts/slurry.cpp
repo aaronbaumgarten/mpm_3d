@@ -17,7 +17,7 @@
 #define CONTACT_VERSION_STRING "1.0" __DATE__ " " __TIME__
 
 /* Contact Constants (set by configuration file). */
-double drag, grains_rho, k, mu_w;
+double grains_rho, grains_diam, k, mu_w;
 
 extern "C" void contact_init(job_t *job, size_t id);
 
@@ -33,13 +33,13 @@ void contact_init(job_t *job, size_t id) {
                 __FILE__, __func__);
         exit(0); //replace error code handler from sachith's work with 0
     } else {
-        drag = job->contacts[id].fp64_props[0];
-        grains_rho = job->contacts[id].fp64_props[1];
+        grains_rho = job->contacts[id].fp64_props[0];
+        grains_diam = job->contacts[id].fp64_props[1];
         k = job->contacts[id].fp64_props[2];
         mu_w = job->contacts[id].fp64_props[3];
         /*printf("%s:%s: properties (mu_f = %g).\n",
                __FILE__, __func__, mu_f);*/
-        printf("Contact properties (drag = %g, grains_rho = %g, k = %g, mu_w = %g).\n", drag, grains_rho, k, mu_w);
+        printf("Contact properties (grains_rho = %g, grains_diam = %g, k = %g, mu_w = %g).\n", grains_rho, grains_diam, k, mu_w);
     }
 
     /*printf("%s:%s: (contact version %s) done initializing contact.\n",
@@ -54,6 +54,17 @@ void resolve_contact(job_t *job, size_t id) {
     //liquid body 2
     size_t solid_body_id = job->contacts[id].bodyIDs[0];
     size_t liquid_body_id = job->contacts[id].bodyIDs[1];
+
+    //damping and no-contact
+    if (job->t < 0.5){
+        job->bodies[solid_body_id].particles.x_t *= 0.95;
+        job->bodies[solid_body_id].particles.y_t *= 0.95;
+        job->bodies[solid_body_id].particles.z_t *= 0.95;
+        job->bodies[liquid_body_id].particles.x_t *= 0.95;
+        job->bodies[liquid_body_id].particles.y_t *= 0.95;
+        job->bodies[liquid_body_id].particles.z_t *= 0.95;
+        return;
+    }
 
     //for giggles, try assigning contact here
     job->boundary.generate_dirichlet_bcs(job);
@@ -123,7 +134,7 @@ void resolve_contact(job_t *job, size_t id) {
     //gradny = job->bodies[solid_body_id].gradPhiY * pvec;
     //gradnz = job->bodies[solid_body_id].gradPhiZ * pvec;
 
-    pvec = job->bodies[liquid_body_id].particles.v.array() * (job->bodies[liquid_body_id].particles.T.col(XX) + job->bodies[liquid_body_id].particles.T.col(YY) +
+    /*pvec = job->bodies[liquid_body_id].particles.v.array() * (job->bodies[liquid_body_id].particles.T.col(XX) + job->bodies[liquid_body_id].particles.T.col(YY) +
            job->bodies[liquid_body_id].particles.T.col(ZZ)).array();
     pvec *= -1.0 / 3.0;
     Eigen::VectorXd p_w(job->num_nodes);
@@ -133,7 +144,130 @@ void resolve_contact(job_t *job, size_t id) {
     p_ws = job->bodies[solid_body_id].particles.v.array() * p_ws.array();
     gradpx = job->bodies[solid_body_id].gradPhiX * p_ws;
     gradpy = job->bodies[solid_body_id].gradPhiY * p_ws;
-    gradpz = job->bodies[solid_body_id].gradPhiZ * p_ws;
+    gradpz = job->bodies[solid_body_id].gradPhiZ * p_ws;*/
+    Eigen::VectorXd sigma_ijw_n(job->num_nodes);
+    Eigen::VectorXd sigma_ijw_p(job->bodies[solid_body_id].p);
+    gradpx.setZero();
+    gradpy.setZero();
+    gradpz.setZero();
+
+    /**************************************************************************/
+    //find mass averaged stress on node
+    pvec = job->bodies[liquid_body_id].particles.m.array() * job->bodies[liquid_body_id].particles.T.col(XX).array();
+    sigma_ijw_n = job->bodies[liquid_body_id].Phi * pvec;
+    for (size_t i=0; i<job->num_nodes;i++){
+        if (job->bodies[liquid_body_id].nodes.m[i] > TOL) {
+            sigma_ijw_n[i] /= job->bodies[liquid_body_id].nodes.m[i];
+        } else {
+            sigma_ijw_n[i] = 0;
+        }
+    }
+
+    //interpolate stress onto solid
+    sigma_ijw_p = job->bodies[solid_body_id].Phi.transpose() * sigma_ijw_n;
+    //form volumetric stress vector
+    sigma_ijw_p = job->bodies[solid_body_id].particles.m.array() * sigma_ijw_p.array() / grains_rho;
+    //add to gradient
+    gradpx -= job->bodies[solid_body_id].gradPhiX * sigma_ijw_p;
+    /**************************************************************************/
+
+    /**************************************************************************/
+    //find mass averaged stress on node
+    pvec = job->bodies[liquid_body_id].particles.m.array() * job->bodies[liquid_body_id].particles.T.col(XY).array();
+    sigma_ijw_n = job->bodies[liquid_body_id].Phi * pvec;
+    for (size_t i=0; i<job->num_nodes;i++){
+        if (job->bodies[liquid_body_id].nodes.m[i] > TOL) {
+            sigma_ijw_n[i] /= job->bodies[liquid_body_id].nodes.m[i];
+        } else {
+            sigma_ijw_n[i] = 0;
+        }
+    }
+    //interpolate stress onto solid
+    sigma_ijw_p = job->bodies[solid_body_id].Phi.transpose() * sigma_ijw_n;
+    //form volumetric stress vector
+    sigma_ijw_p = job->bodies[solid_body_id].particles.m.array() * sigma_ijw_p.array() / grains_rho;
+    //add to gradient
+    gradpx -= job->bodies[solid_body_id].gradPhiY * sigma_ijw_p;
+    gradpy -= job->bodies[solid_body_id].gradPhiX * sigma_ijw_p;
+    /**************************************************************************/
+
+    /**************************************************************************/
+    //find mass averaged stress on node
+    pvec = job->bodies[liquid_body_id].particles.m.array() * job->bodies[liquid_body_id].particles.T.col(XZ).array();
+    sigma_ijw_n = job->bodies[liquid_body_id].Phi * pvec;
+    for (size_t i=0; i<job->num_nodes;i++){
+        if (job->bodies[liquid_body_id].nodes.m[i] > TOL) {
+            sigma_ijw_n[i] /= job->bodies[liquid_body_id].nodes.m[i];
+        } else {
+            sigma_ijw_n[i] = 0;
+        }
+    }
+    //interpolate stress onto solid
+    sigma_ijw_p = job->bodies[solid_body_id].Phi.transpose() * sigma_ijw_n;
+    //form volumetric stress vector
+    sigma_ijw_p = job->bodies[solid_body_id].particles.m.array() * sigma_ijw_p.array() / grains_rho;
+    //add to gradient
+    gradpx -= job->bodies[solid_body_id].gradPhiZ * sigma_ijw_p;
+    gradpz -= job->bodies[solid_body_id].gradPhiX * sigma_ijw_p;
+    /**************************************************************************/
+
+    /**************************************************************************/
+    //find mass averaged stress on node
+    pvec = job->bodies[liquid_body_id].particles.m.array() * job->bodies[liquid_body_id].particles.T.col(YY).array();
+    sigma_ijw_n = job->bodies[liquid_body_id].Phi * pvec;
+    for (size_t i=0; i<job->num_nodes;i++){
+        if (job->bodies[liquid_body_id].nodes.m[i] > TOL) {
+            sigma_ijw_n[i] /= job->bodies[liquid_body_id].nodes.m[i];
+        } else {
+            sigma_ijw_n[i] = 0;
+        }
+    }
+    //interpolate stress onto solid
+    sigma_ijw_p = job->bodies[solid_body_id].Phi.transpose() * sigma_ijw_n;
+    //form volumetric stress vector
+    sigma_ijw_p = job->bodies[solid_body_id].particles.m.array() * sigma_ijw_p.array() / grains_rho;
+    //add to gradient
+    gradpy -= job->bodies[solid_body_id].gradPhiY * sigma_ijw_p;
+    /**************************************************************************/
+
+    /**************************************************************************/
+    //find mass averaged stress on node
+    pvec = job->bodies[liquid_body_id].particles.m.array() * job->bodies[liquid_body_id].particles.T.col(YZ).array();
+    sigma_ijw_n = job->bodies[liquid_body_id].Phi * pvec;
+    for (size_t i=0; i<job->num_nodes;i++){
+        if (job->bodies[liquid_body_id].nodes.m[i] > TOL) {
+            sigma_ijw_n[i] /= job->bodies[liquid_body_id].nodes.m[i];
+        } else {
+            sigma_ijw_n[i] = 0;
+        }
+    }
+    //interpolate stress onto solid
+    sigma_ijw_p = job->bodies[solid_body_id].Phi.transpose() * sigma_ijw_n;
+    //form volumetric stress vector
+    sigma_ijw_p = job->bodies[solid_body_id].particles.m.array() * sigma_ijw_p.array() / grains_rho;
+    //add to gradient
+    gradpy -= job->bodies[solid_body_id].gradPhiZ * sigma_ijw_p;
+    gradpz -= job->bodies[solid_body_id].gradPhiY * sigma_ijw_p;
+    /**************************************************************************/
+
+    /**************************************************************************/
+    //find mass averaged stress on node
+    pvec = job->bodies[liquid_body_id].particles.m.array() * job->bodies[liquid_body_id].particles.T.col(ZZ).array();
+    sigma_ijw_n = job->bodies[liquid_body_id].Phi * pvec;
+    for (size_t i=0; i<job->num_nodes;i++){
+        if (job->bodies[liquid_body_id].nodes.m[i] > TOL) {
+            sigma_ijw_n[i] /= job->bodies[liquid_body_id].nodes.m[i];
+        } else {
+            sigma_ijw_n[i] = 0;
+        }
+    }
+    //interpolate stress onto solid
+    sigma_ijw_p = job->bodies[solid_body_id].Phi.transpose() * sigma_ijw_n;
+    //form volumetric stress vector
+    sigma_ijw_p = job->bodies[solid_body_id].particles.m.array() * sigma_ijw_p.array() / grains_rho;
+    //add to gradient
+    gradpz -= job->bodies[solid_body_id].gradPhiZ * sigma_ijw_p;
+    /**************************************************************************/
 
     //nodal contact
     Eigen::Vector3d fsfi;
@@ -184,7 +318,15 @@ void resolve_contact(job_t *job, size_t id) {
             //force by solid on fluid
             //damping enforcement
             double C;
-            C = n[i]*V[i]*mu_w/k; //n[i]*n[i]*V[i]*mu_w/k;
+
+            //k = 0.0055 [calliope.dem.uniud.it/CLASS/DES-IND-PLA/CR-FlowThroughBed.pdf]
+            double k_eff = k*n[i]*n[i]*n[i]*grains_diam*grains_diam/((1-n[i])*(1-n[i]));
+
+            C = n[i]*V[i]*mu_w/k_eff; //n[i]*n[i]*V[i]*mu_w/k;
+            if (!std::isfinite(k_eff)){
+                C = 0;
+            }
+
             if ((C*job->dt*(1.0/m1 + 1.0/m2)) > 1){
                 //std::cout << "timestep too large for slurry model" << std::endl;
                 C = 1.0/(job->dt*(1.0/m1 + 1.0/m2));
@@ -196,9 +338,9 @@ void resolve_contact(job_t *job, size_t id) {
             //fsfi[2] += (1 - n[i])/n[i] * gradpz[i];
 
             //set contact forces
-            job->bodies[solid_body_id].nodes.contact_fx[i] -= fsfi[0] +  gradpx[i];
-            job->bodies[solid_body_id].nodes.contact_fy[i] -= fsfi[1] +  gradpy[i];
-            job->bodies[solid_body_id].nodes.contact_fz[i] -= fsfi[2] +  gradpz[i];
+            job->bodies[solid_body_id].nodes.contact_fx[i] -= fsfi[0] -  gradpx[i];
+            job->bodies[solid_body_id].nodes.contact_fy[i] -= fsfi[1] -  gradpy[i];
+            job->bodies[solid_body_id].nodes.contact_fz[i] -= fsfi[2] -  gradpz[i];
 
             job->bodies[liquid_body_id].nodes.contact_fx[i] += fsfi[0];
             job->bodies[liquid_body_id].nodes.contact_fy[i] += fsfi[1];
@@ -233,6 +375,10 @@ void resolve_contact(job_t *job, size_t id) {
 
     //zero what needs to be zeroed
     job->addBoundaryConditions();
+    if (job->use_3d == 0){
+        job->bodies[solid_body_id].nodes.contact_fz.setZero();
+        job->bodies[liquid_body_id].nodes.contact_fz.setZero();
+    }
 
     for (size_t i = 0; i < job->num_nodes; i++) {
         double m1 = job->bodies[solid_body_id].nodes.m[i];
@@ -318,10 +464,9 @@ void resolve_contact(job_t *job, size_t id) {
         }
     }
 
-    /*if (job->stepcount > 7800) {
-        std::cout << "[" << n.maxCoeff() << "," << n.minCoeff() << "]" << std::endl;
-        std::cout << nvecy[2] << "," << nvecy[7] << "," << nvecy[12] << "," << nvecy[17] << std::endl;
-    }*/
+    //std::cout << "[" << n.maxCoeff() << "," << n.minCoeff() << "]" << std::endl;
+    //std::cout << nvecy[14*5 + 2] << "," << nvecy[15*5 + 2] << "," << nvecy[16*5 + 2] << "," << nvecy[17*5 + 2] << std::endl;
+    //std::cout << gradpy.maxCoeff() << " , " << gradpy.minCoeff() << std::endl;
 
     return;
 }

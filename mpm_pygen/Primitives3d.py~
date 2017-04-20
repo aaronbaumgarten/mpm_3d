@@ -92,7 +92,6 @@ class Peanut:
         rvec = bvec - (avec*(cval/avec.magnitude()))
         dx = cval
         dy = rvec.magnitude()
-
         if (dy>=0 and dx>=0):
             theta = math.atan(dy/dx)
         elif (dy>=0 and dx<0):
@@ -101,8 +100,7 @@ class Peanut:
             theta= math.atan(dy/dx) + math.pi
         else:
             theta= math.atan(dy/dx) + math.pi + math.pi
-
-        return (bvec.magnitude() <= self.radius*(2+math.cos(2*theta))
+        return (bvec.magnitude() <= self.radius*(2+math.cos(2*theta)))
 
 class Cylinder:
     def __init__(self, center_start, center_end, radius):
@@ -130,6 +128,28 @@ class Box:
     def encompasses(self, point, tol=1e-8):
         inside = True
         return (point.x>=self.xmin and point.x<=self.xmax and point.y>=self.ymin and point.y<=self.ymax and point.z>=self.zmin and point.z<=self.zmax)
+
+class Slope2D:
+    #defines slope in 2d at lhs height ymax and rhs height ymin
+    #sloping frm xmin to xmax
+    def __init__(self, xmin, xmax, ymin, ymax):
+        self.xmin = float(xmin)
+        self.xmax = float(xmax)
+        self.ymin = float(ymin)
+        self.ymax = float(ymax)
+        self.a = (self.ymin - self.ymax)/(self.xmax - self.xmin)
+        self.b = self.ymin - self.a*self.xmax
+    
+    def encompasses(self, point, tol=1e-8):
+        inside = True
+        if (point.y < self.ymin):
+            return 1
+        elif (point.y < self.ymax and point.x < self.xmin):
+            return 1
+        elif (point.x < self.xmax and point.y < (self.a*point.x + self.b)):
+            return 1
+        else:
+            return 0
 
 class WheelOne:
     def __init__(self, center_start, center_end, radius, height, shaft_frac, N_tread):

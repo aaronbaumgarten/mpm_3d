@@ -129,6 +129,25 @@ class Box:
         inside = True
         return (point.x>=self.xmin and point.x<=self.xmax and point.y>=self.ymin and point.y<=self.ymax and point.z>=self.zmin and point.z<=self.zmax)
 
+class Slope2D:
+    #defines slope in 2d at lhs height ymax and rhs height ymin
+    #sloping frm xmin to xmax
+    def __init__(self, xmin, xmax, ymin, ymax):
+        self.xmin = float(xmin)
+        self.xmax = float(xmax)
+        self.ymin = float(ymin)
+        self.ymax = float(ymax)
+        self.a = (self.ymax - self.ymin)/(self.xmin - self.xmax)
+        self.b = self.ymax - self.a*self.xmin
+    
+    def encompasses(self, point, tol=1e-8):
+        if (point.y < self.ymin):
+            return 1
+        elif (point.y < self.ymax and point.y < (self.a*point.x + self.b)):
+            return 1
+        else:
+            return 0
+
 class WheelOne:
     def __init__(self, center_start, center_end, radius, height, shaft_frac, N_tread):
         self.center_start = center_start

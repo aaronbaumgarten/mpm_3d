@@ -1,6 +1,6 @@
 //
-// Created by aaron on 1/18/17.
-// g_local_mu2_plane_strain.cpp
+// Created by aaron on 4/20/17.
+// g_local_mu2_full.cpp
 //
 
 /**
@@ -23,12 +23,12 @@
 #include "tensor.hpp"
 
 /* Estimated (see Kamrin and Koval 2014 paper) */
-#define MU_S 0.6745//0.3819//0.280
-#define GRAINS_RHO 2700//2450
-#define RHO_CRITICAL (GRAINS_RHO*0.54)//1500
-#define MU_2 0.428//MU_S//(I_0+MU_S)
-#define DELTA_MU (MU_2 - MU_S)
-#define I_0 0.278
+//#define MU_S 0.13//0.6745//0.3819//0.280
+//#define GRAINS_RHO 2500//2450
+//#define RHO_CRITICAL (GRAINS_RHO*0.6)//1500
+//#define MU_2 0.428//MU_S//(I_0+MU_S)
+//#define DELTA_MU (MU_2 - MU_S)
+//#define I_0 0.278
 
 #define ELEMENT_DISTANCE_STATE 4
 #define GAMMAP_STATE 9
@@ -60,6 +60,13 @@ static double G;
 static double K;
 static double lambda;
 static double grains_d;
+
+double MU_S = 0.280;
+double GRAINS_RHO = 2500;//2450
+double RHO_CRITICAL = (GRAINS_RHO*0.6);//1500
+double MU_2 = MU_S;//MU_S//(I_0+MU_S)
+double DELTA_MU = (MU_2 - MU_S);
+double I_0 = 0.278;
 
 void quadratic_roots(double *x1, double *x2, double a, double b, double c)
 {
@@ -100,13 +107,13 @@ void material_init(Body *body)
         }
     }
 
-    if (body->material.num_fp64_props < 3) {
+    if (body->material.num_fp64_props < 6) {
         // Bit of a hack, but it's okay for now. Just close your eyes and code it anyways.
         fprintf(stderr,
-                "%s:%s: Need at least 3 properties defined (E, nu, grain diameter).\n",
+                "%s:%s: Need at least 6 properties defined (E, nu, grain diameter, mu_s, grains_rho, rho_critical).\n",
                 __FILE__, __func__);
         exit(EXIT_FAILURE);
-    } else {
+    } else if (body->material.num_fp64_props < 8){
         E = body->material.fp64_props[0];
         nu = body->material.fp64_props[1];
         grains_d = body->material.fp64_props[2];
@@ -114,8 +121,32 @@ void material_init(Body *body)
         K = E / (3.0 * (1.0 - 2*nu));
         lambda = K - 2.0 * G / 3.0;
 
-        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, grain diameter = %g).\n",
-               E, nu, G, K, grains_d);
+        MU_S = body->material.fp64_props[3];
+        GRAINS_RHO = body->material.fp64_props[4];
+        RHO_CRITICAL = body->material.fp64_props[5];
+
+        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, grain diameter = %g, mu_s %g, grains_rho = %g, rho_critical = %g).\n",
+               E, nu, G, K, grains_d, MU_S, GRAINS_RHO, RHO_CRITICAL);
+    } else {
+
+        E = body->material.fp64_props[0];
+        nu = body->material.fp64_props[1];
+        grains_d = body->material.fp64_props[2];
+        G = E / (2.0 * (1.0 + nu));
+        K = E / (3.0 * (1.0 - 2*nu));
+        lambda = K - 2.0 * G / 3.0;
+
+        MU_S = body->material.fp64_props[3];
+        GRAINS_RHO = body->material.fp64_props[4];
+        RHO_CRITICAL = body->material.fp64_props[5];
+
+        MU_2 = body->material.fp64_props[6];
+        DELTA_MU = MU_2 - MU_S;
+        I_0 = body->material.fp64_props[7];
+
+        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, grain diameter = %g, mu_s %g, grains_rho = %g, rho_critical = %g, mu_2 = %g, i_0 = %g).\n",
+               E, nu, G, K, grains_d, MU_S, GRAINS_RHO, RHO_CRITICAL, MU_2, I_0);
+
     }
 
     for (size_t i = 0; i < body->p; i++) {

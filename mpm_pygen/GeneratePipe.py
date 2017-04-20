@@ -112,7 +112,7 @@ with open(particle_filename, 'w') as f:
     #    if (mpm_point['body'] == 1):
     #        nb1 += 1
     #    mpm_points.append(mpm_point)
-        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (0, pID, bulk_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, Lz/2.0, 0, 0, 0))
+        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (0, pID, bulk_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 0, 0, 0))
         pID += 1
     pID = 0
     for p in block_point_array:
@@ -121,7 +121,7 @@ with open(particle_filename, 'w') as f:
         #if p.y < grain_depth and p.x < (Lx+hx)/2.0:
             #pointMass *= 0.4
             #pointVolume *= 0.4
-        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (1, pID, pointMass, pointVolume, p.x, p.y, Lz/2.0, 0, 0, 0))
+        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (1, pID, pointMass, pointVolume, p.x, p.y, p.z, 0, 0, 0))
         pID += 1
 
 print "file written"

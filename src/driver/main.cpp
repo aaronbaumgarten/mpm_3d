@@ -145,6 +145,7 @@ int main(int argc, char *argv[]) {
                 job->mpmStepUSLExplicit2D();
             }
         }
+
         std::cout << "\rStep completed (" << job->stepcount << ")." << std::flush;
         if (job->t * mpmOut.sampleRate > mpmOut.sampledFrames){// || job->stepcount > 1000) {
             mpmOut.writeFrame();
