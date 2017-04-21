@@ -132,16 +132,20 @@ class Box:
 class Slope2D:
     #defines slope in 2d at lhs height ymax and rhs height ymin
     #sloping frm xmin to xmax
-    def __init__(self, xmin, xmax, ymin, ymax):
+    def __init__(self, xmin, xmax, ymin, ymax, zmin, zmax):
         self.xmin = float(xmin)
         self.xmax = float(xmax)
         self.ymin = float(ymin)
         self.ymax = float(ymax)
+        self.zmin = float(zmin)
+        self.zmax = float(zmax)
         self.a = (self.ymax - self.ymin)/(self.xmin - self.xmax)
         self.b = self.ymax - self.a*self.xmin
     
     def encompasses(self, point, tol=1e-8):
-        if (point.y < self.ymin):
+        if (point.z > self.zmax or point.z < self.zmin):
+            return 0
+        elif (point.y < self.ymin):
             return 1
         elif (point.y < self.ymax and point.y < (self.a*point.x + self.b)):
             return 1
