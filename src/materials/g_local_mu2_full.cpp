@@ -125,7 +125,10 @@ void material_init(Body *body)
         GRAINS_RHO = body->material.fp64_props[4];
         RHO_CRITICAL = body->material.fp64_props[5];
 
-        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, grain diameter = %g, mu_s %g, grains_rho = %g, rho_critical = %g).\n",
+        MU_2 = MU_S;
+        DELTA_MU = MU_2 - MU_S;
+
+        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, grain diameter = %g, mu_s = %g, grains_rho = %g, rho_critical = %g).\n",
                E, nu, G, K, grains_d, MU_S, GRAINS_RHO, RHO_CRITICAL);
     } else {
 
@@ -144,7 +147,7 @@ void material_init(Body *body)
         DELTA_MU = MU_2 - MU_S;
         I_0 = body->material.fp64_props[7];
 
-        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, grain diameter = %g, mu_s %g, grains_rho = %g, rho_critical = %g, mu_2 = %g, i_0 = %g).\n",
+        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, grain diameter = %g, mu_s = %g, grains_rho = %g, rho_critical = %g, mu_2 = %g, i_0 = %g).\n",
                E, nu, G, K, grains_d, MU_S, GRAINS_RHO, RHO_CRITICAL, MU_2, I_0);
 
     }
@@ -174,6 +177,7 @@ void calculate_stress(Body *body, double dtIn)
 void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn)
 {
     double dt = dtIn;
+    body->particles.state(0,1) = dtIn; //store dt
 
     /* Since this is local, we can split the particles among the threads. */
     size_t p_start = task->offset;
@@ -215,6 +219,14 @@ void calculate_stress_threaded(threadtask_t *task, Body *body, double dtIn)
         Eigen::Matrix3d CD = 2*G*D + lambda*trD*Eigen::Matrix3d::Identity();
 
         Eigen::Matrix3d dsj = CD + tmp;
+
+        //handle smoothed case
+        if (body->particles.state(0,2) == 1){
+            for (size_t pos=0;pos<9;pos++) {
+                body->particles.T(i,pos) += dt * dsj(pos);
+            }
+            continue;
+        }
 
         //trial stress
         Eigen::Matrix3d s_tr = T + dt * dsj;
@@ -296,7 +308,7 @@ void calculate_stress_implicit(Body *body, double dtIn)
         //Eigen::Matrix3d L(tmpVec.data());
         Eigen::Matrix<double, 3, 3, Eigen::RowMajor> L(tmpVec.data());
 
-        tmpVec << body->particles.T.row(i).transpose();
+        tmpVec << body->particles.Ttrial.row(i).transpose();
         //Eigen::Matrix3d T(tmpVec.data());
         Eigen::Matrix<double, 3, 3, Eigen::RowMajor> T(tmpVec.data());
 
@@ -313,6 +325,14 @@ void calculate_stress_implicit(Body *body, double dtIn)
         Eigen::Matrix3d CD = 2*G*D + lambda*trD*Eigen::Matrix3d::Identity();
 
         Eigen::Matrix3d dsj = CD + tmp;
+
+        //handle smoothed case
+        if (body->particles.state(0,2) == 1){
+            for (size_t pos=0;pos<9;pos++) {
+                body->particles.Ttrial(i,pos) += dt * dsj(pos);
+            }
+            continue;
+        }
 
         //trial stress
         Eigen::Matrix3d s_tr = T + dt * dsj;
@@ -375,19 +395,91 @@ void volumetric_smoothing(Body *body, Eigen::VectorXd trE, Eigen::VectorXd trT) 
         body->particles.T(i,YY) = trT[i]/3.0;
         body->particles.T(i,ZZ) = trT[i]/3.0;
     }*/
-    /*Eigen::VectorXd tmpVec(9);
+
+    //set state to 1
+    body->particles.state(0,2) = 1;
+
+    /*//volume smoothing
+    body->particles.v = body->particles.v0.array() * trE.array().exp();
+
+    Eigen::VectorXd tmpVec(9);
     for (size_t i=0;i<body->p;i++) {
         tmpVec << body->particles.T.row(i).transpose();
         //Eigen::Matrix3d T(tmpVec.data());
         Eigen::Matrix<double, 3, 3, Eigen::RowMajor> T(tmpVec.data());
-        T = T - (T.trace() - trT[i])/3.0*Eigen::Matrix3d::Identity();
-        body->particles.T(i,XX) = T(XX);
-        body->particles.T(i,YY) = T(YY);
-        body->particles.T(i,ZZ) = T(ZZ);
-    }
+        T = T - (T.trace() - trT[i]) / 3.0 * Eigen::Matrix3d::Identity();
+        body->particles.T(i, XX) = T(XX);
+        body->particles.T(i, YY) = T(YY);
+        body->particles.T(i, ZZ) = T(ZZ);
+    }*/
 
-    //volume smoothing
-    body->particles.v = body->particles.v0.array() * trE.array().exp();*/
+    //reassert flow condition
+    double c = 0;
+    for (size_t i = 0; i < body->p; i++) {
+        if (body->particles.active[i] == 0) {
+            continue;
+        }
+
+        Eigen::VectorXd tmpVec(9);
+
+        tmpVec << body->particles.T.row(i).transpose();
+        //Eigen::Matrix3d T(tmpVec.data());
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> T(tmpVec.data());
+
+        //trial stress
+        Eigen::Matrix3d s_tr = T;
+        double p_tr = -s_tr.trace() / 3.0;
+
+        //trial deviator
+        Eigen::Matrix3d t0_tr = s_tr + p_tr * Eigen::Matrix3d::Identity();
+        double tau_tr = t0_tr.norm()/std::sqrt(2.0);
+
+        bool density_flag = false;
+        if ((body->particles.m[i] / body->particles.v[i]) < RHO_CRITICAL){
+            density_flag = true;
+        }
+
+        double nup_tau;
+        if (density_flag || p_tr <= c || trT[i]/3.0 >= c){
+            nup_tau = tau_tr / (G * body->particles.state(0,1));
+            for (size_t pos=0;pos<9;pos++){
+                body->particles.T(i,pos) = 0;
+            }
+        } else if (p_tr > c && trT[i]/3.0 < c) {
+            p_tr = -trT[i]/3.0;
+            body->particles.v[i] = body->particles.v0[i]*std::exp(trE[i]);
+            double S0 = MU_S * p_tr;
+            double tau_tau;
+            double scale_factor;
+            if (tau_tr <= S0) {
+                tau_tau = tau_tr;
+                scale_factor = 1.0;
+            } else {
+                double S2 = MU_2 * p_tr;
+                double alpha = G * I_0 * body->particles.state(0,1) * std::sqrt(p_tr / GRAINS_RHO) / grains_d;
+                double B = -(S2 + tau_tr + alpha);
+                double H = S2 * tau_tr + S0 * alpha;
+                tau_tau = negative_root(1.0,B,H);
+                scale_factor = (tau_tau/tau_tr);
+            }
+
+            nup_tau = ((tau_tr - tau_tau) / G) / body->particles.state(0,1);
+
+            for (size_t pos=0;pos<9;pos++){
+                body->particles.T(i,pos) = scale_factor * t0_tr(pos);
+                if (pos == XX || pos == YY || pos == ZZ){
+                    body->particles.T(i,pos) -= p_tr;///scale_factor;
+                }
+            }
+        } else {
+            std::cerr << "u\n";
+            nup_tau = 0;
+        }
+
+
+        body->particles.state(i,GAMMAP_STATE) += nup_tau * body->particles.state(0,1);
+        body->particles.state(i,GAMMADOTP_STATE) = nup_tau;
+    }
 
     return;
 }
@@ -400,19 +492,84 @@ void volumetric_smoothing_implicit(Body *body, Eigen::VectorXd trE, Eigen::Vecto
         body->particles.Ttrial(i,YY) = trT[i]/3.0;
         body->particles.Ttrial(i,ZZ) = trT[i]/3.0;
     }*/
-    /*Eigen::VectorXd tmpVec(9);
+
+    body->particles.state(0,2) = 1;
+
+    //volume smoothing
+    body->particles.v_trial = body->particles.v0.array() * trE.array().exp();
+
+    Eigen::VectorXd tmpVec(9);
     for (size_t i=0;i<body->p;i++) {
         tmpVec << body->particles.Ttrial.row(i).transpose();
         //Eigen::Matrix3d T(tmpVec.data());
         Eigen::Matrix<double, 3, 3, Eigen::RowMajor> T(tmpVec.data());
-        T = T - (T.trace() - trT[i])/3.0*Eigen::Matrix3d::Identity();
-        body->particles.Ttrial(i,XX) = T(XX);
-        body->particles.Ttrial(i,YY) = T(YY);
-        body->particles.Ttrial(i,ZZ) = T(ZZ);
+        T = T - (T.trace() - trT[i]) / 3.0 * Eigen::Matrix3d::Identity();
+        body->particles.Ttrial(i, XX) = T(XX);
+        body->particles.Ttrial(i, YY) = T(YY);
+        body->particles.Ttrial(i, ZZ) = T(ZZ);
     }
 
-    //volume smoothing
-    body->particles.v_trial = body->particles.v0.array() * trE.array().exp();*/
+    //reassert flow condition
+    double c = 0;
+    for (size_t i = 0; i < body->p; i++) {
+        if (body->particles.active[i] == 0) {
+            continue;
+        }
+
+        Eigen::VectorXd tmpVec(9);
+
+        tmpVec << body->particles.Ttrial.row(i).transpose();
+        //Eigen::Matrix3d T(tmpVec.data());
+        Eigen::Matrix<double, 3, 3, Eigen::RowMajor> T(tmpVec.data());
+
+        //trial stress
+        Eigen::Matrix3d s_tr = T;
+        double p_tr = -s_tr.trace() / 3.0;
+
+        //trial deviator
+        Eigen::Matrix3d t0_tr = s_tr + p_tr * Eigen::Matrix3d::Identity();
+        double tau_tr = t0_tr.norm()/std::sqrt(2.0);
+
+        bool density_flag = false;
+        if ((body->particles.m[i] / body->particles.v[i]) < RHO_CRITICAL){
+            density_flag = true;
+        }
+
+        double nup_tau;
+        if (density_flag || p_tr <= c){
+            //nup_tau = tau_tr / (G * dt);
+            for (size_t pos=0;pos<9;pos++){
+                body->particles.Ttrial(i,pos) = 0;
+            }
+        } else if (p_tr > c) {
+            double S0 = MU_S * p_tr;
+            double tau_tau;
+            double scale_factor;
+            if (tau_tr <= S0) {
+                tau_tau = tau_tr;
+                scale_factor = 1.0;
+            } else {
+                double S2 = MU_2 * p_tr;
+                double alpha = G * I_0 * body->particles.state(0,1) * std::sqrt(p_tr / GRAINS_RHO) / grains_d;
+                double B = -(S2 + tau_tr + alpha);
+                double H = S2 * tau_tr + S0 * alpha;
+                tau_tau = negative_root(1.0,B,H);
+                scale_factor = (tau_tau/tau_tr);
+            }
+
+            //nup_tau = ((tau_tr - tau_tau) / G) / dt;
+
+            for (size_t pos=0;pos<9;pos++){
+                body->particles.Ttrial(i,pos) = scale_factor * t0_tr(pos);
+                if (pos == XX || pos == YY || pos == ZZ){
+                    body->particles.Ttrial(i,pos) -= p_tr;///scale_factor;
+                }
+            }
+        } else {
+            std::cerr << "u\n";
+            //nup_tau = 0;
+        }
+    }
 
     return;
 }

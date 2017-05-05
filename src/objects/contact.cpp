@@ -105,4 +105,29 @@ void Contact::setContact(std::string filename, std::string filepath, size_t idIn
             '\n';
         }
     }
+    return;
+}
+
+void Contact::fixFunctionPointers() {
+    char* dlsym_error;
+    if (!this->handle) {
+        std::cerr << "Cannot open library: " << dlerror() << '\n';
+        this->contact_init = NULL;
+        this->resolve_contact = NULL;
+    } else {
+        dlerror();
+        this->contact_init = reinterpret_cast<void (*)(job_t *, size_t)>(dlsym(this->handle, "contact_init"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'contact_init': " << dlsym_error <<
+            '\n';
+        }
+        this->resolve_contact = reinterpret_cast<void (*)(job_t *, size_t)>(dlsym(this->handle, "resolve_contact"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'resolve_contact': " << dlsym_error <<
+            '\n';
+        }
+    }
+    return;
 }

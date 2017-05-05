@@ -33,6 +33,7 @@ public:
     Contact(std::string,std::string,size_t,std::vector<int>,std::vector<double>,std::vector<int>);
     ~Contact();
     void setContact(std::string,std::string,size_t,std::vector<int>,std::vector<double>,std::vector<int>);
+    void fixFunctionPointers();
 };
 
 #endif //MPM_3D_CONTACT_HPP

@@ -16,12 +16,12 @@ print "files named"
 
 #grid properties
 #Ly = Lx = Lz = 0.4
-Lx = 10.0
-Ly = 3.0
-Lz = 0.2
+Lx = 15.0
+Ly = 4.0
+Lz = 0.1
 #Ne = 40
-Nx = 50
-Ny = 15
+Nx = 60
+Ny = 16
 Nz = 1
 Lz = Lx/Nx * Nz
 lmpp = 3
@@ -31,16 +31,16 @@ print "grid created"
 
 # global properties
 g = -9.81
-phi = 0.54
+phi = 1800.0/2700.0
 
 # grain properties
-bulk_properties = { 'rho': 2700*phi }
+bulk_properties = { 'rho': 1800 } # 2700*phi }
 grain_width = Lx
-grain_depth = 3.0
+grain_depth = 0.1 * Lx
 grain_height = Lz/lmpp
 fluid_depth = 2.0#0.1 * Lx
 
-bulk_primitive = Primitives3d.Slope2D(3.0, 6.0,
+bulk_primitive = Primitives3d.Slope2D(0.2*Lx, 0.4*Lx,
                                       1.0, 3.0, #0.1*Lx, 0.2*Lx,
                                       0, grain_height
                                       )
@@ -73,17 +73,37 @@ grid.point_array = []
 grid.generate_point_array(fluid_primitive)
 fluid_point_array = grid.point_array
 
+# load properties
+load_properties = { 'rho': 1100.0 }
+load_width = 1.0
+load_height = Lz/(lmpp)
+load_depth = 0.5
+
+load_primitive = Primitives3d.Box(0.2*Lx - load_width, 0.2*Lx,
+                                 3.0, 3.0+load_depth,
+                                 0, load_height
+                                 )
+load_body = CSGTree3d.Node(load_primitive)
+print "load created"
+
+# add points to arrays
+load_point_array = []
+grid.point_array = []
+grid.generate_point_array(load_primitive)
+load_point_array = grid.point_array
 
 # add arrays to mpm dictionary
 mpm_points = []
 nb1 = len(bulk_point_array) #number of material points in body 1
 nb2 = len(fluid_point_array)
+nb3 = len(load_point_array)
 
 grid.write_grid_file(grid_filename)
 with open(particle_filename, 'w') as f:
-    f.write("%d\n" % 1)
+    f.write("%d\n" % 3)
     f.write("%d\n" % nb1)
-#    f.write("%d\n" % nb2)
+    f.write("%d\n" % nb2)
+    f.write("%d\n" % nb3)
     pID = 0
     for p in bulk_point_array:
     #    mpm_point = {
@@ -100,13 +120,19 @@ with open(particle_filename, 'w') as f:
         f.write("%g %g %g %g %g %g %g %g %g %g\n" % (0, pID, bulk_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 0, 0, 0))
         pID += 1
     pID = 0
-#    for p in fluid_point_array:
-#        pointMass = fluid_properties['rho']*grid.material_point_volume
-#        pointVolume = grid.material_point_volume
-#        if bulk_primitive.encompasses(p):
-#            pointMass *= 1.0-phi
-            #pointVolume *= 1.0-phi
-#        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (1, pID, pointMass, pointVolume, p.x, p.y, p.z, 0, 0, 0))
-#        pID += 1
+    for p in fluid_point_array:
+        pointMass = fluid_properties['rho']*grid.material_point_volume
+        pointVolume = grid.material_point_volume
+        if bulk_primitive.encompasses(p):
+            pointMass *= 1-phi
+            #pointVolume *= 1-phi
+        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (1, pID, pointMass, pointVolume, p.x, p.y, p.z, 0, 0, 0))
+        pID += 1
+    pID = 0
+    for p in load_point_array:
+        pointMass = load_properties['rho']*grid.material_point_volume
+        pointVolume = grid.material_point_volume
+        f.write("%g %g %g %g %g %g %g %g %g %g\n" % (2, pID, pointMass, pointVolume, p.x, p.y, p.z, 0, 0, 0))
+        pID += 1
 
 print "file written"

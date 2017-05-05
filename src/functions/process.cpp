@@ -474,6 +474,12 @@ int job_t::assignContact(std::string filename, std::string filepath, std::vector
     this->contacts.push_back(Contact());
     this->contacts[id].setContact(filename,filepath,id,bodyIDs,fp64props,intprops);
     this->contacts[id].contact_init(this,id);
+
+    //fix adjusted contacts
+    for (size_t c=0; c<id; c++){
+        this->contacts[c].fixFunctionPointers();
+    }
+
     std::cout << "Contact Rule reassigned [" << id << "]\n";
     return 1;
 }
