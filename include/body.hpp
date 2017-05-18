@@ -1,67 +1,40 @@
 //
-// Created by aaron on 8/26/16.
+// Created by aaron on 5/5/17.
 // body.hpp
 //
 
 #ifndef MPM_3D_BODY_HPP
 #define MPM_3D_BODY_HPP
 
+#include <stdlib.h>
+#include <string>
 #include <vector>
-#include <Eigen/Sparse>
-#include <Eigen/StdVector>
+#include <eigen3/Eigen/Core>
 
-#include "particle.hpp"
-#include "node.hpp"
-#include "material.hpp"
+class Job;
+class Serializer;
+class Points;
+class Nodes;
+class Material;
+class Boundary;
 
 class Body{
 public:
-    //material
-    Material material;
+    //body properties here
+    int activeMaterial;
+    int activeBoundary;
 
-    //nodes
-    size_t n;
-
-    //particles
-    size_t p;
-
-    //elements
-    size_t e;
-
-    //body id
-    size_t id;
-
-    //***** objects *****
-    Particles particles;
+    //objects here
+    Points points;
     Nodes nodes;
+    Material material;
+    Boundary boundary;
 
-    //***** nodal vectors *****
-    // stored on nodes now
+    //job object specific functions
+    Body();
+    int bodyInit(Job*);
 
-    //***** particle values *****
-    // stored on particles now
-
-    //S and gradS triplets
-    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> PhiTriplets;
-    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> gradPhiXTriplets;
-    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> gradPhiYTriplets;
-    std::vector<Eigen::Triplet<double>,Eigen::aligned_allocator<Eigen::Triplet<double>>> gradPhiZTriplets;
-
-    //Phi and gradPhi
-    Eigen::SparseMatrix<double,Eigen::RowMajor> Phi;
-    Eigen::SparseMatrix<double,Eigen::RowMajor> gradPhiX;
-    Eigen::SparseMatrix<double,Eigen::RowMajor> gradPhiY;
-    Eigen::SparseMatrix<double,Eigen::RowMajor> gradPhiZ;
-
-    //construcors
-    Body(size_t,size_t,size_t,size_t);
-    //destructors
-    //~Body();
-
-    //functions
-    //void addParticle(double,double,double,double,double,double,double,double,size_t);
-    //void addNode(double,double,double,size_t);
-    void defineMaterial(std::string,std::string,std::vector<double>,std::vector<int>);
+    //other functions
 };
 
 #endif //MPM_3D_BODY_HPP

@@ -1,44 +1,43 @@
 //
-// Created by aaron on 10/26/16.
+// Created by aaron on 5/6/17.
 // boundary.hpp
 //
-
-#include <stdlib.h>
-#include <functional>
-#include <vector>
 
 #ifndef MPM_3D_BOUNDARY_HPP
 #define MPM_3D_BOUNDARY_HPP
 
+#include <stdlib.h>
+#include <string>
+#include <vector>
+#include <eigen3/Eigen/Core>
+
+class Job;
+class Serializer;
 class Body;
-class job_t;
-class threadtask_t;
 
 class Boundary{
 public:
-    std::string boundary_filename;
-    int use_builtin;
+    //boundary properties here
+    std::string filename; //name of file
+    std::string filepath; //directory of file for access
+    std::vector<double> fp64_props; //double properties
+    std::vector<int> int_props; //integer properties
+    void *handle; //.so file handle
 
-    void *handle;
-
-    void (*bc_init)(job_t*);
-    void (*bc_validate)(job_t*);
-    void (*bc_time_varying)(job_t*);
-
-    void (*generate_dirichlet_bcs)(job_t*);
-    void (*generate_node_number_override)(job_t*);
-    void (*bc_momentum)(job_t*);
-    void (*bc_force)(job_t*);
-
-
-    std::vector<double> fp64_props;
-    std::vector<int> int_props;
-    size_t num_fp64_props;
-    size_t num_int_props;
-
+    //boundary specific functions
     Boundary();
-    Boundary(std::string,std::string,std::vector<double>,std::vector<int>);
-    ~Boundary();
-    void setBoundary(std::string,std::string,std::vector<double>,std::vector<int>);
+    void boundarySetPlugin(Job*, Body*, std::string, std::string, std::vector<double>, std::vector<int>); // set .so file
+    void boundarySetFnPointers(void*); //set function pointers to .so file handle
+
+    void (*boundaryWriteFrame)(Job*, Serializer*); //write frame to serializer
+    std::string (*boundarySaveState)(Job*, Serializer*, std::string); //save state to serializer folder with returned filename
+    int (*boundaryLoadState)(Job*, Serializer*, std::string); //read state from given full path
+
+    void (*boundaryInit)(Job*,Body*); //initialize boundary object
+    void (*boundaryGenerateRules)(Job*,Body*); //generate the rules given job and body state
+    void (*boundaryApplyRules)(Job*,Body*); //apply the rules given job and body state
+
+    //other functions
 };
+
 #endif //MPM_3D_BOUNDARY_HPP

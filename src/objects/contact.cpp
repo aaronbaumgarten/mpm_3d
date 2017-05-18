@@ -1,132 +1,107 @@
 //
-// Created by aaron on 12/23/16.
+// Created by aaron on 5/14/17.
 // contact.cpp
 //
 
-#include <stdio.h>
+#include <iostream>
 #include <stdlib.h>
-#include <string.h>
+#include <string>
 #include <vector>
-#include <math.h>
-#include "contact.hpp"
-#include "process.hpp"
+#include <Eigen/Core>
 #include <dlfcn.h>
 
-Contact::Contact(){
-    id = 0;
-    bodyIDs = std::vector<int>();
-    num_fp64_props = 0;
-    num_int_props = 0;
+#include "job.hpp"
+
+#include "serializer.hpp"
+#include "contact.hpp"
+
+Contact::Contact() {
+    filename = "";
+    filepath = "";
     fp64_props = std::vector<double>();
     int_props = std::vector<int>();
-    contact_filename = "";
+
     handle = NULL;
 
-    contact_init = NULL;
-    resolve_contact = NULL;
-}
+    contactInit = NULL;
+    contactGenerateRules = NULL;
+    contactApplyRules = NULL;
 
-Contact::Contact(std::string filename, std::string filepath, size_t idIn, std::vector<int> bodyIDsIn, std::vector<double> fp64props, std::vector<int> intprops){
-    id = idIn;
-    bodyIDs = bodyIDsIn;
-    //std::string filepath = "src/contacts/";
-    filepath += filename;
-
-    use_builtin = 0;
-    handle = dlopen(filepath.c_str(), RTLD_LAZY);
-    contact_filename = filename;
-
-    num_fp64_props = fp64props.size();
-    num_int_props = intprops.size();
-    fp64_props = fp64props;
-    int_props = intprops;
-
-    char* dlsym_error;
-    if (!handle) {
-        std::cerr << "Cannot open library: " << dlerror() << '\n';
-        contact_init = NULL;
-        resolve_contact = NULL;
-    } else {
-        dlerror();
-        contact_init = reinterpret_cast<void (*)(job_t *, size_t)>(dlsym(handle, "contact_init"));
-        dlsym_error = dlerror();
-        if (dlsym_error) {
-            std::cerr << "Cannot load symbol 'contact_init': " << dlsym_error <<
-            '\n';
-        }
-        resolve_contact = reinterpret_cast<void (*)(job_t *, size_t)>(dlsym(handle, "resolve_contact"));
-        dlsym_error = dlerror();
-        if (dlsym_error) {
-            std::cerr << "Cannot load symbol 'resolve_contact': " << dlsym_error <<
-            '\n';
-        }
-    }
+    contactWriteFrame = NULL;
+    contactSaveState = NULL;
+    contactLoadState = NULL;
 }
 
 Contact::~Contact() {
-    //std::cout << "closing material" << std::endl;
-    if(handle){
+    if (handle){
         dlclose(handle);
     }
 }
 
-void Contact::setContact(std::string filename, std::string filepath, size_t idIn, std::vector<int> bodyIDsIn, std::vector<double> fp64props, std::vector<int> intprops){
-    this->id = idIn;
-    this->bodyIDs = bodyIDsIn;
-    //std::string filepath = "src/contacts/";
-    filepath += filename;
+void Contact::contactSetPlugin(Job* job, std::string nameIN, std::string pathIN, std::vector<double> fp64IN, std::vector<int> intIN){
+    filename = nameIN;
+    filepath = pathIN;
+    fp64_props = fp64IN;
+    int_props = intIN;
 
-    this->use_builtin = 0;
-    this->handle = dlopen(filepath.c_str(), RTLD_LAZY);
-    this->contact_filename = filename;
+    handle = dlopen((filepath+filename).c_str(), RTLD_LAZY);
 
-    this->num_fp64_props = fp64props.size();
-    this->num_int_props = intprops.size();
-    this->fp64_props = fp64props;
-    this->int_props = intprops;
+    contactSetFnPointers(handle);
 
-    char* dlsym_error;
-    if (!this->handle) {
-        std::cerr << "Cannot open library: " << dlerror() << '\n';
-        this->contact_init = NULL;
-        this->resolve_contact = NULL;
-    } else {
-        dlerror();
-        this->contact_init = reinterpret_cast<void (*)(job_t *, size_t)>(dlsym(this->handle, "contact_init"));
-        dlsym_error = dlerror();
-        if (dlsym_error) {
-            std::cerr << "Cannot load symbol 'contact_init': " << dlsym_error <<
-            '\n';
-        }
-        this->resolve_contact = reinterpret_cast<void (*)(job_t *, size_t)>(dlsym(this->handle, "resolve_contact"));
-        dlsym_error = dlerror();
-        if (dlsym_error) {
-            std::cerr << "Cannot load symbol 'resolve_contact': " << dlsym_error <<
-            '\n';
-        }
-    }
     return;
 }
 
-void Contact::fixFunctionPointers() {
+void Contact::contactSetFnPointers(void* handle){
     char* dlsym_error;
-    if (!this->handle) {
+    if (!handle) {
         std::cerr << "Cannot open library: " << dlerror() << '\n';
-        this->contact_init = NULL;
-        this->resolve_contact = NULL;
+
+        contactInit = NULL;
+        contactGenerateRules = NULL;
+        contactApplyRules = NULL;
+
+        contactWriteFrame = NULL;
+        contactSaveState = NULL;
+        contactLoadState = NULL;
+
     } else {
         dlerror();
-        this->contact_init = reinterpret_cast<void (*)(job_t *, size_t)>(dlsym(this->handle, "contact_init"));
+        contactInit = reinterpret_cast<void (*)(Job *)>(dlsym(handle, "contactInit"));
         dlsym_error = dlerror();
         if (dlsym_error) {
-            std::cerr << "Cannot load symbol 'contact_init': " << dlsym_error <<
-            '\n';
+            std::cerr << "Cannot load symbol 'contactInit': " << dlsym_error <<
+                      '\n';
         }
-        this->resolve_contact = reinterpret_cast<void (*)(job_t *, size_t)>(dlsym(this->handle, "resolve_contact"));
+        contactGenerateRules = reinterpret_cast<void (*)(Job *)>(dlsym(handle, "contactGenerateRules"));
         dlsym_error = dlerror();
         if (dlsym_error) {
-            std::cerr << "Cannot load symbol 'resolve_contact': " << dlsym_error <<
-            '\n';
+            std::cerr << "Cannot load symbol 'contactGenerateRules': " << dlsym_error <<
+                      '\n';
+        }
+        contactApplyRules = reinterpret_cast<void (*)(Job *)>(dlsym(handle, "contactApplyRules"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'contactApplyRules': " << dlsym_error <<
+                      '\n';
+        }
+
+        contactWriteFrame = reinterpret_cast<void (*)(Job*,Serializer*)>(dlsym(handle, "contactWriteFrame"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'contactWriteFrame': " << dlsym_error <<
+                      '\n';
+        }
+        contactSaveState = reinterpret_cast<std::string (*)(Job*,Serializer*,std::string)>(dlsym(handle, "contactSaveState"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'contactSaveState': " << dlsym_error <<
+                      '\n';
+        }
+        contactLoadState = reinterpret_cast<int (*)(Job*,Serializer*,std::string)>(dlsym(handle, "contactLoadState"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'contactLoadState': " << dlsym_error <<
+                      '\n';
         }
     }
     return;

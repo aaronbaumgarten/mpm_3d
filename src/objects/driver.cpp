@@ -1,0 +1,92 @@
+//
+// Created by aaron on 5/13/17.
+// driver.cpp
+//
+
+#include <iostream>
+#include <stdlib.h>
+#include <string>
+#include <vector>
+#include <Eigen/Core>
+#include <dlfcn.h>
+
+#include "job.hpp"
+
+#include "serializer.hpp"
+#include "driver.hpp"
+
+Driver::Driver() {
+    filename = "";
+    filepath = "";
+    fp64_props = std::vector<double>();
+    int_props = std::vector<int>();
+
+    handle = NULL;
+
+    driverInit = NULL;
+    driverRun = NULL;
+
+    driverSaveState = NULL;
+    driverLoadState = NULL;
+}
+
+Driver::~Driver() {
+    if (handle){
+        dlclose(handle);
+    }
+}
+
+void Driver::driverSetPlugin(Job* job, std::string nameIN, std::string pathIN, std::vector<double> fp64IN, std::vector<int> intIN){
+    filename = nameIN;
+    filepath = pathIN;
+    fp64_props = fp64IN;
+    int_props = intIN;
+
+    handle = dlopen((filepath+filename).c_str(), RTLD_LAZY);
+
+    driverSetFnPointers(handle);
+
+    return;
+}
+
+void Driver::driverSetFnPointers(void* handle){
+    char* dlsym_error;
+    if (!handle) {
+        std::cerr << "Cannot open library: " << dlerror() << '\n';
+
+        driverInit = NULL;
+        driverRun = NULL;
+
+        driverSaveState = NULL;
+        driverLoadState = NULL;
+    } else {
+        dlerror();
+        driverInit = reinterpret_cast<void (*)(Job *)>(dlsym(handle, "driverInit"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'driverInit': " << dlsym_error <<
+                      '\n';
+        }
+
+        driverRun = reinterpret_cast<void (*)(Job *)>(dlsym(handle, "driverRun"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'driverRun': " << dlsym_error <<
+                      '\n';
+        }
+
+        driverSaveState = reinterpret_cast<std::string (*)(Job*,Serializer*,std::string)>(dlsym(handle, "driverSaveState"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'driverSaveState': " << dlsym_error <<
+                      '\n';
+        }
+        driverLoadState = reinterpret_cast<int (*)(Job*,Serializer*,std::string)>(dlsym(handle, "driverLoadState"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'driverLoadState': " << dlsym_error <<
+                      '\n';
+        }
+    }
+    return;
+}

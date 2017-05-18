@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.12)
-project(mpm_3d)
+project(mpm_v2)
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -march=native -O3 -fPIC -D_GLIBCXX_USE_CXX11_ABI=0")
@@ -7,32 +7,30 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -march=native -O3 -fPIC -D_GL
 # dlopen required for file read
 find_package(DL REQUIRED)
 
-set(SOURCE_FILES src/driver/main.cpp)
+set(SOURCE_FILES src/main/main.cpp)
 set(SOURCE_FILES ${SOURCE_FILES}
+        src/objects/job.cpp
+        src/objects/serializer.cpp
+        src/objects/driver.cpp
+        src/objects/solver.cpp
         src/objects/body.cpp
-        src/objects/material.cpp
-        src/objects/boundary.cpp
         src/objects/contact.cpp
-        src/objects/node.cpp
-        src/objects/particle.cpp
-        src/objects/element.cpp
-        src/objects/mpmio.cpp
-        src/objects/mpmconfig.cpp
-        src/functions/process.cpp
-        src/functions/tensor.cpp
-        src/functions/loading.cpp
-        src/tests/test.cpp)
+        src/objects/grid.cpp
+        src/objects/config.cpp
+        src/objects/points.cpp
+        src/functions/stringparse.cpp
+        )
 
 include_directories(include)
 include_directories(/usr/include/eigen3)
 include_directories(${DL_INCLUDE_DIR})
 
-add_subdirectory(src/materials)
-add_subdirectory(src/boundaries)
-add_subdirectory(src/contacts)
-add_executable(mpm_3d ${SOURCE_FILES})
+#add_subdirectory(src/materials)
+#add_subdirectory(src/boundaries)
+#add_subdirectory(src/contacts)
+add_executable(mpm_v2 ${SOURCE_FILES})
 
-target_link_libraries(mpm_3d ${DL_LIBRARIES})
+target_link_libraries(mpm_v2 ${DL_LIBRARIES})
 
 #set(UNIT_TEST_SOURCE_FILES
 #    src/tests/unitTestMain.cpp
