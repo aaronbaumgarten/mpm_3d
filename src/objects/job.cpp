@@ -9,6 +9,8 @@
 #include <vector>
 #include <Eigen/Core>
 
+#include "stringparser.hpp"
+
 #include "job.hpp"
 
 #include "serializer.hpp"
@@ -36,6 +38,10 @@ Job::Job():
     YX = 3; YY = 4; YZ = 5;
     ZX = 6; ZY = 7; ZZ = 8;
 
+    X = 0; Y = 1; Z = 2;
+
+    t = 0; dt = 1e-3;
+
     serializer = Serializer();
     driver = Driver();
     solver = Solver();
@@ -47,30 +53,118 @@ int Job::jobInit(){
     //job initialization stuff
     //kind of useless right now
     //use for stuff that can't be in constructor
+    serializer.serializerInit(this);
+
     return 1;
 }
 
-template <typename T> Eigen::Matrix<T, Eigen::Dynamic, 1> Job::jobVector(){
-    Eigen::Matrix<T, Eigen::Dynamic, 1> jvec(DIM);
-    jvec.setZero();
-    return jvec;
+template <typename T> Eigen::Matrix<T, Eigen::Dynamic, 1, Eigen::RowMajor> Job::jobVector(){
+    return Eigen::Matrix<T, Eigen::Dynamic, 1>(DIM);
 };
 
 
-template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> Job::jobVectorArray(int len){
-    Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> jvec(DIM,len);
-    jvec.setZero();
-    return jvec;
+template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Job::jobVectorArray(int len){
+    return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>(DIM,len);
 };
 
-template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> Job::jobTensor(){
-    Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> jmat(DIM,DIM);
-    jmat.setZero();
-    return jmat;
+template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Job::jobTensor(){
+    return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>(DIM,DIM);
 };
 
-template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> Job::jobTensorArray(int len){
-    Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> jmat(DIM*DIM,len);
-    jmat.setZero();
-    return jmat;
+template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Job::jobTensorArray(int len){
+    return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>(DIM*DIM,len);
 };
+
+void Job::jobScalarToFile(Eigen::Matrix& x,std::ostream& ffile){
+    assert(x.cols() == 1);
+
+    for (size_t i = 0; i < x.rows(); i++) {
+        ffile << x(i) << "\n";
+    }
+    return;
+}
+
+void Job::jobVectorToFile(Eigen::Matrix& x,std::ostream& ffile){
+    assert(x.cols() >= DIM);
+
+    for (size_t i = 0; i < x.rows(); i++) {
+        for (size_t pos = 0; pos < DIM; pos++) {
+            ffile << x(i, pos) << " ";
+        }
+        ffile << "\n";
+    }
+    return;
+}
+
+void Job::jobTensorToFile(Eigen::Matrix& x,std::ostream& ffile){
+    assert(x.cols() >= DIM*DIM);
+
+    for (size_t i = 0; i < x.rows(); i++) {
+        for (size_t pos = 0; pos < DIM*DIM; pos++) {
+            ffile << x(i, pos) << " ";
+        }
+        ffile << "\n";
+    }
+    return;
+}
+
+void Job::jobScalarFromFile(Eigen::Matrix& x,std::istream& ffile){
+    //x must be preformed to correct dimensions
+    assert(x.cols()==1);
+
+    std::string line;
+    std::stringstream ss;
+
+    for (size_t i=0;i<x.rows();i++){
+        if (std::getline(ffile, line)){
+            ss = std::stringstream(line);
+            ss >> x(i);
+        } else {
+            std::cerr << "\nJob::job<field>FromFile Error:\nFile ended before array was filled!\n" << std::endl;
+            return;
+        }
+    }
+    return;
+}
+
+void Job::jobVectorFromFile(Eigen::Matrix& x,std::istream& ffile){
+    //x must be preformed to correct dimensions
+    assert(x.cols()>=DIM);
+
+    std::string line;
+    std::stringstream ss;
+
+    for (size_t i=0;i<x.rows();i++){
+        if (std::getline(ffile, line)){
+            ss = std::stringstream(line);
+            for (size_t pos=0;pos<DIM;pos++) {
+                ss >> x(i,pos);
+            }
+        } else {
+            std::cerr << "\nJob::job<field>FromFile Error:\nFile ended before array was filled!\n" << std::endl;
+            return;
+        }
+    }
+    return;
+}
+
+void Job::jobTensorFromFile(Eigen::Matrix& x,std::istream& ffile){
+    //x must be preformed to correct dimensions
+    assert(x.cols()>=DIM*DIM);
+
+    std::string line;
+    std::stringstream ss;
+
+    for (size_t i=0;i<x.rows();i++){
+        if (std::getline(ffile, line)){
+            ss = std::stringstream(line);
+            for (size_t pos=0;pos<DIM*DIM;pos++) {
+                ss >> x(i,pos);
+            }
+        } else {
+            std::cerr << "\nJob::job<field>FromFile Error:\nFile ended before array was filled!\n" << std::endl;
+            return;
+        }
+    }
+    return;
+}

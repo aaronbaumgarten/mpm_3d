@@ -21,8 +21,18 @@ class Boundary;
 class Body{
 public:
     //body properties here
+    int id;
+    std::string name;
     int activeMaterial;
     int activeBoundary;
+
+    std::vector<int> pval;
+    std::vector<int> nval;
+    std::vector<double> phi;
+
+    std::vector<int> pgrad;
+    std::vector<int> ngrad;
+    std::vector<Eigen::Matrix<double,1,Eigen::Dynamic>, Eigen::aligned_allocator<Eigen::Matrix<double,1,Eigen::Dynamic>>> gradphi;
 
     //objects here
     Points points;
@@ -30,9 +40,16 @@ public:
     Material material;
     Boundary boundary;
 
-    //job object specific functions
+    //body object specific functions
     Body();
     int bodyInit(Job*);
+
+    void bodyGenerateMap(Job*, int=1); //create shape function mapping vectors (int=1 use cpdi)
+
+    void bodyCalcNodalValues(Job*, Eigen::Matrix&, Eigen::Matrix&); //calculate nodal value from points
+    void bodyCalcNodalDivergence(Job*, Eigen::Matrix&, Eigen::Matrix&); //integrate nodal divergence
+    void bodyCalcPointValue(Job*, Eigen::Matrix&, Eigen::Matrix&); //calculate point values from nodes
+    void bodyCalcPointGradient(Job*, Eigen::Matrix&, Eigen::Matrix&); //calculate point gradients from nodes
 
     //other functions
 };

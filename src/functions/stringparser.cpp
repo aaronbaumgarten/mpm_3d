@@ -9,14 +9,14 @@
 #include <regex>
 #include <algorithm>
 
-#include "stringparse.hpp"
+#include "stringparser.hpp"
 
-static std::string StringParse::stringRemoveSpaces(std::string s){
+static std::string StringParser::stringRemoveSpaces(std::string s){
     s.erase(std::remove_if(s.begin(), s.end(), isspace), s.end());
     return s;
 }
 
-static std::vector<std::string> StringParse::stringSplitString(std::string s,char delim){
+static std::vector<std::string> StringParser::stringSplitString(std::string s,char delim){
     //credit to Evan Teran
     //found on stack exchange
     std::stringstream ss;
@@ -29,9 +29,9 @@ static std::vector<std::string> StringParse::stringSplitString(std::string s,cha
     return elems;
 }
 
-static std::string StringParse::stringRemoveComments(std::string s) {
+static std::string StringParser::stringRemoveComments(std::string s) {
     std::vector<std::string> svec;
-    svec = StringParse::stringSplitString(s,'#');
+    svec = StringParser::stringSplitString(s,'#');
     if (svec.size()>0) {
         return svec[0];
     } else {
@@ -39,16 +39,16 @@ static std::string StringParse::stringRemoveComments(std::string s) {
     }
 }
 
-static std::string StringParse::stringRemoveBraces(std::string s){
+static std::string StringParser::stringRemoveBraces(std::string s){
     std::vector<std::string> svec;
     std::stringstream ss;
     //std::cout << s << std::endl;
-    svec = StringParse::stringSplitString(s,'{');
+    svec = StringParser::stringSplitString(s,'{');
     for(size_t i=0;i<svec.size();i++){
         ss << svec[i];
     }
     //std::cout << ss.str() << std::endl;
-    svec = StringParse::stringSplitString(ss.str(),'}');
+    svec = StringParser::stringSplitString(ss.str(),'}');
     ss.str("");
     ss.clear();
     //std::cout << ss.str() << std::endl;
@@ -59,7 +59,7 @@ static std::string StringParse::stringRemoveBraces(std::string s){
     return ss.str();
 }
 
-static int StringParse::stringffFindStringID(std::vector<std::string> svec, std::string s){
+static int StringParser::stringffFindStringID(std::vector<std::string> svec, std::string s){
     for (size_t i=0;i<svec.size();i++){
         if(svec[i].compare(s) == 0){
             return i;

@@ -26,12 +26,13 @@ public:
 
     //material specific functions
     Material();
+    ~Material();
     void materialSetPlugin(Job*, Body*, std::string, std::string, std::vector<double>, std::vector<int>); //set .so material file
     void materialSetFnPointers(void*); //set function pointers to .so file handle
 
-    void (*materialWriteFrame)(Job*, Serializer*); //write frame to serializer
-    std::string (*materialSaveState)(Job*, Serializer*, std::string); //save state to serializer folder with returned filename
-    int (*materialLoadState)(Job*, Serializer*, std::string); //read state from given full path
+    void (*materialWriteFrame)(Job*, Body*, Serializer*); //write frame to serializer
+    std::string (*materialSaveState)(Job*, Body*, Serializer*, std::string); //save state to serializer folder with returned filename
+    int (*materialLoadState)(Job*, Body*, Serializer*, std::string); //read state from given full path
 
     void (*materialInit)(Job*,Body*); // initialize material
     void (*materialCalculateStress)(Job*,Body*,int=1); // calculate stress given body and job state, int=1 updates internal variables

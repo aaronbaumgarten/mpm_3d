@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-class StringParse{
+class StringParser{
 public:
     static std::string stringRemoveSpaces(std::string); //remove spaces from string
     static std::vector<std::string> stringSplitString(std::string, char); //split string by character

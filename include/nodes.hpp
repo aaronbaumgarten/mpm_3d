@@ -31,7 +31,7 @@ public:
 
     //nodes object specific functions
     Nodes();
-    void nodesInit(Job*, Body*);
+    int nodesInit(Job*, Body*);
 
     void nodesWriteFrame(Job*, Body*, Serializer*); //write frame data to serializer
     std::string nodesSaveState(Job*, Body*, Serializer*,std::string); //save data to file in serializer directory and return name

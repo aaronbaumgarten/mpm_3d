@@ -16,6 +16,8 @@
 #include "contact.hpp"
 
 Contact::Contact() {
+    id = 0;
+    name = "";
     filename = "";
     filepath = "";
     fp64_props = std::vector<double>();

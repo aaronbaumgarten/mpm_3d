@@ -17,6 +17,8 @@ class Serializer;
 class Contact{
 public:
     //boundary properties here
+    int id;
+    std::string name;
     std::string filename; //name of file
     std::string filepath; //directory of file for access
     std::vector<double> fp64_props; //double properties

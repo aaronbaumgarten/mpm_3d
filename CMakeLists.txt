@@ -18,7 +18,10 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/objects/grid.cpp
         src/objects/config.cpp
         src/objects/points.cpp
-        src/functions/stringparse.cpp
+        src/objects/nodes.cpp
+        src/objects/boundary.cpp
+        src/objects/material.cpp
+        src/functions/stringparser.cpp
         )
 
 include_directories(include)

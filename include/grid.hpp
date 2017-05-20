@@ -40,8 +40,8 @@ public:
     //other functions
     int (*gridWhichElement)(Job*, Eigen::VectorXd); //return element id
     Eigen::VectorXd (*gridNodeIDToPosition)(Job*, int); //return position of node
-    void (*gridEvaluateShapeFnValue)(Job*, Eigen::VectorXd, Eigen::VectorXi*, Eigen::VectorXd*); //evaluate shape function values at given point (add ids and vals to vectors)
-    void (*gridEvaluateShapeFnGradient)(Job*, Eigen::VectorXd, Eigen::VectorXi*, Eigen::MatrixXd*); //evaluate shape function gradients at given point (add ids and vectors to vec/matrix)
+    void (*gridEvaluateShapeFnValue)(Job*, Eigen::VectorXd, Eigen::VectorXi&, Eigen::VectorXd&); //evaluate shape function values at given point (add ids and vals to vectors)
+    void (*gridEvaluateShapeFnGradient)(Job*, Eigen::VectorXd, Eigen::VectorXi&, Eigen::MatrixXd&); //evaluate shape function gradients at given point (add ids and vectors to vec/matrix)
 };
 
 #endif //MPM_3D_GRID_HPP

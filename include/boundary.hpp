@@ -26,12 +26,13 @@ public:
 
     //boundary specific functions
     Boundary();
+    ~Boundary();
     void boundarySetPlugin(Job*, Body*, std::string, std::string, std::vector<double>, std::vector<int>); // set .so file
     void boundarySetFnPointers(void*); //set function pointers to .so file handle
 
-    void (*boundaryWriteFrame)(Job*, Serializer*); //write frame to serializer
-    std::string (*boundarySaveState)(Job*, Serializer*, std::string); //save state to serializer folder with returned filename
-    int (*boundaryLoadState)(Job*, Serializer*, std::string); //read state from given full path
+    void (*boundaryWriteFrame)(Job*, Body*, Serializer*); //write frame to serializer
+    std::string (*boundarySaveState)(Job*, Body*, Serializer*, std::string); //save state to serializer folder with returned filename
+    int (*boundaryLoadState)(Job*, Body*, Serializer*, std::string); //read state from given full path
 
     void (*boundaryInit)(Job*,Body*); //initialize boundary object
     void (*boundaryGenerateRules)(Job*,Body*); //generate the rules given job and body state
