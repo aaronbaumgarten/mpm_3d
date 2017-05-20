@@ -18,6 +18,7 @@
 #include <sstream>
 #include <Eigen/Core>
 #include <ctime>
+#include <grid.hpp>
 
 #include "job.hpp"
 
@@ -40,9 +41,19 @@ Nodes::Nodes():
 {}
 
 int Nodes::nodesInit(Job* job, Body* body){
-    //point initialization stuff
-    //kind of useless right now
-    //use for stuff that can't be in constructor
+
+    size_t len = job->grid.node_count;
+
+    if (x.rows() < len) {
+        x = job->jobVectorArray<double>(len);
+        u = job->jobVectorArray<double>(len);
+        x_t = job->jobVectorArray<double>(len);
+        m.resize(len);
+        mx_t = job->jobVectorArray<double>(len);
+        f = job->jobVectorArray<double>(len);
+        active.resize(len);
+    }
+
     return 1;
 }
 

@@ -21,6 +21,8 @@ Grid::Grid() {
     fp64_props = std::vector<double>();
     int_props = std::vector<int>();
 
+    node_count = 0;
+
     handle = NULL;
 
     gridInit = NULL;
@@ -88,13 +90,13 @@ void Grid::gridSetFnPointers(void* handle){
             std::cerr << "Cannot load symbol 'gridNodeIDToPosition': " << dlsym_error <<
                       '\n';
         }
-        gridEvaluateShapeFnValue = reinterpret_cast<void (*)(Job *, Eigen::VectorXd, Eigen::VectorXi*, Eigen::VectorXd*)>(dlsym(handle, "gridEvaluateShapeFnValue"));
+        gridEvaluateShapeFnValue = reinterpret_cast<void (*)(Job *, Eigen::VectorXd, std::vector<int>&, std::vector<double>&)>(dlsym(handle, "gridEvaluateShapeFnValue"));
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'gridEvaluateShapeFnValue': " << dlsym_error <<
                       '\n';
         }
-        gridEvaluateShapeFnGradient = reinterpret_cast<void (*)(Job *, Eigen::VectorXd, Eigen::VectorXi*, Eigen::MatrixXd*)>(dlsym(handle, "gridEvaluateShapeFnGradient"));
+        gridEvaluateShapeFnGradient = reinterpret_cast<void (*)(Job *, Eigen::VectorXd, std::vector<int>&, std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>&)>(dlsym(handle, "gridEvaluateShapeFnGradient"));
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'gridEvaluateShapeFnGradient': " << dlsym_error <<

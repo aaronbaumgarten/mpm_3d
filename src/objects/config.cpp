@@ -203,7 +203,7 @@ int Config::configConfigureJob(Job *job){
                                                                 job->serializer.filename,
                                                                 job->serializer.fp64_props,
                                                                 job->serializer.int_props);
-                            std::cout << "Serializer Configured." << std::endl;
+                            std::cout << "Serializer Configured: " << job->serializer.filename  << std::endl;
                         }
                         break;
                     case 2:
@@ -257,7 +257,7 @@ int Config::configConfigureJob(Job *job){
                                                                 job->driver.filename,
                                                                 job->driver.fp64_props,
                                                                 job->driver.int_props);
-                            std::cout << "Driver Configured." << std::endl;
+                            std::cout << "Driver Configured: " << job->driver.filename  << std::endl;
                         }
                         break;
                     case 3:
@@ -311,7 +311,7 @@ int Config::configConfigureJob(Job *job){
                                                         job->solver.filename,
                                                         job->solver.fp64_props,
                                                         job->solver.int_props);
-                            std::cout << "Solver Configured." << std::endl;
+                            std::cout << "Solver Configured: " << job->solver.filename  << std::endl;
                         }
                         break;
                     case 4:
@@ -423,7 +423,7 @@ int Config::configConfigureJob(Job *job){
                                 job->bodies[id].activeMaterial = 1;
                             }
 
-                            std::cout << "Body [" << id << ", " << job->bodies[id].name << "] Configured." << std::endl;
+                            std::cout << "Body [" << id << ", " << job->bodies[id].name << "] Configured: " << job->bodies[id].points.file  << std::endl;
                         }
                         break;
                     case 5:
@@ -483,7 +483,7 @@ int Config::configConfigureJob(Job *job){
                                                         job->contacts[id].fp64_props,
                                                         job->contacts[id].int_props);
                             job->activeContacts[id] = 1;
-                            std::cout << "Contact [" << id << ", " << job->contacts[id].name << "] Configured." << std::endl;
+                            std::cout << "Contact [" << id << ", " << job->contacts[id].name << "] Configured: " << job->contacts[id].filename  << std::endl;
                         }
                         break;
                     case 6:
@@ -538,7 +538,7 @@ int Config::configConfigureJob(Job *job){
                                                         job->grid.fp64_props,
                                                         job->grid.int_props);
 
-                            std::cout << "Grid Configured." << std::endl;
+                            std::cout << "Grid Configured: " << job->grid.filename << std::endl;
                         }
                         break;
                     default:
@@ -548,6 +548,7 @@ int Config::configConfigureJob(Job *job){
         }
         //close file
         fin.close();
+        std::cout << "Job Configured." << std::endl;
     } else {
         std::cout << "ERROR: Unable to open file: " << file << std::endl;
         return 0;

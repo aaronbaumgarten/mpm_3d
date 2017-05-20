@@ -50,10 +50,19 @@ Job::Job():
 }
 
 int Job::jobInit(){
-    //job initialization stuff
-    //kind of useless right now
-    //use for stuff that can't be in constructor
+
     serializer.serializerInit(this);
+    driver.driverInit(this);
+    solver.solverInit(this);
+
+    grid.gridInit(this);
+
+    for (size_t i=0; i<contacts.size(); i++){
+        contacts[i].contactInit(this);
+    }
+    for (size_t i=0; i<bodies.size(); i++){
+        bodies[i].bodyInit(this);
+    }
 
     return 1;
 }

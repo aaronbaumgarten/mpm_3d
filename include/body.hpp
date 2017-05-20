@@ -46,10 +46,10 @@ public:
 
     void bodyGenerateMap(Job*, int=1); //create shape function mapping vectors (int=1 use cpdi)
 
-    void bodyCalcNodalValues(Job*, Eigen::Matrix&, Eigen::Matrix&); //calculate nodal value from points
-    void bodyCalcNodalDivergence(Job*, Eigen::Matrix&, Eigen::Matrix&); //integrate nodal divergence
-    void bodyCalcPointValue(Job*, Eigen::Matrix&, Eigen::Matrix&); //calculate point values from nodes
-    void bodyCalcPointGradient(Job*, Eigen::Matrix&, Eigen::Matrix&); //calculate point gradients from nodes
+    void bodyCalcNodalValues(Job*, Eigen::Matrix& nodeVal, Eigen::Matrix& pointVal); //calculate nodal value from points
+    void bodyCalcNodalDivergence(Job*, Eigen::Matrix& nodeVal, Eigen::Matrix& pointVal); //integrate nodal divergence
+    void bodyCalcPointValues(Job*, Eigen::Matrix& pointVal, Eigen::Matrix& nodeVal); //calculate point values from nodes
+    void bodyCalcPointGradient(Job*, Eigen::Matrix& pointVal, Eigen::Matrix& nodeVal); //calculate point gradients from nodes
 
     //other functions
 };
