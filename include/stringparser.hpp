@@ -17,6 +17,7 @@ public:
     static std::string stringRemoveComments(std::string); //remove everything after first "#" in string
     static std::string stringRemoveBraces(std::string); //remove braces from string ("{","}")
     static int stringFindStringID(std::vector<std::string>, std::string); //find id of string from list
+    static std::string stringRemoveQuotes(std::string); //remove quotes from string(",')
 };
 
 #endif //MPM_V2_STRINGPARSE_HPP

@@ -67,3 +67,23 @@ static int StringParser::stringffFindStringID(std::vector<std::string> svec, std
     }
     return -1;
 }
+
+static std::string StringParser::stringRemoveQuotes(std::string s){
+    std::vector<std::string> svec;
+    std::stringstream ss;
+    //std::cout << s << std::endl;
+    svec = StringParser::stringSplitString(s,'\'');
+    for(size_t i=0;i<svec.size();i++){
+        ss << svec[i];
+    }
+    //std::cout << ss.str() << std::endl;
+    svec = StringParser::stringSplitString(ss.str(),'\"');
+    ss.str("");
+    ss.clear();
+    //std::cout << ss.str() << std::endl;
+    for(size_t i=0;i<svec.size();i++){
+        ss << svec[i];
+    }
+    //std::cout << ss.str() << std::endl;
+    return ss.str();
+}

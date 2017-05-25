@@ -22,12 +22,13 @@ public:
     std::string filepath; //directory of file for access
     std::vector<double> fp64_props; //double properties
     std::vector<int> int_props; //integer properties
+    std::vector<std::string> str_props; //string properties
     void *handle; //.so file handle
 
     //boundary specific functions
     Boundary();
     ~Boundary();
-    void boundarySetPlugin(Job*, Body*, std::string, std::string, std::vector<double>, std::vector<int>); // set .so file
+    void boundarySetPlugin(Job*, Body*, std::string, std::string, std::vector<double>, std::vector<int>, std::vector<std::string>); // set .so file
     void boundarySetFnPointers(void*); //set function pointers to .so file handle
 
     void (*boundaryWriteFrame)(Job*, Body*, Serializer*); //write frame to serializer

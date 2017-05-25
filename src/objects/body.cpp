@@ -28,7 +28,8 @@ Body::Body():
         phi(0),
         pgrad(0),
         ngrad(0),
-        gradphi(0)
+        gradphi(0),
+        A(0,0)
 {
     id = 0; //when config sets body (set to id)
     name = "default";
@@ -42,6 +43,32 @@ Body::Body():
 }
 
 int Body::bodyInit(Job* job){
+    size_t cp = 1;
+    for (size_t i=0;i<job->DIM;i++){
+        cp *= 2; //square or cube
+    }
+    //initialize A matrix
+    //for mapping position in cube to id
+    //0 -> -1,-1,-1
+    //1 -> +1,-1,-1
+    //...
+    //8 -> +1,+1,+1
+    Eigen::VectorXi onoff = -1*job->jobVector<int>(Job::ONES);
+    A = job->jobVectorArray(cp);
+    for (size_t c=0; c<cp;c++){
+        for (size_t i=0;i<onoff.rows();i++){
+            A(c,i) = onoff(i);
+        }
+        for (size_t i=0;i<onoff.rows();i++) {
+            if (onoff(i) == -1){
+                onoff(i) == 1;
+                break;
+            } else {
+                onoff(i) == -1;
+            }
+        }
+    }
+
     points.pointsInit(job,this);
     nodes.nodesInit(job,this);
     material.materialInit(job,this);
@@ -62,20 +89,64 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi = 1) {
     std::vector<int> nvec(0);
     std::vector<double> valvec(0);
     std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>> gradvec(0);
+    Eigen::VectorXd tmpGrad = job->jobVector<double>();
 
     for (size_t i=0; i<points.x.rows(); i++){
-        job->grid.gridEvaluateShapeFnValue(job,points.x.row(i),nvec,valvec);
-        for (size_t j=0; j<nvec.size(); j++){
-            pval.push_back((int)i);
-            nval.push_back(nvec[j]);
-            phi.push_back(valvec[j]);
-        }
+        if (use_cpdi == 0) {
+            nvec.clear();
+            valvec.clear();
+            job->grid.gridEvaluateShapeFnValue(job,points.x.row(i),nvec,valvec);
+            for (size_t j=0; j<nvec.size(); j++){
+                pval.push_back((int)i);
+                nval.push_back(nvec[j]);
+                phi.push_back(valvec[j]);
+            }
 
-        job->grid.gridEvaluateShapeFnGradient(job,points.x.row(i),nvec,gradvec);
-        for (size_t j=0; j<nvec.size(); j++){
-            pgrad.push_back((int)i);
-            ngrad.push_back(nvec[j]);
-            gradphi.push_back(gradvec[j]);
+            nvec.clear();
+            gradvec.clear();
+            job->grid.gridEvaluateShapeFnGradient(job, points.x.row(i), nvec, gradvec);
+            for (size_t j = 0; j < nvec.size(); j++) {
+                pgrad.push_back((int) i);
+                ngrad.push_back(nvec[j]);
+                gradphi.push_back(gradvec[j]);
+            }
+        } else if (use_cpdi == 1){
+            nvec.clear();
+            valvec.clear();
+            for (size_t c=0;c<A.rows();c++) {
+                //spread influence
+                job->grid.gridEvaluateShapeFnValue(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c)), nvec, valvec);
+            }
+            for (size_t j=0; j<nvec.size(); j++){
+                pval.push_back((int)i);
+                nval.push_back(nvec[j]);
+                phi.push_back(valvec[j]/A.rows()); //reduce influence
+            }
+
+            //average gradients along sides of extent
+            nvec.clear();
+            valvec.clear();
+            gradvec.clear();
+            for (size_t c=0; c<A.rows(); c++){
+                //find shape function value at offset point location
+                //add node ids to nodevec
+                //add values to valvec
+                valvec.clear();
+                job->grid.gridEvaluateShapeFnValue(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c)), nvec, valvec);
+                for (size_t v=0; v<valvec.size(); v++){
+                    //gradient contribution from corner
+                    //G(x) = (S(x+a) - S(x-a))/(2a)
+                    tmpGrad = valvec[v]/(A.rows()*0.5*points.extent(i))*A.row(c).transpose();
+                    gradvec.push_back(tmpGrad);
+                }
+            }
+            for (size_t j = 0; j < nvec.size(); j++) {
+                pgrad.push_back((int) i);
+                ngrad.push_back(nvec[j]);
+                gradphi.push_back(gradvec[j]);
+            }
+        } else {
+            std::cerr << "Unrecognized Argument for use_cpdi in Body::bodyGenerateMap(): " << use_cpdi << std::endl;
         }
     }
 

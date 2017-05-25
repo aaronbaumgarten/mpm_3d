@@ -4,6 +4,7 @@
 //
 
 #include <iostream>
+#include <sstream>
 #include <stdlib.h>
 #include <string>
 #include <vector>
@@ -71,6 +72,19 @@ template <typename T> Eigen::Matrix<T, Eigen::Dynamic, 1, Eigen::RowMajor> Job::
     return Eigen::Matrix<T, Eigen::Dynamic, 1>(DIM);
 };
 
+template <typename T> Eigen::Matrix<T, Eigen::Dynamic, 1, Eigen::RowMajor> Job::jobVector(T* data){
+    return Eigen::Matrix<T, Eigen::Dynamic, 1>(data,DIM);
+};
+
+template <typename T> Eigen::Matrix<T, Eigen::Dynamic, 1, Eigen::RowMajor> Job::jobVector(int SPEC){
+    if (SPEC == ONES) {
+        return Eigen::Matrix<T, Eigen::Dynamic, 1>::Ones(DIM);
+    } else {
+        std::cerr << "jobVector(SPEC): Unknown SPEC [" << SPEC << "]" << std::endl;
+        return Eigen::Matrix<T, Eigen::Dynamic, 1>(DIM);
+    }
+};
+
 
 template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Job::jobVectorArray(int len){
     return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>(DIM,len);
@@ -78,6 +92,21 @@ template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::Ro
 
 template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Job::jobTensor(){
     return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>(DIM,DIM);
+};
+
+template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Job::jobTensor(T* data){
+    return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>(data,DIM,DIM);
+};
+
+template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Job::jobTensor(int SPEC){
+    if (SPEC == ONES) {
+        return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Ones(DIM, DIM);
+    } else if (SPEC == IDENTITY){
+        return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Ones(DIM, DIM);
+    } else {
+        std::cerr << "jobTensor(SPEC): Unknown SPEC [" << SPEC << "]" << std::endl;
+        return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>(DIM, DIM);
+    }
 };
 
 template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Job::jobTensorArray(int len){

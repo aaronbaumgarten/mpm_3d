@@ -124,6 +124,7 @@ int main(int argc, char *argv[]) {
     }
     std::cout << "  Points: " << num_points << std::endl;
     std::cout << "  Nodes: " << job->grid.node_count << std::endl;
+    std::cout << "  Elements: " << job->grid.element_count << std::endl;
     std::cout << "  Contacts: " << job->contacts.size() << std::endl;
 
     //setup sigint handling
@@ -133,6 +134,9 @@ int main(int argc, char *argv[]) {
 
     //start simulation
     job->driver.driverRun(job);
+
+    //save simulation
+    job->serializer.serializerSaveState(job);
 
     delete(job);
     return 0;

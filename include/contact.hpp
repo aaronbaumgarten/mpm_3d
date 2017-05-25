@@ -23,12 +23,13 @@ public:
     std::string filepath; //directory of file for access
     std::vector<double> fp64_props; //double properties
     std::vector<int> int_props; //integer properties
+    std::vector<std::string> str_props; //string properties
     void *handle; //.so file handle
 
     //boundary specific functions
     Contact();
     ~Contact();
-    void contactSetPlugin(Job*, std::string, std::string, std::vector<double>, std::vector<int>); // set .so file
+    void contactSetPlugin(Job*, std::string, std::string, std::vector<double>, std::vector<int>, std::vector<std::string>); // set .so file
     void contactSetFnPointers(void*); //set function pointers to .so file handle
 
     void (*contactWriteFrame)(Job*, Serializer*); //write frame to serializer

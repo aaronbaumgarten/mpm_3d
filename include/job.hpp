@@ -22,6 +22,9 @@ class Contact;
 
 class Job{
 public:
+    //static integers
+    static int ONES = 1;
+    static int IDENTITY = 2;
     //job properties here
     int DIM;
     int XX, XY, XZ, YX, YY, YZ, ZX, ZY, ZZ;
@@ -45,8 +48,12 @@ public:
 
     //templates of vectors and tensors for consistency
     template <typename T> Eigen::Matrix<T, Eigen::Dynamic, 1, Eigen::RowMajor> jobVector();
+    template <typename T> Eigen::Matrix<T, Eigen::Dynamic, 1, Eigen::RowMajor> jobVector(T*);
+    template <typename T> Eigen::Matrix<T, Eigen::Dynamic, 1, Eigen::RowMajor> jobVector(int);
     template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> jobVectorArray(int);
     template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> jobTensor();
+    template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> jobTensor(T*);
+    template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> jobTensor(int);
     template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> jobTensorArray(int);
 
     void jobScalarToFile(Eigen::Matrix&,std::ostream&);//write matrix ref to file ref

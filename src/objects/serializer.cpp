@@ -19,6 +19,7 @@ Serializer::Serializer() {
     filepath = "";
     fp64_props = std::vector<double>();
     int_props = std::vector<int>();
+    str_props = std::vector<std::string>();
 
     handle = NULL;
 
@@ -39,11 +40,12 @@ Serializer::~Serializer() {
     }
 }
 
-void Serializer::serializerSetPlugin(Job* job, std::string nameIN, std::string pathIN, std::vector<double> fp64IN, std::vector<int> intIN){
+void Serializer::serializerSetPlugin(Job* job, std::string nameIN, std::string pathIN, std::vector<double> fp64IN, std::vector<int> intIN, std::vector<std::string> strIN){
     filename = nameIN;
     filepath = pathIN;
     fp64_props = fp64IN;
     int_props = intIN;
+    str_props = strIN;
 
     handle = dlopen((filepath+filename).c_str(), RTLD_LAZY);
 

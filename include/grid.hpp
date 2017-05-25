@@ -21,16 +21,18 @@ public:
     std::string filepath; //directory of file for access
     std::vector<double> fp64_props; //double properties
     std::vector<int> int_props; //integer properties
+    std::vector<std::string> str_props; //string properties
     void *handle; //.so file handle
 
     size_t node_count;
+    size_t element_count;
 
     //objects here
 
     //grid object specific functions
     Grid();
     ~Grid();
-    void gridSetPlugin(Job*, std::string, std::string, std::vector<double>, std::vector<int>); //assign .so plugin for functions
+    void gridSetPlugin(Job*, std::string, std::string, std::vector<double>, std::vector<int>, std::vector<std::string>); //assign .so plugin for functions
     void gridSetFnPointers(void*); //set function pointers to .so file handle
 
     void (*gridInit)(Job*); //initialize grid file

@@ -44,6 +44,7 @@ int Nodes::nodesInit(Job* job, Body* body){
 
     size_t len = job->grid.node_count;
 
+    //initialize vectors to length of grid object
     if (x.rows() < len) {
         x = job->jobVectorArray<double>(len);
         u = job->jobVectorArray<double>(len);
@@ -52,6 +53,10 @@ int Nodes::nodesInit(Job* job, Body* body){
         mx_t = job->jobVectorArray<double>(len);
         f = job->jobVectorArray<double>(len);
         active.resize(len);
+    }
+
+    for (size_t i=0;i<len;i++){
+        x.row(i) = job->grid.gridNodeIDToPosition(job,i);
     }
 
     return 1;

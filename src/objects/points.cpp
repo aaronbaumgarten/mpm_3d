@@ -43,15 +43,15 @@ int Points::pointsInit(Job* job, Body* body){
     //extent initialization
     if(job->DIM == 1){
         for (size_t i=0;i<v.cols();i++){
-            extent[i] = 0.25 * v[i];
+            extent[i] = 0.5 * v[i];
         }
     } else if (job->DIM == 2){
         for (size_t i=0;i<v.cols();i++){
-            extent[i] = 0.25 * std::sqrt(v[i]);
+            extent[i] = 0.5 * std::sqrt(v[i]);
         }
-    } else {
+    } else if (job->DIM == 3){
         for (size_t i = 0; i < v.cols(); i++) {
-            extent[i] = 0.25 * std::cbrt(v[i]);
+            extent[i] = 0.5 * std::cbrt(v[i]);
         }
     }
     return 1;
@@ -214,7 +214,7 @@ std::string Points::pointsSaveState(Job* job, Body* body, Serializer* serializer
 
         ffile.close();
     } else {
-        std::cout << "Unable to open .\n";
+        std::cout << "Unable to open \"" << filename << "\" !\n";
         return "ERR";
     }
     return filename;
@@ -405,6 +405,8 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
         std::cout << "ERROR: Unable to open file: " << fullpath << std::endl;
         return 0;
     }
+
+    std::cout << "Points Loaded: [" << body->id << "]." << std::endl;
 
     return 1;
 }

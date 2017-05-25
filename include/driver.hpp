@@ -21,12 +21,13 @@ public:
     std::string filepath; //directory of file for access
     std::vector<double> fp64_props; //double properties
     std::vector<int> int_props; //integer properties
+    std::vector<std::string> str_props; //string properties
     void *handle; //.so file handle
 
     //boundary specific functions
     Driver();
     ~Driver();
-    void driverSetPlugin(Job*, std::string, std::string, std::vector<double>, std::vector<int>); //assign .so plugin file
+    void driverSetPlugin(Job*, std::string, std::string, std::vector<double>, std::vector<int>, std::vector<std::string>); //assign .so plugin file
     void driverSetFnPointers(void*); //set function pointers to .so file handle
 
     void (*driverInit)(Job*); //initialize driver

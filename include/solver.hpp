@@ -21,12 +21,13 @@ public:
     std::string filepath; //directory of file for access
     std::vector<double> fp64_props; //double properties
     std::vector<int> int_props; //integer properties
+    std::vector<std::string> str_props; //string properties
     void *handle; //.so file handle
 
     //solver specific functions
     Solver();
     ~Solver();
-    void solverSetPlugin(Job*, std::string, std::string, std::vector<double>, std::vector<int>); //assign .so plugin file
+    void solverSetPlugin(Job*, std::string, std::string, std::vector<double>, std::vector<int>, std::vector<std::string>); //assign .so plugin file
     void solverSetFnPointers(void*); //set function pointers to .so file handle
 
     void (*solverInit)(Job*); //initialize solver

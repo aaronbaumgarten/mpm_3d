@@ -34,6 +34,8 @@ public:
     std::vector<int> ngrad;
     std::vector<Eigen::Matrix<double,1,Eigen::Dynamic>, Eigen::aligned_allocator<Eigen::Matrix<double,1,Eigen::Dynamic>>> gradphi;
 
+    Eigen::MatrixXi A; //for mapping cpdi corners to position
+
     //objects here
     Points points;
     Nodes nodes;

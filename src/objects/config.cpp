@@ -124,6 +124,7 @@ int Config::configConfigureJob(Job *job){
                                 }
 
                                 line = StringParser::stringRemoveBraces(line);
+                                line = StringParser::stringRemoveQuotes(line);
                                 lvec = StringParser::stringSplitString(line,'=');
                                 if (lvec.size() > 1) {
                                     propName = lvec[0];
@@ -154,7 +155,7 @@ int Config::configConfigureJob(Job *job){
                         break;
                     case 1:
                         //serializer
-                        params = {"filepath","filename","properties","int-properties"};
+                        params = {"filepath","filename","properties","int-properties","str-properties"};
                         line = StringParser::stringRemoveComments(line);
                         line = StringParser::stringRemoveSpaces(line);
                         if (line.compare("{") == 0) {
@@ -167,6 +168,7 @@ int Config::configConfigureJob(Job *job){
                                 }
 
                                 line = StringParser::stringRemoveBraces(line);
+                                line = StringParser::stringRemoveQuotes(line);
                                 lvec = StringParser::stringSplitString(line,'=');
                                 if (lvec.size() > 1) {
                                     propName = lvec[0];
@@ -194,21 +196,29 @@ int Config::configConfigureJob(Job *job){
                                                 job->serializer.int_props.push_back(std::stoi(lvec[i]));
                                             }
                                             break;
+                                        case 5:
+                                            //str-props
+                                            for (size_t i = 0; i < lvec.size(); i++) {
+                                                job->serializer.str_props.push_back(lvec[i]);
+                                            }
+                                            break;
                                         default:
                                             std::cerr << "Parameter \"" << propName << "\" not recognized." << std::endl;
                                     }
                                 }
                             }
-                            job->serializer.serializerSetPlugin(job,job->serializer.filepath,
+                            job->serializer.serializerSetPlugin(job,
+                                                                job->serializer.filepath,
                                                                 job->serializer.filename,
                                                                 job->serializer.fp64_props,
-                                                                job->serializer.int_props);
+                                                                job->serializer.int_props,
+                                                                job->serializer.str_props);
                             std::cout << "Serializer Configured: " << job->serializer.filename  << std::endl;
                         }
                         break;
                     case 2:
                         //driver
-                        params = {"filepath","filename","properties","int-properties"};
+                        params = {"filepath","filename","properties","int-properties","str-properties"};
                         line = StringParser::stringRemoveComments(line);
                         line = StringParser::stringRemoveSpaces(line);
                         if (line.compare("{") == 0) {
@@ -221,6 +231,7 @@ int Config::configConfigureJob(Job *job){
                                 }
 
                                 line = StringParser::stringRemoveBraces(line);
+                                line = StringParser::stringRemoveQuotes(line);
                                 lvec = StringParser::stringSplitString(line,'=');
                                 if (lvec.size() > 1) {
                                     propName = lvec[0];
@@ -248,21 +259,29 @@ int Config::configConfigureJob(Job *job){
                                                 job->driver.int_props.push_back(std::stoi(lvec[i]));
                                             }
                                             break;
+                                        case 5:
+                                            //str-props
+                                            for (size_t i = 0; i < lvec.size(); i++) {
+                                                job->driver.str_props.push_back(lvec[i]);
+                                            }
+                                            break;
                                         default:
                                             std::cerr << "Parameter \"" << propName << "\" not recognized." << std::endl;
                                     }
                                 }
                             }
-                            job->driver.driverSetPlugin(job,job->driver.filepath,
-                                                                job->driver.filename,
-                                                                job->driver.fp64_props,
-                                                                job->driver.int_props);
+                            job->driver.driverSetPlugin(job,
+                                                        job->driver.filepath,
+                                                        job->driver.filename,
+                                                        job->driver.fp64_props,
+                                                        job->driver.int_props,
+                                                        job->driver.str_props);
                             std::cout << "Driver Configured: " << job->driver.filename  << std::endl;
                         }
                         break;
                     case 3:
                         //solver
-                        params = {"filepath","filename","properties","int-properties"};
+                        params = {"filepath","filename","properties","int-properties","str-properties"};
                         line = StringParser::stringRemoveComments(line);
                         line = StringParser::stringRemoveSpaces(line);
                         if (line.compare("{") == 0) {
@@ -275,6 +294,7 @@ int Config::configConfigureJob(Job *job){
                                 }
 
                                 line = StringParser::stringRemoveBraces(line);
+                                line = StringParser::stringRemoveQuotes(line);
                                 lvec = StringParser::stringSplitString(line,'=');
                                 if (lvec.size() > 1) {
                                     propName = lvec[0];
@@ -302,15 +322,23 @@ int Config::configConfigureJob(Job *job){
                                                 job->solver.int_props.push_back(std::stoi(lvec[i]));
                                             }
                                             break;
+                                        case 5:
+                                            //str-props
+                                            for (size_t i = 0; i < lvec.size(); i++) {
+                                                job->solver.str_props.push_back(lvec[i]);
+                                            }
+                                            break;
                                         default:
                                             std::cerr << "Parameter \"" << propName << "\" not recognized." << std::endl;
                                     }
                                 }
                             }
-                            job->solver.solverSetPlugin(job,job->solver.filepath,
+                            job->solver.solverSetPlugin(job,
+                                                        job->solver.filepath,
                                                         job->solver.filename,
                                                         job->solver.fp64_props,
-                                                        job->solver.int_props);
+                                                        job->solver.int_props,
+                                                        job->solver.str_props);
                             std::cout << "Solver Configured: " << job->solver.filename  << std::endl;
                         }
                         break;
@@ -322,10 +350,8 @@ int Config::configConfigureJob(Job *job){
                         job->bodies[id].id = id;
 
                         params = {"name", "point-file",
-                                  "material-filepath","material-filename",
-                                  "material-props","material-int-props",
-                                  "boundary-filepath","boundary-filename",
-                                  "boundary-props","boundary-int-props"};
+                                  "material-filepath", "material-filename", "material-props", "material-int-props", "material-str-props"
+                                  "boundary-filepath", "boundary-filename", "boundary-props", "boundary-int-props", "boundary-str-props"};
                         line = StringParser::stringRemoveComments(line);
                         line = StringParser::stringRemoveSpaces(line);
                         if (line.compare("{") == 0) {
@@ -338,6 +364,7 @@ int Config::configConfigureJob(Job *job){
                                 }
 
                                 line = StringParser::stringRemoveBraces(line);
+                                line = StringParser::stringRemoveQuotes(line);
                                 lvec = StringParser::stringSplitString(line,'=');
                                 if (lvec.size() > 1) {
                                     propName = lvec[0];
@@ -374,23 +401,35 @@ int Config::configConfigureJob(Job *job){
                                             }
                                             break;
                                         case 6:
+                                            //material-str-props
+                                            for (size_t i = 0; i < lvec.size(); i++) {
+                                                job->bodies[id].material.str_props.push_back(lvec[i]);
+                                            }
+                                            break;
+                                        case 7:
                                             //boundary-filepath
                                             job->bodies[id].boundary.filepath = propValue;
                                             break;
-                                        case 7:
+                                        case 8:
                                             //boundary-filename
                                             job->bodies[id].boundary.filename = propValue;
                                             break;
-                                        case 8:
+                                        case 9:
                                             //boundary-props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->bodies[id].boundary.fp64_props.push_back(std::stod(lvec[i]));
                                             }
                                             break;
-                                        case 9:
+                                        case 10:
                                             //boundary-int-props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->bodies[id].boundary.int_props.push_back(std::stoi(lvec[i]));
+                                            }
+                                            break;
+                                        case 11:
+                                            //boundary-str-props
+                                            for (size_t i = 0; i < lvec.size(); i++) {
+                                                job->bodies[id].boundary.str_props.push_back(lvec[i]);
                                             }
                                             break;
                                         default:
@@ -407,19 +446,23 @@ int Config::configConfigureJob(Job *job){
                                 std::cerr << "No point file for body: " << job->bodies[id].name << "!" << std::endl;
                             }
                             if (!job->bodies[id].boundary.filename.empty()) {
-                                job->bodies[id].boundary.boundarySetPlugin(job, &(job->bodies[id]),
+                                job->bodies[id].boundary.boundarySetPlugin(job,
+                                                                           &(job->bodies[id]),
                                                                            job->bodies[id].boundary.filepath,
                                                                            job->bodies[id].boundary.filename,
                                                                            job->bodies[id].boundary.fp64_props,
-                                                                           job->bodies[id].boundary.int_props);
+                                                                           job->bodies[id].boundary.int_props,
+                                                                           job->bodies[id].boundary.str_props);
                                 job->bodies[id].activeBoundary = 1;
                             }
                             if (!job->bodies[id].material.filename.empty()) {
-                                job->bodies[id].material.materialSetPlugin(job, &(job->bodies[id]),
+                                job->bodies[id].material.materialSetPlugin(job,
+                                                                           &(job->bodies[id]),
                                                                            job->bodies[id].material.filepath,
                                                                            job->bodies[id].material.filename,
                                                                            job->bodies[id].material.fp64_props,
-                                                                           job->bodies[id].material.int_props);
+                                                                           job->bodies[id].material.int_props,
+                                                                           job->bodies[id].material.str_props);
                                 job->bodies[id].activeMaterial = 1;
                             }
 
@@ -433,7 +476,7 @@ int Config::configConfigureJob(Job *job){
                         id = job->contacts.size() - 1;
                         job->contacts[id].id = id;
 
-                        params = {"filepath","filename","properties","int-properties"};
+                        params = {"filepath","filename","properties","int-properties","str-properties"};
                         line = StringParser::stringRemoveComments(line);
                         line = StringParser::stringRemoveSpaces(line);
                         if (line.compare("{") == 0) {
@@ -446,6 +489,7 @@ int Config::configConfigureJob(Job *job){
                                 }
 
                                 line = StringParser::stringRemoveBraces(line);
+                                line = StringParser::stringRemoveQuotes(line);
                                 lvec = StringParser::stringSplitString(line,'=');
                                 if (lvec.size() > 1) {
                                     propName = lvec[0];
@@ -473,22 +517,30 @@ int Config::configConfigureJob(Job *job){
                                                 job->contacts[id].int_props.push_back(std::stoi(lvec[i]));
                                             }
                                             break;
+                                        case 5:
+                                            //str-props
+                                            for (size_t i = 0; i < lvec.size(); i++) {
+                                                job->contacts[id].str_props.push_back(lvec[i]);
+                                            }
+                                            break;
                                         default:
                                             std::cerr << "Parameter \"" << propName << "\" not recognized." << std::endl;
                                     }
                                 }
                             }
-                            job->contacts[id].contactSetPlugin(job,job->contacts[id].filepath,
-                                                        job->contacts[id].filename,
-                                                        job->contacts[id].fp64_props,
-                                                        job->contacts[id].int_props);
+                            job->contacts[id].contactSetPlugin(job,
+                                                               job->contacts[id].filepath,
+                                                               job->contacts[id].filename,
+                                                               job->contacts[id].fp64_props,
+                                                               job->contacts[id].int_props,
+                                                               job->contacts[id].str_props);
                             job->activeContacts[id] = 1;
                             std::cout << "Contact [" << id << ", " << job->contacts[id].name << "] Configured: " << job->contacts[id].filename  << std::endl;
                         }
                         break;
                     case 6:
                         //grid
-                        params = {"filepath","filename","properties","int-properties"};
+                        params = {"filepath","filename","properties","int-properties","str-properties"};
                         line = StringParser::stringRemoveComments(line);
                         line = StringParser::stringRemoveSpaces(line);
                         if (line.compare("{") == 0) {
@@ -501,6 +553,7 @@ int Config::configConfigureJob(Job *job){
                                 }
 
                                 line = StringParser::stringRemoveBraces(line);
+                                line = StringParser::stringRemoveQuotes(line);
                                 lvec = StringParser::stringSplitString(line,'=');
                                 if (lvec.size() > 1) {
                                     propName = lvec[0];
@@ -528,15 +581,23 @@ int Config::configConfigureJob(Job *job){
                                                 job->grid.int_props.push_back(std::stoi(lvec[i]));
                                             }
                                             break;
+                                        case 5:
+                                            //str-props
+                                            for (size_t i = 0; i < lvec.size(); i++) {
+                                                job->grid.str_props.push_back(lvec[i]);
+                                            }
+                                            break;
                                         default:
                                             std::cerr << "Parameter \"" << propName << "\" not recognized." << std::endl;
                                     }
                                 }
                             }
-                            job->grid.gridSetPlugin(job,job->grid.filepath,
-                                                        job->grid.filename,
-                                                        job->grid.fp64_props,
-                                                        job->grid.int_props);
+                            job->grid.gridSetPlugin(job,
+                                                    job->grid.filepath,
+                                                    job->grid.filename,
+                                                    job->grid.fp64_props,
+                                                    job->grid.int_props,
+                                                    job->grid.str_props);
 
                             std::cout << "Grid Configured: " << job->grid.filename << std::endl;
                         }
