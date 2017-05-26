@@ -153,7 +153,7 @@ std::string Points::pointsSaveState(Job* job, Body* body, Serializer* serializer
 
     //write data
     if (ffile.is_open()) {
-        size_t len = x.size();
+        size_t len = x.rows();
 
         ffile << "# mpm_v2 Points\n";
         ffile << "count\n" << len << "\n\n";

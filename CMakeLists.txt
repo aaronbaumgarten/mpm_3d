@@ -31,7 +31,7 @@ include_directories(${DL_INCLUDE_DIR})
 add_subdirectory(src/solvers)
 add_subdirectory(src/grids)
 add_subdirectory(src/materials)
-#add_subdirectory(src/boundaries)
+add_subdirectory(src/boundaries)
 #add_subdirectory(src/contacts)
 add_executable(mpm_v2 ${SOURCE_FILES})
 

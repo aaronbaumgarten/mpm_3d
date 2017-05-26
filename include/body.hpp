@@ -24,6 +24,9 @@ public:
     static int SET = 0;
     static int ADD = 1;
 
+    static int CPDI_OFF = 0;
+    static int CPDI_ON = 1;
+
     //body properties here
     int id;
     std::string name;
@@ -50,7 +53,7 @@ public:
     Body();
     int bodyInit(Job*);
 
-    void bodyGenerateMap(Job*, int=1); //create shape function mapping vectors (int=1 use cpdi)
+    void bodyGenerateMap(Job*, int=CPDI_ON); //create shape function mapping vectors (int=1 use cpdi)
 
     void bodyCalcNodalValues(Job*, Eigen::Matrix& nodeVal, Eigen::Matrix& pointVal, int=SET); //calculate nodal value from points
     void bodyCalcNodalDivergence(Job*, Eigen::Matrix& nodeVal, Eigen::Matrix& pointVal, int=SET); //integrate nodal divergence

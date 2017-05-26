@@ -29,6 +29,7 @@ Grid::Grid() {
 
     gridInit = NULL;
     gridWhichElement = NULL;
+    gridInDomain = NULL;
     gridNodeIDToPosition = NULL;
     gridEvaluateShapeFnValue = NULL;
     gridEvaluateShapeFnGradient = NULL;
@@ -65,6 +66,7 @@ void Grid::gridSetFnPointers(void* handle){
 
         gridInit = NULL;
         gridWhichElement = NULL;
+        gridInDomain = NULL;
         gridNodeIDToPosition = NULL;
         gridEvaluateShapeFnValue = NULL;
         gridEvaluateShapeFnGradient = NULL;
@@ -85,6 +87,12 @@ void Grid::gridSetFnPointers(void* handle){
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'gridWhichElement': " << dlsym_error <<
+                      '\n';
+        }
+        gridInDomain = reinterpret_cast<bool (*)(Job *, Eigen::VectorXd)>(dlsym(handle, "gridInDomain"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'gridInDomain': " << dlsym_error <<
                       '\n';
         }
         gridNodeIDToPosition = reinterpret_cast<Eigen::VectorXd (*)(Job *, int)>(dlsym(handle, "gridNodeIDToPosition"));

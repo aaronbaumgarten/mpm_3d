@@ -35,6 +35,7 @@ extern "C" std::string gridSaveState(Job* job, Serializer* serializer,std::strin
 extern "C" int gridLoadState(Job* job, Serializer* serializer, std::string fullpath);
 
 extern "C" int gridWhichElement(Job* job, Eigen::VectorXd xIN);
+extern "C" bool gridInDomain(Job* job, Eigen::VectorXd xIN);
 extern "C" Eigen::VectorXd gridNodeIDToPosition(Job* job, int idIN);
 extern "C" void gridEvaluateShapeFnValue(Job* job, Eigen::VectorXd xIN, std::vector<int>& nID, std::vector<double>& nVAL);
 extern "C" void gridEvaluateShapeFnGradient(Job* job, Eigen::VectorXd xIN, std::vector<int>& nID, std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>& nGRAD);
@@ -252,6 +253,19 @@ int gridWhichElement(Job* job, Eigen::VectorXd xIN){
 
 /*----------------------------------------------------------------------------*/
 
+bool gridInDomain(Job* job, Eigen::VectorXd xIN){
+    bool inDomain;
+    for (size_t i=0;i<xIN.size();i++){
+        inDomain = (xIN[i] <= Lx[i] && xIN[i] >= 0);
+        if (!inDomain) { //if xIn is outside domain, return -1
+            return false;
+        }
+    }
+    return true;
+}
+
+/*----------------------------------------------------------------------------*/
+
 Eigen::VectorXd gridNodeIDToPosition(Job* job, int idIN){
     Eigen::VectorXi ijk = job->jobVector<int>();
     Eigen::VectorXd tmpVec = job->jobVector<double>();
@@ -271,6 +285,9 @@ void gridEvaluateShapeFnValue(Job* job, Eigen::VectorXd xIN, std::vector<int>& n
     Eigen::VectorXd rst = job->jobVector<double>();
     double tmp = 1.0;
     int elementID = gridWhichElement(job,xIN);
+    if (elementID < 0){
+        return;
+    }
     for (size_t n=0;n<nodeIDs.cols();n++){
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)/hx
@@ -293,6 +310,9 @@ void gridEvaluateShapeFnGradient(Job* job, Eigen::VectorXd xIN, std::vector<int>
     Eigen::VectorXd tmpVec = job->jobVector<double>(Job::ONES);
     double tmp = 1.0;
     int elementID = gridWhichElement(job,xIN);
+    if (elementID < 0){
+        return;
+    }
     for (size_t n=0;n<nodeIDs.cols();n++){
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)/hx

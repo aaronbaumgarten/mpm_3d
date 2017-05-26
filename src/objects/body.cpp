@@ -76,7 +76,7 @@ int Body::bodyInit(Job* job){
     return 1;
 }
 
-void Body::bodyGenerateMap(Job *job, int use_cpdi = 1) {
+void Body::bodyGenerateMap(Job *job, int use_cpdi = Body::CPDI_ON) {
     pval.clear();
     nval.clear();
     phi.clear();
@@ -90,12 +90,32 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi = 1) {
     std::vector<double> valvec(0);
     std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>> gradvec(0);
     Eigen::VectorXd tmpGrad = job->jobVector<double>();
+    int ith_cpdi;
 
     for (size_t i=0; i<points.x.rows(); i++){
-        if (use_cpdi == 0) {
+        ith_cpdi = use_cpdi;
+        //check whether point is active:
+        if (points.active(i) == 0){
+            continue;
+        } else if (!job->grid.gridInDomain(job,points.x.row(i).transpose())) {
+            points.active(i) = 0;
+            continue;
+        } else if (ith_cpdi == Body::CPDI_ON){
+            //check that corners are in domain
+            for (size_t c=0;c<A.rows();c++) {
+                if (!job->grid.gridInDomain(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c)).transpose())){
+                    //corner out of domain
+                    ith_cpdi = Body::CPDI_OFF;
+                    break;
+                }
+            }
+        }
+
+        //calculate map for ith point
+        if (ith_cpdi == Body::CPDI_OFF) {
             nvec.clear();
             valvec.clear();
-            job->grid.gridEvaluateShapeFnValue(job,points.x.row(i),nvec,valvec);
+            job->grid.gridEvaluateShapeFnValue(job,points.x.row(i).transpose(),nvec,valvec);
             for (size_t j=0; j<nvec.size(); j++){
                 pval.push_back((int)i);
                 nval.push_back(nvec[j]);
@@ -104,18 +124,18 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi = 1) {
 
             nvec.clear();
             gradvec.clear();
-            job->grid.gridEvaluateShapeFnGradient(job, points.x.row(i), nvec, gradvec);
+            job->grid.gridEvaluateShapeFnGradient(job, points.x.row(i).transpose(), nvec, gradvec);
             for (size_t j = 0; j < nvec.size(); j++) {
                 pgrad.push_back((int) i);
                 ngrad.push_back(nvec[j]);
                 gradphi.push_back(gradvec[j]);
             }
-        } else if (use_cpdi == 1){
+        } else if (ith_cpdi == Body::CPDI_ON){
             nvec.clear();
             valvec.clear();
             for (size_t c=0;c<A.rows();c++) {
                 //spread influence
-                job->grid.gridEvaluateShapeFnValue(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c)), nvec, valvec);
+                job->grid.gridEvaluateShapeFnValue(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c)).transpose(), nvec, valvec);
             }
             for (size_t j=0; j<nvec.size(); j++){
                 pval.push_back((int)i);
@@ -132,7 +152,7 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi = 1) {
                 //add node ids to nodevec
                 //add values to valvec
                 valvec.clear();
-                job->grid.gridEvaluateShapeFnValue(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c)), nvec, valvec);
+                job->grid.gridEvaluateShapeFnValue(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c)).transpose(), nvec, valvec);
                 for (size_t v=0; v<valvec.size(); v++){
                     //gradient contribution from corner
                     //G(x) = (S(x+a) - S(x-a))/(2a)

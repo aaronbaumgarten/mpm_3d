@@ -43,6 +43,7 @@ public:
 
     //other functions
     int (*gridWhichElement)(Job*, Eigen::VectorXd); //return element id
+    bool (*gridInDomain)(Job*, Eigen::VectorXd); //return true or false
     Eigen::VectorXd (*gridNodeIDToPosition)(Job*, int); //return position of node
     void (*gridEvaluateShapeFnValue)(Job*, Eigen::VectorXd, std::vector<int>&, std::vector<double>&); //evaluate shape function values at given point (add ids and vals to vectors)
     void (*gridEvaluateShapeFnGradient)(Job*, Eigen::VectorXd, std::vector<int>&, std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>&); //evaluate shape function gradients at given point (add ids and vectors to vec/matrix)

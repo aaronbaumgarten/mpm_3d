@@ -77,7 +77,9 @@ template <typename T> Eigen::Matrix<T, Eigen::Dynamic, 1, Eigen::RowMajor> Job::
 };
 
 template <typename T> Eigen::Matrix<T, Eigen::Dynamic, 1, Eigen::RowMajor> Job::jobVector(int SPEC){
-    if (SPEC == ONES) {
+    if (SPEC == ZERO) {
+        return Eigen::Matrix<T, Eigen::Dynamic, 1>::Zero(DIM);
+    } else if (SPEC == ONES) {
         return Eigen::Matrix<T, Eigen::Dynamic, 1>::Ones(DIM);
     } else {
         std::cerr << "jobVector(SPEC): Unknown SPEC [" << SPEC << "]" << std::endl;
@@ -99,10 +101,12 @@ template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::Ro
 };
 
 template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Job::jobTensor(int SPEC){
-    if (SPEC == ONES) {
+    if (SPEC == ZERO) {
+        return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Zero(DIM, DIM);
+    } else if (SPEC == ONES) {
         return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Ones(DIM, DIM);
     } else if (SPEC == IDENTITY){
-        return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Ones(DIM, DIM);
+        return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>::Identity(DIM, DIM);
     } else {
         std::cerr << "jobTensor(SPEC): Unknown SPEC [" << SPEC << "]" << std::endl;
         return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>(DIM, DIM);

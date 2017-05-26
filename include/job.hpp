@@ -23,6 +23,7 @@ class Contact;
 class Job{
 public:
     //static integers
+    static int ZERO = 0;
     static int ONES = 1;
     static int IDENTITY = 2;
     //job properties here
