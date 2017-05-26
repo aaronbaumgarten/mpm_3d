@@ -32,6 +32,8 @@ public:
 
     void (*driverInit)(Job*); //initialize driver
     void (*driverRun)(Job*); //run simulation
+    void (*driverGenerateGravity)(Job*); //apply gravity to simulation
+    void (*driverApplyGravity)(Job*); //apply gravity to simulation
 
     std::string (*driverSaveState)(Job*,Serializer*, std::string); //save driver state to returned filename in serializer folder
     int (*driverLoadState)(Job*,Serializer*,std::string); //load state from given full path

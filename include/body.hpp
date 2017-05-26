@@ -20,6 +20,10 @@ class Boundary;
 
 class Body{
 public:
+    //static fields
+    static int SET = 0;
+    static int ADD = 1;
+
     //body properties here
     int id;
     std::string name;
@@ -48,10 +52,10 @@ public:
 
     void bodyGenerateMap(Job*, int=1); //create shape function mapping vectors (int=1 use cpdi)
 
-    void bodyCalcNodalValues(Job*, Eigen::Matrix& nodeVal, Eigen::Matrix& pointVal); //calculate nodal value from points
-    void bodyCalcNodalDivergence(Job*, Eigen::Matrix& nodeVal, Eigen::Matrix& pointVal); //integrate nodal divergence
-    void bodyCalcPointValues(Job*, Eigen::Matrix& pointVal, Eigen::Matrix& nodeVal); //calculate point values from nodes
-    void bodyCalcPointGradient(Job*, Eigen::Matrix& pointVal, Eigen::Matrix& nodeVal); //calculate point gradients from nodes
+    void bodyCalcNodalValues(Job*, Eigen::Matrix& nodeVal, Eigen::Matrix& pointVal, int=SET); //calculate nodal value from points
+    void bodyCalcNodalDivergence(Job*, Eigen::Matrix& nodeVal, Eigen::Matrix& pointVal, int=SET); //integrate nodal divergence
+    void bodyCalcPointValues(Job*, Eigen::Matrix& pointVal, Eigen::Matrix& nodeVal, int=SET); //calculate point values from nodes
+    void bodyCalcPointGradient(Job*, Eigen::Matrix& pointVal, Eigen::Matrix& nodeVal, int=SET); //calculate point gradients from nodes
 
     //other functions
 };

@@ -123,7 +123,7 @@ void materialInit(Job* job, Body* body){
 
 /*----------------------------------------------------------------------------*/
 
-void materialCalculateStress(Job* job, Body* body, int update=1){
+void materialCalculateStress(Job* job, Body* body, int SPEC = Material::UPDATE){
     Eigen::MatrixXd T = job->jobTensor<double>();
     Eigen::MatrixXd L = job->jobTensor<double>();
     Eigen::MatrixXd D = job->jobTensor<double>();
@@ -161,7 +161,7 @@ void materialCalculateStress(Job* job, Body* body, int update=1){
 
 /*----------------------------------------------------------------------------*/
 
-void materialAssignStress(Job* job, Body* body, Eigen::MatrixXd stressIN, int idIN){
+void materialAssignStress(Job* job, Body* body, Eigen::MatrixXd stressIN, int idIN, int=Material::UPDATE){
     Eigen::Matrix tmpVec = job->jobVector<double>(stressIN.data());
     body->points.T.row(idIN) = tmpVec.transpose();
     return;
@@ -169,7 +169,7 @@ void materialAssignStress(Job* job, Body* body, Eigen::MatrixXd stressIN, int id
 
 /*----------------------------------------------------------------------------*/
 
-void materialAssignPressure(Job* job, Body* body, double pressureIN, int idIN){
+void materialAssignPressure(Job* job, Body* body, double pressureIN, int idIN, int=Material::UPDATE){
     Eigen::Matrix tmpMat;
     Eigen::Matrix tmpVec = job->jobVector<double>();
     double trT;

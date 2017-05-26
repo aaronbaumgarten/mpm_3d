@@ -1,0 +1,9 @@
+set(SOLVERS
+        explicit_usl.cpp
+        )
+
+foreach(solc ${SOLVERS})
+    string(REGEX REPLACE "\\.cpp$" "" solso ${solc})
+    add_library(${solso} SHARED ${solc})
+    set_target_properties(${solso} PROPERTIES PREFIX "")
+endforeach(solc)

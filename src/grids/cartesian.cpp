@@ -41,30 +41,9 @@ extern "C" void gridEvaluateShapeFnGradient(Job* job, Eigen::VectorXd xIN, std::
 
 /*----------------------------------------------------------------------------*/
 
-void gridInit(Job* job){
-    if (job->grid.fp64_props.size() < job->DIM || job->grid.fp64_props.size() < job->DIM){
-        std::cout << job->grid.fp64_props.size() << "\n";
-        fprintf(stderr,
-                "%s:%s: Need at least %i dimensions defined.\n",
-                __FILE__, __func__, job->DIM);
-        exit(0);
-    } else {
-        //store length, number of linear nodes, and deltas
-        Lx = job->jobVector<double>(job->grid.fp64_props.data());
-        Nx = job->jobVector<int>(job->grid.int_props.data());
-        hx = Lx.array() / (Nx - job->jobVector(Job::ONES)).array();
-
-        //print grid properties
-        std::cout << "Grid properties (Lx = { ";
-        for (size_t i=0;i<Lx.rows();i++){
-            std::cout << Lx(i) << " ";
-        }
-        std::cout << "}, Nx = { ";
-        for (size_t i=0;i<Nx.rows();i++){
-            std::cout << Nx(i) << " ";
-        }
-        std::cout << "})." << std::endl;
-    }
+void hiddenInit(Job* job){
+    //called from loading or initializing functions
+    //needs to have Lx,Nx,hx defined
 
     //count nodes
     job->grid.node_count = 1;
@@ -124,16 +103,52 @@ void gridInit(Job* job){
 
         }
     }
+    return;
+}
+
+/*----------------------------------------------------------------------------*/
+
+void gridInit(Job* job){
+    if (job->grid.fp64_props.size() < job->DIM || job->grid.fp64_props.size() < job->DIM){
+        std::cout << job->grid.fp64_props.size() << "\n";
+        fprintf(stderr,
+                "%s:%s: Need at least %i dimensions defined.\n",
+                __FILE__, __func__, job->DIM);
+        exit(0);
+    } else {
+        //store length, number of linear nodes, and deltas
+        Lx = job->jobVector<double>(job->grid.fp64_props.data());
+        Nx = job->jobVector<int>(job->grid.int_props.data());
+        hx = Lx.array() / (Nx - job->jobVector(Job::ONES)).array();
+
+        //print grid properties
+        std::cout << "Grid properties (Lx = { ";
+        for (size_t i=0;i<Lx.rows();i++){
+            std::cout << Lx(i) << " ";
+        }
+        std::cout << "}, Nx = { ";
+        for (size_t i=0;i<Nx.rows();i++){
+            std::cout << Nx(i) << " ";
+        }
+        std::cout << "})." << std::endl;
+    }
+
+    //call initializing function
+    hiddenInit(job);
 
     std::cout << "Grid Initialized." << std::endl;
 
     return;
 }
 
+/*----------------------------------------------------------------------------*/
+
 void gridWriteFrame(Job* job, Serializer* serializer){
     //nothing to report
     return;
 }
+
+/*----------------------------------------------------------------------------*/
 
 std::string gridSaveState(Job* job, Serializer* serializer,std::string filepath){
     // current date/time based on current system
@@ -163,6 +178,9 @@ std::string gridSaveState(Job* job, Serializer* serializer,std::string filepath)
 
     return filename;
 }
+
+/*----------------------------------------------------------------------------*/
+
 int gridLoadState(Job* job, Serializer* serializer, std::string fullpath){
     //job object should be loaded first
     Lx = job->jobVector<double>();
@@ -201,6 +219,9 @@ int gridLoadState(Job* job, Serializer* serializer, std::string fullpath){
         }
         std::cout << "})." << std::endl;
 
+        //call hidden initializer
+        hiddenInit(job);
+
         fin.close();
     } else {
         std::cout << "ERROR: Unable to open file: " << fullpath << std::endl;
@@ -229,6 +250,8 @@ int gridWhichElement(Job* job, Eigen::VectorXd xIN){
     return elementID;
 }
 
+/*----------------------------------------------------------------------------*/
+
 Eigen::VectorXd gridNodeIDToPosition(Job* job, int idIN){
     Eigen::VectorXi ijk = job->jobVector<int>();
     Eigen::VectorXd tmpVec = job->jobVector<double>();
@@ -241,6 +264,8 @@ Eigen::VectorXd gridNodeIDToPosition(Job* job, int idIN){
     tmpVec = hx.array() * ijk.array();
     return tmpVec;
 }
+
+/*----------------------------------------------------------------------------*/
 
 void gridEvaluateShapeFnValue(Job* job, Eigen::VectorXd xIN, std::vector<int>& nID, std::vector<double>& nVAL){
     Eigen::VectorXd rst = job->jobVector<double>();
@@ -260,6 +285,8 @@ void gridEvaluateShapeFnValue(Job* job, Eigen::VectorXd xIN, std::vector<int>& n
     }
     return;
 }
+
+/*----------------------------------------------------------------------------*/
 
 void gridEvaluateShapeFnGradient(Job* job, Eigen::VectorXd xIN, std::vector<int>& nID, std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>& nGRAD){
     Eigen::VectorXd rst = job->jobVector<double>();

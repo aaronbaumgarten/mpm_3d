@@ -153,9 +153,15 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi = 1) {
     return;
 }
 
-void Body::bodyCalcNodalValues(Job *job, Eigen::Matrix &nodeVal, Eigen::Matrix &pointVal) {
+void Body::bodyCalcNodalValues(Job *job, Eigen::Matrix &nodeVal, Eigen::Matrix &pointVal, int SPEC = Body::SET) {
     //set nodal values based on point values and shape functions
-    nodeVal.setZero();
+    if (SPEC == Body::SET) {
+        nodeVal.setZero();
+    } else if (SPEC == Body::ADD) {
+        // do nothing
+    } else {
+        std::cerr << "bodyCalcNodalValues(SPEC): Unknown SPEC [" << SPEC << "]" << std::endl;
+    }
     int nodeID;
     int pointID;
 
@@ -170,11 +176,17 @@ void Body::bodyCalcNodalValues(Job *job, Eigen::Matrix &nodeVal, Eigen::Matrix &
     return;
 }
 
-void Body::bodyCalcNodalDivergence(Job *job, Eigen::Matrix &nodeVal, Eigen::Matrix &pointVal) {
+void Body::bodyCalcNodalDivergence(Job *job, Eigen::Matrix &nodeVal, Eigen::Matrix &pointVal, int SPEC = Body::SET) {
     //calculate divergence of a field at nodal positions
     //pass n by 1 nodeVal for p by DIM pointval
     //pass n by DIM nodeVal for p by DIM*DIM pointval
-    nodeVal.setZero();
+    if (SPEC == Body::SET) {
+        nodeVal.setZero();
+    } else if (SPEC == Body::ADD) {
+        // do nothing
+    } else {
+        std::cerr << "bodyCalcNodalDivergence(SPEC): Unknown SPEC [" << SPEC << "]" << std::endl;
+    }
     int nodeID;
     int pointID;
 
@@ -192,9 +204,15 @@ void Body::bodyCalcNodalDivergence(Job *job, Eigen::Matrix &nodeVal, Eigen::Matr
     return;
 }
 
-void Body::bodyCalcPointValues(Job *job, Eigen::Matrix &pointVal, Eigen::Matrix &nodeVal) {
+void Body::bodyCalcPointValues(Job *job, Eigen::Matrix &pointVal, Eigen::Matrix &nodeVal, int SPEC = Body::SET) {
     //set nodal values based on point values and shape functions
-    pointVal.setZero();
+    if (SPEC == Body::SET) {
+        pointVal.setZero();
+    } else if (SPEC == Body::ADD) {
+        // do nothing
+    } else {
+        std::cerr << "bodyCalcPointValues(SPEC): Unknown SPEC [" << SPEC << "]" << std::endl;
+    }
     int nodeID;
     int pointID;
 
@@ -210,11 +228,17 @@ void Body::bodyCalcPointValues(Job *job, Eigen::Matrix &pointVal, Eigen::Matrix 
 }
 
 
-void Body::bodyCalcPointGradient(Job *, Eigen::Matrix &pointVal, Eigen::Matrix &nodeVal){
+void Body::bodyCalcPointGradient(Job *, Eigen::Matrix &pointVal, Eigen::Matrix &nodeVal, int SPEC = Body::SET){
     //calculate gradient of a field at point positions
     //pass n by 1 nodeVal for p by DIM pointval
     //pass n by DIM nodeVal for p by DIM*DIM pointval
-    pointVal.setZero();
+    if (SPEC == Body::SET) {
+        pointVal.setZero();
+    } else if (SPEC == Body::ADD) {
+        // do nothing
+    } else {
+        std::cerr << "bodyCalcPointValues(SPEC): Unknown SPEC [" << SPEC << "]" << std::endl;
+    }
     int nodeID;
     int pointID;
 

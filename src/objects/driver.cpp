@@ -26,6 +26,8 @@ Driver::Driver() {
 
     driverInit = NULL;
     driverRun = NULL;
+    driverGenerateGravity = NULL;
+    driverApplyGravity = NULL;
 
     driverSaveState = NULL;
     driverLoadState = NULL;
@@ -58,6 +60,8 @@ void Driver::driverSetFnPointers(void* handle){
 
         driverInit = NULL;
         driverRun = NULL;
+        driverGenerateGravity = NULL;
+        driverApplyGravity = NULL;
 
         driverSaveState = NULL;
         driverLoadState = NULL;
@@ -74,6 +78,20 @@ void Driver::driverSetFnPointers(void* handle){
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'driverRun': " << dlsym_error <<
+                      '\n';
+        }
+
+        driverGenerateGravity = reinterpret_cast<void (*)(Job *)>(dlsym(handle, "driverGenerateGravity"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'driverGenerateGravity': " << dlsym_error <<
+                      '\n';
+        }
+
+        driverApplyGravity = reinterpret_cast<void (*)(Job *)>(dlsym(handle, "driverApplyGravity"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'driverApplyGravity': " << dlsym_error <<
                       '\n';
         }
 
