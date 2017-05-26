@@ -70,7 +70,7 @@ void Contact::contactSetFnPointers(void* handle){
 
     } else {
         dlerror();
-        contactInit = reinterpret_cast<void (*)(Job *)>(dlsym(handle, "contactInit"));
+        contactInit = reinterpret_cast<void (*)(Job *, Contact*)>(dlsym(handle, "contactInit"));
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'contactInit': " << dlsym_error <<

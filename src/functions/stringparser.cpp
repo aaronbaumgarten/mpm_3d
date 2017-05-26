@@ -59,7 +59,7 @@ static std::string StringParser::stringRemoveBraces(std::string s){
     return ss.str();
 }
 
-static int StringParser::stringffFindStringID(std::vector<std::string> svec, std::string s){
+static int StringParser::stringFindStringID(std::vector<std::string> svec, std::string s){
     for (size_t i=0;i<svec.size();i++){
         if(svec[i].compare(s) == 0){
             return i;

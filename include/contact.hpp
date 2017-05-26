@@ -36,7 +36,7 @@ public:
     std::string (*contactSaveState)(Job*, Serializer*, std::string); //save state to serializer folder with returned filename
     int (*contactLoadState)(Job*, Serializer*, std::string); //read state from given full path
 
-    void (*contactInit)(Job*); //initialize contact
+    void (*contactInit)(Job*, Contact*); //initialize contact (need access to it initially)
     void (*contactGenerateRules)(Job*); //generate contact rules
     void (*contactApplyRules)(Job*); //apply rules
 

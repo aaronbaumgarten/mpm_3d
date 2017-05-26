@@ -55,7 +55,7 @@ std::string boundarySaveState(Job* job, Body* body, Serializer* serializer, std:
 
     //write data
     if (ffile.is_open()) {
-        ffile << "# mpm_v2 Boundary\n"; //header
+        ffile << "# mpm_v2 boundaries/cartesian_box.so\n"; //header
         ffile << bcNodalMask.rows(); //lines to read later
         job->jobVectorToFile(bcNodalMask,ffile);
 

@@ -32,7 +32,7 @@ add_subdirectory(src/solvers)
 add_subdirectory(src/grids)
 add_subdirectory(src/materials)
 add_subdirectory(src/boundaries)
-#add_subdirectory(src/contacts)
+add_subdirectory(src/contacts)
 add_executable(mpm_v2 ${SOURCE_FILES})
 
 target_link_libraries(mpm_v2 ${DL_LIBRARIES})

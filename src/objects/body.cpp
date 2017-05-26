@@ -196,6 +196,35 @@ void Body::bodyCalcNodalValues(Job *job, Eigen::Matrix &nodeVal, Eigen::Matrix &
     return;
 }
 
+void Body::bodyCalcNodalGradient(Job *, Eigen::Matrix &nodeVal, Eigen::Matrix &pointVal, int SPEC = Body::SET){
+    //calculate gradient of a field at point positions
+    //pass n by 1 nodeVal for p by DIM pointval
+    //pass n by DIM nodeVal for p by DIM*DIM pointval
+    if (SPEC == Body::SET) {
+        nodeVal.setZero();
+    } else if (SPEC == Body::ADD) {
+        // do nothing
+    } else {
+        std::cerr << "bodyCalcNodalGradient(SPEC): Unknown SPEC [" << SPEC << "]" << std::endl;
+    }
+    int nodeID;
+    int pointID;
+
+    for (size_t k=0; k<nval.size(); k++){
+        pointID = pgrad[k];
+        nodeID = ngrad[k];
+
+        for (size_t rpos=0; rpos<pointVal.cols(); rpos++) {
+            for (size_t pos = 0; pos < nodeVal.cols(); pos++) {
+                //div(u) = dot(grad, u)
+                nodeVal(nodeID, pos + rpos*(pointVal.cols())) -= gradphi[k](pos) * pointVal(pointID, rpos) ;
+            }
+        }
+    }
+
+    return;
+}
+
 void Body::bodyCalcNodalDivergence(Job *job, Eigen::Matrix &nodeVal, Eigen::Matrix &pointVal, int SPEC = Body::SET) {
     //calculate divergence of a field at nodal positions
     //pass n by 1 nodeVal for p by DIM pointval
@@ -257,7 +286,7 @@ void Body::bodyCalcPointGradient(Job *, Eigen::Matrix &pointVal, Eigen::Matrix &
     } else if (SPEC == Body::ADD) {
         // do nothing
     } else {
-        std::cerr << "bodyCalcPointValues(SPEC): Unknown SPEC [" << SPEC << "]" << std::endl;
+        std::cerr << "bodyCalcPointGradient(SPEC): Unknown SPEC [" << SPEC << "]" << std::endl;
     }
     int nodeID;
     int pointID;

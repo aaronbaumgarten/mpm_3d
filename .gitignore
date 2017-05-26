@@ -3,3 +3,4 @@
 *.o
 *.so
 *.a
+cmake-build-debug
