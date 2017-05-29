@@ -4,3 +4,4 @@
 *.so
 *.a
 cmake-build-debug
+build*

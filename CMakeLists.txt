@@ -21,8 +21,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/objects/nodes.cpp
         src/objects/boundary.cpp
         src/objects/material.cpp
-        src/functions/stringparser.cpp
-        )
+        src/functions/stringparser.cpp)
 
 include_directories(include)
 include_directories(/usr/include/eigen3)

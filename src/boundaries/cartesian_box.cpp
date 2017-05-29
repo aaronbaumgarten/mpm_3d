@@ -32,7 +32,8 @@ extern "C" void boundaryApplyRules(Job* job, Body* body); //apply the rules give
 
 void boundaryWriteFrame(Job* job, Body* body, Serializer* serializer){
     //write nodal mask to frame output
-    serializer->serializerWriteVectorArray(bcNodalMask,"bc_nodal_mask");
+    Eigen::MatrixXd tmpMat = bcNodalMask.cast<double>();
+    serializer->serializerWriteVectorArray(tmpMat,"bc_nodal_mask");
     return;
 }
 
@@ -77,7 +78,7 @@ int boundaryLoadState(Job* job, Body* body, Serializer* serializer, std::string 
     if (fin.is_open()) {
         std::getline(fin,line); //first line (header)
         std::getline(fin,line); //length of file to be read
-        bcNodalMask = job->jobVectorArray(std::stoi(line)); //initialize vector array
+        bcNodalMask = job->jobVectorArray<int>(std::stoi(line)); //initialize vector array
         job->jobVectorArrayFromFile(bcNodalMask, fin); //read in from file
         fin.close();
     } else {
@@ -104,7 +105,7 @@ void boundaryInit(Job* job, Body* body){
 
     //set bounding mask
     double len = body->nodes.x.rows();
-    bcNodalMask = job->jobVectorArray(len);
+    bcNodalMask = job->jobVectorArray<int>(len);
     bcNodalMask.setZero();
     for (size_t i=0;i<len;i++){
         for (size_t pos=0;pos<bcNodalMask.cols();pos++){

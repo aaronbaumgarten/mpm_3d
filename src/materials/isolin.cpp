@@ -26,9 +26,9 @@ extern "C" std::string materialSaveState(Job* job, Body* body, Serializer* seria
 extern "C" int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
 
 extern "C" void materialInit(Job* job, Body* body);
-extern "C" void materialCalculateStress(Job* job, Body* body, int update = 1);
-extern "C" void materialAssignStress(Job* job, Body* body, Eigen::MatrixXd stressIN, int idIN);
-extern "C" void materialAssignPressure(Job* job, Body* body, double pressureIN, int idIN);
+extern "C" void materialCalculateStress(Job* job, Body* body, int SPEC);
+extern "C" void materialAssignStress(Job* job, Body* body, Eigen::MatrixXd stressIN, int idIN, int SPEC);
+extern "C" void materialAssignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
 
 /*----------------------------------------------------------------------------*/
 
@@ -123,7 +123,7 @@ void materialInit(Job* job, Body* body){
 
 /*----------------------------------------------------------------------------*/
 
-void materialCalculateStress(Job* job, Body* body, int SPEC = Material::UPDATE){
+void materialCalculateStress(Job* job, Body* body, int SPEC){
     Eigen::MatrixXd T = job->jobTensor<double>();
     Eigen::MatrixXd L = job->jobTensor<double>();
     Eigen::MatrixXd D = job->jobTensor<double>();
@@ -131,8 +131,8 @@ void materialCalculateStress(Job* job, Body* body, int SPEC = Material::UPDATE){
 
     double trD;
 
-    Eigen::Matrix tmpMat = job->jobTensor<double>();
-    Eigen::Matrix tmpVec = job->jobVector<double>();
+    Eigen::MatrixXd tmpMat = job->jobTensor<double>();
+    Eigen::VectorXd tmpVec = job->jobVector<double>();
 
     for (size_t i=0;i<body->points.x.rows();i++){
         if (body->points.active[i] == 0){
@@ -161,17 +161,18 @@ void materialCalculateStress(Job* job, Body* body, int SPEC = Material::UPDATE){
 
 /*----------------------------------------------------------------------------*/
 
-void materialAssignStress(Job* job, Body* body, Eigen::MatrixXd stressIN, int idIN, int=Material::UPDATE){
-    Eigen::Matrix tmpVec = job->jobVector<double>(stressIN.data());
-    body->points.T.row(idIN) = tmpVec.transpose();
+void materialAssignStress(Job* job, Body* body, Eigen::MatrixXd stressIN, int idIN, int SPEC){
+    for (size_t pos=0;pos<stressIN.size();pos++){
+        body->points.T(idIN,pos) = stressIN(pos);
+    }
     return;
 }
 
 /*----------------------------------------------------------------------------*/
 
-void materialAssignPressure(Job* job, Body* body, double pressureIN, int idIN, int=Material::UPDATE){
-    Eigen::Matrix tmpMat;
-    Eigen::Matrix tmpVec = job->jobVector<double>();
+void materialAssignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC){
+    Eigen::MatrixXd tmpMat;
+    Eigen::VectorXd tmpVec = job->jobVector<double>();
     double trT;
 
     tmpVec << body->points.T.row(idIN).transpose();

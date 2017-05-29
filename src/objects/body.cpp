@@ -42,8 +42,8 @@ Body::Body():
     boundary = Boundary();
 }
 
-int Body::bodyInit(Job* job){
-    size_t cp = 1;
+void Body::bodyInit(Job* job){
+    int cp = 1;
     for (size_t i=0;i<job->DIM;i++){
         cp *= 2; //square or cube
     }
@@ -54,7 +54,7 @@ int Body::bodyInit(Job* job){
     //...
     //8 -> +1,+1,+1
     Eigen::VectorXi onoff = -1*job->jobVector<int>(Job::ONES);
-    A = job->jobVectorArray(cp);
+    A = job->jobVectorArray<int>(cp);
     for (size_t c=0; c<cp;c++){
         for (size_t i=0;i<onoff.rows();i++){
             A(c,i) = onoff(i);
@@ -73,7 +73,7 @@ int Body::bodyInit(Job* job){
     nodes.nodesInit(job,this);
     material.materialInit(job,this);
     boundary.boundaryInit(job,this);
-    return 1;
+    return;
 }
 
 std::string Body::bodySaveState(Job* job, Serializer* serializer, std::string filepath){
@@ -117,7 +117,7 @@ int Body::bodyLoadState(Job* job, Serializer* serializer, std::string fullpath) 
     //...
     //8 -> +1,+1,+1
     Eigen::VectorXi onoff = -1*job->jobVector<int>(Job::ONES);
-    A = job->jobVectorArray(cp);
+    A = job->jobVectorArray<int>(cp);
     for (size_t c=0; c<cp;c++){
         for (size_t i=0;i<onoff.rows();i++){
             A(c,i) = onoff(i);
@@ -155,7 +155,7 @@ int Body::bodyLoadState(Job* job, Serializer* serializer, std::string fullpath) 
     return 1;
 }
 
-void Body::bodyGenerateMap(Job *job, int use_cpdi = Body::CPDI_ON) {
+void Body::bodyGenerateMap(Job *job, int use_cpdi /*= Body::CPDI_ON*/) {
     pval.clear();
     nval.clear();
     phi.clear();
@@ -182,7 +182,7 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi = Body::CPDI_ON) {
         } else if (ith_cpdi == Body::CPDI_ON){
             //check that corners are in domain
             for (size_t c=0;c<A.rows();c++) {
-                if (!job->grid.gridInDomain(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c)).transpose())){
+                if (!job->grid.gridInDomain(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c).cast<double>()).transpose())){
                     //corner out of domain
                     ith_cpdi = Body::CPDI_OFF;
                     break;
@@ -214,7 +214,7 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi = Body::CPDI_ON) {
             valvec.clear();
             for (size_t c=0;c<A.rows();c++) {
                 //spread influence
-                job->grid.gridEvaluateShapeFnValue(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c)).transpose(), nvec, valvec);
+                job->grid.gridEvaluateShapeFnValue(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c).cast<double>()).transpose(), nvec, valvec);
             }
             for (size_t j=0; j<nvec.size(); j++){
                 pval.push_back((int)i);
@@ -231,11 +231,11 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi = Body::CPDI_ON) {
                 //add node ids to nodevec
                 //add values to valvec
                 valvec.clear();
-                job->grid.gridEvaluateShapeFnValue(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c)).transpose(), nvec, valvec);
+                job->grid.gridEvaluateShapeFnValue(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c).cast<double>()).transpose(), nvec, valvec);
                 for (size_t v=0; v<valvec.size(); v++){
                     //gradient contribution from corner
                     //G(x) = (S(x+a) - S(x-a))/(2a)
-                    tmpGrad = valvec[v]/(A.rows()*0.5*points.extent(i))*A.row(c).transpose();
+                    tmpGrad = valvec[v]/(A.rows()*0.5*points.extent(i))*A.row(c).cast<double>().transpose();
                     gradvec.push_back(tmpGrad);
                 }
             }
@@ -252,7 +252,7 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi = Body::CPDI_ON) {
     return;
 }
 
-void Body::bodyCalcNodalValues(Job *job, Eigen::Matrix &nodeVal, Eigen::Matrix &pointVal, int SPEC = Body::SET) {
+template <typename DerivedA, typename DerivedB> void Body::bodyCalcNodalValues(Job *job, Eigen::MatrixBase<DerivedA>& nodeVal, Eigen::MatrixBase<DerivedB>& pointVal, int SPEC /*= Body::SET*/) {
     //set nodal values based on point values and shape functions
     if (SPEC == Body::SET) {
         nodeVal.setZero();
@@ -275,7 +275,7 @@ void Body::bodyCalcNodalValues(Job *job, Eigen::Matrix &nodeVal, Eigen::Matrix &
     return;
 }
 
-void Body::bodyCalcNodalGradient(Job *, Eigen::Matrix &nodeVal, Eigen::Matrix &pointVal, int SPEC = Body::SET){
+template <typename DerivedA, typename DerivedB> void Body::bodyCalcNodalGradient(Job *, Eigen::MatrixBase<DerivedA>& nodeVal, Eigen::MatrixBase<DerivedB>& pointVal, int SPEC /*= Body::SET*/){
     //calculate gradient of a field at point positions
     //pass n by 1 nodeVal for p by DIM pointval
     //pass n by DIM nodeVal for p by DIM*DIM pointval
@@ -304,7 +304,7 @@ void Body::bodyCalcNodalGradient(Job *, Eigen::Matrix &nodeVal, Eigen::Matrix &p
     return;
 }
 
-void Body::bodyCalcNodalDivergence(Job *job, Eigen::Matrix &nodeVal, Eigen::Matrix &pointVal, int SPEC = Body::SET) {
+template <typename DerivedA, typename DerivedB> void Body::bodyCalcNodalDivergence(Job *job, Eigen::MatrixBase<DerivedA>& nodeVal, Eigen::MatrixBase<DerivedB>& pointVal, int SPEC /*= Body::SET*/) {
     //calculate divergence of a field at nodal positions
     //pass n by 1 nodeVal for p by DIM pointval
     //pass n by DIM nodeVal for p by DIM*DIM pointval
@@ -332,7 +332,7 @@ void Body::bodyCalcNodalDivergence(Job *job, Eigen::Matrix &nodeVal, Eigen::Matr
     return;
 }
 
-void Body::bodyCalcPointValues(Job *job, Eigen::Matrix &pointVal, Eigen::Matrix &nodeVal, int SPEC = Body::SET) {
+template <typename DerivedA, typename DerivedB> void Body::bodyCalcPointValues(Job *job, Eigen::MatrixBase<DerivedA>& pointVal, Eigen::MatrixBase<DerivedB>& nodeVal, int SPEC /*= Body::SET*/) {
     //set nodal values based on point values and shape functions
     if (SPEC == Body::SET) {
         pointVal.setZero();
@@ -356,7 +356,7 @@ void Body::bodyCalcPointValues(Job *job, Eigen::Matrix &pointVal, Eigen::Matrix 
 }
 
 
-void Body::bodyCalcPointGradient(Job *, Eigen::Matrix &pointVal, Eigen::Matrix &nodeVal, int SPEC = Body::SET){
+template <typename DerivedA, typename DerivedB> void Body::bodyCalcPointGradient(Job *, Eigen::MatrixBase<DerivedA>& pointVal, Eigen::MatrixBase<DerivedB>& nodeVal, int SPEC /*= Body::SET*/){
     //calculate gradient of a field at point positions
     //pass n by 1 nodeVal for p by DIM pointval
     //pass n by DIM nodeVal for p by DIM*DIM pointval

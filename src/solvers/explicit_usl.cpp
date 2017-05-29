@@ -34,9 +34,6 @@ extern "C" int solverLoadState(Job* job, Serializer* serializer, std::string ful
 
 void createMappings(Job* job){
     for (size_t b=0;b<job->bodies.size();b++){
-        if (job->activeBodies[b] == 0){
-            continue;
-        }
         job->bodies[b].bodyGenerateMap(job, Body::CPDI_ON); //use_cpdi by default
     }
     return;
@@ -46,8 +43,8 @@ void mapPointsToNodes(Job* job){
     Body *body;
     Points *points;
     Nodes *nodes;
-    Eigen::Matrix pvec;
-    Eigen::Matrix nvec;
+    Eigen::MatrixXd pvec;
+    Eigen::MatrixXd nvec;
     for (size_t b=0;b<job->bodies.size();b++){
         if (job->activeBodies[b] == 0){
             continue;
@@ -75,7 +72,7 @@ void mapPointsToNodes(Job* job){
         }
 
         //map body force
-        pvec = job->jobVectorArray(points->b.rows());
+        pvec = job->jobVectorArray<double>(points->b.rows());
         for (size_t i=0;i<points->b.cols();i++){
             pvec.col(i) = points->m.array() * points->b.col(i).array();
         }
@@ -83,7 +80,7 @@ void mapPointsToNodes(Job* job){
 
         //map divergence of stress
         body->bodyCalcNodalDivergence(job,nodes->f,points->T,Body::ADD);
-        //nvec = job->jobVectorArray(nodes->f.rows());
+        //nvec = job->jobVectorArray<double>(nodes->f.rows());
         //body->bodyCalcNodalDivergence(job,nvec,points->T);
         //nodes->f += nvec;
     }
@@ -218,7 +215,7 @@ void updateDensity(Job* job){
         }
         for (size_t i=0;i<job->bodies[b].points.v.rows();i++) {
             tmpVec << job->bodies[b].points.L.row(i).transpose();
-            L = job->jobTensor(tmpVec.data());
+            L = job->jobTensor<double>(tmpVec.data());
             job->bodies[b].points.v(i) *= std::exp(job->dt * L.trace());
         }
     }

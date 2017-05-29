@@ -37,9 +37,9 @@ public:
 
     //input output (not configuration)
     int (*serializerWriteFrame)(Job*); //initialize writing of frame from job (return 1 if frame written)
-    void (*serializerWriteScalarArray)(Eigen::Matrix&, std::string); //call to functions for dumping state into frame file
-    void (*serializerWriteVectorArray)(Eigen::Matrix&, std::string); //pass name of vector
-    void (*serializerWriteTensorArray)(Eigen::Matrix&, std::string);
+    void (*serializerWriteScalarArray)(Eigen::VectorXd&, std::string); //call to functions for dumping state into frame file
+    void (*serializerWriteVectorArray)(Eigen::MatrixXd&, std::string); //pass name of vector
+    void (*serializerWriteTensorArray)(Eigen::MatrixXd&, std::string);
 
     void (*serializerInit)(Job*); //initialize serializer
     std::string (*serializerSaveState)(Job*); //save job state (output string for output directory)

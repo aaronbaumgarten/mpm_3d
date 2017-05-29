@@ -130,7 +130,9 @@ void Points::pointsWriteFrame(Job* job, Body* body, Serializer* serializer){
     serializer->serializerWriteVectorArray(b,"body_force");
     serializer->serializerWriteTensorArray(T,"cauchy_stress");
     serializer->serializerWriteTensorArray(L,"velocity_gradient");
-    serializer->serializerWriteScalarArray(active,"active");
+    //need to make double
+    Eigen::VectorXd tmpVec = active.cast<double>();
+    serializer->serializerWriteScalarArray(tmpVec,"active");
     serializer->serializerWriteScalarArray(extent,"extent");
 
     return;

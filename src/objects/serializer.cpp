@@ -31,7 +31,6 @@ Serializer::Serializer() {
     serializerWriteVectorArray = NULL;
     serializerWriteTensorArray = NULL;
 
-    serializerSetMainPath = NULL;
     serializerSaveState = NULL;
     serializerLoadState = NULL;
 }
@@ -68,7 +67,6 @@ void Serializer::serializerSetFnPointers(void* handle){
         serializerWriteVectorArray = NULL;
         serializerWriteTensorArray = NULL;
 
-        serializerSetMainPath= NULL;
         serializerSaveState = NULL;
         serializerLoadState = NULL;
     } else {
@@ -86,19 +84,19 @@ void Serializer::serializerSetFnPointers(void* handle){
             std::cerr << "Cannot load symbol 'serializerWriteFrame': " << dlsym_error <<
                       '\n';
         }
-        serializerWriteScalarArray = reinterpret_cast<void (*)(Eigen::Matrix&,std::string)>(dlsym(handle, "serializerWriteScalarArray"));
+        serializerWriteScalarArray = reinterpret_cast<void (*)(Eigen::VectorXd&,std::string)>(dlsym(handle, "serializerWriteScalarArray"));
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'serializerWriteScalarArray': " << dlsym_error <<
                       '\n';
         }
-        serializerWriteVectorArray = reinterpret_cast<void (*)(Eigen::Matrix&,std::string)>(dlsym(handle, "serializerWriteVectorArray"));
+        serializerWriteVectorArray = reinterpret_cast<void (*)(Eigen::MatrixXd&,std::string)>(dlsym(handle, "serializerWriteVectorArray"));
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'serializerWriteVectorArray': " << dlsym_error <<
                       '\n';
         }
-        serializerWriteTensorArray = reinterpret_cast<void (*)(Eigen::Matrix&, std::string)>(dlsym(handle, "serializerWriteTensorArray"));
+        serializerWriteTensorArray = reinterpret_cast<void (*)(Eigen::MatrixXd&, std::string)>(dlsym(handle, "serializerWriteTensorArray"));
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'serializerWriteTensorArray': " << dlsym_error <<

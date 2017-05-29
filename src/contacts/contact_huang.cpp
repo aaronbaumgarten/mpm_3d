@@ -85,7 +85,7 @@ int contactLoadState(Job* job, Serializer* serializer, std::string fullpath){
 
         std::getline(fin,line); //body IDs
         ss = std::stringstream(line);
-        if (!(ss >> bodyIDs[0] >> bodyIDs[1]){
+        if (!(ss >> bodyIDs[0] >> bodyIDs[1])){
             std::cout << "Conact Loading Error! Unable to read body IDs in file: " << fullpath << std::endl;
             return 0;
         }
@@ -147,7 +147,7 @@ void contactInit(Job* job, Contact* contact){
         }
 
         //initialize normals for body 1
-        contact_normal = job->jobVectorArray(job->bodies[bodyIDs[0]].nodes.x.rows());
+        contact_normal = job->jobVectorArray<double>(job->bodies[bodyIDs[0]].nodes.x.rows());
 
         printf("Contact properties (mu_f = %g).\n",
                mu_f);

@@ -20,8 +20,8 @@ class Body;
 class Material: public RunTimeDef{
 public:
     //static members
-    static int UPDATE = 1;
-    static int TRIAL = 0;
+    static const int UPDATE = 1;
+    static const int TRIAL = 0;
     //material properties here
     std::string filename; //name of file
     std::string filepath; //directory of file for access
@@ -41,9 +41,9 @@ public:
     int (*materialLoadState)(Job*, Body*, Serializer*, std::string); //read state from given full path
 
     void (*materialInit)(Job*,Body*); // initialize material
-    void (*materialCalculateStress)(Job*,Body*,int=UPDATE); // calculate stress given body and job state, int=1 updates internal variables
-    void (*materialAssignStress)(Job*,Body*,Eigen::MatrixXd stressIN,int idIN,int=UPDATE); // assign stress state to specific particle id
-    void (*materialAssignPressure)(Job*,Body*,double stressIN,int idIN,int=UPDATE); // assign pressure state to specific particle
+    void (*materialCalculateStress)(Job*,Body*,int); // calculate stress given body and job state, int=1 updates internal variables
+    void (*materialAssignStress)(Job*,Body*,Eigen::MatrixXd stressIN,int idIN,int); // assign stress state to specific particle id
+    void (*materialAssignPressure)(Job*,Body*,double stressIN,int idIN,int); // assign pressure state to specific particle
 
     //other functions
 };

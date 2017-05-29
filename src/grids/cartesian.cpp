@@ -120,7 +120,7 @@ void gridInit(Job* job){
         //store length, number of linear nodes, and deltas
         Lx = job->jobVector<double>(job->grid.fp64_props.data());
         Nx = job->jobVector<int>(job->grid.int_props.data());
-        hx = Lx.array() / (Nx - job->jobVector(Job::ONES)).array();
+        hx = Lx.array() / (Nx - job->jobVector<int>(Job::ONES)).cast<double>().array();
 
         //print grid properties
         std::cout << "Grid properties (Lx = { ";
@@ -207,7 +207,7 @@ int gridLoadState(Job* job, Serializer* serializer, std::string fullpath){
             ss >> Nx(i);
         }
 
-        hx = Lx.array() / (Nx - job->jobVector(Job::ONES)).array();
+        hx = Lx.array() / (Nx - job->jobVector<int>(Job::ONES)).cast<double>().array();
 
         //print grid properties
         std::cout << "Grid properties (Lx = { ";
@@ -275,7 +275,7 @@ Eigen::VectorXd gridNodeIDToPosition(Job* job, int idIN){
         ijk(i) = tmp % Nx(i);
         tmp = tmp/Nx(i);
     }
-    tmpVec = hx.array() * ijk.array();
+    tmpVec = hx.array() * ijk.cast<double>().array();
     return tmpVec;
 }
 

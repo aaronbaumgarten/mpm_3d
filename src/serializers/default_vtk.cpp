@@ -52,9 +52,9 @@ size_t nlen;
 Body* currentBody;
 
 extern "C" int serializerWriteFrame(Job* job); //initialize writing of frame from job
-extern "C" void serializerWriteScalarArray(Eigen::Matrix& scalarArray, std::string scalarName); //call to functions for dumping state into frame file
-extern "C" void serializerWriteVectorArray(Eigen::Matrix& vectorArray, std::string vectorName); //pass name of vector
-extern "C" void serializerWriteTensorArray(Eigen::Matrix& tensorArray, std::string tensorName);
+extern "C" void serializerWriteScalarArray(Eigen::MatrixBase<double>& scalarArray, std::string scalarName); //call to functions for dumping state into frame file
+extern "C" void serializerWriteVectorArray(Eigen::MatrixBase<double>& vectorArray, std::string vectorName); //pass name of vector
+extern "C" void serializerWriteTensorArray(Eigen::MatrixBase<double>& tensorArray, std::string tensorName);
 
 extern "C" void serializerInit(Job* job); //initialize serializer
 extern "C" void serializerSetMainPath(Job* job, std::string program); //set path to main program
@@ -175,7 +175,7 @@ int serializerWriteFrame(Job* job){
 
 /*----------------------------------------------------------------------------*/
 
-void serializerWriteScalarArray(Eigen::Matrix& scalarArray, std::string name){
+void serializerWriteScalarArray(Eigen::VectorXd& scalarArray, std::string name){
     //check length of array vs. length of open files and write to correct file
     if (pfile.is_open() && scalarArray.rows() == plen){
         //write to point file
@@ -207,7 +207,7 @@ void serializerWriteScalarArray(Eigen::Matrix& scalarArray, std::string name){
 
 /*----------------------------------------------------------------------------*/
 
-void serializerWriteVectorArray(Eigen::Matrix& vectorArray, std::string name){
+void serializerWriteVectorArray(Eigen::MatrixXd& vectorArray, std::string name){
     //check length of array vs. length of open files and write to correct file
     if (pfile.is_open() && vectorArray.rows() == plen){
         //write to point file
@@ -245,7 +245,7 @@ void serializerWriteVectorArray(Eigen::Matrix& vectorArray, std::string name){
 
 /*----------------------------------------------------------------------------*/
 
-void serializerWriteTensorArray(Eigen::Matrix& tensorArray, std::string name){
+void serializerWriteTensorArray(Eigen::MatrixXd& tensorArray, std::string name){
     //check length of array vs. length of open files and write to correct file
     if (pfile.is_open() && tensorArray.rows() == plen){
         //write to point file
@@ -330,10 +330,8 @@ void serializerInit(Job* job){
         sampleRate = job->serializer.fp64_props[0];
         sampledFrames = 0;
 
-        printf("Serializer properties (frameDirectory = " + frameDirectory
-               + ", outputDirectory = " + outputDirectory
-               + ", outputName = " + outputName
-               + ", sampleRate = %g " + ").\n", sampleRate);
+        printf("Serializer properties (frameDirectory = %s, outputDirectory = %s, outputName = %s, sampleRate = %g).\n",
+               frameDirectory.c_str(), outputDirectory.c_str(), outputName.c_str(), sampleRate);
     }
 
     std::cout << "Serializer Initialized." << std::endl;

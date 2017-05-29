@@ -72,7 +72,9 @@ void Nodes::nodesWriteFrame(Job* job, Body* body, Serializer* serializer){
     serializer->serializerWriteScalarArray(m,"mass");
     serializer->serializerWriteVectorArray(mx_t,"momentum");
     serializer->serializerWriteVectorArray(f,"force");
-    serializer->serializerWriteScalarArray(active,"active");
+    //need to make double
+    Eigen::VectorXd tmpVec = active.cast<double>();
+    serializer->serializerWriteScalarArray(tmpVec,"active");
 
     return;
 }

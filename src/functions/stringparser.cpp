@@ -11,12 +11,12 @@
 
 #include "stringparser.hpp"
 
-static std::string StringParser::stringRemoveSpaces(std::string s){
+std::string StringParser::stringRemoveSpaces(std::string s){
     s.erase(std::remove_if(s.begin(), s.end(), isspace), s.end());
     return s;
 }
 
-static std::vector<std::string> StringParser::stringSplitString(std::string s,char delim){
+std::vector<std::string> StringParser::stringSplitString(std::string s,char delim){
     //credit to Evan Teran
     //found on stack exchange
     std::stringstream ss;
@@ -29,7 +29,7 @@ static std::vector<std::string> StringParser::stringSplitString(std::string s,ch
     return elems;
 }
 
-static std::string StringParser::stringRemoveComments(std::string s) {
+std::string StringParser::stringRemoveComments(std::string s) {
     std::vector<std::string> svec;
     svec = StringParser::stringSplitString(s,'#');
     if (svec.size()>0) {
@@ -39,7 +39,7 @@ static std::string StringParser::stringRemoveComments(std::string s) {
     }
 }
 
-static std::string StringParser::stringRemoveBraces(std::string s){
+std::string StringParser::stringRemoveBraces(std::string s){
     std::vector<std::string> svec;
     std::stringstream ss;
     //std::cout << s << std::endl;
@@ -59,7 +59,7 @@ static std::string StringParser::stringRemoveBraces(std::string s){
     return ss.str();
 }
 
-static int StringParser::stringFindStringID(std::vector<std::string> svec, std::string s){
+int StringParser::stringFindStringID(std::vector<std::string> svec, std::string s){
     for (size_t i=0;i<svec.size();i++){
         if(svec[i].compare(s) == 0){
             return i;
@@ -68,7 +68,7 @@ static int StringParser::stringFindStringID(std::vector<std::string> svec, std::
     return -1;
 }
 
-static std::string StringParser::stringRemoveQuotes(std::string s){
+std::string StringParser::stringRemoveQuotes(std::string s){
     std::vector<std::string> svec;
     std::stringstream ss;
     //std::cout << s << std::endl;
@@ -88,7 +88,7 @@ static std::string StringParser::stringRemoveQuotes(std::string s){
     return ss.str();
 }
 
-static std::string StringParser::stringMakeDirectory(std::string s) {
+std::string StringParser::stringMakeDirectory(std::string s) {
     if (s.empty() || s.back() == '/'){
         return s;
     } else {

@@ -11,21 +11,22 @@
 #include <vector>
 #include <eigen3/Eigen/Core>
 
+#include "points.hpp"
+#include "nodes.hpp"
+#include "material.hpp"
+#include "boundary.hpp"
+
 class Job;
 class Serializer;
-class Points;
-class Nodes;
-class Material;
-class Boundary;
 
 class Body{
 public:
     //static fields
-    static int SET = 0;
-    static int ADD = 1;
+    static const int SET = 0;
+    static const int ADD = 1;
 
-    static int CPDI_OFF = 0;
-    static int CPDI_ON = 1;
+    static const int CPDI_OFF = 0;
+    static const int CPDI_ON = 1;
 
     //body properties here
     int id;
@@ -51,17 +52,17 @@ public:
 
     //body object specific functions
     Body();
-    int bodyInit(Job*);
+    void bodyInit(Job*);
     std::string bodySaveState(Job*, Serializer*,std::string); //save data to file in serializer directory and return name
     int bodyLoadState(Job*, Serializer*,std::string); //load data from full path
 
-    void bodyGenerateMap(Job*, int=CPDI_ON); //create shape function mapping vectors (int=1 use cpdi)
+    void bodyGenerateMap(Job*, int SPEC=CPDI_ON); //create shape function mapping vectors (int=1 use cpdi)
 
-    void bodyCalcNodalValues(Job*, Eigen::Matrix& nodeVal, Eigen::Matrix& pointVal, int=SET); //calculate nodal value from points
-    void bodyCalcNodalGradient(Job*, Eigen::Matrix& nodeVal, Eigen::Matrix& pointVal, int=SET); //calculate nodal gradient
-    void bodyCalcNodalDivergence(Job*, Eigen::Matrix& nodeVal, Eigen::Matrix& pointVal, int=SET); //integrate nodal divergence
-    void bodyCalcPointValues(Job*, Eigen::Matrix& pointVal, Eigen::Matrix& nodeVal, int=SET); //calculate point values from nodes
-    void bodyCalcPointGradient(Job*, Eigen::Matrix& pointVal, Eigen::Matrix& nodeVal, int=SET); //calculate point gradients from nodes
+    template <typename DerivedA, typename DerivedB> void bodyCalcNodalValues(Job*, Eigen::MatrixBase<DerivedA>& nodeVal, Eigen::MatrixBase<DerivedB>&  pointVal, int SPEC=SET); //calculate nodal value from points
+    template <typename DerivedA, typename DerivedB> void bodyCalcNodalGradient(Job*, Eigen::MatrixBase<DerivedA>& nodeVal, Eigen::MatrixBase<DerivedB>&  pointVal, int SPEC=SET); //calculate nodal gradient
+    template <typename DerivedA, typename DerivedB> void bodyCalcNodalDivergence(Job*, Eigen::MatrixBase<DerivedA>& nodeVal, Eigen::MatrixBase<DerivedB>&  pointVal, int SPEC=SET); //integrate nodal divergence
+    template <typename DerivedA, typename DerivedB> void bodyCalcPointValues(Job*, Eigen::MatrixBase<DerivedA>& pointVal, Eigen::MatrixBase<DerivedB>&  nodeVal, int SPEC=SET); //calculate point values from nodes
+    template <typename DerivedA, typename DerivedB> void bodyCalcPointGradient(Job*, Eigen::MatrixBase<DerivedA>& pointVal, Eigen::MatrixBase<DerivedB>&  nodeVal, int SPEC=SET); //calculate point gradients from nodes
 
     //other functions
 };

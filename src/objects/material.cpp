@@ -79,19 +79,19 @@ void Material::materialSetFnPointers(void* handle){
             std::cerr << "Cannot load symbol 'materialInit': " << dlsym_error <<
                       '\n';
         }
-        materialCalculateStress = reinterpret_cast<void (*)(Job *, Body *, int=Material::UPDATE)>(dlsym(handle, "materialCalculateStress"));
+        materialCalculateStress = reinterpret_cast<void (*)(Job *, Body *, int)>(dlsym(handle, "materialCalculateStress"));
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'materialCalculateStress': " << dlsym_error <<
                       '\n';
         }
-        materialAssignStress = reinterpret_cast<void (*)(Job *, Body *, Eigen::MatrixXd, int, int=Material::UPDATE)>(dlsym(handle, "materialAssignStress"));
+        materialAssignStress = reinterpret_cast<void (*)(Job *, Body *, Eigen::MatrixXd, int, int)>(dlsym(handle, "materialAssignStress"));
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'materialAssignStress': " << dlsym_error <<
                       '\n';
         }
-        materialAssignPressure = reinterpret_cast<void (*)(Job *, Body *, double, int, int=Material::UPDATE)>(dlsym(handle, "materialAssignPressure"));
+        materialAssignPressure = reinterpret_cast<void (*)(Job *, Body *, double, int, int)>(dlsym(handle, "materialAssignPressure"));
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'materialAssignPressure': " << dlsym_error <<
