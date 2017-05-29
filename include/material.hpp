@@ -11,11 +11,13 @@
 #include <vector>
 #include <eigen3/Eigen/Core>
 
+#include "runtimedef.hpp"
+
 class Job;
 class Serializer;
 class Body;
 
-class Material{
+class Material: public RunTimeDef{
 public:
     //static members
     static int UPDATE = 1;

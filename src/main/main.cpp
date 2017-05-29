@@ -45,7 +45,7 @@ std::vector<Job*> master_list_jobs;
 void sigint_handler(int s){
     std::cout << "SIGINT received." << std::endl;
     for (size_t i=0; i<master_list_serializers.size(); i++){
-        std::cout << "Saving job " << i << "." << std::endl;
+        std::cout << "Saving " << i << "." << std::endl;
         master_list_serializers[i]->serializerSaveState(master_list_jobs[i]);
         delete(master_list_jobs[i]);
     }
@@ -68,9 +68,12 @@ int main(int argc, char *argv[]) {
     //set main program path in config
     config.configSetMainPath(std::string(argv[0]));
 
+    //set main program path in serializer
+    job->serializer.serializerSetMainPath(job,std::string(argv[0]));
+
     //read command line args and initialize sim
     if (argc < 2){
-        std::cout << "No arguments passed, expected 1. Exiting." << std::endl;
+        std::cout << "No arguments passed, expected 2. Exiting." << std::endl;
         usage(argv[0]);
         delete(job);
         exit(0);
@@ -90,6 +93,11 @@ int main(int argc, char *argv[]) {
                 config.configInit(argv[2]);
                 config.configCheckConfigFile(argv[2]);
                 if(!(config.configConfigureJob(job))){delete(job); exit(0);}
+
+                //initialize job (it will call all internal initializers
+                job->jobInit();
+                std::cout << "Job Initialized." << std::endl;
+
                 break;
             case 1:
                 // -d (default)
@@ -103,21 +111,78 @@ int main(int argc, char *argv[]) {
 
                 break;
             case 2:
-                // -r SIMFILE (to be added)
-                std::cout << "\"" << inputArg << "\" not yet implemented. Exiting." << std::endl;
-                usage(argv[0]);
-                delete(job);
-                exit(0);
+                // -r SIMFILE
+                //limit scope
+                if (true) {
+                    std::string filename(argv[2]);
+                    std::string line;
+                    std::vector<std::string> lvec;
+                    lvec = StringParser::stringSplitString(filename, '/');
+                    std::string filepath = "";
+                    for (size_t i = 0; i < (lvec.size() - 1); i++) {
+                        filepath += lvec[i];
+                        filepath += "/";
+                    } //location of file
+
+                    std::ifstream fin(filepath + "defaultsave.txt"); //open default savefile
+                    if (fin.is_open()) {
+                        std::getline(fin, line); //filename
+                        job->serializer.filename = line;
+
+                        std::getline(fin, line); //filepath
+                        job->serializer.filepath = line;
+
+                        std::getline(fin, line); //fp64_props
+                        lvec = StringParser::stringSplitString(line, ',');
+                        for (size_t i = 0; i < lvec.size(); i++) {
+                            job->serializer.fp64_props.push_back(std::stod(lvec[i]));
+                        }
+
+                        std::getline(fin, line); //int_props
+                        lvec = StringParser::stringSplitString(line, ',');
+                        for (size_t i = 0; i < lvec.size(); i++) {
+                            job->serializer.int_props.push_back(std::stoi(lvec[i]));
+                        }
+
+                        std::getline(fin, line); //str_props
+                        lvec = StringParser::stringSplitString(line, ',');
+                        for (size_t i = 0; i < lvec.size(); i++) {
+                            job->serializer.str_props = lvec;
+                        }
+
+                        //close file
+                        fin.close();
+
+                        //setup serializer
+                        job->serializer.serializerSetPlugin(job,
+                                                            job->serializer.mainpath + job->serializer.filepath,
+                                                            job->serializer.filename,
+                                                            job->serializer.fp64_props,
+                                                            job->serializer.int_props,
+                                                            job->serializer.str_props);
+
+                        //call serializer to load state from file
+                        if (0 == job->serializer.serializerLoadState(job,std::string(argv[2]))){
+                            std::cout << "\"" << inputArg << "\" failed to load: " << std::string(argv[2]) << " ! Exiting." << std::endl;
+                            usage(argv[0]);
+                            delete(job);
+                            exit(0);
+                        }
+                    } else {
+                        std::cout << "\"" << inputArg << "\" failed to open: " << filepath << "defaultsave.txt! Exiting." << std::endl;
+                        usage(argv[0]);
+                        delete(job);
+                        exit(0);
+                    }
+                }
                 break;
 
         }
     }
 
-    //initialize job (it will call all internal initializers
-    job->jobInit();
-
+    //print job info
     size_t num_points;
-    std::cout << "Job Initialized." << std::endl;
+    std::cout << "\n\n";
     std::cout << "  Bodies: " << job->bodies.size() << std::endl;
     for (size_t b=0;b<job->bodies.size();b++){
         num_points += job->bodies[b].points.x.size();
@@ -136,6 +201,7 @@ int main(int argc, char *argv[]) {
     job->driver.driverRun(job);
 
     //save simulation
+    std::cout << "Simulation Complete. Saving." << std::endl;
     job->serializer.serializerSaveState(job);
 
     delete(job);

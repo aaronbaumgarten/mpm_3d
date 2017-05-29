@@ -36,7 +36,7 @@ extern "C" void contactApplyRules(Job* job); //apply rules
 /*----------------------------------------------------------------------------*/
 
 void contactWriteFrame(Job* job, Serializer* serializer){
-    serializer->serializerWriteVector(contact_normal,("contact_normal_" + job->bodies[bodyIDs[0]].name + "_" + job->bodies[bodyIDs[1]].name));
+    serializer->serializerWriteVectorArray(contact_normal,("contact_normal_" + job->bodies[bodyIDs[0]].name + "_" + job->bodies[bodyIDs[1]].name));
     return;
 }
 

@@ -63,7 +63,7 @@ std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std:
         return "ERR";
     }
 
-    std::cout << "Material Saved: [" << body->id << "]." << std::endl;
+    std::cout << "Material Saved: [" << body->name << "]." << std::endl;
 
     return filename;
 }
@@ -93,7 +93,7 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
         return 0;
     }
 
-    std::cout << "Material Loaded: [" << body->id << "]." << std::endl;
+    std::cout << "Material Loaded: [" << body->name << "]." << std::endl;
     return 1;
 }
 

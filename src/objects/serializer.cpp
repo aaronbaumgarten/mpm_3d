@@ -10,6 +10,7 @@
 #include <Eigen/Core>
 #include <dlfcn.h>
 
+#include "stringparser.hpp"
 #include "job.hpp"
 
 #include "serializer.hpp"
@@ -26,10 +27,11 @@ Serializer::Serializer() {
     serializerInit = NULL;
 
     serializerWriteFrame = NULL;
-    serializerWriteScalar = NULL;
-    serializerWriteVector = NULL;
-    serializerWriteTensor = NULL;
+    serializerWriteScalarArray = NULL;
+    serializerWriteVectorArray = NULL;
+    serializerWriteTensorArray = NULL;
 
+    serializerSetMainPath = NULL;
     serializerSaveState = NULL;
     serializerLoadState = NULL;
 }
@@ -42,7 +44,7 @@ Serializer::~Serializer() {
 
 void Serializer::serializerSetPlugin(Job* job, std::string nameIN, std::string pathIN, std::vector<double> fp64IN, std::vector<int> intIN, std::vector<std::string> strIN){
     filename = nameIN;
-    filepath = pathIN;
+    filepath = StringParser::stringMakeDirectory(pathIN);
     fp64_props = fp64IN;
     int_props = intIN;
     str_props = strIN;
@@ -62,10 +64,11 @@ void Serializer::serializerSetFnPointers(void* handle){
         serializerInit = NULL;
 
         serializerWriteFrame = NULL;
-        serializerWriteScalar = NULL;
-        serializerWriteVector = NULL;
-        serializerWriteTensor = NULL;
+        serializerWriteScalarArray = NULL;
+        serializerWriteVectorArray = NULL;
+        serializerWriteTensorArray = NULL;
 
+        serializerSetMainPath= NULL;
         serializerSaveState = NULL;
         serializerLoadState = NULL;
     } else {
@@ -77,28 +80,28 @@ void Serializer::serializerSetFnPointers(void* handle){
                       '\n';
         }
 
-        serializerWriteFrame = reinterpret_cast<void (*)(Job *)>(dlsym(handle, "serializerWriteFrame"));
+        serializerWriteFrame = reinterpret_cast<int (*)(Job *)>(dlsym(handle, "serializerWriteFrame"));
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'serializerWriteFrame': " << dlsym_error <<
                       '\n';
         }
-        serializerWriteScalar = reinterpret_cast<void (*)(Eigen::Matrix*,std::string)>(dlsym(handle, "serializerWriteScalar"));
+        serializerWriteScalarArray = reinterpret_cast<void (*)(Eigen::Matrix&,std::string)>(dlsym(handle, "serializerWriteScalarArray"));
         dlsym_error = dlerror();
         if (dlsym_error) {
-            std::cerr << "Cannot load symbol 'serializerWriteScalar': " << dlsym_error <<
+            std::cerr << "Cannot load symbol 'serializerWriteScalarArray': " << dlsym_error <<
                       '\n';
         }
-        serializerWriteVector = reinterpret_cast<void (*)(Eigen::Matrix*,std::string)>(dlsym(handle, "serializerWriteVector"));
+        serializerWriteVectorArray = reinterpret_cast<void (*)(Eigen::Matrix&,std::string)>(dlsym(handle, "serializerWriteVectorArray"));
         dlsym_error = dlerror();
         if (dlsym_error) {
-            std::cerr << "Cannot load symbol 'serializerWriteVector': " << dlsym_error <<
+            std::cerr << "Cannot load symbol 'serializerWriteVectorArray': " << dlsym_error <<
                       '\n';
         }
-        serializerWriteTensor = reinterpret_cast<void (*)(Eigen::Matrix*, std::string)>(dlsym(handle, "serializerWriteTensor"));
+        serializerWriteTensorArray = reinterpret_cast<void (*)(Eigen::Matrix&, std::string)>(dlsym(handle, "serializerWriteTensorArray"));
         dlsym_error = dlerror();
         if (dlsym_error) {
-            std::cerr << "Cannot load symbol 'serializerWriteTensor': " << dlsym_error <<
+            std::cerr << "Cannot load symbol 'serializerWriteTensorArray': " << dlsym_error <<
                       '\n';
         }
 
@@ -115,5 +118,19 @@ void Serializer::serializerSetFnPointers(void* handle){
                       '\n';
         }
     }
+    return;
+}
+
+/*----------------------------------------------------------------------------*/
+
+void Serializer::serializerSetMainPath(Job* job, std::string program){
+    std::vector<std::string> svec;
+    svec = StringParser::stringSplitString(program,'/');
+    std::string filepath = "";
+    for (size_t i=0; i<(svec.size()-1);i++){
+        filepath += svec[i];
+        filepath += "/";
+    }
+    mainpath = filepath;
     return;
 }

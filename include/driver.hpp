@@ -11,10 +11,12 @@
 #include <vector>
 #include <eigen3/Eigen/Core>
 
+#include "runtimedef.hpp"
+
 class Job;
 class Serializer;
 
-class Driver{
+class Driver: public RunTimeDef{
 public:
     //driver properties here
     std::string filename; //name of file

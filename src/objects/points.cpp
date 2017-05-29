@@ -121,17 +121,17 @@ int Points::pointsReadFromFile(Job *job, Body *body, std::string fileIN) {
 
 void Points::pointsWriteFrame(Job* job, Body* body, Serializer* serializer){
     //serializer will use x-position to create format for file
-    //serializer.serializerWriteVector(&x, "position")
-    serializer->serializerWriteVector(u,"displacement");
-    serializer->serializerWriteVector(x_t,"velocity");
-    serializer->serializerWriteScalar(m,"mass");
-    serializer->serializerWriteScalar(v,"volume");
-    serializer->serializerWriteVector(mx_t,"momentum");
-    serializer->serializerWriteVector(b,"body_force");
-    serializer->serializerWriteTensor(T,"cauchy_stress");
-    serializer->serializerWriteTensor(L,"velocity_gradient");
-    serializer->serializerWriteScalar(active,"active");
-    serializer->serializerWriteScalar(extent,"extent");
+    //serializer.serializerWriteVectorArray(&x, "position")
+    serializer->serializerWriteVectorArray(u,"displacement");
+    serializer->serializerWriteVectorArray(x_t,"velocity");
+    serializer->serializerWriteScalarArray(m,"mass");
+    serializer->serializerWriteScalarArray(v,"volume");
+    serializer->serializerWriteVectorArray(mx_t,"momentum");
+    serializer->serializerWriteVectorArray(b,"body_force");
+    serializer->serializerWriteTensorArray(T,"cauchy_stress");
+    serializer->serializerWriteTensorArray(L,"velocity_gradient");
+    serializer->serializerWriteScalarArray(active,"active");
+    serializer->serializerWriteScalarArray(extent,"extent");
 
     return;
 }
@@ -160,56 +160,56 @@ std::string Points::pointsSaveState(Job* job, Body* body, Serializer* serializer
 
         ffile << "x\n";
         ffile << "{";
-        job->jobVectorToFile(x,ffile);
+        job->jobVectorArrayToFile(x, ffile);
         ffile << "}\n\n";
 
         ffile << "u\n";
         ffile << "{";
-        job->jobVectorToFile(u,ffile);
+        job->jobVectorArrayToFile(u, ffile);
         ffile << "}\n\n";
 
         ffile << "x_t\n";
         ffile << "{";
-        job->jobVectorToFile(x_t,ffile);
+        job->jobVectorArrayToFile(x_t, ffile);
         ffile << "}\n\n";
 
         ffile << "m\n";
         ffile << "{";
-        job->jobScalarToFile(m,ffile);
+        job->jobScalarArrayToFile(m, ffile);
         ffile << "}\n\n";
 
         ffile << "v\n";
         ffile << "{";
-        job->jobScalarToFile(v,ffile);
+        job->jobScalarArrayToFile(v, ffile);
         ffile << "}\n\n";
 
         ffile << "mx_t\n";
         ffile << "{";
-        job->jobVectorToFile(mx_t,ffile);
+        job->jobVectorArrayToFile(mx_t, ffile);
         ffile << "}\n\n";
 
         ffile << "b\n";
-        job->jobVectorToFile(b,ffile);
+        job->jobVectorArrayToFile(b, ffile);
         ffile << "}\n\n";
 
         ffile << "T\n";
         ffile << "{";
-        job->jobTensorToFile(T,ffile);
+        job->jobTensorArrayToFile(T, ffile);
         ffile << "}\n\n";
 
         ffile << "L\n";
         ffile << "{";
-        job->jobTensorToFile(L,ffile);
+        job->jobTensorArrayToFile(L, ffile);
         ffile << "}\n\n";
 
         ffile << "active\n";
         ffile << "{";
-        job->jobScalarToFile(active,ffile);
+        job->jobScalarArrayToFile(active, ffile);
         ffile << "}\n\n";
 
         ffile << "extent\n";
         ffile << "{";
-        job->jobScalarToFile(extent,ffile);
+        job->jobScalarArrayToFile(extent, ffile);
         ffile << "}\n\n";
 
         ffile.close();
@@ -277,7 +277,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorFromFile(x,fin);
+                                    job->jobVectorArrayFromFile(x, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"x\". Got: " << line << std::endl;
                                 }
@@ -288,7 +288,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorFromFile(u,fin);
+                                    job->jobVectorArrayFromFile(u, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"u\". Got: " << line << std::endl;
                                 }
@@ -299,7 +299,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorFromFile(x_t,fin);
+                                    job->jobVectorArrayFromFile(x_t, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"x_t\". Got: " << line << std::endl;
                                 }
@@ -310,7 +310,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobScalarFromFile(m,fin);
+                                    job->jobScalarArrayFromFile(m, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"m\". Got: " << line << std::endl;
                                 }
@@ -321,7 +321,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobScalarFromFile(v,fin);
+                                    job->jobScalarArrayFromFile(v, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"v\". Got: " << line << std::endl;
                                 }
@@ -332,7 +332,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorFromFile(mx_t,fin);
+                                    job->jobVectorArrayFromFile(mx_t, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"mx_t\". Got: " << line << std::endl;
                                 }
@@ -343,7 +343,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorFromFile(b,fin);
+                                    job->jobVectorArrayFromFile(b, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"b\". Got: " << line << std::endl;
                                 }
@@ -354,7 +354,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobTensorFromFile(T,fin);
+                                    job->jobTensorArrayFromFile(T, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"T\". Got: " << line << std::endl;
                                 }
@@ -365,7 +365,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobTensorFromFile(L,fin);
+                                    job->jobTensorArrayFromFile(L, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"L\". Got: " << line << std::endl;
                                 }
@@ -376,7 +376,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorFromFile(active,fin);
+                                    job->jobVectorArrayFromFile(active, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"active\". Got: " << line << std::endl;
                                 }
@@ -387,7 +387,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorFromFile(extent,fin);
+                                    job->jobVectorArrayFromFile(extent, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"active\". Got: " << line << std::endl;
                                 }

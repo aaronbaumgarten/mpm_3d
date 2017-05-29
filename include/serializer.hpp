@@ -11,9 +11,11 @@
 #include <vector>
 #include <eigen3/Eigen/Core>
 
+#include "runtimedef.hpp"
+
 class Job;
 
-class Serializer{
+class Serializer: public RunTimeDef{
 public:
     //io properties here
     std::string filename; //name of file
@@ -23,19 +25,21 @@ public:
     std::vector<std::string> str_props; //string properties
     void *handle; //.so file handle
 
-    //objects here
+    //other info
+    std::string mainpath;
 
     //io object specific functions
     Serializer();
     ~Serializer();
     void serializerSetPlugin(Job*, std::string, std::string, std::vector<double>, std::vector<int>, std::vector<std::string>); //assign .so plugin for functions
     void serializerSetFnPointers(void*); //set function pointers to .so file handle
+    void serializerSetMainPath(Job*,std::string); //set path to main program
 
     //input output (not configuration)
-    void (*serializerWriteFrame)(Job*); //initialize writing of frame from job
-    void (*serializerWriteScalar)(Eigen::Matrix&, std::string); //call to functions for dumping state into frame file
-    void (*serializerWriteVector)(Eigen::Matrix&, std::string); //pass name of vector
-    void (*serializerWriteTensor)(Eigen::Matrix&, std::string);
+    int (*serializerWriteFrame)(Job*); //initialize writing of frame from job (return 1 if frame written)
+    void (*serializerWriteScalarArray)(Eigen::Matrix&, std::string); //call to functions for dumping state into frame file
+    void (*serializerWriteVectorArray)(Eigen::Matrix&, std::string); //pass name of vector
+    void (*serializerWriteTensorArray)(Eigen::Matrix&, std::string);
 
     void (*serializerInit)(Job*); //initialize serializer
     std::string (*serializerSaveState)(Job*); //save job state (output string for output directory)

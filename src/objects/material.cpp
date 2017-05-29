@@ -10,6 +10,7 @@
 #include <Eigen/Core>
 #include <dlfcn.h>
 
+#include "stringparser.hpp"
 #include "job.hpp"
 
 #include "serializer.hpp"
@@ -44,7 +45,7 @@ Material::~Material() {
 
 void Material::materialSetPlugin(Job* job, Body* body, std::string nameIN, std::string pathIN, std::vector<double> fp64IN, std::vector<int> intIN, std::vector<std::string> strIN){
     filename = nameIN;
-    filepath = pathIN;
+    filepath = StringParser::stringMakeDirectory(pathIN);
     fp64_props = fp64IN;
     int_props = intIN;
     str_props = strIN;

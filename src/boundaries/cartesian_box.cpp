@@ -32,7 +32,7 @@ extern "C" void boundaryApplyRules(Job* job, Body* body); //apply the rules give
 
 void boundaryWriteFrame(Job* job, Body* body, Serializer* serializer){
     //write nodal mask to frame output
-    serializer->serializerWriteVector(bcNodalMask,"bc_nodal_mask");
+    serializer->serializerWriteVectorArray(bcNodalMask,"bc_nodal_mask");
     return;
 }
 
@@ -57,7 +57,7 @@ std::string boundarySaveState(Job* job, Body* body, Serializer* serializer, std:
     if (ffile.is_open()) {
         ffile << "# mpm_v2 boundaries/cartesian_box.so\n"; //header
         ffile << bcNodalMask.rows(); //lines to read later
-        job->jobVectorToFile(bcNodalMask,ffile);
+        job->jobVectorArrayToFile(bcNodalMask, ffile);
 
         ffile.close();
     } else {
@@ -78,7 +78,7 @@ int boundaryLoadState(Job* job, Body* body, Serializer* serializer, std::string 
         std::getline(fin,line); //first line (header)
         std::getline(fin,line); //length of file to be read
         bcNodalMask = job->jobVectorArray(std::stoi(line)); //initialize vector array
-        job->jobVectorFromFile(bcNodalMask,fin); //read in from file
+        job->jobVectorArrayFromFile(bcNodalMask, fin); //read in from file
         fin.close();
     } else {
         std::cout << "ERROR: Unable to open file: " << fullpath << std::endl;

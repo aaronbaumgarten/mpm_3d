@@ -11,10 +11,12 @@
 #include <vector>
 #include <eigen3/Eigen/Core>
 
+#include "runtimedef.hpp"
+
 class Job;
 class Serializer;
 
-class Grid{
+class Grid: public RunTimeDef{
 public:
     //grid properties here
     std::string filename; //name of file

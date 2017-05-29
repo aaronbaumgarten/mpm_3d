@@ -11,11 +11,13 @@
 #include <vector>
 #include <eigen3/Eigen/Core>
 
+#include "runtimedef.hpp"
+
 class Job;
 class Serializer;
 class Body;
 
-class Boundary{
+class Boundary: public RunTimeDef{
 public:
     //boundary properties here
     std::string filename; //name of file

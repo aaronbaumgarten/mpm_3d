@@ -11,10 +11,12 @@
 #include <vector>
 #include <eigen3/Eigen/Core>
 
+#include "runtimedef.hpp"
+
 class Job;
 class Serializer;
 
-class Contact{
+class Contact: public RunTimeDef{
 public:
     //boundary properties here
     int id;

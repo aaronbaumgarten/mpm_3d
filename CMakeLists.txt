@@ -28,6 +28,8 @@ include_directories(include)
 include_directories(/usr/include/eigen3)
 include_directories(${DL_INCLUDE_DIR})
 
+add_subdirectory(src/serializers)
+add_subdirectory(src/drivers)
 add_subdirectory(src/solvers)
 add_subdirectory(src/grids)
 add_subdirectory(src/materials)

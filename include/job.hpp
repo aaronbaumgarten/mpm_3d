@@ -57,13 +57,13 @@ public:
     template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> jobTensor(int);
     template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> jobTensorArray(int);
 
-    void jobScalarToFile(Eigen::Matrix&,std::ostream&);//write matrix ref to file ref
-    void jobVectorToFile(Eigen::Matrix&,std::ostream&);
-    void jobTensorToFile(Eigen::Matrix&,std::ostream&);
+    void jobScalarArrayToFile(Eigen::Matrix &, std::ostream &);//write matrix ref to file ref
+    void jobVectorArrayToFile(Eigen::Matrix &, std::ostream &);
+    void jobTensorArrayToFile(Eigen::Matrix &, std::ostream &);
 
-    void jobScalarFromFile(Eigen::Matrix&,std::istream&);//read matrix from file ref
-    void jobVectorFromFile(Eigen::Matrix&,std::istream&);
-    void jobTensorFromFile(Eigen::Matrix&,std::istream&);
+    void jobScalarArrayFromFile(Eigen::Matrix &, std::istream &);//read matrix from file ref
+    void jobVectorArrayFromFile(Eigen::Matrix &, std::istream &);
+    void jobTensorArrayFromFile(Eigen::Matrix &, std::istream &);
 };
 
 #endif //MPM_3D_JOB_HPP

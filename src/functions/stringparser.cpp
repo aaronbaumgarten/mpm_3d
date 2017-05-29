@@ -87,3 +87,11 @@ static std::string StringParser::stringRemoveQuotes(std::string s){
     //std::cout << ss.str() << std::endl;
     return ss.str();
 }
+
+static std::string StringParser::stringMakeDirectory(std::string s) {
+    if (s.empty() || s.back() == '/'){
+        return s;
+    } else {
+        return s + "/";
+    }
+}

@@ -59,18 +59,20 @@ int Nodes::nodesInit(Job* job, Body* body){
         x.row(i) = job->grid.gridNodeIDToPosition(job,i);
     }
 
+    active.setOnes(); //all nodes active
+
     return 1;
 }
 
 void Nodes::nodesWriteFrame(Job* job, Body* body, Serializer* serializer){
     //serializer will use x-position to create format for file
-    //serializer.serializerWriteVector(&x, "position")
-    serializer->serializerWriteVector(u,"displacement");
-    serializer->serializerWriteVector(x_t,"velocity");
-    serializer->serializerWriteScalar(m,"mass");
-    serializer->serializerWriteVector(mx_t,"momentum");
-    serializer->serializerWriteVector(f,"force");
-    serializer->serializerWriteScalar(active,"active");
+    //serializer.serializerWriteVectorArray(&x, "position")
+    serializer->serializerWriteVectorArray(u,"displacement");
+    serializer->serializerWriteVectorArray(x_t,"velocity");
+    serializer->serializerWriteScalarArray(m,"mass");
+    serializer->serializerWriteVectorArray(mx_t,"momentum");
+    serializer->serializerWriteVectorArray(f,"force");
+    serializer->serializerWriteScalarArray(active,"active");
 
     return;
 }
@@ -99,36 +101,36 @@ std::string Nodes::nodesSaveState(Job* job, Body* body, Serializer* serializer, 
 
         ffile << "x\n";
         ffile << "{";
-        job->jobVectorToFile(x,ffile);
+        job->jobVectorArrayToFile(x, ffile);
         ffile << "}\n\n";
 
         ffile << "u\n";
         ffile << "{";
-        job->jobVectorToFile(u,ffile);
+        job->jobVectorArrayToFile(u, ffile);
         ffile << "}\n\n";
 
         ffile << "x_t\n";
         ffile << "{";
-        job->jobVectorToFile(x_t,ffile);
+        job->jobVectorArrayToFile(x_t, ffile);
         ffile << "}\n\n";
 
         ffile << "m\n";
         ffile << "{";
-        job->jobScalarToFile(m,ffile);
+        job->jobScalarArrayToFile(m, ffile);
         ffile << "}\n\n";
 
         ffile << "mx_t\n";
         ffile << "{";
-        job->jobVectorToFile(mx_t,ffile);
+        job->jobVectorArrayToFile(mx_t, ffile);
         ffile << "}\n\n";
 
         ffile << "f\n";
-        job->jobVectorToFile(f,ffile);
+        job->jobVectorArrayToFile(f, ffile);
         ffile << "}\n\n";
 
         ffile << "active\n";
         ffile << "{";
-        job->jobScalarToFile(active,ffile);
+        job->jobScalarArrayToFile(active, ffile);
         ffile << "}\n\n";
 
         ffile.close();
@@ -188,7 +190,7 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorFromFile(x,fin);
+                                    job->jobVectorArrayFromFile(x, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"x\". Got: " << line << std::endl;
                                 }
@@ -199,7 +201,7 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorFromFile(u,fin);
+                                    job->jobVectorArrayFromFile(u, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"u\". Got: " << line << std::endl;
                                 }
@@ -210,7 +212,7 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorFromFile(x_t,fin);
+                                    job->jobVectorArrayFromFile(x_t, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"x_t\". Got: " << line << std::endl;
                                 }
@@ -221,7 +223,7 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobScalarFromFile(m,fin);
+                                    job->jobScalarArrayFromFile(m, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"m\". Got: " << line << std::endl;
                                 }
@@ -232,7 +234,7 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorFromFile(mx_t,fin);
+                                    job->jobVectorArrayFromFile(mx_t, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"mx_t\". Got: " << line << std::endl;
                                 }
@@ -243,7 +245,7 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorFromFile(f,fin);
+                                    job->jobVectorArrayFromFile(f, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"b\". Got: " << line << std::endl;
                                 }
@@ -254,7 +256,7 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorFromFile(active,fin);
+                                    job->jobVectorArrayFromFile(active, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"active\". Got: " << line << std::endl;
                                 }

@@ -34,6 +34,9 @@ extern "C" int solverLoadState(Job* job, Serializer* serializer, std::string ful
 
 void createMappings(Job* job){
     for (size_t b=0;b<job->bodies.size();b++){
+        if (job->activeBodies[b] == 0){
+            continue;
+        }
         job->bodies[b].bodyGenerateMap(job, Body::CPDI_ON); //use_cpdi by default
     }
     return;

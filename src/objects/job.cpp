@@ -59,7 +59,7 @@ int Job::jobInit(){
     grid.gridInit(this);
 
     for (size_t i=0; i<contacts.size(); i++){
-        contacts[i].contactInit(this);
+        contacts[i].contactInit(this, &(contacts[i]));
     }
     for (size_t i=0; i<bodies.size(); i++){
         bodies[i].bodyInit(this);
@@ -117,7 +117,7 @@ template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::Ro
     return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>(DIM*DIM,len);
 };
 
-void Job::jobScalarToFile(Eigen::Matrix& x,std::ostream& ffile){
+void Job::jobScalarArrayToFile(Eigen::Matrix &x, std::ostream &ffile){
     assert(x.cols() == 1);
 
     for (size_t i = 0; i < x.rows(); i++) {
@@ -126,7 +126,7 @@ void Job::jobScalarToFile(Eigen::Matrix& x,std::ostream& ffile){
     return;
 }
 
-void Job::jobVectorToFile(Eigen::Matrix& x,std::ostream& ffile){
+void Job::jobVectorArrayToFile(Eigen::Matrix &x, std::ostream &ffile){
     assert(x.cols() >= DIM);
 
     for (size_t i = 0; i < x.rows(); i++) {
@@ -138,7 +138,7 @@ void Job::jobVectorToFile(Eigen::Matrix& x,std::ostream& ffile){
     return;
 }
 
-void Job::jobTensorToFile(Eigen::Matrix& x,std::ostream& ffile){
+void Job::jobTensorArrayToFile(Eigen::Matrix &x, std::ostream &ffile){
     assert(x.cols() >= DIM*DIM);
 
     for (size_t i = 0; i < x.rows(); i++) {
@@ -150,7 +150,7 @@ void Job::jobTensorToFile(Eigen::Matrix& x,std::ostream& ffile){
     return;
 }
 
-void Job::jobScalarFromFile(Eigen::Matrix& x,std::istream& ffile){
+void Job::jobScalarArrayFromFile(Eigen::Matrix &x, std::istream &ffile){
     //x must be preformed to correct dimensions
     assert(x.cols()==1);
 
@@ -169,7 +169,7 @@ void Job::jobScalarFromFile(Eigen::Matrix& x,std::istream& ffile){
     return;
 }
 
-void Job::jobVectorFromFile(Eigen::Matrix& x,std::istream& ffile){
+void Job::jobVectorArrayFromFile(Eigen::Matrix &x, std::istream &ffile){
     //x must be preformed to correct dimensions
     assert(x.cols()>=DIM);
 
@@ -190,7 +190,7 @@ void Job::jobVectorFromFile(Eigen::Matrix& x,std::istream& ffile){
     return;
 }
 
-void Job::jobTensorFromFile(Eigen::Matrix& x,std::istream& ffile){
+void Job::jobTensorArrayFromFile(Eigen::Matrix &x, std::istream &ffile){
     //x must be preformed to correct dimensions
     assert(x.cols()>=DIM*DIM);
 

@@ -76,6 +76,85 @@ int Body::bodyInit(Job* job){
     return 1;
 }
 
+std::string Body::bodySaveState(Job* job, Serializer* serializer, std::string filepath){
+    // current date/time based on current system
+    time_t now = time(0);
+
+    // convert now to tm struct for UTC
+    tm *gmtm = gmtime(&now);
+
+    //create filename
+    std::ostringstream s;
+    s << "mpm_v2."  << name << "." << id << ".body." << gmtm->tm_mday << "." << gmtm->tm_mon << "." << gmtm->tm_year << ".";
+    s << gmtm->tm_hour << "." << gmtm->tm_min << "." << gmtm->tm_sec << ".txt";
+
+    std::string filename = s.str();
+    std::ofstream ffile((filepath+filename), std::ios::trunc);
+
+    if (ffile.is_open()){
+        ffile << "# mpm_v2 body\n";
+        ffile << id << "\n" << name << "\n" << activeMaterial << "\n" << activeBoundary << "\n";
+        ffile.close();
+    } else {
+        std::cout << "Unable to open \"" << filepath+filename << "\" !\n";
+        return "ERR";
+    }
+
+    std::cout << "Body Saved: [" << name << "]." << std::endl;
+
+    return filename;
+}
+
+int Body::bodyLoadState(Job* job, Serializer* serializer, std::string fullpath) {
+    size_t cp = 1;
+    for (size_t i=0;i<job->DIM;i++){
+        cp *= 2; //square or cube
+    }
+    //initialize A matrix
+    //for mapping position in cube to id
+    //0 -> -1,-1,-1
+    //1 -> +1,-1,-1
+    //...
+    //8 -> +1,+1,+1
+    Eigen::VectorXi onoff = -1*job->jobVector<int>(Job::ONES);
+    A = job->jobVectorArray(cp);
+    for (size_t c=0; c<cp;c++){
+        for (size_t i=0;i<onoff.rows();i++){
+            A(c,i) = onoff(i);
+        }
+        for (size_t i=0;i<onoff.rows();i++) {
+            if (onoff(i) == -1){
+                onoff(i) == 1;
+                break;
+            } else {
+                onoff(i) == -1;
+            }
+        }
+    }
+
+    std::string line;
+    std::ifstream fin(fullpath);
+
+    if(fin.is_open()){
+        std::getline(fin,line); //first line
+        std::getline(fin,line); //id
+        id = std::stoi(line);
+        std::getline(fin,line); //name
+        name = line;
+        std::getline(fin,line); //activeMaterial
+        activeMaterial = std::stoi(line);
+        std::getline(fin,line); //activeBoundary
+        activeBoundary = std::stoi(line);
+        fin.close();
+    } else {
+        std::cout << "ERROR: Unable to open file: " << fullpath << std::endl;
+        return 0;
+    }
+
+    std::cout << "Body Loaded: [" << name << "]." << std::endl;
+    return 1;
+}
+
 void Body::bodyGenerateMap(Job *job, int use_cpdi = Body::CPDI_ON) {
     pval.clear();
     nval.clear();

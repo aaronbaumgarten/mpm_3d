@@ -18,6 +18,7 @@ public:
     static std::string stringRemoveBraces(std::string); //remove braces from string ("{","}")
     static int stringFindStringID(std::vector<std::string>, std::string); //find id of string from list
     static std::string stringRemoveQuotes(std::string); //remove quotes from string(",')
+    static std::string stringMakeDirectory(std::string); //add "/" if string ends without it
 };
 
 #endif //MPM_V2_STRINGPARSE_HPP

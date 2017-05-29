@@ -11,10 +11,12 @@
 #include <vector>
 #include <eigen3/Eigen/Core>
 
+#include "runtimedef.hpp"
+
 class Job;
 class Serializer;
 
-class Solver{
+class Solver: public RunTimeDef{
 public:
     //solver properties here
     std::string filename; //name of file

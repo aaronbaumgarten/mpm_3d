@@ -52,6 +52,8 @@ public:
     //body object specific functions
     Body();
     int bodyInit(Job*);
+    std::string bodySaveState(Job*, Serializer*,std::string); //save data to file in serializer directory and return name
+    int bodyLoadState(Job*, Serializer*,std::string); //load data from full path
 
     void bodyGenerateMap(Job*, int=CPDI_ON); //create shape function mapping vectors (int=1 use cpdi)
 
