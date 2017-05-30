@@ -46,7 +46,7 @@ Grid::~Grid() {
     }
 }
 
-void Grid::gridSetPlugin(Job* job, std::string nameIN, std::string pathIN, std::vector<double> fp64IN, std::vector<int> intIN, std::vector<std::string> strIN){
+void Grid::gridSetPlugin(Job* job, std::string pathIN, std::string nameIN, std::vector<double> fp64IN, std::vector<int> intIN, std::vector<std::string> strIN){
     filename = nameIN;
     filepath = StringParser::stringMakeDirectory(pathIN);
     fp64_props = fp64IN;
@@ -115,22 +115,22 @@ void Grid::gridSetFnPointers(void* handle){
                       '\n';
         }
 
-        gridWriteFrame = reinterpret_cast<void (*)(Job*,Serializer*)>(dlsym(handle, "contactWriteFrame"));
+        gridWriteFrame = reinterpret_cast<void (*)(Job*,Serializer*)>(dlsym(handle, "gridWriteFrame"));
         dlsym_error = dlerror();
         if (dlsym_error) {
-            std::cerr << "Cannot load symbol 'contactWriteFrame': " << dlsym_error <<
+            std::cerr << "Cannot load symbol 'gridWriteFrame': " << dlsym_error <<
                       '\n';
         }
-        gridSaveState = reinterpret_cast<std::string (*)(Job*,Serializer*,std::string)>(dlsym(handle, "contactSaveState"));
+        gridSaveState = reinterpret_cast<std::string (*)(Job*,Serializer*,std::string)>(dlsym(handle, "gridSaveState"));
         dlsym_error = dlerror();
         if (dlsym_error) {
-            std::cerr << "Cannot load symbol 'contactSaveState': " << dlsym_error <<
+            std::cerr << "Cannot load symbol 'gridSaveState': " << dlsym_error <<
                       '\n';
         }
-        gridLoadState = reinterpret_cast<int (*)(Job*,Serializer*,std::string)>(dlsym(handle, "contactLoadState"));
+        gridLoadState = reinterpret_cast<int (*)(Job*,Serializer*,std::string)>(dlsym(handle, "gridLoadState"));
         dlsym_error = dlerror();
         if (dlsym_error) {
-            std::cerr << "Cannot load symbol 'contactLoadState': " << dlsym_error <<
+            std::cerr << "Cannot load symbol 'gridLoadState': " << dlsym_error <<
                       '\n';
         }
     }

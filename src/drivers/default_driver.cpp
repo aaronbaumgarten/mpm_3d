@@ -45,7 +45,7 @@ void driverInit(Job* job){
         gravity = job->jobVector<double>(Job::ZERO);
 
         //print grid properties
-        std::cout << "Driver properties (stop_time = " << stop_time << " )." << std::endl;
+        std::cout << "Driver properties (stop_time = " << stop_time << ")." << std::endl;
     }
 
     std::cout << "Driver Initialized." << std::endl;

@@ -163,7 +163,7 @@ void contactInit(Job* job, Contact* contact){
 void contactGenerateRules(Job* job){
     //set normal for problem
     //use normal from body 1
-    job->bodies[bodyIDs[0]].bodyCalcNodalGradient(job,contact_normal,job->bodies[bodyIDs[0]].points.m,Body::SET);
+    job->bodies[bodyIDs[0]].bodyCalcNodalGradient<Eigen::MatrixXd,Eigen::VectorXd>(job,contact_normal,job->bodies[bodyIDs[0]].points.m,Body::SET);
     for (size_t i=0;i<contact_normal.rows();i++){
         //normalize
         contact_normal.row(i) *= 1.0/contact_normal.row(i).norm();

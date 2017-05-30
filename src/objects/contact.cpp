@@ -42,7 +42,7 @@ Contact::~Contact() {
     }
 }
 
-void Contact::contactSetPlugin(Job* job, std::string nameIN, std::string pathIN, std::vector<double> fp64IN, std::vector<int> intIN, std::vector<std::string> strIN){
+void Contact::contactSetPlugin(Job* job, std::string pathIN, std::string nameIN, std::vector<double> fp64IN, std::vector<int> intIN, std::vector<std::string> strIN){
     filename = nameIN;
     filepath = StringParser::stringMakeDirectory(pathIN);
     fp64_props = fp64IN;

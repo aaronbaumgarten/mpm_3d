@@ -32,6 +32,30 @@ extern "C" void materialAssignPressure(Job* job, Body* body, double pressureIN, 
 
 /*----------------------------------------------------------------------------*/
 
+void materialInit(Job* job, Body* body){
+    if (body->material.fp64_props.size() < 2){
+        std::cout << body->material.fp64_props.size() << "\n";
+        fprintf(stderr,
+                "%s:%s: Need at least 2 properties defined (E, nu).\n",
+                __FILE__, __func__);
+        exit(0);
+    } else {
+        E = body->material.fp64_props[0];
+        nu = body->material.fp64_props[1];
+        G = E / (2.0 * (1.0 + nu));
+        K = E / (3.0 * (1.0 - 2 * nu));
+        lambda = K - 2.0 * G / 3.0;
+        printf("Material properties (E = %g, nu = %g, G = %g, K = %g).\n",
+               E, nu, G, K);
+    }
+
+    std::cout << "Material Initialized: [" << body->id << "]." << std::endl;
+
+    return;
+}
+
+/*----------------------------------------------------------------------------*/
+
 void materialWriteFrame(Job* job, Body* body, Serializer* serializer) {
     //nothing to report
     return;
@@ -95,30 +119,6 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
 
     std::cout << "Material Loaded: [" << body->name << "]." << std::endl;
     return 1;
-}
-
-/*----------------------------------------------------------------------------*/
-
-void materialInit(Job* job, Body* body){
-    if (body->material.fp64_props.size() < 2){
-        std::cout << body->material.fp64_props.size() << "\n";
-        fprintf(stderr,
-                "%s:%s: Need at least 2 properties defined (E, nu).\n",
-                __FILE__, __func__);
-        exit(0);
-    } else {
-        E = body->material.fp64_props[0];
-        nu = body->material.fp64_props[1];
-        G = E / (2.0 * (1.0 + nu));
-        K = E / (3.0 * (1.0 - 2 * nu));
-        lambda = K - 2.0 * G / 3.0;
-        printf("Material properties (E = %g, nu = %g, G = %g, K = %g).\n",
-               E, nu, G, K);
-    }
-
-    std::cout << "Material Initialized: [" << body->id << "]." << std::endl;
-
-    return;
 }
 
 /*----------------------------------------------------------------------------*/

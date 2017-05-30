@@ -112,6 +112,7 @@ int Config::configConfigureJob(Job *job){
                     case 0:
                         //job
                         params = {"dt","t","DIM"};
+                        std::getline(fin,line);
                         line = StringParser::stringRemoveComments(line);
                         line = StringParser::stringRemoveSpaces(line);
                         if (line.compare("{") == 0) {
@@ -140,7 +141,7 @@ int Config::configConfigureJob(Job *job){
                                             break;
                                         case 2:
                                             //DIM
-                                            job->DIM = std::stod(propValue);
+                                            job->DIM = std::stoi(propValue);
                                             if (job->DIM > 4 || job->DIM < 1){
                                                 std::cerr << "DIM ERROR!" << std::endl;
                                                 return 0;
@@ -156,6 +157,7 @@ int Config::configConfigureJob(Job *job){
                     case 1:
                         //serializer
                         params = {"filepath","filename","properties","int-properties","str-properties"};
+                        std::getline(fin,line);
                         line = StringParser::stringRemoveComments(line);
                         line = StringParser::stringRemoveSpaces(line);
                         if (line.compare("{") == 0) {
@@ -178,25 +180,25 @@ int Config::configConfigureJob(Job *job){
                                     switch (StringParser::stringFindStringID(params, propName)) {
                                         case 0:
                                             //filepath
-                                            job->serializer.filepath = propValue;
+                                            job->serializer.filepath = StringParser::stringMakeDirectory(propValue);
                                             break;
                                         case 1:
                                             //filename
                                             job->serializer.filename = propValue;
                                             break;
-                                        case 3:
+                                        case 2:
                                             //props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->serializer.fp64_props.push_back(std::stod(lvec[i]));
                                             }
                                             break;
-                                        case 4:
+                                        case 3:
                                             //int-props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->serializer.int_props.push_back(std::stoi(lvec[i]));
                                             }
                                             break;
-                                        case 5:
+                                        case 4:
                                             //str-props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->serializer.str_props.push_back(lvec[i]);
@@ -223,6 +225,7 @@ int Config::configConfigureJob(Job *job){
                     case 2:
                         //driver
                         params = {"filepath","filename","properties","int-properties","str-properties"};
+                        std::getline(fin,line);
                         line = StringParser::stringRemoveComments(line);
                         line = StringParser::stringRemoveSpaces(line);
                         if (line.compare("{") == 0) {
@@ -245,25 +248,25 @@ int Config::configConfigureJob(Job *job){
                                     switch (StringParser::stringFindStringID(params, propName)) {
                                         case 0:
                                             //filepath
-                                            job->driver.filepath = propValue;
+                                            job->driver.filepath = StringParser::stringMakeDirectory(propValue);
                                             break;
                                         case 1:
                                             //filename
                                             job->driver.filename = propValue;
                                             break;
-                                        case 3:
+                                        case 2:
                                             //props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->driver.fp64_props.push_back(std::stod(lvec[i]));
                                             }
                                             break;
-                                        case 4:
+                                        case 3:
                                             //int-props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->driver.int_props.push_back(std::stoi(lvec[i]));
                                             }
                                             break;
-                                        case 5:
+                                        case 4:
                                             //str-props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->driver.str_props.push_back(lvec[i]);
@@ -289,6 +292,7 @@ int Config::configConfigureJob(Job *job){
                     case 3:
                         //solver
                         params = {"filepath","filename","properties","int-properties","str-properties"};
+                        std::getline(fin,line);
                         line = StringParser::stringRemoveComments(line);
                         line = StringParser::stringRemoveSpaces(line);
                         if (line.compare("{") == 0) {
@@ -311,25 +315,25 @@ int Config::configConfigureJob(Job *job){
                                     switch (StringParser::stringFindStringID(params, propName)) {
                                         case 0:
                                             //filepath
-                                            job->solver.filepath = propValue;
+                                            job->solver.filepath = StringParser::stringMakeDirectory(propValue);
                                             break;
                                         case 1:
                                             //filename
                                             job->solver.filename = propValue;
                                             break;
-                                        case 3:
+                                        case 2:
                                             //props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->solver.fp64_props.push_back(std::stod(lvec[i]));
                                             }
                                             break;
-                                        case 4:
+                                        case 3:
                                             //int-props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->solver.int_props.push_back(std::stoi(lvec[i]));
                                             }
                                             break;
-                                        case 5:
+                                        case 4:
                                             //str-props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->solver.str_props.push_back(lvec[i]);
@@ -355,6 +359,7 @@ int Config::configConfigureJob(Job *job){
                     case 4:
                         //grid
                         params = {"filepath","filename","properties","int-properties","str-properties"};
+                        std::getline(fin,line);
                         line = StringParser::stringRemoveComments(line);
                         line = StringParser::stringRemoveSpaces(line);
                         if (line.compare("{") == 0) {
@@ -377,25 +382,25 @@ int Config::configConfigureJob(Job *job){
                                     switch (StringParser::stringFindStringID(params, propName)) {
                                         case 0:
                                             //filepath
-                                            job->grid.filepath = propValue;
+                                            job->grid.filepath = StringParser::stringMakeDirectory(propValue);
                                             break;
                                         case 1:
                                             //filename
                                             job->grid.filename = propValue;
                                             break;
-                                        case 3:
+                                        case 2:
                                             //props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->grid.fp64_props.push_back(std::stod(lvec[i]));
                                             }
                                             break;
-                                        case 4:
+                                        case 3:
                                             //int-props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->grid.int_props.push_back(std::stoi(lvec[i]));
                                             }
                                             break;
-                                        case 5:
+                                        case 4:
                                             //str-props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->grid.str_props.push_back(lvec[i]);
@@ -427,8 +432,9 @@ int Config::configConfigureJob(Job *job){
                         job->bodies[id].id = id;
 
                         params = {"name", "point-file",
-                                  "material-filepath", "material-filename", "material-props", "material-int-props", "material-str-props"
+                                  "material-filepath", "material-filename", "material-props", "material-int-props", "material-str-props",
                                   "boundary-filepath", "boundary-filename", "boundary-props", "boundary-int-props", "boundary-str-props"};
+                        std::getline(fin,line);
                         line = StringParser::stringRemoveComments(line);
                         line = StringParser::stringRemoveSpaces(line);
                         if (line.compare("{") == 0) {
@@ -459,7 +465,7 @@ int Config::configConfigureJob(Job *job){
                                             break;
                                         case 2:
                                             //material-filepath
-                                            job->bodies[id].material.filepath = propValue;
+                                            job->bodies[id].material.filepath = StringParser::stringMakeDirectory(propValue);
                                             break;
                                         case 3:
                                             //material-filename
@@ -485,7 +491,7 @@ int Config::configConfigureJob(Job *job){
                                             break;
                                         case 7:
                                             //boundary-filepath
-                                            job->bodies[id].boundary.filepath = propValue;
+                                            job->bodies[id].boundary.filepath = StringParser::stringMakeDirectory(propValue);
                                             break;
                                         case 8:
                                             //boundary-filename
@@ -534,6 +540,8 @@ int Config::configConfigureJob(Job *job){
                                                                            job->bodies[id].boundary.int_props,
                                                                            job->bodies[id].boundary.str_props);
                                 job->bodies[id].activeBoundary = 1;
+                            } else {
+                                std::cout << "No Boundary File." << std::endl;
                             }
                             if (!job->bodies[id].material.filename.empty()) {
                                 if (job->bodies[id].material.filepath.empty()){
@@ -547,6 +555,8 @@ int Config::configConfigureJob(Job *job){
                                                                            job->bodies[id].material.int_props,
                                                                            job->bodies[id].material.str_props);
                                 job->bodies[id].activeMaterial = 1;
+                            } else {
+                                std::cout << "No Material File." << std::endl;
                             }
 
                             std::cout << "Body [" << id << ", " << job->bodies[id].name << "] Configured: " << job->bodies[id].points.file  << std::endl;
@@ -560,6 +570,7 @@ int Config::configConfigureJob(Job *job){
                         job->contacts[id].id = id;
 
                         params = {"filepath","filename","properties","int-properties","str-properties"};
+                        std::getline(fin,line);
                         line = StringParser::stringRemoveComments(line);
                         line = StringParser::stringRemoveSpaces(line);
                         if (line.compare("{") == 0) {
@@ -582,25 +593,25 @@ int Config::configConfigureJob(Job *job){
                                     switch (StringParser::stringFindStringID(params, propName)) {
                                         case 0:
                                             //filepath
-                                            job->contacts[id].filepath = propValue;
+                                            job->contacts[id].filepath = StringParser::stringMakeDirectory(propValue);
                                             break;
                                         case 1:
                                             //filename
                                             job->contacts[id].filename = propValue;
                                             break;
-                                        case 3:
+                                        case 2:
                                             //props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->contacts[id].fp64_props.push_back(std::stod(lvec[i]));
                                             }
                                             break;
-                                        case 4:
+                                        case 3:
                                             //int-props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->contacts[id].int_props.push_back(std::stoi(lvec[i]));
                                             }
                                             break;
-                                        case 5:
+                                        case 4:
                                             //str-props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->contacts[id].str_props.push_back(lvec[i]);
@@ -639,11 +650,15 @@ int Config::configConfigureJob(Job *job){
 
         //boundary and material function pointers
         for (size_t b=0;b<job->bodies.size();b++){
-            job->bodies[b].boundary.boundarySetFnPointers(job->bodies[b].boundary.handle);
-            job->bodies[b].material.materialSetFnPointers(job->bodies[b].material.handle);
+            if (!(job->bodies[b].boundary.filename.empty())) {
+                job->bodies[b].boundary.boundarySetFnPointers(job->bodies[b].boundary.handle);
+            }
+            if (!(job->bodies[b].material.filename.empty())) {
+                job->bodies[b].material.materialSetFnPointers(job->bodies[b].material.handle);
+            }
         }
 
-        std::cout << "Job Configured." << std::endl;
+        std::cout << "Job Configured.\n" << std::endl;
     } else {
         std::cout << "ERROR: Unable to open file: " << file << std::endl;
         return 0;

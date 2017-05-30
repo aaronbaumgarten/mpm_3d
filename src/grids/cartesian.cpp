@@ -20,13 +20,13 @@
 #include "body.hpp"
 #include "nodes.hpp"
 
-Eigen::VectorXd Lx;
-Eigen::VectorXi Nx;
-Eigen::VectorXd hx;
-Eigen::MatrixXi nodeIDs; //element to node map
-Eigen::MatrixXi A; //0,1 for directions in
+Eigen::VectorXd Lx(0,1); //linear dimensions
+Eigen::VectorXi Nx(0,1); //linear elements (not nodes)
+Eigen::VectorXd hx(0,1);
+Eigen::MatrixXi nodeIDs(0,0); //element to node map
+Eigen::MatrixXi A(0,0); //0,1 for directions in
 size_t npe; //nodes per element
-Eigen::MatrixXd x_n;
+Eigen::MatrixXd x_n(0,0);
 
 extern "C" void gridInit(Job* job);
 
@@ -51,14 +51,14 @@ void hiddenInit(Job* job){
     job->grid.element_count = 1;
     npe = 1;
     for (size_t i=0;i<Nx.rows();i++){
-        job->grid.node_count *= Nx(i);
-        job->grid.element_count *= (Nx(i)-1);
+        job->grid.node_count *= (Nx(i)+1);
+        job->grid.element_count *= Nx(i);
         npe *= 2;
     }
 
     x_n = job->jobVectorArray<double>(job->grid.node_count);
     for (size_t i=0;i<x_n.rows();i++){
-        x_n.row(i) = job->grid.gridNodeIDToPosition(job,i);
+        x_n.row(i) = (job->grid.gridNodeIDToPosition(job,i)).transpose();
     }
 
     //initialize A matrix
@@ -92,16 +92,15 @@ void hiddenInit(Job* job){
         tmp = e;
         //find i,j,k count for element position
         for (size_t i=0;i<ijk.rows();i++){
-            ijk(i) = tmp % (Nx(i)-1);
-            tmp = tmp / (Nx(i)-1);
+            ijk(i) = tmp % Nx(i);
+            tmp = tmp / Nx(i);
         }
 
         //find node ids for element
-        for (size_t n=0;n<nodeIDs.cols();e++){
+        for (size_t n=0;n<nodeIDs.cols();n++){
             for (size_t i=0;i<ijk.rows();i++) {
-                nodeIDs(e, n) += (ijk(i)+A(n,i)) * Nx(i);
+                nodeIDs(e, n) += (ijk(i)+A(n,i)) * (Nx(i)+1);
             }
-
         }
     }
     return;
@@ -120,7 +119,7 @@ void gridInit(Job* job){
         //store length, number of linear nodes, and deltas
         Lx = job->jobVector<double>(job->grid.fp64_props.data());
         Nx = job->jobVector<int>(job->grid.int_props.data());
-        hx = Lx.array() / (Nx - job->jobVector<int>(Job::ONES)).cast<double>().array();
+        hx = Lx.array() / Nx.cast<double>().array();
 
         //print grid properties
         std::cout << "Grid properties (Lx = { ";
@@ -207,7 +206,7 @@ int gridLoadState(Job* job, Serializer* serializer, std::string fullpath){
             ss >> Nx(i);
         }
 
-        hx = Lx.array() / (Nx - job->jobVector<int>(Job::ONES)).cast<double>().array();
+        hx = Lx.array() / Nx.cast<double>().array();
 
         //print grid properties
         std::cout << "Grid properties (Lx = { ";
@@ -245,7 +244,7 @@ int gridWhichElement(Job* job, Eigen::VectorXd xIN){
         }
         if (i > 0){
             //add number of elements in next layer of id in higher dimensions
-            elementID += floor(xIN[i]/hx[i])*(Nx[i-1]-1);
+            elementID += floor(xIN[i]/hx[i])*(Nx[i-1]);
         }
     }
     return elementID;
@@ -254,10 +253,8 @@ int gridWhichElement(Job* job, Eigen::VectorXd xIN){
 /*----------------------------------------------------------------------------*/
 
 bool gridInDomain(Job* job, Eigen::VectorXd xIN){
-    bool inDomain;
     for (size_t i=0;i<xIN.size();i++){
-        inDomain = (xIN[i] <= Lx[i] && xIN[i] >= 0);
-        if (!inDomain) { //if xIn is outside domain, return -1
+        if (!(xIN[i] <= Lx[i] && xIN[i] >= 0)) { //if xIn is outside domain, return -1
             return false;
         }
     }
@@ -272,8 +269,8 @@ Eigen::VectorXd gridNodeIDToPosition(Job* job, int idIN){
     int tmp = idIN;
     //find i,j,k representation of node id
     for (size_t i=0;i<ijk.rows();i++){
-        ijk(i) = tmp % Nx(i);
-        tmp = tmp/Nx(i);
+        ijk(i) = tmp % (Nx(i)+1);
+        tmp = tmp/(Nx(i)+1);
     }
     tmpVec = hx.array() * ijk.cast<double>().array();
     return tmpVec;
@@ -291,7 +288,7 @@ void gridEvaluateShapeFnValue(Job* job, Eigen::VectorXd xIN, std::vector<int>& n
     for (size_t n=0;n<nodeIDs.cols();n++){
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)/hx
-        rst = (xIN - x_n.row(nodeIDs(elementID,n))).array() / hx.array();
+        rst = (xIN - x_n.row(nodeIDs(elementID,n)).transpose()).array() / hx.array();
         for (size_t i=0;i<xIN.rows();i++){
             //standard linear hat function
             tmp *= (1 - std::abs(rst(i)));
@@ -316,7 +313,7 @@ void gridEvaluateShapeFnGradient(Job* job, Eigen::VectorXd xIN, std::vector<int>
     for (size_t n=0;n<nodeIDs.cols();n++){
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)/hx
-        rst = (xIN - x_n.row(nodeIDs(elementID,n))).array() / hx.array();
+        rst = (xIN - x_n.row(nodeIDs(elementID,n)).transpose()).array() / hx.array();
         for (size_t i=0;i<xIN.rows();i++){
             //standard linear hat function
             //evaluate at point

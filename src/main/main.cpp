@@ -181,16 +181,17 @@ int main(int argc, char *argv[]) {
     }
 
     //print job info
-    size_t num_points;
-    std::cout << "\n\n";
+    size_t num_points = 0;
+    std::cout << "\n";
     std::cout << "  Bodies: " << job->bodies.size() << std::endl;
     for (size_t b=0;b<job->bodies.size();b++){
-        num_points += job->bodies[b].points.x.size();
+        num_points += job->bodies[b].points.x.rows();
     }
     std::cout << "  Points: " << num_points << std::endl;
     std::cout << "  Nodes: " << job->grid.node_count << std::endl;
     std::cout << "  Elements: " << job->grid.element_count << std::endl;
     std::cout << "  Contacts: " << job->contacts.size() << std::endl;
+    std::cout << "\n";
 
     //setup sigint handling
     master_list_serializers.push_back(&(job->serializer));

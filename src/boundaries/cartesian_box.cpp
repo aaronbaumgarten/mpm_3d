@@ -30,6 +30,36 @@ extern "C" void boundaryApplyRules(Job* job, Body* body); //apply the rules give
 
 /*----------------------------------------------------------------------------*/
 
+void boundaryInit(Job* job, Body* body){
+    if (job->grid.filename.compare("cartesian.so") != 0){
+        std::cout << "\nBOUNDARY CONDITION WARNING!" << std::endl;
+        std::cout << "\"cartesian_box.so\" boundary expects \"cartesian.so\" grid NOT \"" << job->grid.filename << "\"!\n" << std::endl;
+    }
+
+    //find bounds of box
+    Eigen::VectorXd Lx = body->nodes.x.colwise().maxCoeff();
+
+    //set bounding mask
+    double len = body->nodes.x.rows();
+    bcNodalMask = job->jobVectorArray<int>(len);
+    bcNodalMask.setZero();
+
+    for (size_t i=0;i<len;i++){
+        for (size_t pos=0;pos<body->nodes.x.cols();pos++){
+            if (body->nodes.x(i,pos) == 0 || body->nodes.x(i,pos) == Lx(pos)) {
+                bcNodalMask.row(i).setOnes();
+                break;
+            }
+        }
+    }
+
+    std::cout << "Boundary Initialized: [" << body->id << "]." << std::endl;
+
+    return;
+}
+
+/*----------------------------------------------------------------------------*/
+
 void boundaryWriteFrame(Job* job, Body* body, Serializer* serializer){
     //write nodal mask to frame output
     Eigen::MatrixXd tmpMat = bcNodalMask.cast<double>();
@@ -89,34 +119,6 @@ int boundaryLoadState(Job* job, Body* body, Serializer* serializer, std::string 
     std::cout << "Boundary Loaded: [" << body->id << "]." << std::endl;
 
     return 1;
-}
-
-/*----------------------------------------------------------------------------*/
-
-void boundaryInit(Job* job, Body* body){
-    if (job->grid.filename.compare("cartesian.so") != 0){
-        std::cout << "\nBOUNDARY CONDITION WARNING!" << std::endl;
-        std::cout << "\"cartesian_box.so\" boundary expects \"cartesian.so\" grid NOT \"" << job->grid.filename << "\"!\n" << std::endl;
-    }
-
-    //find bounds of box
-    Eigen::VectorXd Lx;
-    Lx << body->nodes.x.colwise().maxCoeff();
-
-    //set bounding mask
-    double len = body->nodes.x.rows();
-    bcNodalMask = job->jobVectorArray<int>(len);
-    bcNodalMask.setZero();
-    for (size_t i=0;i<len;i++){
-        for (size_t pos=0;pos<bcNodalMask.cols();pos++){
-            if (body->nodes.x(i,pos) == 0 || body->nodes.x(i,pos) == Lx(pos)) {
-                bcNodalMask.row(i).setOnes();
-                break;
-            }
-        }
-    }
-
-    return;
 }
 
 /*----------------------------------------------------------------------------*/

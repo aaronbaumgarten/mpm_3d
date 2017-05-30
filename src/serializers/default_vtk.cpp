@@ -52,14 +52,40 @@ size_t nlen;
 Body* currentBody;
 
 extern "C" int serializerWriteFrame(Job* job); //initialize writing of frame from job
-extern "C" void serializerWriteScalarArray(Eigen::MatrixBase<double>& scalarArray, std::string scalarName); //call to functions for dumping state into frame file
-extern "C" void serializerWriteVectorArray(Eigen::MatrixBase<double>& vectorArray, std::string vectorName); //pass name of vector
-extern "C" void serializerWriteTensorArray(Eigen::MatrixBase<double>& tensorArray, std::string tensorName);
+extern "C" void serializerWriteScalarArray(Eigen::VectorXd& scalarArray, std::string scalarName); //call to functions for dumping state into frame file
+extern "C" void serializerWriteVectorArray(Eigen::MatrixXd& vectorArray, std::string vectorName); //pass name of vector
+extern "C" void serializerWriteTensorArray(Eigen::MatrixXd& tensorArray, std::string tensorName);
 
 extern "C" void serializerInit(Job* job); //initialize serializer
 extern "C" void serializerSetMainPath(Job* job, std::string program); //set path to main program
 extern "C" std::string serializerSaveState(Job* job); //save job state (output string for output directory)
 extern "C" int serializerLoadState(Job* job, std::string fullpath); //load state from given full path
+
+/*----------------------------------------------------------------------------*/
+
+void serializerInit(Job* job){
+    if (job->serializer.str_props.size() < 3 || job->serializer.fp64_props.size() < 1){
+        std::cout << job->serializer.str_props.size() << "\n";
+        fprintf(stderr,
+                "%s:%s: Need at least 4 properties defined ({sampleRate}, {frameDirectory, outputDirectory, outputName}).\n",
+                __FILE__, __func__);
+        exit(0);
+    } else {
+        frameDirectory = StringParser::stringMakeDirectory(job->serializer.str_props[0]);
+        outputDirectory = StringParser::stringMakeDirectory(job->serializer.str_props[1]);
+        outputName = job->serializer.str_props[2];
+
+        sampleRate = job->serializer.fp64_props[0];
+        sampledFrames = 0;
+
+        printf("Serializer properties (frameDirectory = %s, outputDirectory = %s, outputName = %s, sampleRate = %g).\n",
+               frameDirectory.c_str(), outputDirectory.c_str(), outputName.c_str(), sampleRate);
+    }
+
+    std::cout << "Serializer Initialized." << std::endl;
+
+    return;
+}
 
 /*----------------------------------------------------------------------------*/
 
@@ -310,32 +336,6 @@ void serializerWriteTensorArray(Eigen::MatrixXd& tensorArray, std::string name){
             }
         }
     }
-    return;
-}
-
-/*----------------------------------------------------------------------------*/
-
-void serializerInit(Job* job){
-    if (job->serializer.str_props.size() < 3 || job->serializer.fp64_props.size() < 1){
-        std::cout << job->serializer.str_props.size() << "\n";
-        fprintf(stderr,
-                "%s:%s: Need at least 4 properties defined ({sampleRate}, {frameDirectory, outputDirectory, outputName}).\n",
-                __FILE__, __func__);
-        exit(0);
-    } else {
-        frameDirectory = StringParser::stringMakeDirectory(job->serializer.str_props[0]);
-        outputDirectory = StringParser::stringMakeDirectory(job->serializer.str_props[1]);
-        outputName = job->serializer.str_props[2];
-
-        sampleRate = job->serializer.fp64_props[0];
-        sampledFrames = 0;
-
-        printf("Serializer properties (frameDirectory = %s, outputDirectory = %s, outputName = %s, sampleRate = %g).\n",
-               frameDirectory.c_str(), outputDirectory.c_str(), outputName.c_str(), sampleRate);
-    }
-
-    std::cout << "Serializer Initialized." << std::endl;
-
     return;
 }
 

@@ -93,7 +93,7 @@ template <typename T> Eigen::Matrix<T, Eigen::Dynamic, 1> Job::jobVector(int SPE
 
 
 template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Job::jobVectorArray(int len){
-    return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>(DIM,len);
+    return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>(len,DIM);
 };
 
 template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Job::jobTensor(){
@@ -122,7 +122,7 @@ template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::Ro
 };
 
 template <typename T> Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Job::jobTensorArray(int len){
-    return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>(DIM*DIM,len);
+    return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>(len,DIM*DIM);
 };
 
 template <typename Derived> void Job::jobScalarArrayToFile(Eigen::MatrixBase<Derived>& x, std::ostream &ffile){
