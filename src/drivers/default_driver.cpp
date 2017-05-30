@@ -61,10 +61,10 @@ void driverRun(Job* job) {
     while (job->t < stop_time){
         //run solver
         job->solver.solverStep(job);
-        std::cout << "Step Completer [" << ++stepCount << "].";
+        std::cout << "Step Completer [" << ++stepCount << "]." << std::flush;
         if (job->serializer.serializerWriteFrame(job) == 1) {
             //successful frame written
-            std::cout << " Frame Written [" << ++frameCount << "].";
+            std::cout << " Frame Written [" << ++frameCount << "]." << std::flush;
         }
         std::cout << "\r";
         job->t += job->dt;

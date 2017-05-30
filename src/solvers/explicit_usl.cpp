@@ -62,13 +62,13 @@ void mapPointsToNodes(Job* job){
         nodes = &(job->bodies[b].nodes);
 
         //map mass
-        body->bodyCalcNodalValues<Eigen::VectorXd,Eigen::VectorXd>(job,nodes->m,points->m,Body::SET);
+        body->bodyCalcNodalValues(job,nodes->m,points->m,Body::SET);
 
         //map momentum
         for (size_t i=0;i<points->mx_t.cols();i++){
             points->mx_t.col(i) = points->m.array() * points->x_t.col(i).array();
         }
-        body->bodyCalcNodalValues<Eigen::MatrixXd,Eigen::MatrixXd>(job,nodes->mx_t,points->mx_t,Body::SET);
+        body->bodyCalcNodalValues(job,nodes->mx_t,points->mx_t,Body::SET);
 
         //calculate velocity
         for (size_t i=0;i<nodes->x_t.rows();i++){
@@ -84,10 +84,10 @@ void mapPointsToNodes(Job* job){
         for (size_t i=0;i<points->b.cols();i++){
             pvec.col(i) = points->m.array() * points->b.col(i).array();
         }
-        body->bodyCalcNodalValues<Eigen::MatrixXd,Eigen::MatrixXd>(job,nodes->f,pvec,Body::SET);
+        body->bodyCalcNodalValues(job,nodes->f,pvec,Body::SET);
 
         //map divergence of stress
-        body->bodyCalcNodalDivergence<Eigen::MatrixXd,Eigen::MatrixXd>(job,nodes->f,points->T,Body::ADD);
+        body->bodyCalcNodalDivergence(job,nodes->f,points->T,Body::ADD);
         //nvec = job->jobVectorArray<double>(nodes->f.rows());
         //body->bodyCalcNodalDivergence(job,nvec,points->T);
         //nodes->f += nvec;
@@ -181,11 +181,11 @@ void movePoints(Job* job){
         nodes = &(job->bodies[b].nodes);
 
         //map nodal displacement to point positions
-        body->bodyCalcPointValues<Eigen::MatrixXd,Eigen::MatrixXd>(job,points->x,nodes->u,Body::ADD);
-        body->bodyCalcPointValues<Eigen::MatrixXd,Eigen::MatrixXd>(job,points->u,nodes->u,Body::ADD);
+        body->bodyCalcPointValues(job,points->x,nodes->u,Body::ADD);
+        body->bodyCalcPointValues(job,points->u,nodes->u,Body::ADD);
 
         //map nodal velocity diff to points
-        body->bodyCalcPointValues<Eigen::MatrixXd,Eigen::MatrixXd>(job,points->x_t,nodes->diff_x_t,Body::ADD);
+        body->bodyCalcPointValues(job,points->x_t,nodes->diff_x_t,Body::ADD);
 
         //calculate momentum
         for (size_t i=0;i<points->mx_t.cols();i++){
@@ -208,7 +208,7 @@ void calculateStrainRate(Job* job){
         nodes = &(job->bodies[b].nodes);
 
         //calculate gradient of nodal velocity at points
-        body->bodyCalcPointGradient<Eigen::MatrixXd,Eigen::MatrixXd>(job,points->L,nodes->x_t,Body::SET);
+        body->bodyCalcPointGradient(job,points->L,nodes->x_t,Body::SET);
     }
     return;
 }
@@ -222,7 +222,7 @@ void updateDensity(Job* job){
             continue;
         }
         for (size_t i=0;i<job->bodies[b].points.v.rows();i++) {
-            tmpVec << job->bodies[b].points.L.row(i).transpose();
+            tmpVec = job->bodies[b].points.L.row(i).transpose();
             L = job->jobTensor<double>(tmpVec.data());
             job->bodies[b].points.v(i) *= std::exp(job->dt * L.trace());
         }

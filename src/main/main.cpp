@@ -43,7 +43,7 @@ std::vector<Serializer*> master_list_serializers;
 std::vector<Job*> master_list_jobs;
 
 void sigint_handler(int s){
-    std::cout << "SIGINT received." << std::endl;
+    std::cout << std::endl << "SIGINT received." << std::endl;
     for (size_t i=0; i<master_list_serializers.size(); i++){
         std::cout << "Saving " << i << "." << std::endl;
         master_list_serializers[i]->serializerSaveState(master_list_jobs[i]);
@@ -202,7 +202,7 @@ int main(int argc, char *argv[]) {
     job->driver.driverRun(job);
 
     //save simulation
-    std::cout << "Simulation Complete. Saving." << std::endl;
+    std::cout << std::endl << "Simulation Complete. Saving." << std::endl;
     job->serializer.serializerSaveState(job);
 
     delete(job);

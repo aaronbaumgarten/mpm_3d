@@ -804,6 +804,7 @@ int serializerLoadState(Job* job, std::string fullpath){
         return 0;
     }
 
+    std::cout << "Job properties (DIM = " << job->DIM << ", t = " << job->t << ", dt = " << job->dt << ")." << std::endl;
     std::cout << "Job Loaded." << std::endl;
     return 1;
 }

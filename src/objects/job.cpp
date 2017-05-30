@@ -52,6 +52,9 @@ Job::Job():
 
 int Job::jobInit(){
 
+    std::cout << "Job properties (DIM = " << DIM << ", t = " << t << ", dt = " << dt << ")." << std::endl;
+    std::cout << "Job Initialized." << std::endl;
+
     serializer.serializerInit(this);
     driver.driverInit(this);
     solver.solverInit(this);

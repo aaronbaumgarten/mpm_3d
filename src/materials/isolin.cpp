@@ -132,17 +132,17 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     double trD;
 
     Eigen::MatrixXd tmpMat = job->jobTensor<double>();
-    Eigen::VectorXd tmpVec = job->jobVector<double>();
+    Eigen::VectorXd tmpVec;
 
     for (size_t i=0;i<body->points.x.rows();i++){
         if (body->points.active[i] == 0){
             continue;
         }
 
-        tmpVec << body->points.L.row(i).transpose();
+        tmpVec = body->points.L.row(i).transpose();
         L = job->jobTensor<double>(tmpVec.data());
 
-        tmpVec << body->points.T.row(i).transpose();
+        tmpVec = body->points.T.row(i).transpose();
         T = job->jobTensor<double>(tmpVec.data());
 
         D = 0.5*(L+L.transpose());
@@ -151,7 +151,9 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         trD = D.trace();
 
         tmpMat = (2*G*D) + (lambda*trD*job->jobTensor<double>(Job::IDENTITY)) + (W*T) - (T*W);
-        tmpVec = job->jobVector<double>(tmpMat.data());
+        for (size_t i=0;i<tmpVec.size();i++){
+            tmpVec(i) = tmpMat(i);
+        }
 
         body->points.T.row(i) = body->points.T.row(i) + job->dt * tmpVec.transpose();
     }
