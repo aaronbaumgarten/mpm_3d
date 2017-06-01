@@ -90,7 +90,7 @@ void serializerInit(Job* job){
 /*----------------------------------------------------------------------------*/
 
 int serializerWriteFrame(Job* job){
-    if (job->t >= sampleRate*sampledFrames){
+    if (job->t >= sampledFrames/sampleRate){
         sampledFrames += 1;
         //write frame for each body
         for (size_t b=0;b<job->bodies.size();b++) {
@@ -128,7 +128,7 @@ int serializerWriteFrame(Job* job){
                 for (size_t i=0;i<plen;i++){
                     //vtk files require x,y,z
                     for (size_t pos = 0; pos < 3; pos++){
-                        if (pos < job->bodies[b].points.x.cols() && (job->bodies[b].points.active(i) != 0)){
+                        if (pos < job->bodies[b].points.x.cols() && (job->bodies[b].points.active(i) != 0) && std::isfinite(job->bodies[b].points.x(i,pos))){
                             pfile << job->bodies[b].points.x(i,pos) << " ";
                         } else {
                             pfile << "0 ";
@@ -140,6 +140,11 @@ int serializerWriteFrame(Job* job){
                 pfile << "CELLS " << plen << " " << 2*plen << "\n";
                 for (size_t i=0;i<plen;i++){
                     pfile << "1 " << i << "\n";
+                }
+
+                pfile << "CELL_TYPES " << plen << "\n";
+                for (size_t i=0;i<plen;i++){
+                    pfile << "1\n";
                 }
 
                 pfile << "POINT_DATA " << plen << "\n";
@@ -158,7 +163,7 @@ int serializerWriteFrame(Job* job){
                 for (size_t i=0;i<nlen;i++){
                     //vtk files require x,y,z
                     for (size_t pos = 0; pos < 3; pos++){
-                        if (pos < job->bodies[b].nodes.x.cols() && (job->bodies[b].nodes.active(i) != 0)){
+                        if (pos < job->bodies[b].nodes.x.cols() && (job->bodies[b].nodes.active(i) != 0) && std::isfinite(job->bodies[b].nodes.x(i,pos))){
                             nfile << job->bodies[b].nodes.x(i,pos) << " ";
                         } else {
                             nfile << "0 ";
@@ -170,6 +175,11 @@ int serializerWriteFrame(Job* job){
                 nfile << "CELLS " << nlen << " " << 2*nlen << "\n";
                 for (size_t i=0;i<nlen;i++){
                     nfile << "1 " << i << "\n";
+                }
+
+                nfile << "CELL_TYPES " << nlen << "\n";
+                for (size_t i=0;i<nlen;i++){
+                    nfile << "1\n";
                 }
 
                 nfile << "POINT_DATA " << nlen << "\n";
@@ -208,7 +218,7 @@ void serializerWriteScalarArray(Eigen::VectorXd& scalarArray, std::string name){
         pfile << "SCALARS " << name << " double 1\n";
         pfile << "LOOKUP_TABLE default\n";
         for (size_t i = 0; i < plen; i++){
-            if (currentBody->points.active(i) == 1) {
+            if (currentBody->points.active(i) == 1 && std::isfinite(scalarArray(i))) {
                 pfile << scalarArray(i) << "\n";
             } else {
                 pfile << "0" << "\n";
@@ -221,7 +231,7 @@ void serializerWriteScalarArray(Eigen::VectorXd& scalarArray, std::string name){
         nfile << "SCALARS " << name << " double 1\n";
         nfile << "LOOKUP_TABLE default\n";
         for (size_t i = 0; i < nlen; i++){
-            if (currentBody->nodes.active(i) == 1) {
+            if (currentBody->nodes.active(i) == 1 && std::isfinite(scalarArray(i))) {
                 nfile << scalarArray(i) << "\n";
             } else {
                 nfile << "0" << "\n";
@@ -241,7 +251,7 @@ void serializerWriteVectorArray(Eigen::MatrixXd& vectorArray, std::string name){
         for (size_t i = 0; i < plen; i++){
             //vtk format requires x,y,z
             for (size_t pos = 0; pos < 3; pos++){
-                if (pos < vectorArray.cols() && (currentBody->points.active(i) == 1)){
+                if (pos < vectorArray.cols() && (currentBody->points.active(i) == 1) && std::isfinite(vectorArray(i,pos))){
                     pfile << vectorArray(i,pos) << " ";
                 } else {
                     pfile << "0 ";
@@ -257,7 +267,7 @@ void serializerWriteVectorArray(Eigen::MatrixXd& vectorArray, std::string name){
         for (size_t i = 0; i < nlen; i++){
             //vtk format requires x,y,z
             for (size_t pos = 0; pos < 3; pos++){
-                if (pos < vectorArray.cols() && (currentBody->nodes.active(i) == 1)){
+                if (pos < vectorArray.cols() && (currentBody->nodes.active(i) == 1) && std::isfinite(vectorArray(i,pos))){
                     nfile << vectorArray(i,pos) << " ";
                 } else {
                     nfile << "0 ";
@@ -278,29 +288,34 @@ void serializerWriteTensorArray(Eigen::MatrixXd& tensorArray, std::string name){
         pfile << "TENSORS " << name << " double\n";
         for (size_t i = 0; i < plen; i++){
             //vtk format requires x,y,z
-            for (size_t pos = 0; pos < 3; pos++){
-                //brute force this one
-                if (currentBody->points.active(i) == 0){
-                    pfile << "0 0 0\n";
-                    pfile << "0 0 0\n";
-                    pfile << "0 0 0\n";
-                    pfile << "\n";
-                } else if (tensorArray.cols() == 1) {
-                    pfile << tensorArray(i,0) << " 0 0\n";
-                    pfile << "0 0 0\n";
-                    pfile << "0 0 0\n";
-                    pfile << "\n";
-                } else if (tensorArray.cols() == 4) {
-                    pfile << tensorArray(i,0) << " " << tensorArray(i,1) << " 0\n";
-                    pfile << tensorArray(i,2) << " " << tensorArray(i,3) << " 0\n";
-                    pfile << "0 0 0\n";
-                    pfile << "\n";
-                } else if (tensorArray.cols() == 9) {
-                    pfile << tensorArray(i,0) << " " << tensorArray(i,1) <<  " " << tensorArray(i,2) << "\n";
-                    pfile << tensorArray(i,3) << " " << tensorArray(i,4) <<  " " << tensorArray(i,5) << "\n";
-                    pfile << tensorArray(i,6) << " " << tensorArray(i,7) <<  " " << tensorArray(i,8) << "\n";
-                    pfile << "\n";
+            //brute force this one
+            bool finite = true;
+            for (size_t pos=0;pos<tensorArray.cols();pos++){
+                if (!std::isfinite(tensorArray(i,pos))){
+                    finite = false;
+                    break;
                 }
+            }
+            if (currentBody->points.active(i) == 0 || !finite){
+                pfile << "0 0 0\n";
+                pfile << "0 0 0\n";
+                pfile << "0 0 0\n";
+                pfile << "\n";
+            } else if (tensorArray.cols() == 1) {
+                pfile << tensorArray(i,0) << " 0 0\n";
+                pfile << "0 0 0\n";
+                pfile << "0 0 0\n";
+                pfile << "\n";
+            } else if (tensorArray.cols() == 4) {
+                pfile << tensorArray(i,0) << " " << tensorArray(i,1) << " 0\n";
+                pfile << tensorArray(i,2) << " " << tensorArray(i,3) << " 0\n";
+                pfile << "0 0 0\n";
+                pfile << "\n";
+            } else if (tensorArray.cols() == 9) {
+                pfile << tensorArray(i,0) << " " << tensorArray(i,1) <<  " " << tensorArray(i,2) << "\n";
+                pfile << tensorArray(i,3) << " " << tensorArray(i,4) <<  " " << tensorArray(i,5) << "\n";
+                pfile << tensorArray(i,6) << " " << tensorArray(i,7) <<  " " << tensorArray(i,8) << "\n";
+                pfile << "\n";
             }
         }
     }
@@ -568,11 +583,12 @@ int serializerLoadState(Job* job, std::string fullpath){
 
         std::getline(fin,line); //# job
         if (line.compare(headers[0]) != 0){
-            std::cout << "Expected \"# job\" in file " << fullpath << ". Got \"" << line << "\"." << std::endl;
+            std::cout << "Expected \"" << headers[0] << "\" in file " << fullpath << ". Got \"" << line << "\"." << std::endl;
             std::cout << "Loading failed." << std::endl;
             fin.close();
             return 0;
         }
+
         std::getline(fin,line); //DIM
         job->DIM = std::stod(line);
         std::getline(fin,line); //dt
@@ -598,7 +614,7 @@ int serializerLoadState(Job* job, std::string fullpath){
 
         std::getline(fin,line); //# serializer
         if (line.compare(headers[1]) != 0){
-            std::cout << "Expected \"# serializer\" in file " << fullpath << ". Got \"" << line << "\"." << std::endl;
+            std::cout << "Expected \"" << headers[1] << "\" in file " << fullpath << ". Got \"" << line << "\"." << std::endl;
             std::cout << "Loading failed." << std::endl;
             fin.close();
             return 0;
@@ -619,57 +635,87 @@ int serializerLoadState(Job* job, std::string fullpath){
 
         std::getline(fin,line); //# driver
         if (line.compare(headers[2]) != 0){
-            std::cout << "Expected \"# driver\" in file " << fullpath << ". Got \"" << line << "\"." << std::endl;
+            std::cout << "Expected \"" << headers[2] << "\" in file " << fullpath << ". Got \"" << line << "\"." << std::endl;
             std::cout << "Loading failed." << std::endl;
             fin.close();
             return 0;
         }
         loadStandardProps(&(job->driver),fin);
-        std::getline(fin,line); //filename
-        if (0 == job->driver.driverLoadState(job,&(job->serializer),filepath+line)){
-            std::cout << "Loading failed." << std::endl;
-            fin.close();
-            return 0;
+        if (!(job->driver.filename.empty())) {
+            job->driver.driverSetPlugin(job,
+                                        job->serializer.mainpath + job->driver.filepath,
+                                        job->driver.filename,
+                                        job->driver.fp64_props,
+                                        job->driver.int_props,
+                                        job->driver.str_props);
+            std::getline(fin, line); //filename
+            if (0 == job->driver.driverLoadState(job, &(job->serializer), filepath + line)) {
+                std::cout << "Loading failed." << std::endl;
+                fin.close();
+                return 0;
+            }
+        } else {
+            std::getline(fin, line); //filename
         }
 
         /********/
 
         std::getline(fin,line); //# solver
         if (line.compare(headers[3]) != 0){
-            std::cout << "Expected \"# solver\" in file " << fullpath << ". Got \"" << line << "\"." << std::endl;
+            std::cout << "Expected \"" << headers[3] << "\" in file " << fullpath << ". Got \"" << line << "\"." << std::endl;
             std::cout << "Loading failed." << std::endl;
             fin.close();
             return 0;
         }
         loadStandardProps(&(job->solver),fin);
-        std::getline(fin,line); //filename
-        if (0 == job->solver.solverLoadState(job,&(job->serializer),filepath+line)){
-            std::cout << "Loading failed." << std::endl;
-            fin.close();
-            return 0;
+        if (!(job->solver.filename.empty())) {
+            job->solver.solverSetPlugin(job,
+                                        job->serializer.mainpath + job->solver.filepath,
+                                        job->solver.filename,
+                                        job->solver.fp64_props,
+                                        job->solver.int_props,
+                                        job->solver.str_props);
+            std::getline(fin, line); //filename
+            if (0 == job->solver.solverLoadState(job, &(job->serializer), filepath + line)) {
+                std::cout << "Loading failed." << std::endl;
+                fin.close();
+                return 0;
+            }
+        } else {
+            std::getline(fin, line); //filename
         }
 
         /********/
 
         std::getline(fin,line); //# grid
         if (line.compare(headers[4]) != 0){
-            std::cout << "Expected \"# grid\" in file " << fullpath << ". Got \"" << line << "\"." << std::endl;
+            std::cout << "Expected \"" << headers[4] << "\" in file " << fullpath << ". Got \"" << line << "\"." << std::endl;
             std::cout << "Loading failed." << std::endl;
             fin.close();
             return 0;
         }
         loadStandardProps(&(job->grid),fin);
-        std::getline(fin,line); //filename
-        if (0 == job->grid.gridLoadState(job,&(job->serializer),filepath+line)){
-            std::cout << "Loading failed." << std::endl;
-            fin.close();
-            return 0;
+        if (!(job->grid.filename.empty())) {
+            job->grid.gridSetPlugin(job,
+                                    job->serializer.mainpath + job->grid.filepath,
+                                    job->grid.filename,
+                                    job->grid.fp64_props,
+                                    job->grid.int_props,
+                                    job->grid.str_props);
+            std::getline(fin, line); //filename
+            if (0 == job->grid.gridLoadState(job, &(job->serializer), filepath + line)) {
+                std::cout << "Loading failed." << std::endl;
+                fin.close();
+                return 0;
+            }
+        } else {
+            std::getline(fin, line); //filename
         }
 
         /********/
 
         std::getline(fin,line); //# body
-        while (line.compare(headers[5]) != 0) {
+        while (line.compare(headers[5]) == 0) {
             job->bodies.push_back(Body());
             size_t id = job->bodies.size() - 1;
             job->bodies[id].id = id;
@@ -680,12 +726,14 @@ int serializerLoadState(Job* job, std::string fullpath){
                 fin.close();
                 return 0;
             }
+
             std::getline(fin,line);
             if (0 == job->bodies[id].points.pointsLoadState(job, &(job->bodies[id]), &(job->serializer), filepath + line)) {
                 std::cout << "Loading failed." << std::endl;
                 fin.close();
                 return 0;
             }
+
             std::getline(fin,line);
             if (0 == job->bodies[id].nodes.nodesLoadState(job, &(job->bodies[id]), &(job->serializer), filepath + line)) {
                 std::cout << "Loading failed." << std::endl;
@@ -694,19 +742,43 @@ int serializerLoadState(Job* job, std::string fullpath){
             }
 
             loadStandardProps(&(job->bodies[id].material), fin);
-            std::getline(fin, line); //filename
-            if (0 == job->bodies[id].material.materialLoadState(job, &(job->bodies[id]), &(job->serializer), filepath + line)) {
-                std::cout << "Loading failed." << std::endl;
-                fin.close();
-                return 0;
+            if (!(job->bodies[id].material.filename.empty()) && job->activeBodies[id] != 0 && job->bodies[id].activeMaterial != 0) {
+                job->bodies[id].material.materialSetPlugin(job,
+                                                           &(job->bodies[id]),
+                                                           job->serializer.mainpath + job->bodies[id].material.filepath,
+                                                           job->bodies[id].material.filename,
+                                                           job->bodies[id].material.fp64_props,
+                                                           job->bodies[id].material.int_props,
+                                                           job->bodies[id].material.str_props);
+                std::getline(fin, line); //filename
+                if (0 == job->bodies[id].material.materialLoadState(job, &(job->bodies[id]), &(job->serializer),
+                                                                    filepath + line)) {
+                    std::cout << "Loading failed." << std::endl;
+                    fin.close();
+                    return 0;
+                }
+            } else {
+                std::getline(fin, line); //filename
             }
 
             loadStandardProps(&(job->bodies[id].boundary), fin);
-            std::getline(fin, line); //filename
-            if (0 == job->bodies[id].boundary.boundaryLoadState(job, &(job->bodies[id]), &(job->serializer), filepath + line)) {
-                std::cout << "Loading failed." << std::endl;
-                fin.close();
-                return 0;
+            if (!(job->bodies[id].boundary.filename.empty()) && job->activeBodies[id] != 0 && job->bodies[id].activeBoundary != 0) {
+                job->bodies[id].boundary.boundarySetPlugin(job,
+                                                           &(job->bodies[id]),
+                                                           job->serializer.mainpath + job->bodies[id].boundary.filepath,
+                                                           job->bodies[id].boundary.filename,
+                                                           job->bodies[id].boundary.fp64_props,
+                                                           job->bodies[id].boundary.int_props,
+                                                           job->bodies[id].boundary.str_props);
+                std::getline(fin, line); //filename
+                if (0 == job->bodies[id].boundary.boundaryLoadState(job, &(job->bodies[id]), &(job->serializer),
+                                                                    filepath + line)) {
+                    std::cout << "Loading failed." << std::endl;
+                    fin.close();
+                    return 0;
+                }
+            } else {
+                std::getline(fin, line); //filename
             }
 
             if (!std::getline(fin,line)){
@@ -714,61 +786,40 @@ int serializerLoadState(Job* job, std::string fullpath){
             } //# contact
         }
 
-        while (line.compare(headers[6]) != 0){
+        while (line.compare(headers[6]) == 0){
             job->contacts.push_back(Contact());
             size_t id = job->contacts.size() - 1;
             job->contacts[id].id = id;
 
             loadStandardProps(&(job->contacts[id]),fin);
-            std::getline(fin, line); //filename
-            if (0 == job->contacts[id].contactLoadState(job, &(job->serializer), filepath + line)) {
-                std::cout << "Loading failed." << std::endl;
-                fin.close();
-                return 0;
+            if (!(job->contacts[id].filename.empty()) && job->activeContacts[id] != 0) {
+                job->contacts[id].contactSetPlugin(job,
+                                                   job->serializer.mainpath + job->contacts[id].filepath,
+                                                   job->contacts[id].filename,
+                                                   job->contacts[id].fp64_props,
+                                                   job->contacts[id].int_props,
+                                                   job->contacts[id].str_props);
+                std::getline(fin, line); //filename
+                if (0 == job->contacts[id].contactLoadState(job, &(job->serializer), filepath + line)) {
+                    std::cout << "Loading failed." << std::endl;
+                    fin.close();
+                    return 0;
+                }
+            } else {
+                std::getline(fin, line);
             }
 
             if (!std::getline(fin,line)){
                 break;
             } //# contact
         }
-
-        //serializer already loaded by main
-
-        //driver
-        job->driver.driverSetPlugin(job,
-                                    job->serializer.mainpath + job->driver.filepath,
-                                    job->driver.filename,
-                                    job->driver.fp64_props,
-                                    job->driver.int_props,
-                                    job->driver.str_props);
-
-        //solver
-        job->solver.solverSetPlugin(job,
-                                    job->serializer.mainpath + job->solver.filepath,
-                                    job->solver.filename,
-                                    job->solver.fp64_props,
-                                    job->solver.int_props,
-                                    job->solver.str_props);
-
-        //grid
-        job->grid.gridSetPlugin(job,
-                                job->serializer.mainpath + job->grid.filepath,
-                                job->grid.filename,
-                                job->grid.fp64_props,
-                                job->grid.int_props,
-                                job->grid.str_props);
 
         for (size_t c=0;c<job->contacts.size();c++){
             //contact
             if (job->activeContacts[c] == 0){
                 continue;
             }
-            job->contacts[c].contactSetPlugin(job,
-                                              job->serializer.mainpath + job->contacts[c].filepath,
-                                              job->contacts[c].filename,
-                                              job->contacts[c].fp64_props,
-                                              job->contacts[c].int_props,
-                                              job->contacts[c].str_props);
+            job->contacts[c].contactSetFnPointers(job->contacts[c].handle);
         }
 
         for (size_t b=0;b<job->bodies.size();b++){
@@ -776,24 +827,12 @@ int serializerLoadState(Job* job, std::string fullpath){
                 continue;
             }
             //boundary
-            if(job->bodies[b].activeBoundary == 1) {
-                job->bodies[b].boundary.boundarySetPlugin(job,
-                                                          &(job->bodies[b]),
-                                                          job->serializer.mainpath + job->bodies[b].boundary.filepath,
-                                                          job->bodies[b].boundary.filename,
-                                                          job->bodies[b].boundary.fp64_props,
-                                                          job->bodies[b].boundary.int_props,
-                                                          job->bodies[b].boundary.str_props);
+            if(job->bodies[b].activeBoundary != 0) {
+                job->bodies[b].boundary.boundarySetFnPointers(job->bodies[b].boundary.handle);
             }
             //material
-            if(job->bodies[b].activeMaterial == 1) {
-                job->bodies[b].material.materialSetPlugin(job,
-                                                          &(job->bodies[b]),
-                                                          job->serializer.mainpath + job->bodies[b].material.filepath,
-                                                          job->bodies[b].material.filename,
-                                                          job->bodies[b].material.fp64_props,
-                                                          job->bodies[b].material.int_props,
-                                                          job->bodies[b].material.str_props);
+            if(job->bodies[b].activeMaterial != 0) {
+                job->bodies[b].material.materialSetFnPointers(job->bodies[b].material.handle);
             }
         }
 

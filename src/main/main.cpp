@@ -43,6 +43,8 @@ std::vector<Serializer*> master_list_serializers;
 std::vector<Job*> master_list_jobs;
 
 void sigint_handler(int s){
+    //reset to default handler (one time kill only)
+    signal(SIGINT,SIG_DFL);
     std::cout << std::endl << "SIGINT received." << std::endl;
     for (size_t i=0; i<master_list_serializers.size(); i++){
         std::cout << "Saving " << i << "." << std::endl;

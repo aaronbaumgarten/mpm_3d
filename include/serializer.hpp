@@ -18,12 +18,13 @@ class Job;
 class Serializer: public RunTimeDef{
 public:
     //io properties here
+    /*std::string fullpath; //long path to file
     std::string filename; //name of file
     std::string filepath; //directory of file for access
     std::vector<double> fp64_props; //double properties
     std::vector<int> int_props; //integer properties
     std::vector<std::string> str_props; //string properties
-    void *handle; //.so file handle
+    void *handle; //.so file handle*/
 
     //other info
     std::string mainpath;

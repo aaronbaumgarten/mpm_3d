@@ -136,7 +136,9 @@ void boundaryApplyRules(Job* job, Body* body){
         for (size_t pos=0;pos<body->nodes.x_t.cols();pos++){
             if (bcNodalMask(i,pos) == 1){
                 //zero out velocity on boundary
-                body->nodes.x_t(i,pos) == 0;
+                body->nodes.x_t(i,pos) = 0;
+                body->nodes.mx_t(i,pos) = 0;
+                body->nodes.f(i,pos) = 0;
             }
         }
     }

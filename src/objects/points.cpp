@@ -42,15 +42,15 @@ Points::Points():
 int Points::pointsInit(Job* job, Body* body){
     //extent initialization
     if(job->DIM == 1){
-        for (size_t i=0;i<v.cols();i++){
+        for (size_t i=0;i<v.rows();i++){
             extent[i] = 0.5 * v[i];
         }
     } else if (job->DIM == 2){
-        for (size_t i=0;i<v.cols();i++){
+        for (size_t i=0;i<v.rows();i++){
             extent[i] = 0.5 * std::sqrt(v[i]);
         }
     } else if (job->DIM == 3){
-        for (size_t i = 0; i < v.cols(); i++) {
+        for (size_t i = 0; i < v.rows(); i++) {
             extent[i] = 0.5 * std::cbrt(v[i]);
         }
     }
@@ -161,51 +161,52 @@ std::string Points::pointsSaveState(Job* job, Body* body, Serializer* serializer
         ffile << "count\n" << len << "\n\n";
 
         ffile << "x\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobVectorArrayToFile(x, ffile);
         ffile << "}\n\n";
 
         ffile << "u\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobVectorArrayToFile(u, ffile);
         ffile << "}\n\n";
 
         ffile << "x_t\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobVectorArrayToFile(x_t, ffile);
         ffile << "}\n\n";
 
         ffile << "m\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobScalarArrayToFile(m, ffile);
         ffile << "}\n\n";
 
         ffile << "v\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobScalarArrayToFile(v, ffile);
         ffile << "}\n\n";
 
         ffile << "mx_t\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobVectorArrayToFile(mx_t, ffile);
         ffile << "}\n\n";
 
         ffile << "b\n";
+        ffile << "{\n";
         job->jobVectorArrayToFile(b, ffile);
         ffile << "}\n\n";
 
         ffile << "T\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobTensorArrayToFile(T, ffile);
         ffile << "}\n\n";
 
         ffile << "L\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobTensorArrayToFile(L, ffile);
         ffile << "}\n\n";
 
         ffile << "active\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobScalarArrayToFile(active, ffile);
         ffile << "}\n\n";
 
@@ -236,7 +237,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
             line = StringParser::stringRemoveSpaces(line);
 
             //check if line gives 'count' of points
-            if (line.compare("count")) {
+            if (line.compare("count") == 0) {
                 std::getline(fin, line);
                 line = StringParser::stringRemoveComments(line);
                 line = StringParser::stringRemoveSpaces(line);
@@ -267,7 +268,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                 active.setZero();
                 extent.setZero();
 
-                std::vector<std::string> pointFields = {"x","u","x_t","m","v","mx_t","b","T","L","active","extent"};
+                std::vector<std::string> pointFields = {"x","u","x_t","m","v","mx_t","b","T","L","active","extent","}"};
                 while(std::getline(fin, line)){
                     line = StringParser::stringRemoveComments(line);
                     line = StringParser::stringRemoveSpaces(line);
@@ -378,7 +379,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorArrayFromFile(active, fin);
+                                    job->jobScalarArrayFromFile(active, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"active\". Got: " << line << std::endl;
                                 }
@@ -389,10 +390,13 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorArrayFromFile(extent, fin);
+                                    job->jobScalarArrayFromFile(extent, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"active\". Got: " << line << std::endl;
                                 }
+                                break;
+                            case 11:
+                                //}
                                 break;
                             default:
                                 std::cerr << "Unknown field title: " << line << std::endl;

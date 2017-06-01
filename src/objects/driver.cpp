@@ -17,6 +17,7 @@
 #include "driver.hpp"
 
 Driver::Driver() {
+    fullpath = "";
     filename = "";
     filepath = "";
     fp64_props = std::vector<double>();
@@ -42,12 +43,12 @@ Driver::~Driver() {
 
 void Driver::driverSetPlugin(Job* job, std::string pathIN, std::string nameIN, std::vector<double> fp64IN, std::vector<int> intIN, std::vector<std::string> strIN){
     filename = nameIN;
-    filepath = StringParser::stringMakeDirectory(pathIN);
+    fullpath = StringParser::stringMakeDirectory(pathIN);
     fp64_props = fp64IN;
     int_props = intIN;
     str_props = strIN;
 
-    handle = dlopen((filepath+filename).c_str(), RTLD_LAZY);
+    handle = dlopen((fullpath+filename).c_str(), RTLD_LAZY);
 
     driverSetFnPointers(handle);
 

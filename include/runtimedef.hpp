@@ -12,6 +12,7 @@
 
 class RunTimeDef{
 public:
+    std::string fullpath; //long path to file
     std::string filename; //name of file
     std::string filepath; //directory of file for access
     std::vector<double> fp64_props; //double properties

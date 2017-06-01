@@ -149,7 +149,7 @@ void moveGrid(Job* job){
             if (job->bodies[b].nodes.m(i) > 0) {
                 job->bodies[b].nodes.x_t.row(i) = job->bodies[b].nodes.mx_t.row(i) / job->bodies[b].nodes.m(i);
             } else {
-                job->bodies[b].nodes.x_t.setZero();
+                job->bodies[b].nodes.x_t.row(i).setZero();
             }
         }
 
@@ -159,9 +159,9 @@ void moveGrid(Job* job){
         //calculate difference in velocity
         for (size_t i=0;i<job->bodies[b].nodes.diff_x_t.rows();i++){
             if (job->bodies[b].nodes.m(i) > 0) {
-                job->bodies[b].nodes.diff_x_t.row(i) = job->bodies[b].nodes.f.row(i) / job->bodies[b].nodes.m(i);
+                job->bodies[b].nodes.diff_x_t.row(i) = job->dt * job->bodies[b].nodes.f.row(i) / job->bodies[b].nodes.m(i);
             } else {
-                job->bodies[b].nodes.diff_x_t.setZero();
+                job->bodies[b].nodes.diff_x_t.row(i).setZero();
             }
         }
     }

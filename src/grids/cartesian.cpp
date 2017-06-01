@@ -76,10 +76,10 @@ void hiddenInit(Job* job){
         }
         for (size_t i=0;i<onoff.rows();i++) {
             if (onoff(i) == 0){
-                onoff(i) == 1;
+                onoff(i) = 1;
                 break;
             } else {
-                onoff(i) == 0;
+                onoff(i) = 0;
             }
         }
     }
@@ -88,6 +88,7 @@ void hiddenInit(Job* job){
     Eigen::VectorXi ijk = job->jobVector<int>();
     int tmp;
     nodeIDs.resize(job->grid.element_count,npe);
+    nodeIDs.setZero();
     for (size_t e=0;e<nodeIDs.rows();e++){
         tmp = e;
         //find i,j,k count for element position
@@ -99,10 +100,19 @@ void hiddenInit(Job* job){
         //find node ids for element
         for (size_t n=0;n<nodeIDs.cols();n++){
             for (size_t i=0;i<ijk.rows();i++) {
-                nodeIDs(e, n) += (ijk(i)+A(n,i)) * (Nx(i)+1);
+                //n = i + j*imax + k*imax*jmax
+                //hardcode
+                if (i==0) {
+                    nodeIDs(e, n) += (ijk(i) + A(n,i));
+                } else if (i==1) {
+                    nodeIDs(e, n) += (ijk(i) + A(n,i)) * (Nx(i-1)+1);
+                } else if (i==2) {
+                    nodeIDs(e, n) += (ijk(i) + A(n,i)) * (Nx(i-1)+1) * (Nx(i-2)+1);
+                }
             }
         }
     }
+
     return;
 }
 
@@ -242,9 +252,11 @@ int gridWhichElement(Job* job, Eigen::VectorXd xIN){
         if (!inDomain) { //if xIn is outside domain, return -1
             return -1;
         }
-        if (i > 0){
+        if (i == 1){
             //add number of elements in next layer of id in higher dimensions
             elementID += floor(xIN[i]/hx[i])*(Nx[i-1]);
+        } else if (i == 2){
+            elementID += floor(xIN[i]/hx[i])*(Nx[i-1])*(Nx[i-2]);
         }
     }
     return elementID;

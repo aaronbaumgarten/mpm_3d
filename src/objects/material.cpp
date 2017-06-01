@@ -19,6 +19,7 @@
 #include "material.hpp"
 
 Material::Material() {
+    fullpath = "";
     filename = "";
     filepath = "";
     fp64_props = std::vector<double>();
@@ -45,12 +46,12 @@ Material::~Material() {
 
 void Material::materialSetPlugin(Job* job, Body* body, std::string pathIN, std::string nameIN, std::vector<double> fp64IN, std::vector<int> intIN, std::vector<std::string> strIN){
     filename = nameIN;
-    filepath = StringParser::stringMakeDirectory(pathIN);
+    fullpath = StringParser::stringMakeDirectory(pathIN);
     fp64_props = fp64IN;
     int_props = intIN;
     str_props = strIN;
 
-    handle = dlopen((filepath+filename).c_str(), RTLD_LAZY);
+    handle = dlopen((fullpath+filename).c_str(), RTLD_LAZY);
 
     materialSetFnPointers(handle);
 

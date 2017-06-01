@@ -45,15 +45,26 @@ int Nodes::nodesInit(Job* job, Body* body){
     size_t len = job->grid.node_count;
 
     //initialize vectors to length of grid object
-    if (x.rows() < len) {
+    if (x.rows() != len) {
         x = job->jobVectorArray<double>(len);
         u = job->jobVectorArray<double>(len);
         x_t = job->jobVectorArray<double>(len);
+        diff_x_t = job->jobVectorArray<double>(len);
         m.resize(len);
         mx_t = job->jobVectorArray<double>(len);
         f = job->jobVectorArray<double>(len);
         active.resize(len);
     }
+
+    x.setZero();
+    u.setZero();
+    x_t.setZero();
+    diff_x_t.setZero();
+
+    m.setZero();
+    mx_t.setZero();
+    f.setZero();
+    active.setOnes();
 
     for (size_t i=0;i<len;i++){
         x.row(i) = job->grid.gridNodeIDToPosition(job,i);
@@ -69,6 +80,7 @@ void Nodes::nodesWriteFrame(Job* job, Body* body, Serializer* serializer){
     //serializer.serializerWriteVectorArray(&x, "position")
     serializer->serializerWriteVectorArray(u,"displacement");
     serializer->serializerWriteVectorArray(x_t,"velocity");
+    serializer->serializerWriteVectorArray(diff_x_t,"velocity");
     serializer->serializerWriteScalarArray(m,"mass");
     serializer->serializerWriteVectorArray(mx_t,"momentum");
     serializer->serializerWriteVectorArray(f,"force");
@@ -96,42 +108,48 @@ std::string Nodes::nodesSaveState(Job* job, Body* body, Serializer* serializer, 
 
     //write data
     if (ffile.is_open()) {
-        size_t len = x.size();
+        size_t len = x.rows();
 
-        ffile << "# mpm_v2 Points\n";
+        ffile << "# mpm_v2 Nodes\n";
         ffile << "count\n" << len << "\n\n";
 
         ffile << "x\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobVectorArrayToFile(x, ffile);
         ffile << "}\n\n";
 
         ffile << "u\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobVectorArrayToFile(u, ffile);
         ffile << "}\n\n";
 
         ffile << "x_t\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobVectorArrayToFile(x_t, ffile);
         ffile << "}\n\n";
 
+        ffile << "diff_x_t\n";
+        ffile << "{\n";
+        job->jobVectorArrayToFile(diff_x_t, ffile);
+        ffile << "}\n\n";
+
         ffile << "m\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobScalarArrayToFile(m, ffile);
         ffile << "}\n\n";
 
         ffile << "mx_t\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobVectorArrayToFile(mx_t, ffile);
         ffile << "}\n\n";
 
         ffile << "f\n";
+        ffile << "{\n";
         job->jobVectorArrayToFile(f, ffile);
         ffile << "}\n\n";
 
         ffile << "active\n";
-        ffile << "{";
+        ffile << "{\n";
         job->jobScalarArrayToFile(active, ffile);
         ffile << "}\n\n";
 
@@ -157,7 +175,7 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
             line = StringParser::stringRemoveSpaces(line);
 
             //check if line gives 'count' of points
-            if (line.compare("count")) {
+            if (line.compare("count")==0) {
                 std::getline(fin, line);
                 line = StringParser::stringRemoveComments(line);
                 line = StringParser::stringRemoveSpaces(line);
@@ -167,6 +185,7 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
                 x = job->jobVectorArray<double>(len);
                 u = job->jobVectorArray<double>(len);
                 x_t = job->jobVectorArray<double>(len);
+                diff_x_t = job->jobVectorArray<double>(len);
                 m.resize(len);
                 mx_t = job->jobVectorArray<double>(len);
                 f = job->jobVectorArray<double>(len);
@@ -175,12 +194,13 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
                 x.setZero();
                 u.setZero();
                 x_t.setZero();
+                diff_x_t.setZero();
                 m.setZero();
                 mx_t.setZero();
                 f.setZero();
                 active.setZero();
 
-                std::vector<std::string> nodeFields = {"x","u","x_t","m","mx_t","f","active"};
+                std::vector<std::string> nodeFields = {"x","u","x_t","diff_x_t","m","mx_t","f","active","}"};
                 while(std::getline(fin, line)){
                     line = StringParser::stringRemoveComments(line);
                     line = StringParser::stringRemoveSpaces(line);
@@ -220,6 +240,17 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
                                 }
                                 break;
                             case 3:
+                                //diff_x_t
+                                std::getline(fin, line);
+                                line = StringParser::stringRemoveComments(line);
+                                line = StringParser::stringRemoveSpaces(line);
+                                if (line.compare("{") == 0){
+                                    job->jobVectorArrayFromFile(diff_x_t, fin);
+                                } else {
+                                    std::cerr << "Expected \"{\" symbol after \"diff_x_t\". Got: " << line << std::endl;
+                                }
+                                break;
+                            case 4:
                                 //m
                                 std::getline(fin, line);
                                 line = StringParser::stringRemoveComments(line);
@@ -230,7 +261,7 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
                                     std::cerr << "Expected \"{\" symbol after \"m\". Got: " << line << std::endl;
                                 }
                                 break;
-                            case 4:
+                            case 5:
                                 //mx_t
                                 std::getline(fin, line);
                                 line = StringParser::stringRemoveComments(line);
@@ -241,7 +272,7 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
                                     std::cerr << "Expected \"{\" symbol after \"mx_t\". Got: " << line << std::endl;
                                 }
                                 break;
-                            case 5:
+                            case 6:
                                 //f
                                 std::getline(fin, line);
                                 line = StringParser::stringRemoveComments(line);
@@ -252,16 +283,19 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
                                     std::cerr << "Expected \"{\" symbol after \"b\". Got: " << line << std::endl;
                                 }
                                 break;
-                            case 6:
+                            case 7:
                                 //active
                                 std::getline(fin, line);
                                 line = StringParser::stringRemoveComments(line);
                                 line = StringParser::stringRemoveSpaces(line);
                                 if (line.compare("{") == 0){
-                                    job->jobVectorArrayFromFile(active, fin);
+                                    job->jobScalarArrayFromFile(active, fin);
                                 } else {
                                     std::cerr << "Expected \"{\" symbol after \"active\". Got: " << line << std::endl;
                                 }
+                                break;
+                            case 8:
+                                //}
                                 break;
                             default:
                                 std::cerr << "Unknown field title: " << line << std::endl;

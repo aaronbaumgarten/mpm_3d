@@ -57,11 +57,16 @@ void driverInit(Job* job){
 void driverRun(Job* job) {
     size_t stepCount = 0;
     size_t frameCount = 0;
+
+    //initialize gravity
+    driverGenerateGravity(job);
+    driverApplyGravity(job);
+
     //run simulation until stop_time
     while (job->t < stop_time){
         //run solver
         job->solver.solverStep(job);
-        std::cout << "Step Completer [" << ++stepCount << "]." << std::flush;
+        std::cout << "Step Completed [" << ++stepCount << "]." << std::flush;
         if (job->serializer.serializerWriteFrame(job) == 1) {
             //successful frame written
             std::cout << " Frame Written [" << ++frameCount << "]." << std::flush;

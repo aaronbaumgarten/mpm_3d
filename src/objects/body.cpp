@@ -61,10 +61,10 @@ void Body::bodyInit(Job* job){
         }
         for (size_t i=0;i<onoff.rows();i++) {
             if (onoff(i) == -1){
-                onoff(i) == 1;
+                onoff(i) = 1;
                 break;
             } else {
-                onoff(i) == -1;
+                onoff(i) = -1;
             }
         }
     }
@@ -124,10 +124,10 @@ int Body::bodyLoadState(Job* job, Serializer* serializer, std::string fullpath) 
         }
         for (size_t i=0;i<onoff.rows();i++) {
             if (onoff(i) == -1){
-                onoff(i) == 1;
+                onoff(i) = 1;
                 break;
             } else {
-                onoff(i) == -1;
+                onoff(i) = -1;
             }
         }
     }
@@ -248,6 +248,5 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi /*= Body::CPDI_ON*/) {
             std::cerr << "Unrecognized Argument for use_cpdi in Body::bodyGenerateMap(): " << use_cpdi << std::endl;
         }
     }
-
     return;
 }
