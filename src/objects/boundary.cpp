@@ -37,6 +37,25 @@ Boundary::Boundary() {
     boundaryLoadState = NULL;
 }
 
+Boundary::Boundary(const Boundary& obj){
+    fullpath = obj.fullpath;
+    filename = obj.filename;
+    filepath = obj.filepath;
+    fp64_props = obj.fp64_props;
+    int_props = obj.int_props;
+    str_props = obj.str_props;
+
+    handle = NULL;
+
+    boundaryInit = NULL;
+    boundaryGenerateRules = NULL;
+    boundaryApplyRules = NULL;
+
+    boundaryWriteFrame = NULL;
+    boundarySaveState = NULL;
+    boundaryLoadState = NULL;
+}
+
 Boundary::~Boundary() {
     if (handle){
         dlclose(handle);
@@ -50,14 +69,18 @@ void Boundary::boundarySetPlugin(Job* job, Body* body, std::string pathIN, std::
     int_props = intIN;
     str_props = strIN;
 
-    handle = dlopen((fullpath+filename).c_str(), RTLD_LAZY);
-
-    boundarySetFnPointers(handle);
+    boundarySetFnPointers();
 
     return;
 }
 
-void Boundary::boundarySetFnPointers(void* handle){
+void Boundary::boundarySetFnPointers(){
+    if (!handle) {
+        //handle = dlopen((fullpath + filename).c_str(), RTLD_LAZY);
+        handle = dlmopen(LM_ID_NEWLM, (fullpath + filename).c_str(), RTLD_LAZY);
+
+    }
+
     char* dlsym_error;
     if (!handle) {
         std::cerr << "Cannot open library: " << dlerror() << '\n';

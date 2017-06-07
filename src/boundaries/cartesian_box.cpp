@@ -53,7 +53,7 @@ void boundaryInit(Job* job, Body* body){
         }
     }
 
-    std::cout << "Boundary Initialized: [" << body->id << "]." << std::endl;
+    std::cout << "Boundary Initialized: [" << body->name << "]." << std::endl;
 
     return;
 }
@@ -95,6 +95,9 @@ std::string boundarySaveState(Job* job, Body* body, Serializer* serializer, std:
         std::cout << "Unable to open \"" << filename << "\" !\n";
         return "ERR";
     }
+
+    std::cout << "Boundary Saved: [" << body->name << "]." << std::endl;
+
     return filename;
 }
 
@@ -116,7 +119,7 @@ int boundaryLoadState(Job* job, Body* body, Serializer* serializer, std::string 
         return 0;
     }
 
-    std::cout << "Boundary Loaded: [" << body->id << "]." << std::endl;
+    std::cout << "Boundary Loaded: [" << body->name << "]." << std::endl;
 
     return 1;
 }

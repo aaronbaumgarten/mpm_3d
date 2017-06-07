@@ -311,5 +311,7 @@ int Nodes::nodesLoadState(Job* job, Body* body, Serializer* serializer, std::str
         return 0;
     }
 
+    std::cout << "Nodes Loaded: [" << body->name << "]." << std::endl;
+
     return 1;
 }

@@ -33,6 +33,23 @@ Solver::Solver() {
     solverLoadState = NULL;
 }
 
+Solver::Solver(const Solver& obj){
+    fullpath = obj.fullpath;
+    filename = obj.filename;
+    filepath = obj.filepath;
+    fp64_props = obj.fp64_props;
+    int_props = obj.int_props;
+    str_props = obj.str_props;
+
+    handle = NULL;
+
+    solverInit = NULL;
+    solverStep = NULL;
+
+    solverSaveState = NULL;
+    solverLoadState = NULL;
+}
+
 Solver::~Solver() {
     if (handle){
         dlclose(handle);
@@ -46,14 +63,16 @@ void Solver::solverSetPlugin(Job* job, std::string pathIN, std::string nameIN, s
     int_props = intIN;
     str_props = strIN;
 
-    handle = dlopen((fullpath+filename).c_str(), RTLD_LAZY);
-
-    solverSetFnPointers(handle);
+    solverSetFnPointers();
 
     return;
 }
 
-void Solver::solverSetFnPointers(void* handle){
+void Solver::solverSetFnPointers(){
+    if (!handle) {
+        handle = dlopen((fullpath + filename).c_str(), RTLD_LAZY);
+    }
+
     char* dlsym_error;
     if (!handle) {
         std::cerr << "Cannot open library: " << dlerror() << '\n';

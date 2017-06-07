@@ -33,9 +33,10 @@ public:
 
     //material specific functions
     Material();
+    Material(const Material&);
     ~Material();
     void materialSetPlugin(Job*, Body*, std::string, std::string, std::vector<double>, std::vector<int>, std::vector<std::string>); //set .so material file
-    void materialSetFnPointers(void*); //set function pointers to .so file handle
+    void materialSetFnPointers(); //set function pointers to .so file handle
 
     void (*materialWriteFrame)(Job*, Body*, Serializer*); //write frame to serializer
     std::string (*materialSaveState)(Job*, Body*, Serializer*, std::string); //save state to serializer folder with returned filename
@@ -44,7 +45,7 @@ public:
     void (*materialInit)(Job*,Body*); // initialize material
     void (*materialCalculateStress)(Job*,Body*,int); // calculate stress given body and job state, int=1 updates internal variables
     void (*materialAssignStress)(Job*,Body*,Eigen::MatrixXd stressIN,int idIN,int); // assign stress state to specific particle id
-    void (*materialAssignPressure)(Job*,Body*,double stressIN,int idIN,int); // assign pressure state to specific particle
+    void (*materialAssignPressure)(Job*,Body*,double pressureIN,int idIN,int); // assign pressure state to specific particle
 
     //other functions
 };

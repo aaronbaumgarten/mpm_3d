@@ -31,9 +31,10 @@ public:
 
     //boundary specific functions
     Contact();
+    Contact(const Contact&);
     ~Contact();
     void contactSetPlugin(Job*, std::string, std::string, std::vector<double>, std::vector<int>, std::vector<std::string>); // set .so file
-    void contactSetFnPointers(void*); //set function pointers to .so file handle
+    void contactSetFnPointers(); //set function pointers to .so file handle
 
     void (*contactWriteFrame)(Job*, Serializer*); //write frame to serializer
     std::string (*contactSaveState)(Job*, Serializer*, std::string); //save state to serializer folder with returned filename

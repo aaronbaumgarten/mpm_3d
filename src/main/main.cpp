@@ -43,16 +43,25 @@ std::vector<Serializer*> master_list_serializers;
 std::vector<Job*> master_list_jobs;
 
 void sigint_handler(int s){
-    //reset to default handler (one time kill only)
-    signal(SIGINT,SIG_DFL);
+    //ask to save
     std::cout << std::endl << "SIGINT received." << std::endl;
-    for (size_t i=0; i<master_list_serializers.size(); i++){
-        std::cout << "Saving " << i << "." << std::endl;
-        master_list_serializers[i]->serializerSaveState(master_list_jobs[i]);
-        delete(master_list_jobs[i]);
+    std::cout << "Save? [y/n] ";
+    char c = getchar();
+    if (c == 'y' || c == 'Y'){
+        for (size_t i=0; i<master_list_serializers.size(); i++){
+            std::cout << "Saving " << i << "." << std::endl;
+            master_list_serializers[i]->serializerSaveState(master_list_jobs[i]);
+            delete(master_list_jobs[i]);
+        }
+        std::cout << "Exiting." << std::endl;
+        exit(0);
+    } else {//if (c == 'n' || c == 'N') {
+        for (size_t i=0; i<master_list_jobs.size(); i++){
+            delete(master_list_jobs[i]);
+        }
+        std::cout << "Exiting." << std::endl;
+        exit(0);
     }
-    std::cout << "Exiting." << std::endl;
-    exit(0);
 }
 
 int main(int argc, char *argv[]) {
@@ -116,17 +125,19 @@ int main(int argc, char *argv[]) {
                 // -r SIMFILE
                 //limit scope
                 if (true) {
-                    std::string filename(argv[2]);
+                    std::string defaultfile(argv[2]);
                     std::string line;
                     std::vector<std::string> lvec;
-                    lvec = StringParser::stringSplitString(filename, '/');
+
+                    lvec = StringParser::stringSplitString(defaultfile, '/');
                     std::string filepath = "";
+                    std::string filename;
                     for (size_t i = 0; i < (lvec.size() - 1); i++) {
                         filepath += lvec[i];
                         filepath += "/";
                     } //location of file
 
-                    std::ifstream fin(filepath + "defaultsave.txt"); //open default savefile
+                    std::ifstream fin(defaultfile);
                     if (fin.is_open()) {
                         std::getline(fin, line); //filename
                         job->serializer.filename = line;
@@ -152,6 +163,9 @@ int main(int argc, char *argv[]) {
                             job->serializer.str_props = lvec;
                         }
 
+                        std::getline(fin, line); //save filename
+                        filename = line;
+
                         //close file
                         fin.close();
 
@@ -164,14 +178,14 @@ int main(int argc, char *argv[]) {
                                                             job->serializer.str_props);
 
                         //call serializer to load state from file
-                        if (0 == job->serializer.serializerLoadState(job,std::string(argv[2]))){
-                            std::cout << "\"" << inputArg << "\" failed to load: " << std::string(argv[2]) << " ! Exiting." << std::endl;
+                        if (0 == job->serializer.serializerLoadState(job,(filepath+filename))){
+                            std::cout << "\"" << inputArg << "\" failed to load: " << (filepath+filename) << " ! Exiting." << std::endl;
                             usage(argv[0]);
                             delete(job);
                             exit(0);
                         }
                     } else {
-                        std::cout << "\"" << inputArg << "\" failed to open: " << filepath << "defaultsave.txt! Exiting." << std::endl;
+                        std::cout << "\"" << inputArg << "\" failed to open: " << std::string(argv[2]) << " ! Exiting." << std::endl;
                         usage(argv[0]);
                         delete(job);
                         exit(0);

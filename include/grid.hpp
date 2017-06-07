@@ -34,9 +34,10 @@ public:
 
     //grid object specific functions
     Grid();
+    Grid(const Grid&);
     ~Grid();
     void gridSetPlugin(Job*, std::string, std::string, std::vector<double>, std::vector<int>, std::vector<std::string>); //assign .so plugin for functions
-    void gridSetFnPointers(void*); //set function pointers to .so file handle
+    void gridSetFnPointers(); //set function pointers to .so file handle
 
     void (*gridInit)(Job*); //initialize grid file
 

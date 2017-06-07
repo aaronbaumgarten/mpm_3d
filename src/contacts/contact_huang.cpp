@@ -20,10 +20,10 @@
 #include "nodes.hpp"
 #include "points.hpp"
 
-int id;
-double mu_f;
-std::vector<int> bodyIDs;
-Eigen::MatrixXd contact_normal;
+int id = 0;
+double mu_f = 0.4;
+std::vector<int> bodyIDs = {-1,-1};
+Eigen::MatrixXd contact_normal(0,0);
 
 extern "C" void contactWriteFrame(Job* job, Serializer* serializer); //write frame to serializer
 extern "C" std::string contactSaveState(Job* job, Serializer* serializer, std::string filepath); //save state to serializer folder with returned filename
@@ -130,10 +130,13 @@ void contactInit(Job* job, Contact* contact){
         mu_f = contact->fp64_props[0];
 
         //set body ids by name
-        if (contact->str_props.size() > 2){
+        if (contact->str_props.size() == 2){
             for (size_t i=0;i<bodyIDs.size();i++) {
                 for (size_t b = 0; b < job->bodies.size(); b++) {
-                    bodyIDs[i] = StringParser::stringFindStringID(contact->str_props,job->bodies[b].name);
+                    if (contact->str_props[i].compare(job->bodies[b].name) == 0){
+                        bodyIDs[i] = b;
+                        break;
+                    }
                 }
             }
         }
@@ -141,16 +144,23 @@ void contactInit(Job* job, Contact* contact){
         // or set body ids by int
         for (size_t i=0;i<bodyIDs.size();i++) {
             if (bodyIDs[i] < 0){
-                bodyIDs = contact->int_props;
+                if (contact->int_props.size() == 2) {
+                    bodyIDs = contact->int_props;
+                } else {
+                    std::cout << contact->fp64_props.size() << ", " << contact->int_props.size() << ", " << contact->str_props.size() << "\n";
+                    fprintf(stderr,
+                            "%s:%s: Need at least 3 properties defined ({mu_f},{body_1,body_2}).\n",
+                            __FILE__, __func__);
+                    exit(0);
+                }
                 break;
             }
         }
 
-        //initialize normals for body 1
         contact_normal = job->jobVectorArray<double>(job->bodies[bodyIDs[0]].nodes.x.rows());
 
-        printf("Contact properties (mu_f = %g).\n",
-               mu_f);
+        printf("Contact properties (mu_f = %g, {%i, %i}).\n",
+               mu_f, bodyIDs[0], bodyIDs[1]);
     }
 
     std::cout << "Contact Initialized: [" << id << "]." << std::endl;
@@ -166,7 +176,7 @@ void contactGenerateRules(Job* job){
     job->bodies[bodyIDs[0]].bodyCalcNodalGradient<Eigen::MatrixXd,Eigen::VectorXd>(job,contact_normal,job->bodies[bodyIDs[0]].points.m,Body::SET);
     for (size_t i=0;i<contact_normal.rows();i++){
         //normalize
-        contact_normal.row(i) *= 1.0/contact_normal.row(i).norm();
+        contact_normal.row(i) *= -1.0/contact_normal.row(i).norm();
     }
     return;
 }
@@ -174,29 +184,34 @@ void contactGenerateRules(Job* job){
 /*----------------------------------------------------------------------------*/
 
 void contactApplyRules(Job* job){
-    Eigen::VectorXd normal;
+    Eigen::VectorXd normal = job->jobVector<double>();
     double m1, m2;
     double fn1i, ft1i;
-    Eigen::VectorXd mv1i, mv2i, vCMi;
-    Eigen::VectorXd fcti, s1i;
+    Eigen::VectorXd mv1i = job->jobVector<double>();
+    Eigen::VectorXd mv2i = job->jobVector<double>();
+    Eigen::VectorXd vCMi = job->jobVector<double>();
+    Eigen::VectorXd fcti = job->jobVector<double>();
+    Eigen::VectorXd s1i = job->jobVector<double>();
 
     size_t b1 = bodyIDs[0];
     size_t b2 = bodyIDs[1];
+
     //look for contacts if there are two bodies
     for (size_t i = 0; i < contact_normal.rows(); i++) {
         //test every node for contact
         if (job->bodies[b1].nodes.m[i] > 0 && job->bodies[b2].nodes.m[i] > 0) {
+
             normal << contact_normal.row(i).transpose();
 
             //determine 'center of mass' velocity
             m1 = job->bodies[b1].nodes.m[i];
             m2 = job->bodies[b2].nodes.m[i];
-            mv1i << (job->bodies[b1].nodes.mx_t.row(i) + job->dt * job->bodies[b1].nodes.f).transpose();
-            mv2i << (job->bodies[b2].nodes.mx_t.row(i) + job->dt * job->bodies[b2].nodes.f).transpose();
+            mv1i << (job->bodies[b1].nodes.mx_t.row(i) + job->dt * job->bodies[b1].nodes.f.row(i)).transpose();
+            mv2i << (job->bodies[b2].nodes.mx_t.row(i) + job->dt * job->bodies[b2].nodes.f.row(i)).transpose();
             vCMi  = (mv1i + mv2i) / (m1 + m2);
 
             //check if converging
-            if ((mv1i/m1 - vCMi).dot(normal) > 0 ) {
+            if ((mv1i/m1 - vCMi).dot(normal) > 0) {
                 //determine normal force
                 //fn1i = m1 * m2 / (job->dt * (m1 + m2)) * (mv2i.dot(n1i) / m2 - mv1i.dot(n1i) / m1);
                 fn1i = m1 / job->dt * (vCMi.dot(normal) - mv1i.dot(normal) / m1);

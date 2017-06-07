@@ -29,9 +29,10 @@ public:
 
     //boundary specific functions
     Driver();
+    Driver(const Driver&);
     ~Driver();
     void driverSetPlugin(Job*, std::string, std::string, std::vector<double>, std::vector<int>, std::vector<std::string>); //assign .so plugin file
-    void driverSetFnPointers(void*); //set function pointers to .so file handle
+    void driverSetFnPointers(); //set function pointers to .so file handle
 
     void (*driverInit)(Job*); //initialize driver
     void (*driverRun)(Job*); //run simulation

@@ -1,6 +1,6 @@
 //
-// Created by aaron on 5/24/17.
-// isolin.cpp
+// Created by aaron on 6/7/17.
+// viscofluid.cpp
 //
 
 #include <iostream>
@@ -18,8 +18,7 @@
 #include "points.hpp"
 #include "material.hpp"
 
-double E, nu, G, K;
-double lambda;
+double mu, K;
 
 extern "C" void materialWriteFrame(Job* job, Body* body, Serializer* serializer);
 extern "C" std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
@@ -36,17 +35,14 @@ void materialInit(Job* job, Body* body){
     if (body->material.fp64_props.size() < 2){
         std::cout << body->material.fp64_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 2 properties defined (E, nu).\n",
+                "%s:%s: Need at least 2 properties defined (K, mu).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
-        E = body->material.fp64_props[0];
-        nu = body->material.fp64_props[1];
-        G = E / (2.0 * (1.0 + nu));
-        K = E / (3.0 * (1.0 - 2 * nu));
-        lambda = K - 2.0 * G / 3.0;
-        printf("Material properties (E = %g, nu = %g, G = %g, K = %g).\n",
-               E, nu, G, K);
+        K = body->material.fp64_props[0];
+        mu = body->material.fp64_props[1];
+        printf("Material properties (K = %g, mu = %g).\n",
+               K, mu);
     }
 
     std::cout << "Material Initialized: [" << body->name << "]." << std::endl;
@@ -80,7 +76,7 @@ std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std:
 
     if (ffile.is_open()){
         ffile << "# mpm_v2 materials/isolin.so\n";
-        ffile << E << "\n" << nu << "\n";
+        ffile << K << "\n" << mu << "\n";
         ffile.close();
     } else {
         std::cout << "Unable to open \"" << filepath+filename << "\" !\n";
@@ -100,18 +96,15 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
 
     if(fin.is_open()){
         std::getline(fin,line); //first line
-        std::getline(fin,line); //E
-        E = std::stod(line);
-        std::getline(fin,line); //nu
-        nu = std::stod(line);
+        std::getline(fin,line); //K
+        K = std::stod(line);
+        std::getline(fin,line); //mu
+        mu = std::stod(line);
+
         fin.close();
 
-        G = E / (2.0 * (1.0 + nu));
-        K = E / (3.0 * (1.0 - 2 * nu));
-        lambda = K - 2.0 * G / 3.0;
-
-        printf("Material properties (E = %g, nu = %g, G = %g, K = %g).\n",
-               E, nu, G, K);
+        printf("Material properties (K = %g, mu = %g).\n",
+               K, mu);
     } else {
         std::cout << "ERROR: Unable to open file: " << fullpath << std::endl;
         return 0;
@@ -127,9 +120,9 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     Eigen::MatrixXd T = job->jobTensor<double>();
     Eigen::MatrixXd L = job->jobTensor<double>();
     Eigen::MatrixXd D = job->jobTensor<double>();
-    Eigen::MatrixXd W = job->jobTensor<double>();
 
     double trD;
+    Eigen::VectorXd J = body->points.v.array() / body->points.v0.array();
 
     Eigen::MatrixXd tmpMat = job->jobTensor<double>();
     Eigen::VectorXd tmpVec;
@@ -142,20 +135,20 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         tmpVec = body->points.L.row(i).transpose();
         L = job->jobTensor<double>(tmpVec.data());
 
-        tmpVec = body->points.T.row(i).transpose();
-        T = job->jobTensor<double>(tmpVec.data());
-
         D = 0.5*(L+L.transpose());
-        W = 0.5*(L-L.transpose());
 
         trD = D.trace();
 
-        tmpMat = (2*G*D) + (lambda*trD*job->jobTensor<double>(Job::IDENTITY)) + (W*T) - (T*W);
+        //T = 2*mu*D_0 + K*log(J)*I
+        T = 2*mu*(D - (trD/D.rows())*job->jobTensor<double>(Job::IDENTITY)) + K*std::log(J(i))*job->jobTensor<double>(Job::IDENTITY);
+
         for (size_t i=0;i<tmpVec.size();i++){
-            tmpVec(i) = tmpMat(i);
+            tmpVec(i) = T(i);
         }
 
-        body->points.T.row(i) = body->points.T.row(i) + job->dt * tmpVec.transpose();
+        for (size_t pos=0;pos<T.size();pos++){
+            body->points.T(i,pos) = T(pos);
+        }
     }
 
     return;

@@ -35,6 +35,25 @@ Driver::Driver() {
     driverLoadState = NULL;
 }
 
+Driver::Driver(const Driver& obj){
+    fullpath = obj.fullpath;
+    filename = obj.filename;
+    filepath = obj.filepath;
+    fp64_props = obj.fp64_props;
+    int_props = obj.int_props;
+    str_props = obj.str_props;
+
+    handle = NULL;
+
+    driverInit = NULL;
+    driverRun = NULL;
+    driverGenerateGravity = NULL;
+    driverApplyGravity = NULL;
+
+    driverSaveState = NULL;
+    driverLoadState = NULL;
+}
+
 Driver::~Driver() {
     if (handle){
         dlclose(handle);
@@ -48,14 +67,16 @@ void Driver::driverSetPlugin(Job* job, std::string pathIN, std::string nameIN, s
     int_props = intIN;
     str_props = strIN;
 
-    handle = dlopen((fullpath+filename).c_str(), RTLD_LAZY);
-
-    driverSetFnPointers(handle);
+    driverSetFnPointers();
 
     return;
 }
 
-void Driver::driverSetFnPointers(void* handle){
+void Driver::driverSetFnPointers(){
+    if (!handle) {
+        handle = dlopen((fullpath + filename).c_str(), RTLD_LAZY);
+    }
+
     char* dlsym_error;
     if (!handle) {
         std::cerr << "Cannot open library: " << dlerror() << '\n';

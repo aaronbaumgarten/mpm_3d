@@ -61,11 +61,12 @@ int Job::jobInit(){
 
     grid.gridInit(this);
 
-    for (size_t i=0; i<contacts.size(); i++){
-        contacts[i].contactInit(this, &(contacts[i]));
-    }
     for (size_t i=0; i<bodies.size(); i++){
         bodies[i].bodyInit(this);
+    }
+
+    for (size_t i=0; i<contacts.size(); i++){
+        contacts[i].contactInit(this, &(contacts[i]));
     }
 
     return 1;

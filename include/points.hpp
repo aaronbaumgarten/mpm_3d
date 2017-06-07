@@ -26,6 +26,7 @@ public:
     Eigen::MatrixXd x_t;
     Eigen::VectorXd m;
     Eigen::VectorXd v;
+    Eigen::VectorXd v0;
     Eigen::MatrixXd mx_t;
     Eigen::MatrixXd b;
     Eigen::MatrixXd T;

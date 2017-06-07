@@ -41,6 +41,32 @@ Grid::Grid() {
     gridLoadState = NULL;
 }
 
+Grid::Grid(const Grid& obj){
+    fullpath = obj.fullpath;
+    filename = obj.filename;
+    filepath = obj.filepath;
+    fp64_props = obj.fp64_props;
+    int_props = obj.int_props;
+    str_props = obj.str_props;
+
+    node_count = obj.node_count;
+    element_count = obj.element_count;
+
+
+    handle = NULL;
+
+    gridInit = NULL;
+    gridWhichElement = NULL;
+    gridInDomain = NULL;
+    gridNodeIDToPosition = NULL;
+    gridEvaluateShapeFnValue = NULL;
+    gridEvaluateShapeFnGradient = NULL;
+
+    gridWriteFrame = NULL;
+    gridSaveState = NULL;
+    gridLoadState = NULL;
+}
+
 Grid::~Grid() {
     if (handle){
         dlclose(handle);
@@ -54,14 +80,16 @@ void Grid::gridSetPlugin(Job* job, std::string pathIN, std::string nameIN, std::
     int_props = intIN;
     str_props = strIN;
 
-    handle = dlopen((fullpath+filename).c_str(), RTLD_LAZY);
-
-    gridSetFnPointers(handle);
+    gridSetFnPointers();
 
     return;
 }
 
-void Grid::gridSetFnPointers(void* handle){
+void Grid::gridSetFnPointers(){
+    if (!handle) {
+        handle = dlopen((fullpath + filename).c_str(), RTLD_LAZY);
+    }
+
     char* dlsym_error;
     if (!handle) {
         std::cerr << "Cannot open library: " << dlerror() << '\n';

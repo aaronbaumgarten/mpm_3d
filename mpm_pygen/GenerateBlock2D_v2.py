@@ -18,12 +18,13 @@ print "files named"
 #Ly = Lx = Lz = 0.4
 Lx = 1.0
 Ly = 1.0
-Lz = 0.5
+Lz = 1.0
 #Ne = 40
 Nx = 20
 Ny = 20
-Nz = 10
+Nz = 1
 lmpp = 2
+Lz = 1.0*lmpp
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
 print "grid created"
 
@@ -31,14 +32,14 @@ print "grid created"
 g = -9.81
 
 # free block properties
-block_properties = { 'rho': 1000.0 }
-block_width = 0.4
+block_properties = { 'rho': 700.0 }
+block_width = 0.2
 block_height = 0.2
-block_depth = 0.4
+block_depth = 0.2
 hx = Lx/Nx
-block_primitive = Primitives3d.Box((Lx-block_width)/2, (Lx+block_width)/2,
-                                 (Ly-block_depth)/2, (Ly+block_depth)/2,
-                                 0, block_height,
+block_primitive = Primitives3d.Box((Lx-block_width)/2.0, (Lx+block_width)/2.0,
+                                 0.5,0.5+block_height,
+                                 0, 1.0,
                                  )
 block_body = CSGTree3d.Node(block_primitive)
 print "body created"
@@ -70,6 +71,6 @@ with open(particle_filename, 'w') as f:
     #    if (mpm_point['body'] == 1):
     #        nb1 += 1
     #    mpm_points.append(mpm_point)
-        f.write("%g %g %g %g %g %g %g %g %i\n" % (block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 0, 0, 0, 1))
+        f.write("%g %g %g %g %g %g %i\n" % (block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, 0, 0, 1))
 
 print "file written"

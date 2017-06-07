@@ -23,6 +23,31 @@ Serializer::Serializer() {
     int_props = std::vector<int>();
     str_props = std::vector<std::string>();
 
+    mainpath = "";
+
+    handle = NULL;
+
+    serializerInit = NULL;
+
+    serializerWriteFrame = NULL;
+    serializerWriteScalarArray = NULL;
+    serializerWriteVectorArray = NULL;
+    serializerWriteTensorArray = NULL;
+
+    serializerSaveState = NULL;
+    serializerLoadState = NULL;
+}
+
+Serializer::Serializer(const Serializer& obj){
+    fullpath = obj.fullpath;
+    filename = obj.filename;
+    filepath = obj.filepath;
+    fp64_props = obj.fp64_props;
+    int_props = obj.int_props;
+    str_props = obj.str_props;
+
+    mainpath = obj.mainpath;
+
     handle = NULL;
 
     serializerInit = NULL;
@@ -49,14 +74,16 @@ void Serializer::serializerSetPlugin(Job* job, std::string pathIN, std::string n
     int_props = intIN;
     str_props = strIN;
 
-    handle = dlopen((fullpath+filename).c_str(), RTLD_LAZY);
-
-    serializerSetFnPointers(handle);
+    serializerSetFnPointers();
 
     return;
 }
 
-void Serializer::serializerSetFnPointers(void* handle){
+void Serializer::serializerSetFnPointers(){
+    if (!handle) {
+        handle = dlopen((fullpath + filename).c_str(), RTLD_LAZY);
+    }
+
     char* dlsym_error;
     if (!handle) {
         std::cerr << "Cannot open library: " << dlerror() << '\n';

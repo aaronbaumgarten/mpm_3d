@@ -38,9 +38,31 @@ Material::Material() {
     materialLoadState = NULL;
 }
 
+Material::Material(const Material& obj){
+    fullpath = obj.fullpath;
+    filename = obj.filename;
+    filepath = obj.filepath;
+    fp64_props = obj.fp64_props;
+    int_props = obj.int_props;
+    str_props = obj.str_props;
+
+    handle = NULL;
+
+    materialInit = NULL;
+    materialCalculateStress = NULL;
+    materialAssignStress = NULL;
+    materialAssignPressure = NULL;
+
+    materialWriteFrame = NULL;
+    materialSaveState = NULL;
+    materialLoadState = NULL;
+}
+
 Material::~Material() {
     if (handle){
+        //std::cout << "CLOSE: " << handle << std::endl;
         dlclose(handle);
+        handle = NULL;
     }
 }
 
@@ -51,14 +73,18 @@ void Material::materialSetPlugin(Job* job, Body* body, std::string pathIN, std::
     int_props = intIN;
     str_props = strIN;
 
-    handle = dlopen((fullpath+filename).c_str(), RTLD_LAZY);
-
-    materialSetFnPointers(handle);
+    materialSetFnPointers();
 
     return;
 }
 
-void Material::materialSetFnPointers(void* handle){
+void Material::materialSetFnPointers(){
+    if (!handle) {
+        //handle = dlopen((fullpath + filename).c_str(), RTLD_LAZY);
+        handle = dlmopen(LM_ID_NEWLM, (fullpath + filename).c_str(), RTLD_LAZY);
+        //std::cout << "OPEN: " << handle << std::endl;
+    }
+
     char* dlsym_error;
     if (!handle) {
         std::cerr << "Cannot open library: " << dlerror() << '\n';

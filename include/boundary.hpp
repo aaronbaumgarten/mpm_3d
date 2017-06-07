@@ -30,9 +30,10 @@ public:
 
     //boundary specific functions
     Boundary();
+    Boundary(const Boundary&);
     ~Boundary();
     void boundarySetPlugin(Job*, Body*, std::string, std::string, std::vector<double>, std::vector<int>, std::vector<std::string>); // set .so file
-    void boundarySetFnPointers(void*); //set function pointers to .so file handle
+    void boundarySetFnPointers(); //set function pointers to .so file handle
 
     void (*boundaryWriteFrame)(Job*, Body*, Serializer*); //write frame to serializer
     std::string (*boundarySaveState)(Job*, Body*, Serializer*, std::string); //save state to serializer folder with returned filename

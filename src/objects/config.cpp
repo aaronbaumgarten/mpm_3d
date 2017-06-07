@@ -569,7 +569,7 @@ int Config::configConfigureJob(Job *job){
                         id = job->contacts.size() - 1;
                         job->contacts[id].id = id;
 
-                        params = {"filepath","filename","properties","int-properties","str-properties"};
+                        params = {"name","filepath","filename","properties","int-properties","str-properties"};
                         std::getline(fin,line);
                         line = StringParser::stringRemoveComments(line);
                         line = StringParser::stringRemoveSpaces(line);
@@ -592,26 +592,30 @@ int Config::configConfigureJob(Job *job){
                                     lvec = StringParser::stringSplitString(propValue, ',');
                                     switch (StringParser::stringFindStringID(params, propName)) {
                                         case 0:
+                                            //name
+                                            job->contacts[id].name = propValue;
+                                            break;
+                                        case 1:
                                             //filepath
                                             job->contacts[id].filepath = StringParser::stringMakeDirectory(propValue);
                                             break;
-                                        case 1:
+                                        case 2:
                                             //filename
                                             job->contacts[id].filename = propValue;
                                             break;
-                                        case 2:
+                                        case 3:
                                             //props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->contacts[id].fp64_props.push_back(std::stod(lvec[i]));
                                             }
                                             break;
-                                        case 3:
+                                        case 4:
                                             //int-props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->contacts[id].int_props.push_back(std::stoi(lvec[i]));
                                             }
                                             break;
-                                        case 4:
+                                        case 5:
                                             //str-props
                                             for (size_t i = 0; i < lvec.size(); i++) {
                                                 job->contacts[id].str_props.push_back(lvec[i]);
@@ -645,16 +649,16 @@ int Config::configConfigureJob(Job *job){
 
         //contact function pointers
         for (size_t c=0;c<job->contacts.size();c++){
-            job->contacts[c].contactSetFnPointers(job->contacts[c].handle);
+            job->contacts[c].contactSetFnPointers();
         }
 
         //boundary and material function pointers
         for (size_t b=0;b<job->bodies.size();b++){
             if (!(job->bodies[b].boundary.filename.empty())) {
-                job->bodies[b].boundary.boundarySetFnPointers(job->bodies[b].boundary.handle);
+                job->bodies[b].boundary.boundarySetFnPointers();
             }
             if (!(job->bodies[b].material.filename.empty())) {
-                job->bodies[b].material.materialSetFnPointers(job->bodies[b].material.handle);
+                job->bodies[b].material.materialSetFnPointers();
             }
         }
 

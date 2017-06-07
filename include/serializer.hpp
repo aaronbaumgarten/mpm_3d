@@ -31,9 +31,10 @@ public:
 
     //io object specific functions
     Serializer();
+    Serializer(const Serializer&);
     ~Serializer();
     void serializerSetPlugin(Job*, std::string, std::string, std::vector<double>, std::vector<int>, std::vector<std::string>); //assign .so plugin for functions
-    void serializerSetFnPointers(void*); //set function pointers to .so file handle
+    void serializerSetFnPointers(); //set function pointers to .so file handle
     void serializerSetMainPath(Job*,std::string); //set path to main program
 
     //input output (not configuration)

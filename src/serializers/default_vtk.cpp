@@ -445,9 +445,12 @@ std::string serializerSaveState(Job* job){
     //fix name
     filefolder = StringParser::stringMakeDirectory(filefolder);
 
+    //create filename
+    std::string filename = "mpm_v2.save_file.default_vtk.txt";
+
     /**********/
     //create default file
-    std::ofstream defaultfile((filefolder + "defaultsave.txt"), std::ios::trunc);
+    std::ofstream defaultfile((filefolder + "default_save_file.txt"), std::ios::trunc);
     if (defaultfile.is_open()){
         //save data to file in standard way for main to open later
         defaultfile << job->serializer.filename << "\n";
@@ -473,14 +476,13 @@ std::string serializerSaveState(Job* job){
             defaultfile << job->serializer.str_props[i];
         }
         defaultfile << "\n";
+
+        defaultfile << filename << "\n";
     } else {
         std::cout << "Unable to open \"" << filefolder + "defaultsave.txt" << "\" !\n";
         return "ERR";
     }
     /**********/
-
-    //create filename
-    std::string filename = "mpm_v2.save_file.default_vtk.txt";
 
     //open file
     std::ofstream ffile((filefolder+filename), std::ios::trunc);
@@ -501,7 +503,7 @@ std::string serializerSaveState(Job* job){
         }
         ffile << "\n";
         ffile << job->activeBodies.size() << "\n";
-        for (size_t b=0;b<job->activeContacts.size();b++){
+        for (size_t b=0;b<job->activeBodies.size();b++){
             if (b>0){
                 ffile << " ";
             }
@@ -535,15 +537,29 @@ std::string serializerSaveState(Job* job){
             ffile << job->bodies[b].points.pointsSaveState(job,&(job->bodies[b]),&(job->serializer),filefolder) << "\n";
             ffile << job->bodies[b].nodes.nodesSaveState(job,&(job->bodies[b]),&(job->serializer),filefolder) << "\n";
             saveStandardProps(&(job->bodies[b].material),ffile);
-            ffile << job->bodies[b].material.materialSaveState(job,&(job->bodies[b]),&(job->serializer),filefolder) << "\n";
+            if (job->bodies[b].activeMaterial != 0) {
+                ffile << job->bodies[b].material.materialSaveState(job, &(job->bodies[b]), &(job->serializer),
+                                                                   filefolder) << "\n";
+            } else {
+                ffile << "\n";
+            }
             saveStandardProps(&(job->bodies[b].boundary),ffile);
-            ffile << job->bodies[b].boundary.boundarySaveState(job,&(job->bodies[b]),&(job->serializer),filefolder) << "\n";
+            if (job->bodies[b].activeBoundary != 0) {
+                ffile << job->bodies[b].boundary.boundarySaveState(job, &(job->bodies[b]), &(job->serializer),
+                                                                   filefolder) << "\n";
+            } else {
+                ffile << "\n";
+            }
         }
 
         for (size_t c=0;c<job->contacts.size();c++){
             ffile << "# contact\n";
             saveStandardProps(&(job->contacts[c]),ffile);
-            ffile << job->contacts[c].contactSaveState(job,&(job->serializer),filefolder) << "\n";
+            if (job->activeContacts[c] != 0) {
+                ffile << job->contacts[c].contactSaveState(job, &(job->serializer), filefolder) << "\n";
+            } else {
+                ffile << "\n";
+            }
         }
 
         ffile.close();
@@ -819,7 +835,7 @@ int serializerLoadState(Job* job, std::string fullpath){
             if (job->activeContacts[c] == 0){
                 continue;
             }
-            job->contacts[c].contactSetFnPointers(job->contacts[c].handle);
+            job->contacts[c].contactSetFnPointers();
         }
 
         for (size_t b=0;b<job->bodies.size();b++){
@@ -828,11 +844,11 @@ int serializerLoadState(Job* job, std::string fullpath){
             }
             //boundary
             if(job->bodies[b].activeBoundary != 0) {
-                job->bodies[b].boundary.boundarySetFnPointers(job->bodies[b].boundary.handle);
+                job->bodies[b].boundary.boundarySetFnPointers();
             }
             //material
             if(job->bodies[b].activeMaterial != 0) {
-                job->bodies[b].material.materialSetFnPointers(job->bodies[b].material.handle);
+                job->bodies[b].material.materialSetFnPointers();
             }
         }
 

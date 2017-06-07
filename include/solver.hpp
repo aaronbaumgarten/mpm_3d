@@ -29,9 +29,10 @@ public:
 
     //solver specific functions
     Solver();
+    Solver(const Solver&);
     ~Solver();
     void solverSetPlugin(Job*, std::string, std::string, std::vector<double>, std::vector<int>, std::vector<std::string>); //assign .so plugin file
-    void solverSetFnPointers(void*); //set function pointers to .so file handle
+    void solverSetFnPointers(); //set function pointers to .so file handle
 
     void (*solverInit)(Job*); //initialize solver
     void (*solverStep)(Job*); //one forward mpm step
