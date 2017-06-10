@@ -1,5 +1,6 @@
 set(CONTACTS
         contact_huang.cpp
+        mixture_slurry.cpp
         )
 
 foreach(conc ${CONTACTS})

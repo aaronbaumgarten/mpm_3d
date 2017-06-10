@@ -142,7 +142,6 @@ void Points::pointsWriteFrame(Job* job, Body* body, Serializer* serializer){
     serializer->serializerWriteScalarArray(extent,"extent");
 
     //pressure
-    tmpVec.setZero();
     if (job->DIM == 1) {
         tmpVec = -1.0*T;
     } else if (job->DIM == 2) {
@@ -151,6 +150,9 @@ void Points::pointsWriteFrame(Job* job, Body* body, Serializer* serializer){
         tmpVec = -1.0/3.0 * (T.col(job->XX) + T.col(job->YY) + T.col(job->ZZ));
     }
     serializer->serializerWriteScalarArray(tmpVec,"pressure");
+
+    tmpVec = m.array() / v.array();
+    serializer->serializerWriteScalarArray(tmpVec,"density");
 
     return;
 }
@@ -242,6 +244,9 @@ std::string Points::pointsSaveState(Job* job, Body* body, Serializer* serializer
         std::cout << "Unable to open \"" << filename << "\" !\n";
         return "ERR";
     }
+
+    std::cout << "Points Saved: [" << body->name << "]." << std::endl;
+
     return filename;
 }
 

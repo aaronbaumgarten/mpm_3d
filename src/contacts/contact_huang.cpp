@@ -106,6 +106,8 @@ int contactLoadState(Job* job, Serializer* serializer, std::string fullpath){
         return 0;
     }
 
+    contact_normal = job->jobVectorArray<double>(job->bodies[bodyIDs[0]].nodes.x.rows());
+
     std::cout << "Contact Loaded." << std::endl;
     return 1;
 }

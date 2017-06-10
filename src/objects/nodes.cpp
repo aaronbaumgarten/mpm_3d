@@ -158,6 +158,9 @@ std::string Nodes::nodesSaveState(Job* job, Body* body, Serializer* serializer, 
         std::cout << "Unable to open .\n";
         return "ERR";
     }
+
+    std::cout << "Nodes Saved: [" << body->name << "]." << std::endl;
+
     return filename;
 }
 

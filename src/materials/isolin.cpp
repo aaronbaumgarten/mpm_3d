@@ -18,8 +18,12 @@
 #include "points.hpp"
 #include "material.hpp"
 
-double E, nu, G, K;
-double lambda;
+//double E, nu, G, K;
+double E = 1e6;
+double nu = 0.3;
+double G = E / (2.0 * (1.0 + nu));
+double K = E / (3.0 * (1.0 - 2 * nu));
+double lambda = K - 2.0 * G / 3.0;
 
 extern "C" void materialWriteFrame(Job* job, Body* body, Serializer* serializer);
 extern "C" std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std::string filepath);

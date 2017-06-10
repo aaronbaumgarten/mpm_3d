@@ -221,6 +221,8 @@ int main(int argc, char *argv[]) {
     std::cout << std::endl << "Simulation Complete. Saving." << std::endl;
     job->serializer.serializerSaveState(job);
 
+    std::cout << "Exiting." << std::endl;
+
     delete(job);
     return 0;
 }

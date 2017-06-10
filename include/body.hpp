@@ -61,14 +61,20 @@ public:
     template <typename DerivedA, typename DerivedB> void bodyCalcNodalValues(Job*, Eigen::MatrixBase<DerivedA>& nodeVal, Eigen::MatrixBase<DerivedB>&  pointVal, int SPEC=SET); //calculate nodal value from points
     template <typename DerivedA, typename DerivedB> void bodyCalcNodalGradient(Job*, Eigen::MatrixBase<DerivedA>& nodeVal, Eigen::MatrixBase<DerivedB>&  pointVal, int SPEC=SET); //calculate nodal gradient
     template <typename DerivedA, typename DerivedB> void bodyCalcNodalDivergence(Job*, Eigen::MatrixBase<DerivedA>& nodeVal, Eigen::MatrixBase<DerivedB>&  pointVal, int SPEC=SET); //integrate nodal divergence
+
     template <typename DerivedA, typename DerivedB> void bodyCalcPointValues(Job*, Eigen::MatrixBase<DerivedA>& pointVal, Eigen::MatrixBase<DerivedB>&  nodeVal, int SPEC=SET); //calculate point values from nodes
     template <typename DerivedA, typename DerivedB> void bodyCalcPointGradient(Job*, Eigen::MatrixBase<DerivedA>& pointVal, Eigen::MatrixBase<DerivedB>&  nodeVal, int SPEC=SET); //calculate point gradients from nodes
+    template <typename DerivedA, typename DerivedB> void bodyCalcPointDivergence(Job*, Eigen::MatrixBase<DerivedA>& pointVal, Eigen::MatrixBase<DerivedB>&  nodeVal, int SPEC=SET); //calculate point divergences from nodes
 
     //other functions
 };
 
 template <typename DerivedA, typename DerivedB> void Body::bodyCalcNodalValues(Job *job, Eigen::MatrixBase<DerivedA>& nodeVal, Eigen::MatrixBase<DerivedB>& pointVal, int SPEC /*= Body::SET*/) {
     //set nodal values based on point values and shape functions
+    if (nodeVal.cols() > pointVal.cols()){
+        std::cerr << "ERROR! Unknown behavior for [" << nodeVal.cols() << "] = interp([" << pointVal.cols() << "]) in bodyCalcNodalValues!" << std::endl;
+    }
+
     if (SPEC == Body::SET) {
         nodeVal.setZero();
     } else if (SPEC == Body::ADD) {
@@ -90,10 +96,14 @@ template <typename DerivedA, typename DerivedB> void Body::bodyCalcNodalValues(J
     return;
 }
 
-template <typename DerivedA, typename DerivedB> void Body::bodyCalcNodalGradient(Job *, Eigen::MatrixBase<DerivedA>& nodeVal, Eigen::MatrixBase<DerivedB>& pointVal, int SPEC /*= Body::SET*/){
+template <typename DerivedA, typename DerivedB> void Body::bodyCalcNodalGradient(Job * job, Eigen::MatrixBase<DerivedA>& nodeVal, Eigen::MatrixBase<DerivedB>& pointVal, int SPEC /*= Body::SET*/){
     //calculate gradient of a field at point positions
     //pass n by 1 nodeVal for p by DIM pointval
     //pass n by DIM nodeVal for p by DIM*DIM pointval
+    if (pointVal.cols()*job->DIM < nodeVal.cols()){
+        std::cerr << "ERROR! Unknown behavior for [" << nodeVal.cols() << "] = grad([" << pointVal.cols() << "]) with DIM = " << job->DIM << " in bodyCalcNodalGradient!" << std::endl;
+    }
+
     if (SPEC == Body::SET) {
         nodeVal.setZero();
     } else if (SPEC == Body::ADD) {
@@ -123,6 +133,9 @@ template <typename DerivedA, typename DerivedB> void Body::bodyCalcNodalDivergen
     //calculate divergence of a field at nodal positions
     //pass n by 1 nodeVal for p by DIM pointval
     //pass n by DIM nodeVal for p by DIM*DIM pointval
+    if (pointVal.cols() < job->DIM*nodeVal.cols()){
+        std::cerr << "ERROR! Unknown behavior for [" << nodeVal.cols() << "] = div([" << pointVal.cols() << "]) with DIM = " << job->DIM << " in bodyCalcNodalDivergence!" << std::endl;
+    }
     if (SPEC == Body::SET) {
         nodeVal.setZero();
     } else if (SPEC == Body::ADD) {
@@ -149,6 +162,10 @@ template <typename DerivedA, typename DerivedB> void Body::bodyCalcNodalDivergen
 
 template <typename DerivedA, typename DerivedB> void Body::bodyCalcPointValues(Job *job, Eigen::MatrixBase<DerivedA>& pointVal, Eigen::MatrixBase<DerivedB>& nodeVal, int SPEC /*= Body::SET*/) {
     //set nodal values based on point values and shape functions
+    if (nodeVal.cols() < pointVal.cols()){
+        std::cerr << "ERROR! Unknown behavior for [" << pointVal.cols() << "] = interp([" << nodeVal.cols() << "]) in bodyCalcPointValues!" << std::endl;
+    }
+
     if (SPEC == Body::SET) {
         pointVal.setZero();
     } else if (SPEC == Body::ADD) {
@@ -175,6 +192,10 @@ template <typename DerivedA, typename DerivedB> void Body::bodyCalcPointGradient
     //calculate gradient of a field at point positions
     //pass n by 1 nodeVal for p by DIM pointval
     //pass n by DIM nodeVal for p by DIM*DIM pointval
+    if (nodeVal.cols()*job->DIM < pointVal.cols()){
+        std::cerr << "ERROR! Unknown behavior for [" << pointVal.cols() << "] = grad([" << nodeVal.cols() << "]) with DIM = " << job->DIM << " in bodyCalcPointGradient!" << std::endl;
+    }
+
     if (SPEC == Body::SET) {
         pointVal.setZero();
     } else if (SPEC == Body::ADD) {
@@ -191,7 +212,6 @@ template <typename DerivedA, typename DerivedB> void Body::bodyCalcPointGradient
 
         for (size_t rpos=0; rpos<nodeVal.cols(); rpos++) {
             for (size_t pos = 0; pos < job->DIM; pos++){    //pointVal.cols(); pos++) {
-                //div(u) = dot(grad, u)
                 pointVal(pointID, pos + rpos*(job->DIM)) += gradphi[k](pos) * nodeVal(nodeID, rpos) ;
             }
         }
@@ -199,5 +219,35 @@ template <typename DerivedA, typename DerivedB> void Body::bodyCalcPointGradient
 
     return;
 }
+
+template <typename DerivedA, typename DerivedB> void Body::bodyCalcPointDivergence(Job* job, Eigen::MatrixBase<DerivedA>& pointVal, Eigen::MatrixBase<DerivedB>&  nodeVal, int SPEC /*= Body::SET*/){
+    //calculate divergence of a field at nodal positions
+    //pass n by 1 pointVal for p by DIM nodeVal
+    //pass n by DIM pointVal for p by DIM*DIM nodeVal
+    if (nodeVal.cols() < job->DIM*pointVal.cols()){
+        std::cerr << "ERROR! Unknown behavior for [" << pointVal.cols() << "] = div([" << nodeVal.cols() << "]) with DIM = " << job->DIM << " in bodyCalcPointDivergence!" << std::endl;
+    }
+
+    if (SPEC == Body::SET) {
+        pointVal.setZero();
+    } else if (SPEC == Body::ADD) {
+        // do nothing
+    } else {
+        std::cerr << "bodyCalcPointDivergence(SPEC): Unknown SPEC [" << SPEC << "]" << std::endl;
+    }
+    int nodeID;
+    int pointID;
+
+    for (size_t k=0; k<nval.size(); k++){
+        pointID = pgrad[k];
+        nodeID = ngrad[k];
+        for (size_t rpos=0; rpos<pointVal.cols(); rpos++) {
+            for (size_t pos = 0; pos < job->DIM; pos++){    //pointVal.cols(); pos++) {
+                //div(u) = dot(grad, u)
+                pointVal(pointID, rpos) -= gradphi[k](pos) * nodeVal(pointID, pos + rpos*(job->DIM));
+            }
+        }
+    }
+};
 
 #endif //MPM_3D_BODY_HPP

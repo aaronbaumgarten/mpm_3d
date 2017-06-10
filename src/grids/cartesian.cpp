@@ -28,6 +28,9 @@ Eigen::MatrixXi A(0,0); //0,1 for directions in
 size_t npe; //nodes per element
 Eigen::MatrixXd x_n(0,0);
 
+Eigen::VectorXd v_n(0,1); //nodal volume
+double v_e = 1; //element volume
+
 extern "C" void gridInit(Job* job);
 
 extern "C" void gridWriteFrame(Job* job, Serializer* serializer);
@@ -39,6 +42,8 @@ extern "C" bool gridInDomain(Job* job, Eigen::VectorXd xIN);
 extern "C" Eigen::VectorXd gridNodeIDToPosition(Job* job, int idIN);
 extern "C" void gridEvaluateShapeFnValue(Job* job, Eigen::VectorXd xIN, std::vector<int>& nID, std::vector<double>& nVAL);
 extern "C" void gridEvaluateShapeFnGradient(Job* job, Eigen::VectorXd xIN, std::vector<int>& nID, std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>& nGRAD);
+extern "C" double gridNodalVolume(Job* job, int idIN);
+extern "C" double gridElementVolume(Job* job, int idIN);
 
 /*----------------------------------------------------------------------------*/
 
@@ -110,6 +115,21 @@ void hiddenInit(Job* job){
                     nodeIDs(e, n) += (ijk(i) + A(n,i)) * (Nx(i-1)+1) * (Nx(i-2)+1);
                 }
             }
+        }
+    }
+
+    //element volume
+    v_e = 1;
+    for (size_t pos=0;pos<hx.rows();pos++){
+        v_e *= hx(pos);
+    }
+
+    //nodal volume
+    v_n.resize(x_n.rows());
+    v_n.setZero();
+    for (size_t e=0;e<nodeIDs.rows();e++){
+        for (size_t c=0;c<nodeIDs.cols();c++) {
+            v_n(nodeIDs(e, c)) += v_e / nodeIDs.cols();
         }
     }
 
@@ -341,5 +361,17 @@ void gridEvaluateShapeFnGradient(Job* job, Eigen::VectorXd xIN, std::vector<int>
         tmpVec.setZero();
     }
     return;
+}
+
+/*----------------------------------------------------------------------------*/
+
+double gridNodalVolume(Job* job, int idIN){
+    return v_n(idIN);
+}
+
+/*----------------------------------------------------------------------------*/
+
+double gridElementVolume(Job* job, int idIN){
+    return v_e;
 }
 

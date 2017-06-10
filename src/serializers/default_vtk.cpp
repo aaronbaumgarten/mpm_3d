@@ -538,15 +538,13 @@ std::string serializerSaveState(Job* job){
             ffile << job->bodies[b].nodes.nodesSaveState(job,&(job->bodies[b]),&(job->serializer),filefolder) << "\n";
             saveStandardProps(&(job->bodies[b].material),ffile);
             if (job->bodies[b].activeMaterial != 0) {
-                ffile << job->bodies[b].material.materialSaveState(job, &(job->bodies[b]), &(job->serializer),
-                                                                   filefolder) << "\n";
+                ffile << job->bodies[b].material.materialSaveState(job, &(job->bodies[b]), &(job->serializer), filefolder) << "\n";
             } else {
                 ffile << "\n";
             }
             saveStandardProps(&(job->bodies[b].boundary),ffile);
             if (job->bodies[b].activeBoundary != 0) {
-                ffile << job->bodies[b].boundary.boundarySaveState(job, &(job->bodies[b]), &(job->serializer),
-                                                                   filefolder) << "\n";
+                ffile << job->bodies[b].boundary.boundarySaveState(job, &(job->bodies[b]), &(job->serializer), filefolder) << "\n";
             } else {
                 ffile << "\n";
             }
