@@ -31,7 +31,7 @@ extern "C" int contactLoadState(Job* job, Serializer* serializer, std::string fu
 
 extern "C" void contactInit(Job* job, Contact* contact); //initialize contact
 extern "C" void contactGenerateRules(Job* job); //generate contact rules
-extern "C" void contactApplyRules(Job* job); //apply rules
+extern "C" void contactApplyRules(Job* job, int); //apply rules
 
 /*----------------------------------------------------------------------------*/
 
@@ -48,13 +48,14 @@ std::string contactSaveState(Job* job, Serializer* serializer, std::string filep
 
     // convert now to tm struct for UTC
     tm *gmtm = gmtime(&now);
+    std::string filename = "ERR";
 
     //create filename
     std::ostringstream s;
     s << "mpm_v2.contact." << id << "." << gmtm->tm_mday << "." << gmtm->tm_mon << "." << gmtm->tm_year << ".";
     s << gmtm->tm_hour << "." << gmtm->tm_min << "." << gmtm->tm_sec << ".txt";
 
-    std::string filename = s.str();
+    filename = s.str();
     std::ofstream ffile((filepath+filename), std::ios::trunc);
 
     if (ffile.is_open()){
@@ -185,7 +186,7 @@ void contactGenerateRules(Job* job){
 
 /*----------------------------------------------------------------------------*/
 
-void contactApplyRules(Job* job){
+void contactApplyRules(Job* job, int SPEC){
     Eigen::VectorXd normal = job->jobVector<double>();
     double m1, m2;
     double fn1i, ft1i;
@@ -208,8 +209,16 @@ void contactApplyRules(Job* job){
             //determine 'center of mass' velocity
             m1 = job->bodies[b1].nodes.m[i];
             m2 = job->bodies[b2].nodes.m[i];
-            mv1i << (job->bodies[b1].nodes.mx_t.row(i) + job->dt * job->bodies[b1].nodes.f.row(i)).transpose();
-            mv2i << (job->bodies[b2].nodes.mx_t.row(i) + job->dt * job->bodies[b2].nodes.f.row(i)).transpose();
+            if (SPEC == Contact::EXPLICIT) {
+                mv1i << (job->bodies[b1].nodes.mx_t.row(i) + job->dt * job->bodies[b1].nodes.f.row(i)).transpose();
+                mv2i << (job->bodies[b2].nodes.mx_t.row(i) + job->dt * job->bodies[b2].nodes.f.row(i)).transpose();
+            } else if (SPEC == Contact::IMPLICIT){
+                mv1i << job->bodies[b1].nodes.mx_t.row(i).transpose();
+                mv2i << job->bodies[b2].nodes.mx_t.row(i).transpose();
+            } else {
+                std::cerr << "ERROR: Unknown SPEC: " << SPEC << "!" << std::endl;
+                return;
+            }
             vCMi  = (mv1i + mv2i) / (m1 + m2);
 
             //check if converging

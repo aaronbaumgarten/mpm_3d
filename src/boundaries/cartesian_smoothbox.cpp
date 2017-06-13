@@ -1,6 +1,6 @@
 //
-// Created by aaron on 5/26/17.
-// cartesian_box.cpp
+// Created by aaron on 6/12/17.
+// cartesian_smoothbox.cpp
 //
 
 #include <iostream>
@@ -33,7 +33,7 @@ extern "C" void boundaryApplyRules(Job* job, Body* body); //apply the rules give
 void boundaryInit(Job* job, Body* body){
     if (job->grid.filename.compare("cartesian.so") != 0){
         std::cout << "\nBOUNDARY CONDITION WARNING!" << std::endl;
-        std::cout << "\"cartesian_box.so\" boundary expects \"cartesian.so\" grid NOT \"" << job->grid.filename << "\"!\n" << std::endl;
+        std::cout << "\"cartesian_smoothbox.so\" boundary expects \"cartesian.so\" grid NOT \"" << job->grid.filename << "\"!\n" << std::endl;
     }
 
     //find bounds of box
@@ -47,8 +47,7 @@ void boundaryInit(Job* job, Body* body){
     for (size_t i=0;i<len;i++){
         for (size_t pos=0;pos<body->nodes.x.cols();pos++){
             if (body->nodes.x(i,pos) == 0 || body->nodes.x(i,pos) == Lx(pos)) {
-                bcNodalMask.row(i).setOnes();
-                break;
+                bcNodalMask(i,pos) = 1; //only lock normal direction
             }
         }
     }

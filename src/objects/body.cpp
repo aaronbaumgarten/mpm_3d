@@ -82,13 +82,14 @@ std::string Body::bodySaveState(Job* job, Serializer* serializer, std::string fi
 
     // convert now to tm struct for UTC
     tm *gmtm = gmtime(&now);
+    std::string filename = "ERR";
 
     //create filename
     std::ostringstream s;
     s << "mpm_v2."  << name << "." << id << ".body." << gmtm->tm_mday << "." << gmtm->tm_mon << "." << gmtm->tm_year << ".";
     s << gmtm->tm_hour << "." << gmtm->tm_min << "." << gmtm->tm_sec << ".txt";
 
-    std::string filename = s.str();
+    filename = s.str();
     std::ofstream ffile((filepath+filename), std::ios::trunc);
 
     if (ffile.is_open()){
@@ -194,7 +195,7 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi /*= Body::CPDI_ON*/) {
         if (ith_cpdi == Body::CPDI_OFF) {
             nvec.clear();
             valvec.clear();
-            job->grid.gridEvaluateShapeFnValue(job,points.x.row(i).transpose(),nvec,valvec);
+            job->grid.gridEvaluateShapeFnValue(job, points.x.row(i).transpose(), nvec, valvec);
             for (size_t j=0; j<nvec.size(); j++){
                 pval.push_back((int)i);
                 nval.push_back(nvec[j]);

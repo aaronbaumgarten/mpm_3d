@@ -108,7 +108,7 @@ void Contact::contactSetFnPointers(){
             std::cerr << "Cannot load symbol 'contactGenerateRules': " << dlsym_error <<
                       '\n';
         }
-        contactApplyRules = reinterpret_cast<void (*)(Job *)>(dlsym(handle, "contactApplyRules"));
+        contactApplyRules = reinterpret_cast<void (*)(Job *, int SPEC)>(dlsym(handle, "contactApplyRules"));
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'contactApplyRules': " << dlsym_error <<

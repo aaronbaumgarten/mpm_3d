@@ -202,23 +202,25 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     for (size_t i=0;i<n.rows();i++){
         //set porosity from solid mass
         //n = 1 - phi
-        n(i) = 1 - (job->bodies[solid_body_id].nodes.m(i) / (job->grid.gridNodalVolume(job,i)*solid_rho));
+        //n(i) = 1 - (job->bodies[solid_body_id].nodes.m(i) / (job->grid.gridNodalVolume(job,i)*solid_rho));
 
         m1 = job->bodies[solid_body_id].nodes.m[i];
         m2 = body->nodes.m[i];
 
         // set ((1-n)*vs + n*vw)
         if (m1 > 0 && m2 > 0) {
-            mv1i << (job->bodies[solid_body_id].nodes.mx_t.row(i) +
-                     job->dt * job->bodies[solid_body_id].nodes.f.row(i)).transpose();
-            mv2i << (body->nodes.mx_t.row(i) + job->dt * body->nodes.f.row(i)).transpose();
+            n(i) = 1 - (m1 / (job->grid.gridNodalVolume(job,i)*solid_rho));
+            mv1i = job->bodies[solid_body_id].nodes.mx_t.row(i).transpose();
+            mv2i = body->nodes.mx_t.row(i).transpose();
 
             nMat.row(i) = (1-n(i))/m1 * mv1i.transpose() + n(i)/m2 * mv2i.transpose();
         } else if (m2 > 0) {
-            mv2i << (body->nodes.mx_t.row(i) + job->dt * body->nodes.f.row(i)).transpose();
+            n(i) = 1.0;
+            mv2i = body->nodes.mx_t.row(i).transpose();
 
-            nMat.row(i) = n(i)/m2 * mv2i.transpose();
+            nMat.row(i) = 1.0/m2 * mv2i.transpose();
         } else {
+            n(i) = 1.0;
             nMat.row(i).setZero();
         }
     }
@@ -242,7 +244,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
         //n*rho_dot/rho = -div((1-n)*v_s + n*v_w)
         //n*v_dot/v = div((1-n)*v_s + n*v_w)
-        if (n_p(i) > 0 && n_p(i) < 1){
+        if (n_p(i) > 0 && n_p(i) < 1.0){
             J_tr(i) *= std::exp(job->dt * pvec(i) / n_p(i));
         } else {
             J_tr(i) *= std::exp(job->dt * L.trace());
@@ -267,6 +269,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     if (SPEC == Material::UPDATE){
         J = J_tr;
     }
+
     return;
 }
 
@@ -296,7 +299,7 @@ void materialAssignPressure(Job* job, Body* body, double pressureIN, int idIN, i
         body->points.T(idIN,pos) = tmpMat(pos);
     }
 
-    J(idIN) = std::exp(pressureIN/K); //p = K*log(J)
+    J(idIN) = std::exp(-pressureIN/K); //p = -K*log(J)
 
     return;
 }

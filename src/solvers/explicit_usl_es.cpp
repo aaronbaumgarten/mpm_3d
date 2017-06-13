@@ -112,7 +112,7 @@ void addContacts(Job* job){
         if (job->activeContacts[c] == 0){
             continue;
         }
-        job->contacts[c].contactApplyRules(job);
+        job->contacts[c].contactApplyRules(job, Contact::EXPLICIT);
     }
     return;
 }

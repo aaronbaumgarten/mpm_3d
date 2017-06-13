@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <Eigen/Core>
+#include <time.h>
 
 #include "job.hpp"
 
@@ -57,6 +58,10 @@ void driverInit(Job* job){
 void driverRun(Job* job) {
     size_t stepCount = 0;
     size_t frameCount = 0;
+    clock_t clockSim = clock();
+    clock_t clockFrame = clock();
+    double tSim = 0;
+    double tFrame = 0;
 
     //initialize gravity
     driverGenerateGravity(job);
@@ -66,14 +71,20 @@ void driverRun(Job* job) {
     while (job->t < stop_time){
         //run solver
         job->solver.solverStep(job);
-        std::cout << "Step Completed [" << ++stepCount << "]." << std::flush;
+        //std::cout << "Step Completed [" << ++stepCount << "]." << std::flush;
         if (job->serializer.serializerWriteFrame(job) == 1) {
             //successful frame written
-            std::cout << " Frame Written [" << ++frameCount << "]." << std::flush;
+            tFrame = (double)(clock() - clockFrame)/CLOCKS_PER_SEC;
+            tSim = (double)(clock() - clockSim)/CLOCKS_PER_SEC;
+            printf("\33[2K");
+            std::cout << "Frame Written [" << ++frameCount << "]. Time/Frame [" << tFrame << " s]. Elapsed Time [" << tSim << " s]." << std::flush;
+            clockFrame = clock();
         }
         std::cout << "\r";
         job->t += job->dt;
     }
+    tSim = (double)(clock() - clockSim)/CLOCKS_PER_SEC;
+    std::cout << std::endl << "Simulation Complete. Elapsed Time [" << tSim << "s]." << std::endl;
     return;
 }
 
@@ -114,13 +125,14 @@ std::string driverSaveState(Job* job, Serializer* serializer, std::string filepa
 
     // convert now to tm struct for UTC
     tm *gmtm = gmtime(&now);
+    std::string filename = "ERR";
 
     //create filename
     std::ostringstream s;
     s << "mpm_v2.driver." << gmtm->tm_mday << "." << gmtm->tm_mon << "." << gmtm->tm_year << ".";
     s << gmtm->tm_hour << "." << gmtm->tm_min << "." << gmtm->tm_sec << ".txt";
 
-    std::string filename = s.str();
+    filename = s.str();
     std::ofstream ffile((filepath+filename), std::ios::trunc);
 
     if (ffile.is_open()){

@@ -18,7 +18,9 @@ class Serializer;
 
 class Contact: public RunTimeDef{
 public:
-    //boundary properties here
+    static const int IMPLICIT = 1;
+    static const int EXPLICIT = 0;
+    //contact properties here
     int id;
     std::string name;
     /*std::string fullpath; //long path to file
@@ -42,7 +44,7 @@ public:
 
     void (*contactInit)(Job*, Contact*); //initialize contact (need access to it initially)
     void (*contactGenerateRules)(Job*); //generate contact rules
-    void (*contactApplyRules)(Job*); //apply rules
+    void (*contactApplyRules)(Job*, int); //apply rules (1 => implicit)
 
     //other functions
 };

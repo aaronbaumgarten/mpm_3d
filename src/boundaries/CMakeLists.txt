@@ -1,5 +1,6 @@
 set(BOUNDARIES
         cartesian_box.cpp
+        cartesian_smoothbox.cpp
         )
 
 foreach(bcc ${BOUNDARIES})

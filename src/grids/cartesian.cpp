@@ -186,13 +186,14 @@ std::string gridSaveState(Job* job, Serializer* serializer,std::string filepath)
 
     // convert now to tm struct for UTC
     tm *gmtm = gmtime(&now);
+    std::string filename = "ERR";
 
     //create filename
     std::ostringstream s;
     s << "mpm_v2.grid." << gmtm->tm_mday << "." << gmtm->tm_mon << "." << gmtm->tm_year << ".";
     s << gmtm->tm_hour << "." << gmtm->tm_min << "." << gmtm->tm_sec << ".txt";
 
-    std::string filename = s.str();
+    filename = s.str();
     std::ofstream ffile((filepath+filename), std::ios::trunc);
 
     if (ffile.is_open()){
@@ -268,7 +269,7 @@ int gridWhichElement(Job* job, Eigen::VectorXd xIN){
     bool inDomain;
     int elementID = floor(xIN[0]/hx[0]); //id in x-dimension
     for (size_t i=0;i<xIN.size();i++){
-        inDomain = (xIN[i] <= Lx[i] && xIN[i] >= 0);
+        inDomain = (xIN[i] < Lx[i] && xIN[i] >= 0);
         if (!inDomain) { //if xIn is outside domain, return -1
             return -1;
         }

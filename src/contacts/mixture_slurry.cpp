@@ -47,7 +47,7 @@ extern "C" int contactLoadState(Job* job, Serializer* serializer, std::string fu
 
 extern "C" void contactInit(Job* job, Contact* contact); //initialize contact
 extern "C" void contactGenerateRules(Job* job); //generate contact rules
-extern "C" void contactApplyRules(Job* job); //apply rules
+extern "C" void contactApplyRules(Job* job, int SPEC); //apply rules
 
 /*----------------------------------------------------------------------------*/
 
@@ -131,13 +131,14 @@ std::string contactSaveState(Job* job, Serializer* serializer, std::string filep
 
     // convert now to tm struct for UTC
     tm *gmtm = gmtime(&now);
+    std::string filename = "ERR";
 
     //create filename
     std::ostringstream s;
     s << "mpm_v2.contact." << id << "." << gmtm->tm_mday << "." << gmtm->tm_mon << "." << gmtm->tm_year << ".";
     s << gmtm->tm_hour << "." << gmtm->tm_min << "." << gmtm->tm_sec << ".txt";
 
-    std::string filename = s.str();
+    filename = s.str();
     std::ofstream ffile((filepath+filename), std::ios::trunc);
 
     if (ffile.is_open()){
@@ -231,7 +232,7 @@ void contactGenerateRules(Job* job){
 
 /*----------------------------------------------------------------------------*/
 
-void contactApplyRules(Job* job){
+void contactApplyRules(Job* job, int SPEC){
     double m1, m2;
     Eigen::VectorXd fsfi = job->jobVector<double>();
     Eigen::VectorXd mv1i = job->jobVector<double>();
@@ -276,6 +277,7 @@ void contactApplyRules(Job* job){
             job->bodies[liquid_body_id].nodes.f.row(i) += fsfi.transpose();
         }
     }
+
     return;
 }
 

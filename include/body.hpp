@@ -244,7 +244,7 @@ template <typename DerivedA, typename DerivedB> void Body::bodyCalcPointDivergen
         for (size_t rpos=0; rpos<pointVal.cols(); rpos++) {
             for (size_t pos = 0; pos < job->DIM; pos++){    //pointVal.cols(); pos++) {
                 //div(u) = dot(grad, u)
-                pointVal(pointID, rpos) -= gradphi[k](pos) * nodeVal(pointID, pos + rpos*(job->DIM));
+                pointVal(pointID, rpos) += gradphi[k](pos) * nodeVal(nodeID, pos + rpos*(job->DIM));
             }
         }
     }

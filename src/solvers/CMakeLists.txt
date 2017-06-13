@@ -1,6 +1,7 @@
 set(SOLVERS
         explicit_usl.cpp
         explicit_usl_es.cpp
+        newton_cg.cpp
         )
 
 foreach(solc ${SOLVERS})
