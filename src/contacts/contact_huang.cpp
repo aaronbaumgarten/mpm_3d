@@ -24,6 +24,8 @@ int id = 0;
 double mu_f = 0.4;
 std::vector<int> bodyIDs = {-1,-1};
 Eigen::MatrixXd contact_normal(0,0);
+Eigen::MatrixXd mv1_k;
+Eigen::MatrixXd mv2_k;
 
 extern "C" void contactWriteFrame(Job* job, Serializer* serializer); //write frame to serializer
 extern "C" std::string contactSaveState(Job* job, Serializer* serializer, std::string filepath); //save state to serializer folder with returned filename
@@ -181,6 +183,11 @@ void contactGenerateRules(Job* job){
         //normalize
         contact_normal.row(i) *= -1.0/contact_normal.row(i).norm();
     }
+
+    //store initial velocity for implicit update
+    mv1_k = job->bodies[bodyIDs[0]].nodes.mx_t;
+    mv2_k = job->bodies[bodyIDs[2]].nodes.mx_t;
+
     return;
 }
 
@@ -209,38 +216,62 @@ void contactApplyRules(Job* job, int SPEC){
             //determine 'center of mass' velocity
             m1 = job->bodies[b1].nodes.m[i];
             m2 = job->bodies[b2].nodes.m[i];
+
             if (SPEC == Contact::EXPLICIT) {
                 mv1i << (job->bodies[b1].nodes.mx_t.row(i) + job->dt * job->bodies[b1].nodes.f.row(i)).transpose();
                 mv2i << (job->bodies[b2].nodes.mx_t.row(i) + job->dt * job->bodies[b2].nodes.f.row(i)).transpose();
+
+                vCMi = (mv1i + mv2i) / (m1 + m2);
+
+                //check if converging
+                if ((mv1i / m1 - vCMi).dot(normal) > 0) {
+                    //determine normal force
+                    //fn1i = m1 * m2 / (job->dt * (m1 + m2)) * (mv2i.dot(n1i) / m2 - mv1i.dot(n1i) / m1);
+                    fn1i = m1 / job->dt * (vCMi.dot(normal) - mv1i.dot(normal) / m1);
+
+                    //determine shear force and shear vector
+                    s1i = m1 / job->dt * (vCMi - mv1i / m1) - fn1i * normal;
+                    ft1i = sqrt(s1i.dot(s1i));
+                    s1i /= ft1i;
+
+                    //add forces
+                    fcti = std::min(0.0, fn1i) * normal + std::min(mu_f * std::abs(fn1i), std::abs(ft1i)) * s1i;
+
+                    //set contact forces
+                    job->bodies[b1].nodes.f.row(i) += fcti.transpose();
+                    job->bodies[b2].nodes.f.row(i) -= fcti.transpose();
+                }
             } else if (SPEC == Contact::IMPLICIT){
-                mv1i << job->bodies[b1].nodes.mx_t.row(i).transpose();
-                mv2i << job->bodies[b2].nodes.mx_t.row(i).transpose();
+                mv1i << (mv1_k.row(i) + job->dt * job->bodies[b1].nodes.f.row(i)).transpose();
+                mv2i << (mv2_k.row(i) + job->dt * job->bodies[b2].nodes.f.row(i)).transpose();
+
+                vCMi = (mv1i + mv2i) / (m1 + m2);
+
+                //check if converging
+                if ((mv1i / m1 - vCMi).dot(normal) > 0) {
+                    //determine normal force
+                    //fn1i = m1 * m2 / (job->dt * (m1 + m2)) * (mv2i.dot(n1i) / m2 - mv1i.dot(n1i) / m1);
+                    fn1i = m1 / job->dt * (vCMi.dot(normal) - mv1i.dot(normal) / m1);
+
+                    //determine shear force and shear vector
+                    s1i = m1 / job->dt * (vCMi - mv1i / m1) - fn1i * normal;
+                    ft1i = sqrt(s1i.dot(s1i));
+                    s1i /= ft1i;
+
+                    //add forces
+                    fcti = std::min(0.0, fn1i) * normal + std::min(mu_f * std::abs(fn1i), std::abs(ft1i)) * s1i;
+
+                    //set contact forces
+                    job->bodies[b1].nodes.f.row(i) += fcti.transpose();
+                    job->bodies[b2].nodes.f.row(i) -= fcti.transpose();
+                }
             } else {
-                std::cerr << "ERROR: Unknown SPEC: " << SPEC << "!" << std::endl;
+                std::cerr << "ERROR: Unknown SPEC in contact_huang.so: " << SPEC << "!" << std::endl;
                 return;
-            }
-            vCMi  = (mv1i + mv2i) / (m1 + m2);
-
-            //check if converging
-            if ((mv1i/m1 - vCMi).dot(normal) > 0) {
-                //determine normal force
-                //fn1i = m1 * m2 / (job->dt * (m1 + m2)) * (mv2i.dot(n1i) / m2 - mv1i.dot(n1i) / m1);
-                fn1i = m1 / job->dt * (vCMi.dot(normal) - mv1i.dot(normal) / m1);
-
-                //determine shear force and shear vector
-                s1i = m1 / job->dt * (vCMi - mv1i / m1) - fn1i * normal;
-                ft1i = sqrt(s1i.dot(s1i));
-                s1i /= ft1i;
-
-                //add forces
-                fcti = std::min(0.0, fn1i) * normal + std::min(mu_f * std::abs(fn1i), std::abs(ft1i)) * s1i;
-
-                //set contact forces
-                job->bodies[b1].nodes.f.row(i) += fcti.transpose();
-                job->bodies[b2].nodes.f.row(i) -= fcti.transpose();
             }
         }
     }
+
     return;
 }
 

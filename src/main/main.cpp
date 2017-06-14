@@ -44,7 +44,7 @@ std::vector<Job*> master_list_jobs;
 
 void sigint_handler(int s){
     //ask to save
-    std::cout << std::endl << "SIGINT received." << std::endl;
+    std::cout << std::endl << std::endl << "SIGINT received." << std::endl;
     std::cout << "Save? [y/n] ";
     char c = getchar();
     if (c == 'y' || c == 'Y'){

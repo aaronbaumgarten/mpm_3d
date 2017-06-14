@@ -2,6 +2,7 @@ set(SOLVERS
         explicit_usl.cpp
         explicit_usl_es.cpp
         newton_cg.cpp
+        newton_bicgstab.cpp
         )
 
 foreach(solc ${SOLVERS})

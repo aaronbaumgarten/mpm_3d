@@ -251,8 +251,16 @@ void contactApplyRules(Job* job, int SPEC){
             //determine 'center of mass' velocity
             m1 = job->bodies[solid_body_id].nodes.m[i];
             m2 = job->bodies[liquid_body_id].nodes.m[i];
-            mv1i << (job->bodies[solid_body_id].nodes.mx_t.row(i) + job->dt * job->bodies[solid_body_id].nodes.f.row(i)).transpose();
-            mv2i << (job->bodies[liquid_body_id].nodes.mx_t.row(i) + job->dt * job->bodies[liquid_body_id].nodes.f.row(i)).transpose();
+            if (SPEC == Contact::EXPLICIT) {
+                mv1i << (job->bodies[solid_body_id].nodes.mx_t.row(i) + job->dt * job->bodies[solid_body_id].nodes.f.row(i)).transpose();
+                mv2i << (job->bodies[liquid_body_id].nodes.mx_t.row(i) + job->dt * job->bodies[liquid_body_id].nodes.f.row(i)).transpose();
+            } else if (SPEC == Contact::IMPLICIT){
+                mv1i << job->bodies[solid_body_id].nodes.mx_t.row(i).transpose();
+                mv2i << job->bodies[liquid_body_id].nodes.mx_t.row(i).transpose();
+            } else {
+                std::cerr << "ERROR: Unknown SPEC in mixture_slurry.so: " << SPEC << "!" << std::endl;
+                return;
+            }
             vCMi  = (mv1i + mv2i) / (m1 + m2);
 
             //permeability

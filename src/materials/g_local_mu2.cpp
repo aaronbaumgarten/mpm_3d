@@ -323,7 +323,9 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             }*/
 
         } else {
-            std::cerr << "u\n";
+            if (SPEC == Material::UPDATE) {
+                std::cerr << "u\n";
+            }
             nup_tau = 0;
         }
 

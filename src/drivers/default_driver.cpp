@@ -84,7 +84,7 @@ void driverRun(Job* job) {
         job->t += job->dt;
     }
     tSim = (double)(clock() - clockSim)/CLOCKS_PER_SEC;
-    std::cout << std::endl << "Simulation Complete. Elapsed Time [" << tSim << "s]." << std::endl;
+    std::cout << std::endl << std::endl << "Simulation Complete. Elapsed Time [" << tSim << "s]." << std::endl;
     return;
 }
 

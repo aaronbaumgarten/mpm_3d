@@ -80,7 +80,7 @@ void Nodes::nodesWriteFrame(Job* job, Body* body, Serializer* serializer){
     //serializer.serializerWriteVectorArray(&x, "position")
     serializer->serializerWriteVectorArray(u,"displacement");
     serializer->serializerWriteVectorArray(x_t,"velocity");
-    serializer->serializerWriteVectorArray(diff_x_t,"velocity");
+    serializer->serializerWriteVectorArray(diff_x_t,"diff_velocity");
     serializer->serializerWriteScalarArray(m,"mass");
     serializer->serializerWriteVectorArray(mx_t,"momentum");
     serializer->serializerWriteVectorArray(f,"force");
