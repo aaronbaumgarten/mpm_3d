@@ -26,6 +26,8 @@ std::vector<int> bodyIDs = {-1,-1};
 Eigen::MatrixXd contact_normal(0,0);
 Eigen::MatrixXd mv1_k;
 Eigen::MatrixXd mv2_k;
+Eigen::MatrixXd f1_k;
+Eigen::MatrixXd f2_k;
 
 extern "C" void contactWriteFrame(Job* job, Serializer* serializer); //write frame to serializer
 extern "C" std::string contactSaveState(Job* job, Serializer* serializer, std::string filepath); //save state to serializer folder with returned filename
@@ -53,7 +55,7 @@ std::string contactSaveState(Job* job, Serializer* serializer, std::string filep
     std::string filename = "ERR";
 
     //create filename
-    std::ostringstream s;
+    std::stringstream s;
     s << "mpm_v2.contact." << id << "." << gmtm->tm_mday << "." << gmtm->tm_mon << "." << gmtm->tm_year << ".";
     s << gmtm->tm_hour << "." << gmtm->tm_min << "." << gmtm->tm_sec << ".txt";
 
@@ -186,7 +188,10 @@ void contactGenerateRules(Job* job){
 
     //store initial velocity for implicit update
     mv1_k = job->bodies[bodyIDs[0]].nodes.mx_t;
-    mv2_k = job->bodies[bodyIDs[2]].nodes.mx_t;
+    mv2_k = job->bodies[bodyIDs[1]].nodes.mx_t;
+
+    f1_k = job->bodies[bodyIDs[0]].nodes.f;
+    f2_k = job->bodies[bodyIDs[1]].nodes.f;
 
     return;
 }
@@ -202,6 +207,8 @@ void contactApplyRules(Job* job, int SPEC){
     Eigen::VectorXd vCMi = job->jobVector<double>();
     Eigen::VectorXd fcti = job->jobVector<double>();
     Eigen::VectorXd s1i = job->jobVector<double>();
+
+    Eigen::VectorXd tmpVec = job->jobVector<double>();
 
     size_t b1 = bodyIDs[0];
     size_t b2 = bodyIDs[1];

@@ -41,6 +41,7 @@ std::string outputName;
 //job writing and sampling
 size_t sampledFrames;
 double sampleRate;
+double t_last_frame;
 
 //frame writing variables
 std::string pfilename;
@@ -77,6 +78,7 @@ void serializerInit(Job* job){
 
         sampleRate = job->serializer.fp64_props[0];
         sampledFrames = 0;
+        t_last_frame = 0;
 
         printf("Serializer properties (frameDirectory = %s, outputDirectory = %s, outputName = %s, sampleRate = %g).\n",
                frameDirectory.c_str(), outputDirectory.c_str(), outputName.c_str(), sampleRate);
@@ -90,15 +92,12 @@ void serializerInit(Job* job){
 /*----------------------------------------------------------------------------*/
 
 int serializerWriteFrame(Job* job){
-    if (job->t >= sampledFrames/sampleRate){
+    if ((job->t - t_last_frame) > (1.0/sampleRate) || sampledFrames == 0){ //job->t >= sampledFrames/sampleRate){
         sampledFrames += 1;
+        t_last_frame = job->t;
         //write frame for each body
         for (size_t b=0;b<job->bodies.size();b++) {
-            if (job->activeBodies[b] == 0){
-                continue;
-            } else {
-                currentBody = &(job->bodies[b]);
-            }
+            currentBody = &(job->bodies[b]);
 
             //open point file
             std::stringstream ss;
@@ -189,11 +188,13 @@ int serializerWriteFrame(Job* job){
             }
 
             //call objects to write frame data
-            job->bodies[b].points.pointsWriteFrame(job,&(job->bodies[b]),&(job->serializer));
-            job->bodies[b].nodes.nodesWriteFrame(job,&(job->bodies[b]),&(job->serializer));
-            job->bodies[b].material.materialWriteFrame(job,&(job->bodies[b]),&(job->serializer));
-            job->bodies[b].boundary.boundaryWriteFrame(job,&(job->bodies[b]),&(job->serializer));
-            job->grid.gridWriteFrame(job,&(job->serializer));
+            if (job->activeBodies[b] != 0) {
+                job->bodies[b].points.pointsWriteFrame(job, &(job->bodies[b]), &(job->serializer));
+                job->bodies[b].nodes.nodesWriteFrame(job, &(job->bodies[b]), &(job->serializer));
+                job->bodies[b].material.materialWriteFrame(job, &(job->bodies[b]), &(job->serializer));
+                job->bodies[b].boundary.boundaryWriteFrame(job, &(job->bodies[b]), &(job->serializer));
+                job->grid.gridWriteFrame(job, &(job->serializer));
+            }
             for (size_t c=0;c<job->contacts.size();c++) {
                 job->contacts[c].contactWriteFrame(job, &(job->serializer));
             }
@@ -431,7 +432,7 @@ std::string serializerSaveState(Job* job){
     tm *gmtm = gmtime(&now);
 
     //create filename/directory name
-    std::ostringstream s;
+    std::stringstream s;
     s << "mpm_v2.job."  << outputName << "." << gmtm->tm_mday << "." << gmtm->tm_mon << "." << gmtm->tm_year << ".";
     s << gmtm->tm_hour << "." << gmtm->tm_min << "." << gmtm->tm_sec;
 
@@ -518,6 +519,7 @@ std::string serializerSaveState(Job* job){
         ffile << outputName << "\n";
         ffile << sampledFrames << "\n";
         ffile << sampleRate << "\n";
+        ffile << t_last_frame << "\n";
 
         ffile << "# driver\n";
         saveStandardProps(&(job->driver),ffile);
@@ -644,6 +646,8 @@ int serializerLoadState(Job* job, std::string fullpath){
         sampledFrames = std::stoi(line);
         std::getline(fin,line); //sampleRate
         sampleRate = std::stod(line);
+        std::getline(fin,line); //last frame
+        t_last_frame = std::stod(line);
 
         /********/
 

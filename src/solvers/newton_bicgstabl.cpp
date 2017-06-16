@@ -1,6 +1,6 @@
 //
-// Created by aaron on 6/12/17.
-// newton_cg.cpp
+// Created by aaron on 6/14/17.
+// newton_bicgstabl.cpp
 //
 
 #include <stdlib.h>
@@ -27,6 +27,7 @@
 double TOL = 1e-14;
 double h = 1e-5;
 int maxIter = 100;
+int l = 2;
 
 std::vector<Body> tmp_bodies(0);
 Eigen::VectorXd mv_k(0,1); //initial momentum state
@@ -35,22 +36,41 @@ Eigen::VectorXd mv_n(0,1); //guess momentum state
 Eigen::VectorXd v_n(0,1); //guess velocity state
 Eigen::VectorXd f_n(0,1); //guess force state
 Eigen::VectorXd m(0,1); //mass state
-Eigen::VectorXd s(0,1); //search direction
+Eigen::VectorXd x(0,1); //search direction
 
 Eigen::VectorXd Fv(0,1); //residual of velocity guess
 Eigen::VectorXd Fv_plus(0,1); //residual of velocity plus search step
 
-Eigen::VectorXd p(0,1);
+Eigen::VectorXd r_tilde_0(0,1);
 Eigen::VectorXd r(0,1);
-Eigen::VectorXd Ap(0,1);
+Eigen::VectorXd u(0,1);
+
+Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor> u_hat(0,0);
+Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor> r_hat(0,0);
+
+Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> tau(0,0);
+
+Eigen::VectorXd sigma_vec(0,1);
+Eigen::VectorXd gamma_vec(0,1);
+Eigen::VectorXd gamma_p_vec(0,1);
+Eigen::VectorXd gamma_pp_vec(0,1);
+
+Eigen::VectorXd xtmp(0,1);
+Eigen::VectorXd Axtmp(0,1);
+
 Eigen::VectorXd tmpVec(0,1);
-double alpha = 0;
-double beta = 0;
+double alpha;
+double beta;
+double rho_0;
+double rho_1;
+double omega;
+double gamma_scalar;
+
 double rnorm = 0;
 double bnorm = 0;
 double mvnorm = 0;
 
-Eigen::VectorXd s_min(0,1); //best search direction
+Eigen::VectorXd x_min(0,1); //best search direction
 Eigen::VectorXd mv_n_trial(0,1); //trial guess
 double mv_n_res = 1;
 double rnorm_min = 1;
@@ -64,19 +84,85 @@ extern "C" int solverLoadState(Job* job, Serializer* serializer, std::string ful
 
 /*----------------------------------------------------------------------------*/
 
+void createMappings(Job* job);
+
+void mapPointsToNodes(Job* job);
+
+void mapPointForcesToNodes(Job* job);
+
+void generateContacts(Job* job);
+
+void addContacts(Job* job, int SPEC);
+
+void generateBoundaryConditions(Job* job);
+
+void addBoundaryConditions(Job* job);
+
+void moveGrid(Job* job);
+
+void displaceGrid(Job* job);
+
+void movePoints(Job* job);
+
+void calculateStrainRate(Job* job);
+
+void updateDensity(Job* job);
+
+void updateStress(Job* job, int SPEC);
+
+/*----------------------------------------------------------------------------*/
+
+void sizeVectors(Job* job);
+
+void fillMomentumVector(Job* job, Eigen::VectorXd& mvOut);
+
+void fillForceVector(Job* job, Eigen::VectorXd& fOut);
+
+void fillMassVector(Job* job, Eigen::VectorXd& mOut);
+
+void pushMomentumVector(Job* job, Eigen::VectorXd& mvIn);
+
+void pushForceVector(Job* job, Eigen::VectorXd& fIn);
+
+void storeBodies(Job* job);
+
+void revertBodies(Job* job);
+
+/*----------------------------------------------------------------------------*/
+
+void trialStep(Job* job, Eigen::VectorXd& forceOut, Eigen::VectorXd& momentumIn);
+
+void applyA(Job* job, Eigen::VectorXd& Js_vec, Eigen::VectorXd& s_vec);
+
+/*----------------------------------------------------------------------------*/
+
 void solverInit(Job* job){
     if (job->solver.fp64_props.size() < 2 && job->solver.int_props.size() > 1){
         std::cout << job->solver.fp64_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 3 properties defined ({TOL, linear_step}, {maxIter}).\n",
+                "%s:%s: Need at least 3 properties defined ({TOL, linear_step}, {maxIter, [l]}).\n",
                 __FILE__, __func__);
         exit(0);
-    } else {
+    } else if (job->solver.int_props.size() > 2) {
         TOL = job->solver.fp64_props[0];
         h = job->solver.fp64_props[1];
         maxIter = job->solver.int_props[0];
-        printf("Solver properties (TOL = %g, linear_step = %g, maxIter = %i).\n",
-               TOL, h, maxIter);
+        l = job->solver.int_props[1];
+
+        if (l < 2) {
+            std::cout << "BICGSTAB(l) solver requires l >= 2. Setting l = 2." << std::endl;
+            l = 2;
+        }
+
+        printf("Solver properties (TOL = %g, linear_step = %g, maxIter = %i, l = %i).\n",
+               TOL, h, maxIter, l);
+    }else {
+        TOL = job->solver.fp64_props[0];
+        h = job->solver.fp64_props[1];
+        maxIter = job->solver.int_props[0];
+        l = 2;
+        printf("Solver properties (TOL = %g, linear_step = %g, maxIter = %i, l = %i).\n",
+               TOL, h, maxIter, l);
     }
 
     //create tmp bodies vector
@@ -86,6 +172,335 @@ void solverInit(Job* job){
     }
 
     std::cout << "Solver Initialized." << std::endl;
+    return;
+}
+
+std::string solverSaveState(Job* job, Serializer* serializer, std::string filepath){
+    // current date/time based on current system
+    time_t now = time(0);
+
+    // convert now to tm struct for UTC
+    tm *gmtm = gmtime(&now);
+    std::string filename = "ERR";
+
+    //create filename/directory name
+    std::ostringstream s;
+    s << "mpm_v2.solver." << gmtm->tm_mday << "." << gmtm->tm_mon << "." << gmtm->tm_year << ".";
+    s << gmtm->tm_hour << "." << gmtm->tm_min << "." << gmtm->tm_sec << ".txt";
+
+    //create filename
+    filename = s.str();
+
+    std::ofstream ffile((filepath+filename), std::ios::trunc);
+
+    //write data
+    if (ffile.is_open()) {
+        size_t len = tmp_bodies.size();
+
+        ffile << "# mpm_v2 Solver\n";
+        ffile << len << "\n"; //length of body vector
+        ffile << TOL << "\n";
+        ffile << h << "\n";
+        ffile << maxIter << "\n";
+        ffile << l << "\n";
+        ffile.close();
+    } else {
+        std::cout << "Unable to open \"" << filename << "\" !\n";
+        return "ERR";
+    }
+
+    //assume that original bodies were mangled. revert bodies
+    revertBodies(job);
+
+    return filename;
+}
+
+int solverLoadState(Job* job, Serializer* serializer, std::string fullpath){
+    std::string line; //read line
+
+    std::ifstream fin(fullpath); //file to load from
+
+    if (fin.is_open()) {
+        //if open, read lines
+        std::getline(fin,line); //header
+        std::getline(fin,line); //len
+        tmp_bodies.reserve(std::stoi(line)); //reserve length of body vector
+        for (size_t b=0;b<std::stoi(line); b++){
+            tmp_bodies.push_back(Body());
+        }
+        std::getline(fin,line); //TOL
+        TOL = std::stod(line);
+        std::getline(fin,line); //h
+        h = std::stod(line);
+        std::getline(fin,line); //maxIter
+        maxIter = std::stoi(line);
+        std::getline(fin,line); //l
+        l = std::stoi(line);
+        fin.close();
+    } else {
+        std::cout << "ERROR: Unable to open file: " << fullpath << std::endl;
+        return 0;
+    }
+
+    std::cout << "Solver Loaded." << std::endl;
+    return 1;
+}
+
+/*----------------------------------------------------------------------------*/
+
+void solverStep(Job* job){
+    /*------------------------------------------------------------------------*/
+    //find initial state of nodes
+
+    //create map
+    createMappings(job);
+
+    //map particles to grid
+    mapPointsToNodes(job);
+
+    generateBoundaryConditions(job); //only call once
+    generateContacts(job); //only call once
+    job->driver.driverGenerateGravity(job); //only call once
+
+    //enforce boundary conditions (before any forces are calculated)
+    addBoundaryConditions(job);
+
+    //create temporary bodies (to store initial state of mv, T, v)
+    tmp_bodies.reserve(job->bodies.size());
+    storeBodies(job);
+
+    //create vectors (mv_n, f_n, etc)
+    sizeVectors(job);
+
+    //assign initial state
+    fillMomentumVector(job, mv_k);
+    fillMassVector(job, m);
+    for (size_t i=0;i<mv_k.rows();i++){
+        if (m(i) > 0){
+            v_k(i) = mv_k(i) / m(i);
+        } else {
+            v_k(i) = 0;
+        }
+    }
+
+    /*------------------------------------------------------------------------*/
+    //take trial step for initial guess
+
+    //add contact forces
+    addContacts(job, Contact::EXPLICIT);
+
+    //enforce boundary conditions
+    addBoundaryConditions(job);
+
+    //move grid
+    moveGrid(job);
+
+    //store nodal velocity
+    fillMomentumVector(job, mv_n);
+
+    /*------------------------------------------------------------------------*/
+    //find initial residual
+
+    //trial step
+    trialStep(job,f_n,mv_n);
+
+    Fv = mv_k + job->dt*f_n - mv_n;
+    mv_n_res = Fv.norm(); //momentum residual
+
+    for (size_t i=0;i<mv_n.rows();i++){
+        if (m(i) > 0){
+            v_n(i) = mv_n(i)/m(i); //velocity state
+        } else {
+            v_n(i) = 0;
+        }
+    }
+
+    /*------------------------------------------------------------------------*/
+    //correct final state
+
+    mvnorm = std::max(mv_k.norm(), job->dt*f_n.norm());
+    mvnorm = std::max(mvnorm, mv_n.norm());
+
+    size_t n = 0;
+    size_t k = 0;
+    std::cout << std::endl; //move cursor down one line
+    while (mv_n_res / mvnorm > TOL && mv_n_res > TOL && n < maxIter) {
+        //printf("\33[2K"); //clear line
+        std::cout << "Newton Step: [" << n << " <? " << maxIter << "]. Residual: [" << mv_n_res / mvnorm << " <? " << TOL << "]." << std::endl;
+        //set residual vector
+        for (size_t i = 0; i < m.rows(); i++) {
+            if (m(i) > 0) {
+                r(i) = -Fv(i) / m(i); //velocity
+            } else {
+                r(i) = 0;
+            }
+        }
+
+        x.setZero();
+        r_tilde_0 = r; //velocity
+        u.setZero();
+
+        rnorm = r.norm();
+        bnorm = rnorm;
+        rnorm_min = rnorm; //save minimum residual
+        x_min = x; //save best search direction
+
+        rho_0 = 1; alpha = 0; omega = 1;
+        //u_hat.setZero(); r_hat.setZero();
+        //tau.setZero();
+        //sigma_vec.setZero(); gamma_vec.setZero(); gamma_p_vec.setZero(); gamma_pp_vec.setZero();
+
+        //bicgstab(l) step *************************************************************
+        k = 0;
+        while (rnorm / bnorm > TOL && rnorm > TOL && k < maxIter) {
+            //printf("\33[2K"); //clear line
+            std::cout << "BICGSTAB(l) Step: [" << k << " <? " << maxIter << "]. Residual: [" << rnorm / bnorm << " <? " << TOL << "].\r";
+
+            //bicgstab(l) step------------------------------------
+            k += 1;
+
+            u_hat.col(0) = u;
+            r_hat.col(0) = r;
+
+            rho_0 = -omega*rho_0;
+
+            for (size_t j = 0; j <= (l-1); j++){
+                rho_1 = r_hat.col(j).dot(r_tilde_0);
+                beta = alpha * rho_1/rho_0;
+                rho_0 = rho_1;
+
+                for (size_t i = 0; i <= j; i++){
+                    u_hat.col(i) = r_hat.col(i) - beta*u_hat.col(i);
+                }
+
+                xtmp = u_hat.col(j);
+                applyA(job,Axtmp,xtmp);
+                u_hat.col(j+1) = Axtmp;
+
+                gamma_scalar = u_hat.col(j+1).dot(r_tilde_0);
+                alpha = rho_0/gamma_scalar;
+
+                for (size_t i = 0; i <= j; i++){
+                    r_hat.col(i) = r_hat.col(i) - alpha*u_hat.col(i+1);
+                }
+
+                xtmp = r_hat.col(j);
+                applyA(job,Axtmp,xtmp);
+                r_hat.col(j+1) = Axtmp;
+
+                x = x + alpha*u_hat.col(0);
+            }
+
+            for (size_t j = 1; j <= l; j++){
+                for (size_t i = 1; i <= j-1; i++){
+                    tau(i,j) = 1/sigma_vec(i) * r_hat.col(j).dot(r_hat.col(i));
+                    r_hat.col(j) = r_hat.col(j) - tau(i,j) * r_hat.col(i);
+                }
+
+                sigma_vec(j) = r_hat.col(j).squaredNorm();
+                gamma_p_vec(j) = 1/sigma_vec(j) * r_hat.col(0).dot(r_hat.col(j));
+            }
+
+            gamma_vec(l) = gamma_p_vec(l);
+            omega = gamma_vec(l);
+
+            for (size_t j = (l-1); j >= 1; j--){
+                gamma_vec(j) = gamma_p_vec(j);
+                for (size_t i = (j+1); i <= l; i++){
+                    gamma_vec(j) -= tau(j,i)*gamma_vec(i);
+                }
+            }
+
+            for (size_t j = 1; j <= (l-1); j++){
+                gamma_pp_vec(j) = gamma_vec(j+1);
+                for (size_t i = (j+1); i <= (l-1); i++){
+                    gamma_pp_vec(j) += tau(j,i)*gamma_vec(i+1);
+                }
+            }
+
+            x = x + gamma_vec(1)*r_hat.col(0);
+            r_hat.col(0) = r_hat.col(0) - gamma_p_vec(l) * r_hat.col(l);
+            u_hat.col(0) = u_hat.col(0) - gamma_vec(l) * u_hat.col(l);
+
+            for (size_t j = 1; j<= l-1; j++){
+                u_hat.col(0) = u_hat.col(0) - gamma_vec(j)*u_hat.col(j);
+                x = x + gamma_pp_vec(j)*r_hat.col(j);
+                r_hat.col(0) = r_hat.col(0) - gamma_p_vec(j)*r_hat.col(j);
+            }
+
+            u = u_hat.col(0);
+            r = r_hat.col(0);
+
+            rnorm = r.norm();
+
+            //check for new minumum ---------------------------
+            if (rnorm <= rnorm_min) {
+                x_min = x;
+            }
+        }
+        //printf("\33[2K"); //clear line
+        std::cout << "BICGSTAB(l) Step: [" << k << " <? " << maxIter << "]. Residual: [" << rnorm / bnorm << " <? " << TOL << "].\r";
+        printf("\033[A"); //move cursor up one line
+
+        //newton step *********************************************************
+        lambda = 1.0;
+        do {
+            //update momentum guess------------------------
+            mv_n_trial = mv_n.array() + lambda * x_min.array() * m.array(); //momentum
+
+            trialStep(job, f_n, mv_n_trial);
+
+            Fv = mv_k + job->dt * f_n - mv_n_trial; //momentum
+            lambda *= 0.5;
+
+            //check for minimun----------------------------
+        } while (Fv.norm() > mv_n_res);
+
+        mv_n_res = Fv.norm();
+        mv_n = mv_n_trial;
+
+        for (size_t i=0;i<mv_n.rows();i++){
+            if (m(i) > 0){
+                v_n(i) = mv_n(i)/m(i); //velocity state
+            } else {
+                v_n(i) = 0;
+            }
+        }
+
+        n += 1;
+
+        if (lambda < TOL){
+            break;
+        }
+    }
+    //printf("\33[2K"); //clear line
+    std::cout << "Newton Step: [" << n << " <? " << maxIter << "]. Residual: [" << mv_n_res / mvnorm << " <? " << TOL << "].\r";
+    printf("\033[A"); //move cursor up one line
+
+    /*------------------------------------------------------------------------*/
+    //propogate final state
+
+    //final revert
+    revertBodies(job);
+
+    //pushMomentumVector(job,mv_n);
+    pushMomentumVector(job,mv_n);
+    pushForceVector(job,f_n);
+
+    addBoundaryConditions(job);
+
+    displaceGrid(job);
+
+    movePoints(job);
+
+    calculateStrainRate(job);
+
+    updateDensity(job);
+
+    updateStress(job, Material::UPDATE);
+
+    job->driver.driverApplyGravity(job);
+
     return;
 }
 
@@ -326,15 +741,15 @@ void calculateStrainRate(Job* job){
 
 void updateDensity(Job* job){
     Eigen::MatrixXd L;
-    Eigen::VectorXd tmpVec;
+    Eigen::VectorXd tmp;
 
     for (size_t b=0;b<job->bodies.size();b++){
         if (job->activeBodies[b] == 0){
             continue;
         }
         for (size_t i=0;i<job->bodies[b].points.v.rows();i++) {
-            tmpVec = job->bodies[b].points.L.row(i).transpose();
-            L = job->jobTensor<double>(tmpVec.data());
+            tmp = job->bodies[b].points.L.row(i).transpose();
+            L = job->jobTensor<double>(tmp.data());
             job->bodies[b].points.v(i) *= std::exp(job->dt * L.trace());
         }
     }
@@ -355,23 +770,38 @@ void updateStress(Job* job, int SPEC){
 
 void sizeVectors(Job* job){
     size_t len = job->bodies.size() * job->DIM * job->grid.node_count;
+    
     mv_k.resize(len);
     v_k.resize(len);
     mv_n.resize(len);
     v_n.resize(len);
     f_n.resize(len);
     m.resize(len);
-    s.resize(len);
+    x.resize(len);
 
     Fv.resize(len);
     Fv_plus.resize(len);
 
-    p.resize(len);
+    r_tilde_0.resize(len);
     r.resize(len);
-    Ap.resize(len);
+    u.resize(len);
+
+    u_hat.resize(len,l+1);
+    r_hat.resize(len,l+1);
+
+    tau.resize(l+1,l+1); //for 1-indexing
+
+    sigma_vec.resize(l+1); //for 1-indexing
+    gamma_vec.resize(l+1); //for 1-indexing
+    gamma_p_vec.resize(l+1); //for 1-indexing
+    gamma_pp_vec.resize(l+1); //for 1-indexing
+
+    xtmp.resize(len);
+    Axtmp.resize(len);
+
     tmpVec.resize(len);
 
-    s_min.resize(len);
+    x_min.resize(len);
     mv_n_trial.resize(len);
     return;
 }
@@ -527,341 +957,63 @@ void revertBodies(Job* job){
 
 /*----------------------------------------------------------------------------*/
 
-void solverStep(Job* job){
-    /*------------------------------------------------------------------------*/
-    //find initial state of nodes
-
-    //create map
-    createMappings(job);
-
-    //map particles to grid
-    mapPointsToNodes(job);
-
-    //enforce boundary conditions (before any forces are calculated)
-    generateBoundaryConditions(job); //only call once
-    addBoundaryConditions(job);
-
-    //create temporary bodies (to store initial state of mv, T, v)
-    tmp_bodies.reserve(job->bodies.size());
-    storeBodies(job);
-
-    //create vectors (mv_n, f_n, etc)
-    sizeVectors(job);
-
-    //assign initial state
-    fillMomentumVector(job, mv_k);
-    fillMassVector(job, m);
-    for (size_t i=0;i<mv_k.rows();i++){
-        if (m(i) > 0){
-            v_k(i) = mv_k(i)/m(i); //velocity state
-        } else {
-            v_k(i) = 0;
-        }
-    }
-
-    /*------------------------------------------------------------------------*/
-    //take trial step
-
-    //add contact forces
-    generateContacts(job); //only call once
-    addContacts(job, Contact::EXPLICIT);
-
-    //enforce boundary conditions
-    addBoundaryConditions(job);
-
-    //move grid
-    moveGrid(job);
-
-    //store nodal velocity
-    fillMomentumVector(job, mv_n);
-
-    //calculate strainrate
-    calculateStrainRate(job);
-
-    //update density
-    updateDensity(job);
-
-    //add body forces
-    job->driver.driverGenerateGravity(job); //only call once
-    job->driver.driverApplyGravity(job);
-
-    //trial stress update
-    updateStress(job, Material::TRIAL);
-
-    /*------------------------------------------------------------------------*/
-    //find residual
-
-    //cast trial point to nodes
-    mapPointForcesToNodes(job);
-
-    //add contact forces
-    addContacts(job, Contact::IMPLICIT);
-
-    //enforce boundary conditions
-    addBoundaryConditions(job);
-
-    //assign final state
-    fillForceVector(job, f_n);
-    Fv = mv_k + job->dt*f_n - mv_n;
-    mv_n_res = Fv.norm(); //momentum residual
-
-    for (size_t i=0;i<mv_n.rows();i++){
-        if (m(i) > 0){
-            v_n(i) = mv_n(i)/m(i); //velocity state
-        } else {
-            v_n(i) = 0;
-        }
-    }
-
-    /*------------------------------------------------------------------------*/
-    //correct final state
-
-    mvnorm = std::max(mv_k.norm(), job->dt*f_n.norm());
-    mvnorm = std::max(mvnorm, mv_n.norm());
-
-    size_t n = 0;
-    size_t k = 0;
-    size_t j = 0;
-    std::cout << std::endl; //move cursor down one line
-    while (mv_n_res / mvnorm > TOL && rnorm > TOL && n < maxIter) {
-        //printf("\33[2K"); //clear line
-        std::cout << "Newton Step: [" << n << " <? " << maxIter << "]. Residual: [" << mv_n_res / mvnorm << " <? " << TOL << "]." << std::endl;
-        //set residual vector
-        for (size_t i = 0; i < m.rows(); i++) {
-            if (m(i) > 0) {
-                r(i) = -Fv(i) / m(i); //velocity
-            } else {
-                r(i) = 0;
-            }
-        }
-
-        s.setZero();
-        p = r; //velocity
-        rnorm = r.norm();
-        bnorm = rnorm;
-        rnorm_min = rnorm; //save minimum residual
-        s_min = s; //save best search direction
-
-        //cg step *************************************************************
-        k = 0;
-        while (rnorm / bnorm > TOL && rnorm > TOL && k < maxIter) {
-            //printf("\33[2K"); //clear line
-            std::cout << "CG Step: [" << k << " <? " << maxIter << "]. Residual: [" << rnorm / bnorm << " <? " << TOL << "].\r";
-            //revert bodies
-            revertBodies(job);
-
-            /*********************************/
-            /* s, r, p live in velocity space*/
-            /*********************************/
-
-            if (v_n.norm() > 0) {
-                tmpVec = v_n + h * p * v_n.norm() / p.norm(); //velocity
-            } else {
-                tmpVec = h * p / p.norm(); //velocity
-            }
-
-            tmpVec = tmpVec.array() * m.array(); //momentum
-
-            //push momentum to nodes --------------------------
-            pushMomentumVector(job, tmpVec);
-            addBoundaryConditions(job);
-
-            //calculate resulting force -----------------------
-            calculateStrainRate(job);
-
-            updateDensity(job);
-
-            job->driver.driverApplyGravity(job);
-
-            updateStress(job, Material::TRIAL);
-
-            mapPointForcesToNodes(job);
-
-            addContacts(job, Contact::IMPLICIT);
-
-            addBoundaryConditions(job);
-
-            //calculate residual ------------------------------
-            fillForceVector(job, f_n);
-            Fv_plus = mv_k + job->dt * f_n - tmpVec; //momentum
-
-            //approximate J*s ---------------------------------
-            if (v_n.norm() > 0) {
-                Ap = p.norm() / (h * v_n.norm()) * (Fv_plus - Fv); //momentum
-            } else {
-                Ap = p.norm() / h * (Fv_plus - Fv);
-            }
-
-            //adjust J*s --------------------------------------
-            for (size_t i = 0; i < Ap.rows(); i++) {
-                if (m(i) > 0) {
-                    Ap(i) /= m(i); //velocity
-                } else {
-                    Ap(i) = 0;
-                }
-            }
-
-            //cg step -----------------------------------------
-            k += 1;
-            alpha = r.squaredNorm() / p.dot(Ap);
-            s = s + alpha * p; //velocity
-            r = r - alpha * Ap; //velocity
-            beta = r.norm() / rnorm;
-            p = r + beta * p; //velocity
-            rnorm = r.norm();
-
-            //check for new minumum ---------------------------
-            if (rnorm <= rnorm_min) {
-                s_min = s;
-            }
-        }
-        //printf("\33[2K"); //clear line
-        std::cout << "CG Step: [" << k << " <? " << maxIter << "]. Residual: [" << rnorm / bnorm << " <? " << TOL << "].\r";
-        printf("\033[A"); //move cursor up one line
-
-        //newton step *********************************************************
-        lambda = 1.0;
-        j = 0;
-        do {
-            //revert bodies--------------------------------
-            revertBodies(job);
-
-            //update momentum guess------------------------
-            mv_n_trial = mv_n.array() + lambda * s_min.array() * m.array(); //momentum
-            pushMomentumVector(job, mv_n_trial);
-            addBoundaryConditions(job);
-
-            //calculate resulting force--------------------
-            calculateStrainRate(job);
-
-            updateDensity(job);
-
-            job->driver.driverApplyGravity(job);
-
-            updateStress(job, Material::TRIAL);
-
-            mapPointForcesToNodes(job);
-
-            addContacts(job, Contact::IMPLICIT);
-
-            addBoundaryConditions(job);
-
-            //calculate residual---------------------------
-            fillForceVector(job, f_n);
-            Fv = mv_k + job->dt * f_n - mv_n_trial; //momentum
-            lambda *= 0.5;
-            j += 1;
-
-            //check for minimun----------------------------
-        } while (Fv.norm() > mv_n_res);
-
-        mv_n_res = Fv.norm();
-        mv_n = mv_n_trial;
-
-        for (size_t i=0;i<mv_n.rows();i++){
-            if (m(i) > 0){
-                v_n(i) = mv_n(i)/m(i); //velocity state
-            } else {
-                v_n(i) = 0;
-            }
-        }
-
-        n += 1;
-
-        if (lambda < TOL){
-            break;
-        }
-    }
-    //printf("\33[2K"); //clear line
-    std::cout << "Newton Step: [" << n << " <? " << maxIter << "]. Residual: [" << mv_n_res / mvnorm << " <? " << TOL << "].\r";
-    printf("\033[A"); //move cursor up one line
-
-    //final revert
+void trialStep(Job* job, Eigen::VectorXd& forceOut, Eigen::VectorXd& momentumIn){
+    //revert bodies
     revertBodies(job);
 
-    pushMomentumVector(job,mv_n);
-    pushForceVector(job,f_n);
-
+    //push momentum to nodes --------------------------
+    pushMomentumVector(job, momentumIn);
     addBoundaryConditions(job);
 
-    displaceGrid(job);
-
-    movePoints(job);
-
+    //calculate resulting force -----------------------
     calculateStrainRate(job);
 
     updateDensity(job);
 
-    updateStress(job, Material::UPDATE);
-
     job->driver.driverApplyGravity(job);
 
+    updateStress(job, Material::TRIAL);
+
+    mapPointForcesToNodes(job);
+
+    addContacts(job, Contact::IMPLICIT);
+
+    addBoundaryConditions(job);
+
+    fillForceVector(job, forceOut);
     return;
 }
 
-std::string solverSaveState(Job* job, Serializer* serializer, std::string filepath){
-    // current date/time based on current system
-    time_t now = time(0);
-
-    // convert now to tm struct for UTC
-    tm *gmtm = gmtime(&now);
-    std::string filename = "ERR";
-
-    //create filename/directory name
-    std::stringstream s;
-    s << "mpm_v2.solver." << gmtm->tm_mday << "." << gmtm->tm_mon << "." << gmtm->tm_year << ".";
-    s << gmtm->tm_hour << "." << gmtm->tm_min << "." << gmtm->tm_sec << ".txt";
-
-    //create filename
-    filename = s.str();
-
-    std::ofstream ffile((filepath+filename), std::ios::trunc);
-
-    //write data
-    if (ffile.is_open()) {
-        size_t len = tmp_bodies.size();
-
-        ffile << "# mpm_v2 Solver\n";
-        ffile << len << "\n"; //length of body vector
-        ffile << TOL << "\n";
-        ffile << h << "\n";
-        ffile << maxIter << "\n";
-        ffile.close();
+void applyA(Job* job, Eigen::VectorXd& Js_vec, Eigen::VectorXd& s_vec){
+    //calculate v = Ap --------------------------------
+    if (v_n.norm() > 0) {
+        tmpVec = v_n + h * s_vec * v_n.norm() / s_vec.norm(); //velocity
     } else {
-        std::cout << "Unable to open \"" << filename << "\" !\n";
-        return "ERR";
+        tmpVec = h * s_vec / s_vec.norm(); //velocity
     }
 
-    //assume that original bodies were mangled. revert bodies
-    revertBodies(job);
+    tmpVec = tmpVec.array() * m.array(); //momentum
 
-    return filename;
-}
-int solverLoadState(Job* job, Serializer* serializer, std::string fullpath){
-    std::string line; //read line
+    trialStep(job,f_n,tmpVec);
 
-    std::ifstream fin(fullpath); //file to load from
+    Fv_plus = mv_k + job->dt * f_n - tmpVec; //momentum
 
-    if (fin.is_open()) {
-        //if open, read lines
-        std::getline(fin,line); //header
-        std::getline(fin,line); //len
-        tmp_bodies.reserve(std::stoi(line)); //reserve length of body vector
-        for (size_t b=0;b<std::stoi(line); b++){
-            tmp_bodies.push_back(Body());
+    //approximate Ap  ---------------------------------
+    if (v_n.norm() > 0) {
+        Js_vec = s_vec.norm() / (h * v_n.norm()) * (Fv_plus - Fv); //momentum
+    } else {
+        Js_vec = s_vec.norm() / h * (Fv_plus - Fv);
+    }
+
+    //adjust v = Ap -----------------------------------
+    for (size_t i = 0; i < Js_vec.rows(); i++) {
+        if (m(i) > 0) {
+            Js_vec(i) /= m(i); //velocity
+        } else {
+            Js_vec(i) = 0;
         }
-        std::getline(fin,line); //TOL
-        TOL = std::stod(line);
-        std::getline(fin,line); //h
-        h = std::stod(line);
-        std::getline(fin,line); //maxIter
-        maxIter = std::stoi(line);
-        fin.close();
-    } else {
-        std::cout << "ERROR: Unable to open file: " << fullpath << std::endl;
-        return 0;
     }
-
-    std::cout << "Solver Loaded." << std::endl;
-    return 1;
+    return;
 }
+
+/*----------------------------------------------------------------------------*/

@@ -128,7 +128,7 @@ std::string driverSaveState(Job* job, Serializer* serializer, std::string filepa
     std::string filename = "ERR";
 
     //create filename
-    std::ostringstream s;
+    std::stringstream s;
     s << "mpm_v2.driver." << gmtm->tm_mday << "." << gmtm->tm_mon << "." << gmtm->tm_year << ".";
     s << gmtm->tm_hour << "." << gmtm->tm_min << "." << gmtm->tm_sec << ".txt";
 
