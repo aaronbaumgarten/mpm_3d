@@ -31,9 +31,10 @@ int maxIter = 100;
 std::vector<Body> tmp_bodies(0);
 Eigen::VectorXd mv_k(0,1); //initial momentum state
 Eigen::VectorXd v_k(0,1); //initial velocity state
+Eigen::VectorXd f_ext(0,1);
 Eigen::VectorXd mv_n(0,1); //guess momentum state
 Eigen::VectorXd v_n(0,1); //guess velocity state
-Eigen::VectorXd f_n(0,1); //guess force state
+Eigen::VectorXd f_int(0,1); //guess force state
 Eigen::VectorXd m(0,1); //mass state
 Eigen::VectorXd s(0,1); //search direction
 
@@ -357,9 +358,10 @@ void sizeVectors(Job* job){
     size_t len = job->bodies.size() * job->DIM * job->grid.node_count;
     mv_k.resize(len);
     v_k.resize(len);
+    f_ext.resize(len);
     mv_n.resize(len);
     v_n.resize(len);
-    f_n.resize(len);
+    f_int.resize(len);
     m.resize(len);
     s.resize(len);
 
@@ -545,10 +547,11 @@ void solverStep(Job* job){
     tmp_bodies.reserve(job->bodies.size());
     storeBodies(job);
 
-    //create vectors (mv_n, f_n, etc)
+    //create vectors (mv_n, f_int, etc)
     sizeVectors(job);
 
     //assign initial state
+    fillForceVector(job, f_int);
     fillMomentumVector(job, mv_k);
     fillMassVector(job, m);
     for (size_t i=0;i<mv_k.rows();i++){
@@ -568,6 +571,8 @@ void solverStep(Job* job){
 
     //enforce boundary conditions
     addBoundaryConditions(job);
+    fillForceVector(job, f_ext);
+    f_ext -= f_int;
 
     //move grid
     moveGrid(job);
@@ -595,14 +600,14 @@ void solverStep(Job* job){
     mapPointForcesToNodes(job);
 
     //add contact forces
-    addContacts(job, Contact::IMPLICIT);
+    //addContacts(job, Contact::IMPLICIT);
 
     //enforce boundary conditions
-    addBoundaryConditions(job);
+    //addBoundaryConditions(job);
 
     //assign final state
-    fillForceVector(job, f_n);
-    Fv = mv_k + job->dt*f_n - mv_n;
+    fillForceVector(job, f_int);
+    Fv = mv_k + job->dt*(f_int+f_ext) - mv_n;
     mv_n_res = Fv.norm(); //momentum residual
 
     for (size_t i=0;i<mv_n.rows();i++){
@@ -616,7 +621,7 @@ void solverStep(Job* job){
     /*------------------------------------------------------------------------*/
     //correct final state
 
-    mvnorm = std::max(mv_k.norm(), job->dt*f_n.norm());
+    mvnorm = std::max(mv_k.norm(), job->dt*(f_int+f_ext).norm());
     mvnorm = std::max(mvnorm, mv_n.norm());
 
     size_t n = 0;
@@ -677,13 +682,13 @@ void solverStep(Job* job){
 
             mapPointForcesToNodes(job);
 
-            addContacts(job, Contact::IMPLICIT);
+            //addContacts(job, Contact::IMPLICIT);
 
-            addBoundaryConditions(job);
+            //addBoundaryConditions(job);
 
             //calculate residual ------------------------------
-            fillForceVector(job, f_n);
-            Fv_plus = mv_k + job->dt * f_n - tmpVec; //momentum
+            fillForceVector(job, f_int);
+            Fv_plus = mv_k + job->dt * (f_int+f_ext) - tmpVec; //momentum
 
             //approximate J*s ---------------------------------
             if (v_n.norm() > 0) {
@@ -742,13 +747,13 @@ void solverStep(Job* job){
 
             mapPointForcesToNodes(job);
 
-            addContacts(job, Contact::IMPLICIT);
+            //addContacts(job, Contact::IMPLICIT);
 
-            addBoundaryConditions(job);
+            //addBoundaryConditions(job);
 
             //calculate residual---------------------------
-            fillForceVector(job, f_n);
-            Fv = mv_k + job->dt * f_n - mv_n_trial; //momentum
+            fillForceVector(job, f_int);
+            Fv = mv_k + job->dt * (f_int+f_ext) - mv_n_trial; //momentum
             lambda *= 0.5;
             j += 1;
 
@@ -780,7 +785,8 @@ void solverStep(Job* job){
     revertBodies(job);
 
     pushMomentumVector(job,mv_n);
-    pushForceVector(job,f_n);
+    tmpVec = f_int + f_ext;
+    pushForceVector(job,tmpVec);
 
     addBoundaryConditions(job);
 

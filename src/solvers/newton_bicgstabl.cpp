@@ -770,7 +770,7 @@ void updateStress(Job* job, int SPEC){
 
 void sizeVectors(Job* job){
     size_t len = job->bodies.size() * job->DIM * job->grid.node_count;
-    
+
     mv_k.resize(len);
     v_k.resize(len);
     mv_n.resize(len);

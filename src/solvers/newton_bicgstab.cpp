@@ -39,6 +39,7 @@ Eigen::VectorXd x(0,1); //search direction
 
 Eigen::VectorXd Fv(0,1); //residual of velocity guess
 Eigen::VectorXd Fv_plus(0,1); //residual of velocity plus search step
+Eigen::VectorXd Fv_minus(0,1);
 
 Eigen::VectorXd p(0,1);
 Eigen::VectorXd r(0,1);
@@ -121,6 +122,10 @@ void revertBodies(Job* job);
 void trialStep(Job* job, Eigen::VectorXd& forceOut, Eigen::VectorXd& momentumIn);
 
 void applyA(Job* job, Eigen::VectorXd& Js_vec, Eigen::VectorXd& s_vec);
+
+void applyP(Job* job, Eigen::VectorXd& vecOut, Eigen::VectorXd& vecIn); //return preconditioned vector
+
+void applyPinv(Job* job, Eigen::VectorXd& vecOut, Eigen::VectorXd& vecIn); //return un-preconditioned vector
 
 /*----------------------------------------------------------------------------*/
 
@@ -309,6 +314,8 @@ void solverStep(Job* job){
                 r(i) = 0;
             }
         }
+        //applyP(job, r, Fv);
+        //r *= -1.0;
 
         x.setZero();
         rhat = r; //velocity
@@ -699,6 +706,7 @@ void sizeVectors(Job* job){
 
     Fv.resize(len);
     Fv_plus.resize(len);
+    Fv_minus.resize(len);
 
     p.resize(len);
     r.resize(len);
@@ -894,7 +902,9 @@ void trialStep(Job* job, Eigen::VectorXd& forceOut, Eigen::VectorXd& momentumIn)
 
 void applyA(Job* job, Eigen::VectorXd& Js_vec, Eigen::VectorXd& s_vec){
 
-    //calculate v = Ap --------------------------------
+    //applyP(job,v_n,mv_n);
+
+    //calculate Fv+ --------------------------------
     if (v_n.norm() > 0) {
         tmpVec = v_n + h * s_vec * v_n.norm() / s_vec.norm(); //velocity
     } else {
@@ -906,6 +916,19 @@ void applyA(Job* job, Eigen::VectorXd& Js_vec, Eigen::VectorXd& s_vec){
     trialStep(job,f_n,tmpVec);
 
     Fv_plus = mv_k + job->dt * f_n - tmpVec; //momentum
+
+    /*//calculate Fv- --------------------------------
+    if (v_n.norm() > 0) {
+        tmpVec = v_n - h * s_vec * v_n.norm() / s_vec.norm(); //velocity
+    } else {
+        tmpVec = -h * s_vec / s_vec.norm(); //velocity
+    }
+
+    tmpVec = tmpVec.array() * m.array(); //momentum
+
+    trialStep(job,f_n,tmpVec);
+
+    Fv_minus = mv_k + job->dt * f_n - tmpVec; //momentum*/
 
     //approximate Ap  ---------------------------------
     if (v_n.norm() > 0) {
@@ -922,6 +945,25 @@ void applyA(Job* job, Eigen::VectorXd& Js_vec, Eigen::VectorXd& s_vec){
             Js_vec(i) = 0;
         }
     }
+
+    //applyPinv(job,Js_vec,Js_vec);
+
+    return;
+}
+
+void applyP(Job* job, Eigen::VectorXd& vecOut, Eigen::VectorXd& vecIn){
+    for (size_t i=0; i < m.rows(); i++){
+        if (m(i) > 0){
+            vecOut(i) = vecIn(i) / m(i);
+        } else {
+            vecOut(i) = 0;
+        }
+    }
+    return;
+}
+
+void applyPinv(Job* job, Eigen::VectorXd& vecOut, Eigen::VectorXd& vecIn){
+    vecOut = vecIn.array() * m.array();
     return;
 }
 

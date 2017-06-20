@@ -1,6 +1,11 @@
 //
-// Created by aaron on 6/12/17.
-// cartesian_smoothbox.cpp
+// Created by aaron on 6/20/17.
+// rigid_linear_motion.cpp
+//
+
+//
+// Created by aaron on 5/26/17.
+// cartesian_box.cpp
 //
 
 #include <iostream>
@@ -18,7 +23,7 @@
 #include "nodes.hpp"
 #include "boundary.hpp"
 
-Eigen::MatrixXi bcNodalMask; //store which dof to control
+Eigen::VectorXd velocity_constraint(0,1);
 
 extern "C" void boundaryWriteFrame(Job* job, Body* body, Serializer* serializer); //write frame to serializer
 extern "C" std::string boundarySaveState(Job* job, Body* body, Serializer* serializer, std::string filepath); //save state to serializer folder with returned filename
@@ -31,25 +36,23 @@ extern "C" void boundaryApplyRules(Job* job, Body* body); //apply the rules give
 /*----------------------------------------------------------------------------*/
 
 void boundaryInit(Job* job, Body* body){
-    if (job->grid.filename.compare("cartesian.so") != 0){
-        std::cout << "\nBOUNDARY CONDITION WARNING!" << std::endl;
-        std::cout << "\"cartesian_smoothbox.so\" boundary expects \"cartesian.so\" grid NOT \"" << job->grid.filename << "\"!\n" << std::endl;
-    }
+    velocity_constraint = job->jobVector<double>();
 
-    //find bounds of box
-    Eigen::VectorXd Lx = body->nodes.x.colwise().maxCoeff();
-
-    //set bounding mask
-    double len = body->nodes.x.rows();
-    bcNodalMask = job->jobVectorArray<int>(len);
-    bcNodalMask.setZero();
-
-    for (size_t i=0;i<len;i++){
-        for (size_t pos=0;pos<body->nodes.x.cols();pos++){
-            if (body->nodes.x(i,pos) == 0 || body->nodes.x(i,pos) == Lx(pos)) {
-                bcNodalMask(i,pos) = 1; //only lock normal direction
-            }
+    if (body->boundary.fp64_props.size() < job->DIM){
+        std::cout << body->boundary.fp64_props.size() << "\n";
+        fprintf(stderr,
+                "%s:%s: Need at least %i properties defined (<linear_velocity>).\n",
+                __FILE__, __func__,job->DIM);
+        exit(0);
+    } else {
+        for (size_t i=0;i<job->DIM;i++){
+            velocity_constraint(i) = body->boundary.fp64_props[i];
+            body->points.x_t.col(i).setOnes();
+            body->points.x_t.col(i) *= velocity_constraint(i);
+            body->points.mx_t.col(i) = body->points.m * velocity_constraint(i);
         }
+        printf("Boundary properties (linear_speed = %g).\n",
+               velocity_constraint.norm());
     }
 
     std::cout << "Boundary Initialized: [" << body->name << "]." << std::endl;
@@ -61,8 +64,12 @@ void boundaryInit(Job* job, Body* body){
 
 void boundaryWriteFrame(Job* job, Body* body, Serializer* serializer){
     //write nodal mask to frame output
-    Eigen::MatrixXd tmpMat = bcNodalMask.cast<double>();
-    serializer->serializerWriteVectorArray(tmpMat,"bc_nodal_mask");
+    Eigen::MatrixXd tmpMat = job->jobVectorArray<double>(body->points.x.rows());
+    tmpMat.setOnes();
+    for (size_t pos=0; pos < tmpMat.cols(); pos++){
+        tmpMat.col(pos) *= velocity_constraint(pos);
+    }
+    serializer->serializerWriteVectorArray(tmpMat,("bc_constained_velocity_"+body->name));
     return;
 }
 
@@ -87,8 +94,9 @@ std::string boundarySaveState(Job* job, Body* body, Serializer* serializer, std:
     //write data
     if (ffile.is_open()) {
         ffile << "# mpm_v2 boundaries/cartesian_box.so\n"; //header
-        ffile << bcNodalMask.rows() << "\n"; //lines to read later
-        job->jobVectorArrayToFile(bcNodalMask, ffile);
+        for (size_t i=0;i<velocity_constraint.rows();i++){
+            ffile << velocity_constraint(i) << "\n";
+        }
 
         ffile.close();
     } else {
@@ -110,9 +118,11 @@ int boundaryLoadState(Job* job, Body* body, Serializer* serializer, std::string 
 
     if (fin.is_open()) {
         std::getline(fin,line); //first line (header)
-        std::getline(fin,line); //length of file to be read
-        bcNodalMask = job->jobVectorArray<int>(std::stoi(line)); //initialize vector array
-        job->jobVectorArrayFromFile(bcNodalMask, fin); //read in from file
+        velocity_constraint = job->jobVector<double>();
+        for (size_t i=0;i<velocity_constraint.rows();i++){
+            std::getline(fin,line);
+            velocity_constraint(i) = std::stod(line);
+        }
         fin.close();
     } else {
         std::cout << "ERROR: Unable to open file: " << fullpath << std::endl;
@@ -137,13 +147,16 @@ void boundaryGenerateRules(Job* job, Body* body){
 void boundaryApplyRules(Job* job, Body* body){
     for (size_t i=0;i<body->nodes.x_t.rows();i++){
         for (size_t pos=0;pos<body->nodes.x_t.cols();pos++){
-            if (bcNodalMask(i,pos) == 1){
-                //zero out velocity on boundary
-                body->nodes.x_t(i,pos) = 0;
-                body->nodes.mx_t(i,pos) = 0;
-                body->nodes.f(i,pos) = 0;
-            }
+            //zero out velocity on boundary
+            body->nodes.x_t(i,pos) = velocity_constraint(pos);
+            body->nodes.mx_t(i,pos) = body->nodes.m(i) * velocity_constraint(pos);
+            body->nodes.f(i,pos) = 0;
         }
+    }
+    for (size_t pos=0;pos<job->DIM;pos++){
+        body->points.x_t.col(pos).setOnes();
+        body->points.x_t.col(pos) *= velocity_constraint(pos);
+        body->points.mx_t.col(pos) = body->points.m * velocity_constraint(pos);
     }
     return;
 }
