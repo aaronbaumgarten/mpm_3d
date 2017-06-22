@@ -20,8 +20,8 @@ Lx = 0.2
 Ly = 0.3
 Lz = 1.0
 #Ne = 40
-Nx = 30
-Ny = 45
+Nx = 60
+Ny = 90
 Nz = 1
 lmpp = 2
 Lz = 1.0*lmpp
@@ -32,13 +32,13 @@ print "grid created"
 g = -9.81
 
 # free block properties
-block_properties = { 'rho': 640 }
+block_properties = { 'rho': 7860 }
 block_width = 0.015
 block_height = 0.015
 block_depth = 1.0
 hx = Lx/Nx
-block_primitive = Primitives3d.Box(0, Lx,
-                                 0, Lx,
+block_primitive = Primitives3d.Box(0, block_width,
+                                 0.204, 0.204+block_width,
                                  0, 1.0,
                                  )
 block_body = CSGTree3d.Node(block_primitive)

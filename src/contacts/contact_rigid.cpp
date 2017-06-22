@@ -48,7 +48,7 @@ extern "C" void contactApplyRules(Job* job, int); //apply rules
 
 void contactWriteFrame(Job* job, Serializer* serializer){
     for (size_t pos=0; pos<rigid_force.cols(); pos++){
-        f_sum_write.col(0) = Eigen::VectorXd::Ones(f_sum_write.rows()) * rigid_force.col(pos).sum();
+        f_sum_write.col(pos) = Eigen::VectorXd::Ones(f_sum_write.rows()) * rigid_force.col(pos).sum();
     }
     serializer->serializerWriteVectorArray(contact_normal,("rigid_normal_" + job->bodies[bodyIDs[0]].name + "_" + job->bodies[bodyIDs[1]].name));
     serializer->serializerWriteVectorArray(rigid_force,("rigid_force_on_" + job->bodies[bodyIDs[0]].name));

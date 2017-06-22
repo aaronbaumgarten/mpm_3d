@@ -5,3 +5,6 @@
 *.a
 cmake-build-debug
 build*
+mpm_pygen/*.points
+mpm_pygen/*.grid
+mpm_pygen/*.particles

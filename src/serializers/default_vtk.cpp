@@ -101,7 +101,7 @@ int serializerWriteFrame(Job* job){
 
             //open point file
             std::stringstream ss;
-            ss << "fpd." << job->bodies[b].id << "." << job->bodies[b].name << "." << std::setw(10) << std::setfill('0') << sampledFrames << ".vtk";
+            ss << "fpd." << job->bodies[b].id << "." << job->bodies[b].name << "." << std::setw(10) << std::setfill('0') << (sampledFrames-1) << ".vtk";
             pfilename = ss.str();
             pfile = std::ofstream(frameDirectory+pfilename,std::ios::trunc);
 
@@ -109,7 +109,7 @@ int serializerWriteFrame(Job* job){
             ss.clear();
 
             //open node file
-            ss << "fnd." << job->bodies[b].id << "." << job->bodies[b].name << "." << std::setw(10) << std::setfill('0') << sampledFrames << ".vtk";
+            ss << "fnd." << job->bodies[b].id << "." << job->bodies[b].name << "." << std::setw(10) << std::setfill('0') << (sampledFrames-1) << ".vtk";
             nfilename = ss.str();
             nfile = std::ofstream(frameDirectory+nfilename,std::ios::trunc);
 
@@ -119,7 +119,7 @@ int serializerWriteFrame(Job* job){
 
             if (pfile.is_open()){
                 pfile << "# vtk DataFile Version 3.0\n";
-                pfile << "Frame: " << sampledFrames << ", Time: " << job->t << "\n";
+                pfile << "Frame: " << (sampledFrames-1) << ", Time: " << job->t << "\n";
                 pfile << "ASCII\n";
                 pfile << "DATASET UNSTRUCTURED_GRID\n";
 
