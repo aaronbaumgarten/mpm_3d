@@ -3,12 +3,6 @@
 // g_local_mu2.cpp
 //
 
-
-//
-// Created by aaron on 5/24/17.
-// isolin.cpp
-//
-
 #include <iostream>
 #include <fstream>
 #include <stdio.h>

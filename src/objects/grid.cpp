@@ -37,6 +37,7 @@ Grid::Grid() {
     gridEvaluateShapeFnGradient = NULL;
     gridNodalVolume = NULL;
     gridElementVolume = NULL;
+    gridNodalTag = NULL;
 
     gridWriteFrame = NULL;
     gridSaveState = NULL;
@@ -65,6 +66,7 @@ Grid::Grid(const Grid& obj){
     gridEvaluateShapeFnGradient = NULL;
     gridNodalVolume = NULL;
     gridElementVolume = NULL;
+    gridNodalTag = NULL;
 
     gridWriteFrame = NULL;
     gridSaveState = NULL;
@@ -106,6 +108,7 @@ void Grid::gridSetFnPointers(){
         gridEvaluateShapeFnGradient = NULL;
         gridNodalVolume = NULL;
         gridElementVolume = NULL;
+        gridNodalTag = NULL;
 
         gridWriteFrame = NULL;
         gridSaveState = NULL;
@@ -159,6 +162,12 @@ void Grid::gridSetFnPointers(){
         dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol 'gridElementVolume': " << dlsym_error <<
+                      '\n';
+        }
+        gridNodalTag = reinterpret_cast<int (*)(Job*,int)>(dlsym(handle, "gridNodalTag"));
+        dlsym_error = dlerror();
+        if (dlsym_error) {
+            std::cerr << "Cannot load symbol 'gridNodalTag': " << dlsym_error <<
                       '\n';
         }
 

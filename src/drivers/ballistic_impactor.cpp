@@ -9,6 +9,7 @@
 #include <vector>
 #include <Eigen/Core>
 #include <time.h>
+#include "signal_resolution.hpp"
 
 #include "job.hpp"
 
@@ -135,6 +136,9 @@ void driverRun(Job* job) {
 
     //run simulation to settle material (w/o impactor)
     while (job->t < 0) {
+        if (check_interupt()){
+            return;
+        }
         //run solver
         job->solver.solverStep(job);
 
@@ -175,6 +179,9 @@ void driverRun(Job* job) {
 
     //run simulation until stop_time
     while (job->t < stop_time){
+        if (check_interupt()){
+            return;
+        }
         //run solver
         job->solver.solverStep(job);
         //std::cout << "Step Completed [" << ++stepCount << "]." << std::flush;

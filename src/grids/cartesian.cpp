@@ -44,6 +44,7 @@ extern "C" void gridEvaluateShapeFnValue(Job* job, Eigen::VectorXd xIN, std::vec
 extern "C" void gridEvaluateShapeFnGradient(Job* job, Eigen::VectorXd xIN, std::vector<int>& nID, std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>& nGRAD);
 extern "C" double gridNodalVolume(Job* job, int idIN);
 extern "C" double gridElementVolume(Job* job, int idIN);
+extern "C" double gridNodalTag(Job* job, int idIN);
 
 /*----------------------------------------------------------------------------*/
 
@@ -139,7 +140,7 @@ void hiddenInit(Job* job){
 /*----------------------------------------------------------------------------*/
 
 void gridInit(Job* job){
-    if (job->grid.fp64_props.size() < job->DIM || job->grid.fp64_props.size() < job->DIM){
+    if (job->grid.fp64_props.size() < job->DIM || job->grid.int_props.size() < job->DIM){
         std::cout << job->grid.fp64_props.size() << "\n";
         fprintf(stderr,
                 "%s:%s: Need at least %i dimensions defined.\n",
@@ -354,7 +355,7 @@ void gridEvaluateShapeFnGradient(Job* job, Eigen::VectorXd xIN, std::vector<int>
         }
         for (size_t i=0;i<xIN.rows();i++){
             //replace i-direction contribution with sign function
-            tmpVec(i) = tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
+            tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
         }
         nID.push_back(nodeIDs(elementID,n));
         nGRAD.push_back(tmpVec);
@@ -376,3 +377,8 @@ double gridElementVolume(Job* job, int idIN){
     return v_e;
 }
 
+/*----------------------------------------------------------------------------*/
+
+double gridNodalTag(Job* job, int idIN){
+    return -1;
+}

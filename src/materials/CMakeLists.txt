@@ -3,6 +3,7 @@ set(MATERIALS
         g_local_mu2.cpp
         viscofluid.cpp
         slurry_viscofluid.cpp
+        slurry_mu_iv.cpp
         )
 
 foreach(matc ${MATERIALS})

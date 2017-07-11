@@ -53,6 +53,7 @@ public:
     void (*gridEvaluateShapeFnGradient)(Job*, Eigen::VectorXd, std::vector<int>&, std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>&); //evaluate shape function gradients at given point (add ids and vectors to vec/matrix)
     double (*gridNodalVolume)(Job*,int); //return volume integral of shape function at given node id
     double (*gridElementVolume)(Job*,int); //return volume of given element id
+    int (*gridNodalTag)(Job*,int); //return tag of given node id
 };
 
 #endif //MPM_3D_GRID_HPP

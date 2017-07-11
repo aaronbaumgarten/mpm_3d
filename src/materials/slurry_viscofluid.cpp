@@ -233,6 +233,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
     Eigen::MatrixXd tmpMat = job->jobTensor<double>();
     Eigen::VectorXd tmpVec;
+    double eta; //fluid viscosity change w/ phi
 
     for (size_t i=0;i<body->points.x.rows();i++){
         if (body->points.active[i] == 0){
@@ -255,7 +256,8 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         trD = D.trace();
 
         //T = 2*mu*D_0 + K*log(J)*I
-        T = 2*mu*(D - (trD/D.rows())*job->jobTensor<double>(Job::IDENTITY)) + K*std::log(J_tr(i))*job->jobTensor<double>(Job::IDENTITY);
+        eta = mu * (1 + 5.0/2.0 * (n_p(i) - 1));
+        T = 2*eta*(D - (trD/D.rows())*job->jobTensor<double>(Job::IDENTITY)) + K*std::log(J_tr(i))*job->jobTensor<double>(Job::IDENTITY);
 
         for (size_t i=0;i<tmpVec.size();i++){
             tmpVec(i) = T(i);

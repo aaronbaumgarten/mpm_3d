@@ -12,6 +12,7 @@
 #include <memory>
 #include <Eigen/Core>
 
+#include "signal_resolution.hpp"
 #include "stringparser.hpp"
 
 #include "job.hpp"
@@ -37,31 +38,6 @@ void usage(char* program_name){
     std::cout << "        -d, run default simulation using default files." << std::endl;
     std::cout << "        -r SIMFILE, **TO BE ADDED**." << std::endl;
     return;
-}
-
-std::vector<Serializer*> master_list_serializers;
-std::vector<Job*> master_list_jobs;
-
-void sigint_handler(int s){
-    //ask to save
-    std::cout << std::endl << std::endl << "SIGINT received." << std::endl;
-    std::cout << "Save? [y/n] ";
-    char c = getchar();
-    if (c == 'y' || c == 'Y'){
-        for (size_t i=0; i<master_list_serializers.size(); i++){
-            std::cout << "Saving " << i << "." << std::endl;
-            master_list_serializers[i]->serializerSaveState(master_list_jobs[i]);
-            delete(master_list_jobs[i]);
-        }
-        std::cout << "Exiting." << std::endl;
-        exit(0);
-    } else {//if (c == 'n' || c == 'N') {
-        for (size_t i=0; i<master_list_jobs.size(); i++){
-            delete(master_list_jobs[i]);
-        }
-        std::cout << "Exiting." << std::endl;
-        exit(0);
-    }
 }
 
 int main(int argc, char *argv[]) {
@@ -210,8 +186,6 @@ int main(int argc, char *argv[]) {
     std::cout << "\n";
 
     //setup sigint handling
-    master_list_serializers.push_back(&(job->serializer));
-    master_list_jobs.push_back(job);
     signal(SIGINT, sigint_handler);
 
     //start simulation

@@ -2,6 +2,8 @@ set(BOUNDARIES
         cartesian_box.cpp
         cartesian_smoothbox.cpp
         rigid_linear_motion.cpp
+        cartesian_periodic_floor.cpp
+        cartesian_floor_freewall.cpp
         )
 
 foreach(bcc ${BOUNDARIES})
