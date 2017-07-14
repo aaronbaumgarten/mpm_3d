@@ -277,6 +277,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                 x_t = job->jobVectorArray<double>(len);
                 m.resize(len);
                 v.resize(len);
+                v0.resize(len);
                 mx_t = job->jobVectorArray<double>(len);
                 b = job->jobVectorArray<double>(len);
                 T = job->jobTensorArray<double>(len);
@@ -289,6 +290,7 @@ int Points::pointsLoadState(Job* job, Body* body, Serializer* serializer, std::s
                 x_t.setZero();
                 m.setZero();
                 v.setZero();
+                v0.setZero();
                 mx_t.setZero();
                 b.setZero();
                 T.setZero();

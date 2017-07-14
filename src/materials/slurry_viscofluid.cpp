@@ -156,13 +156,13 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
 
         std::getline(fin, line); //J
         std::getline(fin, line); //{
-        job->jobVectorArrayFromFile(J, fin);
+        job->jobScalarArrayFromFile(J, fin);
         std::getline(fin, line); //}
 
         fin.close();
 
-        printf("Material properties (K = %g, mu = %g).\n",
-               K, mu);
+        printf("Material properties ({K = %g, mu = %g, solid_rho = %g}, {solid_body: %i}).\n",
+               K, mu, solid_rho, solid_body_id);
     } else {
         std::cout << "ERROR: Unable to open file: " << fullpath << std::endl;
         return 0;

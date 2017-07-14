@@ -25,8 +25,9 @@
 #include "material.hpp"
 
 //residual tolerance
-double TOL = 1e-10;
-double h = 1e-7;
+double ABS_TOL = 1e-6;
+double REL_TOL = 1e-6;
+double h = 1e-5;
 
 //standard linear elastic terms
 double E, nu, G, K;
@@ -55,10 +56,10 @@ extern "C" void materialAssignPressure(Job* job, Body* body, double pressureIN, 
 /*----------------------------------------------------------------------------*/
 
 void materialInit(Job* job, Body* body){
-    if (body->material.fp64_props.size() < 12){
+    if (body->material.fp64_props.size() < 11){
         std::cout << body->material.fp64_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 12 properties defined (E, nu, mu_1, mu_2, I_0, K_3, K_4, K_5, phi_m, grains_rho, eta_0).\n",
+                "%s:%s: Need at least 11 properties defined (E, nu, mu_1, mu_2, I_0, K_3, K_4, K_5, phi_m, grains_rho, eta_0).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
@@ -67,15 +68,15 @@ void materialInit(Job* job, Body* body){
         G = E / (2.0 * (1.0 + nu));
         K = E / (3.0 * (1.0 - 2 * nu));
         lambda = K - 2.0 * G / 3.0;
-        mu_1 = body->material.fp64_props[3];
-        mu_2 = body->material.fp64_props[4];
-        I_0 = body->material.fp64_props[5];
-        K_3 = body->material.fp64_props[6];
-        K_4 = body->material.fp64_props[7];
-        K_5 = body->material.fp64_props[8];
-        phi_m = body->material.fp64_props[9];
-        grains_rho = body->material.fp64_props[10];
-        eta_0 = body->material.fp64_props[11];
+        mu_1 = body->material.fp64_props[2];
+        mu_2 = body->material.fp64_props[3];
+        I_0 = body->material.fp64_props[4];
+        K_3 = body->material.fp64_props[5];
+        K_4 = body->material.fp64_props[6];
+        K_5 = body->material.fp64_props[7];
+        phi_m = body->material.fp64_props[8];
+        grains_rho = body->material.fp64_props[9];
+        eta_0 = body->material.fp64_props[10];
 
         printf("Material properties (E = %g, nu = %g, G = %g, K = %g, mu_1 = %g, mu_2 = %g, I_0 = %g, K_3 = %g, K_4 = %g, K_5 = %g, phi_m = %g, grains_rho = %g, eta_0 = %g).\n",
                E, nu, G, K, mu_1, mu_2, I_0, K_3, K_4, K_5, phi_m, grains_rho, eta_0);
@@ -248,9 +249,445 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     Eigen::MatrixXd D = job->jobTensor<double>();
     Eigen::MatrixXd D_0 = job->jobTensor<double>();
     Eigen::MatrixXd W = job->jobTensor<double>();
+    
+    double trD, tau_bar, tau_bar_tr, p, p_tr, p_plus, tau_bar_plus;
+    double beta, mu, phi_eq, xi_dot_1, xi_dot_2;
+    double I_v_tr, gammap_dot_tr;
 
-    double trD, p, p_tr, tau_bar, tau_bar_tr, I_v_tr;
+    Eigen::MatrixXd tmpMat = job->jobTensor<double>();
+    Eigen::VectorXd tmpVec;
+
+    Eigen::Vector2d r, b, upd;
+    Eigen::Matrix2d dr;
+
+    double p_tmp, tau_bar_tmp, lambda_tmp;
+    Eigen::Vector2d r_tmp;
+
+    //calculate packing fraction
+    phi = 1/grains_rho * (body->points.m.array() / body->points.v.array());
+
+    for (size_t i=0;i<body->points.x.rows();i++) {
+        if (body->points.active[i] == 0) {
+            continue;
+        }
+
+        tmpVec = body->points.L.row(i).transpose();
+        L = job->jobTensor<double>(tmpVec.data());
+
+        tmpVec = body->points.T.row(i).transpose();
+        T = job->jobTensor<double>(tmpVec.data());
+
+        D = 0.5 * (L + L.transpose());
+        W = 0.5 * (L - L.transpose());
+
+        trD = D.trace();
+        D_0 = D - trD / D.rows() * job->jobTensor<double>(Job::IDENTITY);
+
+        //trial stress
+        T_tr = T + job->dt * ((2 * G * D) + (lambda * trD * job->jobTensor<double>(Job::IDENTITY)) + (W * T) - (T * W));
+        tau_bar_tr = (T_tr - (T_tr.trace() / T_tr.rows()) * job->jobTensor<double>(Job::IDENTITY)).norm() / std::sqrt(2.0);
+        p_tr = -T_tr.trace() / T_tr.rows();
+
+        //check f2 yield surface
+        if (phi(i) > phi_m) {
+            beta = K_3 * (phi(i) - phi_m) + K_4 * (phi(i));
+        } else {
+            beta = K_4 * phi(i);
+        }
+        if (p_tr <= 0 && tau_bar_tr == 0){
+            tau_bar = 0;
+            p = 0;
+            gammap_dot_tr = 0;
+        } else if(p_tr + K*(tau_bar_tr/G)*beta <= 0) {
+            tau_bar = 0;
+            p = 0;
+            gammap_dot_tr = tau_bar_tr / (G * job->dt);
+        } else {
+
+            //check for admissible stress state
+            if (phi(i) > phi_m) {
+                beta = (K_3 + K_4) * (phi(i) - phi_m);
+            } else {
+                beta = K_4 * (phi(i) - phi_m);
+            }
+            if (p_tr >= 0 && tau_bar_tr < (mu_1 + beta) * p_tr) {
+                tau_bar = tau_bar_tr;
+                p = p_tr;
+                gammap_dot_tr = 0;
+            } else {
+
+                //check f1 only
+                tau_bar = 0; //[0, tau_bar_tr]
+                p = 0; //[0,?]
+                if (phi(i) > phi_m) {
+                    beta = (K_3 + K_4) * (phi(i) - phi_m);
+                } else {
+                    beta = K_4 * (phi(i) - phi_m);
+                }
+                r(0) = tau_bar_tr;
+                r(1) = -p_tr - K * (tau_bar_tr / G) * beta;
+                b = r;
+                while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
+                    gammap_dot_tr = (tau_bar_tr - tau_bar) / (G * job->dt);
+
+                    if (p == 0) {
+                        mu = mu_2;
+                        phi_eq = 0;
+                    } else {
+                        I_v_tr = eta_0 * gammap_dot_tr / p;
+                        mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
+                        phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
+                    }
+                    if (gammap_dot_tr == 0) {
+                        mu = mu_1;
+                    }
+
+                    if (phi(i) > phi_m) {
+                        beta = K_3 * (phi(i) - phi_m) + K_4 * (phi(i) - phi_eq);
+                    } else {
+                        beta = K_4 * (phi(i) - phi_eq);
+                    }
+
+                    r(0) = tau_bar - (mu + beta) * p;
+                    r(1) = p - p_tr - K * job->dt * (beta * gammap_dot_tr);
+
+                    if (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
+                        if (p > 0) {
+                            p_plus = p * (1 + h);
+                        } else {
+                            p_plus = h;
+                        }
+
+                        gammap_dot_tr = (tau_bar_tr - tau_bar) / (G * job->dt);
+
+                        if (p_plus == 0) {
+                            mu = mu_2;
+                            phi_eq = 0;
+                        } else {
+                            I_v_tr = eta_0 * gammap_dot_tr / p_plus;
+                            mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
+                            phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
+                        }
+                        if (gammap_dot_tr == 0) {
+                            mu = mu_1;
+                        }
+
+                        if (phi(i) > phi_m) {
+                            beta = K_3 * (phi(i) - phi_m) + K_4 * (phi(i) - phi_eq);
+                        } else {
+                            beta = K_4 * (phi(i) - phi_eq);
+                        }
+
+                        dr(0, 0) = (tau_bar - (mu + beta) * p_plus - r(0)) / (p_plus - p);
+                        dr(1, 0) = (p_plus - p_tr - K * job->dt * (beta * gammap_dot_tr) - r(1)) / (p_plus - p);
+
+                        //--------------
+
+                        if (tau_bar > 0 && tau_bar * (1 + h) < tau_bar_tr) {
+                            tau_bar_plus = tau_bar * (1 + h);
+                        } else if (tau_bar * (1 + h) >= tau_bar_tr) {
+                            tau_bar_plus = tau_bar * (1 - h);
+                        } else {
+                            tau_bar_plus = h;
+                        }
+                        gammap_dot_tr = (tau_bar_tr - tau_bar_plus) / (G * job->dt);
+
+                        if (p == 0) {
+                            mu = mu_2;
+                            phi_eq = 0;
+                        } else {
+                            I_v_tr = eta_0 * gammap_dot_tr / p;
+                            mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
+                            phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
+                        }
+                        if (gammap_dot_tr == 0) {
+                            mu = mu_1;
+                        }
+
+                        if (phi(i) > phi_m) {
+                            beta = K_3 * (phi(i) - phi_m) + K_4 * (phi(i) - phi_eq);
+                        } else {
+                            beta = K_4 * (phi(i) - phi_eq);
+                        }
+
+                        dr(0, 1) = (tau_bar_plus - (mu + beta) * p - r(0)) / (tau_bar_plus - tau_bar);
+                        dr(1, 1) = (p - p_tr - K * job->dt * (beta * gammap_dot_tr) - r(1)) / (tau_bar_plus - tau_bar);
+                    } else {
+                        break;
+                    }
+
+                    upd = dr.inverse()*r;
+                    lambda_tmp = 1;
+                    //p = p - upd(0);
+                    //tau_bar = tau_bar - upd(1);
+                    do {
+                        p_tmp = p - lambda_tmp*upd(0);
+                        tau_bar_tmp = tau_bar - lambda_tmp*upd(1);
+
+                        if (p_tmp < 0) {
+                            p_tmp = 0;
+                        }
+
+                        if (tau_bar_tmp < 0) {
+                            tau_bar_tmp = 0;
+                        } else if (tau_bar_tmp > tau_bar_tr) {
+                            tau_bar_tmp = tau_bar_tr;
+                        }
+
+                        gammap_dot_tr = (tau_bar_tr - tau_bar_tmp) / (G * job->dt);
+
+                        if (p_tmp == 0) {
+                            mu = mu_2;
+                            phi_eq = 0;
+                        } else {
+                            I_v_tr = eta_0 * gammap_dot_tr / p_tmp;
+                            mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
+                            phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
+                        }
+                        if (gammap_dot_tr == 0) {
+                            mu = mu_1;
+                        }
+
+                        if (phi(i) > phi_m) {
+                            beta = K_3 * (phi(i) - phi_m) + K_4 * (phi(i) - phi_eq);
+                        } else {
+                            beta = K_4 * (phi(i) - phi_eq);
+                        }
+
+                        r_tmp(0) = tau_bar_tmp - (mu + beta) * p_tmp;
+                        r_tmp(1) = p_tmp - p_tr - K * job->dt * (beta * gammap_dot_tr);
+
+                        lambda_tmp *= 0.5;
+                    } while (r_tmp.norm() > r.norm() && lambda_tmp > REL_TOL);
+
+                    p = p_tmp;
+                    tau_bar = tau_bar_tmp;
+
+                    if (p < 0) {
+                        p = 0;
+                    }
+
+                    if (tau_bar < 0) {
+                        tau_bar = 0;
+                    } else if (tau_bar > tau_bar_tr) {
+                        tau_bar = tau_bar_tr;
+                    }
+
+                    if (job->t > 0.242) {
+                        std::cout << i << " : " << r.norm() << " <? " << b.norm() << " : " << tau_bar << " : " << p << std::endl;
+                        std::cout << phi_eq << ", " << phi(i) << std::endl;
+                        std::cout << beta << ", " << gammap_dot_tr << std::endl;
+                        std::cout << tau_bar_tr << " : " << p_tr << std::endl;
+                        std::cout << tau_bar_plus << " : " << p_plus << std::endl;
+                        std::cout << dr << std::endl;
+                        std::cout << r << std::endl << std::endl;
+                        std::cout << upd << std::endl << std::endl;
+                    }
+                    //std::cout << T << std::endl << L << std::endl << std::endl;
+
+
+                    if (!std::isfinite(p) || !std::isfinite(tau_bar)){
+                        exit(0);
+                    }
+                }
+
+                if (phi(i) > phi_m || (p - (phi(i) / (phi_m - phi(i)))*(phi(i) / (phi_m - phi(i))) * eta_0 * (gammap_dot_tr)) < 0){
+                    //do nothing
+                } else {
+                    //check f1,f3
+                    if (phi(i) > phi_m) {
+                        beta = K_3 * (phi(i) - phi_m) + K_4 * (phi(i));
+                    } else {
+                        beta = K_4 * phi(i);
+                    }
+                    r(0) = tau_bar_tr;
+                    r(1) = -p_tr - K * (tau_bar_tr / G) * beta;
+                    b = r;
+                    while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
+                        gammap_dot_tr = (tau_bar_tr - tau_bar) / (G * job->dt);
+                        if (p == 0) {
+                            mu = mu_2;
+                            phi_eq = 0;
+                        } else {
+                            I_v_tr = eta_0 * gammap_dot_tr / p;
+                            mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
+                            phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
+                        }
+                        if (gammap_dot_tr == 0) {
+                            mu = mu_1;
+                        }
+
+                        if (phi(i) > phi_m) {
+                            beta = K_3 * (phi(i) - phi_m) + K_4 * (phi(i) - phi_eq);
+                        } else {
+                            beta = K_4 * (phi(i) - phi_eq);
+                        }
+                        xi_dot_2 = (p - p_tr) / (K * job->dt) - beta * gammap_dot_tr;
+
+                        r(0) = tau_bar - (mu + beta) * p;
+                        r(1) = p - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta_0 * (gammap_dot_tr - K_5 * xi_dot_2);
+
+                        if (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
+                            if (p > 0) {
+                                p_plus = p * (1 + h);
+                            } else {
+                                p_plus = h;
+                            }
+                            gammap_dot_tr = (tau_bar_tr - tau_bar) / (G * job->dt);
+
+                            if (p_plus == 0) {
+                                mu = mu_2;
+                                phi_eq = 0;
+                            } else {
+                                I_v_tr = eta_0 * gammap_dot_tr / p_plus;
+                                mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
+                                phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
+                            }
+                            if (gammap_dot_tr == 0) {
+                                mu = mu_1;
+                            }
+
+                            if (phi(i) > phi_m) {
+                                beta = K_3 * (phi(i) - phi_m) + K_4 * (phi(i) - phi_eq);
+                            } else {
+                                beta = K_4 * (phi(i) - phi_eq);
+                            }
+                            xi_dot_2 = (p_plus - p_tr) / (K * job->dt) - beta * gammap_dot_tr;
+
+                            dr(0, 0) = tau_bar - (mu + beta) * p_plus;
+                            dr(0, 0) = (dr(0, 0) - r(0)) / (p_plus - p);
+                            dr(1, 0) = p_plus - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta_0 * (gammap_dot_tr - K_5 * xi_dot_2);
+                            dr(1, 0) = (dr(1, 0) - r(1)) / (p_plus - p);
+
+                            //--------------
+
+                            if (tau_bar > 0 && tau_bar * (1 + h) < tau_bar_tr) {
+                                tau_bar_plus = tau_bar * (1 + h);
+                            } else if (tau_bar * (1 + h) >= tau_bar_tr) {
+                                tau_bar_plus = tau_bar * (1 - h);
+                            } else {
+                                tau_bar_plus = h;
+                            }
+                            gammap_dot_tr = (tau_bar_tr - tau_bar_plus) / (G * job->dt);
+
+                            if (p == 0) {
+                                mu = mu_2;
+                                phi_eq = 0;
+                            } else {
+                                I_v_tr = eta_0 * gammap_dot_tr / p;
+                                mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
+                                phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
+                            }
+                            if (gammap_dot_tr == 0) {
+                                mu = mu_1;
+                            }
+
+                            if (phi(i) > phi_m) {
+                                beta = K_3 * (phi(i) - phi_m) + K_4 * (phi(i) - phi_eq);
+                            } else {
+                                beta = K_4 * (phi(i) - phi_eq);
+                            }
+                            xi_dot_2 = (p - p_tr) / (K * job->dt) - beta * gammap_dot_tr;
+
+                            dr(0, 1) = tau_bar_plus - (mu + beta) * p;
+                            dr(0, 1) = (dr(0, 1) - r(0)) / (tau_bar_plus - tau_bar);
+                            dr(1, 1) = p - (phi(i) / (phi_m - phi(i)))*(phi(i) / (phi_m - phi(i))) * eta_0 * (gammap_dot_tr - K_5 * xi_dot_2);
+                            dr(1, 1) = (dr(1, 1) - r(1)) / (tau_bar_plus - tau_bar);
+                        } else {
+                            break;
+                        }
+
+                        upd = dr.inverse()*r;
+                        lambda_tmp = 1;
+                        //p = p - upd(0);
+                        //tau_bar = tau_bar - upd(1);
+                        do {
+                            p_tmp = p - lambda_tmp*upd(0);
+                            tau_bar_tmp = tau_bar - lambda_tmp*upd(1);
+
+                            if (p_tmp < 0) {
+                                p_tmp = 0;
+                            }
+
+                            if (tau_bar_tmp < 0) {
+                                tau_bar_tmp = 0;
+                            } else if (tau_bar_tmp > tau_bar_tr) {
+                                tau_bar_tmp = tau_bar_tr;
+                            }
+
+                            gammap_dot_tr = (tau_bar_tr - tau_bar_tmp) / (G * job->dt);
+                            if (p == 0) {
+                                mu = mu_2;
+                                phi_eq = 0;
+                            } else {
+                                I_v_tr = eta_0 * gammap_dot_tr / p_tmp;
+                                mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
+                                phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
+                            }
+                            if (gammap_dot_tr == 0) {
+                                mu = mu_1;
+                            }
+
+                            if (phi(i) > phi_m) {
+                                beta = K_3 * (phi(i) - phi_m) + K_4 * (phi(i) - phi_eq);
+                            } else {
+                                beta = K_4 * (phi(i) - phi_eq);
+                            }
+                            xi_dot_2 = (p_tmp - p_tr) / (K * job->dt) - beta * gammap_dot_tr;
+
+                            r_tmp(0) = tau_bar_tmp - (mu + beta) * p_tmp;
+                            r_tmp(1) = p_tmp - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta_0 * (gammap_dot_tr - K_5 * xi_dot_2);
+
+                            lambda_tmp *= 0.5;
+                        } while (r_tmp.norm() > r.norm() && lambda_tmp > REL_TOL);
+
+                        p = p_tmp;
+                        tau_bar = tau_bar_tmp;
+
+                        if (p < 0) {
+                            p = 0;
+                        }
+
+                        if (tau_bar < 0) {
+                            tau_bar = 0;
+                        } else if (tau_bar > tau_bar_tr) {
+                            tau_bar = tau_bar_tr;
+                        }
+                    }
+                }
+            }
+        }
+        //update stress
+        if (p > 0 && tau_bar > 0) {
+            T = tau_bar / tau_bar_tr * (T_tr - T_tr.trace() / T_tr.rows() * job->jobTensor<double>(Job::IDENTITY));
+            T = T - p * job->jobTensor<double>(Job::IDENTITY);
+        } else {
+            T = job->jobTensor<double>(Job::ZERO);
+        }
+
+        for (size_t pos=0;pos<T.size();pos++){
+            /*if (!std::isfinite(T(pos))){
+                std::cout << T << std::endl;
+                std::cout << tau_bar << std::endl;
+                std::cout << p << std::endl;
+                exit(0);
+            }*/
+            body->points.T(i,pos) = T(pos);
+        }
+        if (SPEC == Material::UPDATE) {
+            gammap_dot(i) = gammap_dot_tr;
+            gammap(i) += job->dt * gammap_dot(i);
+            I_v(i) = eta_0*gammap_dot(i)/(-T.trace()/T.rows()); //undefined
+        }
+
+    }
+
+    return;
+
+    /*double trD, p, p_tr, tau_bar, tau_bar_tr, I_v_tr;
     double xi_dot_1, xi_dot_2, gammap_dot_tr, mu, beta, phi_eq;
+
+    double x; //sqrt(p)
 
     Eigen::MatrixXd tmpMat = job->jobTensor<double>();
     Eigen::VectorXd tmpVec;
@@ -279,12 +716,12 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         W = 0.5*(L-L.transpose());
 
         trD = D.trace();
-        D_0 = D - trD/3.0 * job->jobTensor<double>(Job::IDENTITY);
+        D_0 = D - trD/D.rows() * job->jobTensor<double>(Job::IDENTITY);
 
         //trial stress
         T_tr = T + job->dt * ((2*G*D) + (lambda*trD*job->jobTensor<double>(Job::IDENTITY)) + (W*T) - (T*W));
-        tau_bar_tr = (T_tr - (T_tr.trace() / 3.0)*job->jobTensor<double>(Job::IDENTITY)).norm() / std::sqrt(2.0);
-        p_tr = -T_tr.trace() / 3.0;
+        tau_bar_tr = (T_tr - (T_tr.trace() / T_tr.rows())*job->jobTensor<double>(Job::IDENTITY)).norm() / std::sqrt(2.0);
+        p_tr = -T_tr.trace() / T_tr.rows();
 
         //check if trial stress admissible
         if (tau_bar_tr <= mu_1*p_tr && p_tr > 0){
@@ -317,7 +754,10 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
         //check if stress state lies on f1,f2 yield surfaces
         if (p_tr <= 0){
-            beta = K_3*(phi(i) - phi_m) + K_4*(phi(i) - 0.0);
+            beta = K_4 * (phi(i) - phi_eq);
+            if (phi(i) > phi_m){
+                beta += K_3 * (phi(i) - phi_m);
+            }
             gammap_dot_tr = sqrt(2)*D_0.norm();
             if ((p_tr + K*job->dt*(beta*gammap_dot_tr)) <= 0){
                 body->points.T.row(i).setZero();
@@ -334,17 +774,18 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         r << tau_bar_tr, p_tr;
         b = r;
         dr.setZero();
-        p = p_tr;
+        //p = p_tr;
+        //x = std::sqrt(std::abs(p));
+        p = 0;
+        x = 0;
         gammap_dot_tr = gammap_dot(i);
 
-        while (r.norm() > b.norm()*TOL){
-            if (p > 0){
-                I_v_tr = eta_0 * gammap_dot_tr / p;
-                mu = mu_1 + (mu_2 - mu_1) / (1 + I_0/I_v_tr) + 5.0/2.0 * phi(i) * sqrt(I_v_tr);
-                phi_eq = phi_m / 1+sqrt(I_v_tr);
-            } else {
-                mu = mu_1;
+        while (r.norm() > b.norm()*REL_TOL && r.norm() > REL_TOL){
+            x = std::abs(x);
+            if (x == 0){
                 phi_eq = 0;
+            } else {
+                phi_eq = phi_m / 1 + (std::sqrt(eta_0*gammap_dot_tr) / x);
             }
             tau_bar = tau_bar_tr - G*gammap_dot_tr*job->dt;
             beta = K_4 * (phi(i) - phi_eq);
@@ -352,23 +793,20 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                 beta += K_3 * (phi(i) - phi_m);
             }
 
-            r(0) = tau_bar - (mu + beta)*p;
-            r(1) = p - p_tr - K*job->dt*(beta*gammap_dot_tr);
-            if (r.norm() > b.norm()*TOL){
+            r(0) = tau_bar - (mu_1*x*x + eta_0*gammap_dot_tr*x*x*(mu_2 - mu_1)/(eta_0*gammap_dot_tr + I_0*x*x) + 5.0/2.0 * std::sqrt(eta_0*gammap_dot_tr)*x) - beta*x*x;
+            r(1) = x*x - p_tr - K*job->dt*(beta*gammap_dot_tr);
+
+            if (r.norm() > b.norm()*REL_TOL && r.norm() > REL_TOL){
                 //dr/dgamma
                 if (gammap_dot_tr > 0) {
                     gdp = gammap_dot_tr * (1 + h);
                 } else {
                     gdp = h;
                 }
-                if (p > 0){
-                    I_v_tr = eta_0 * gdp / p;
-                    mu = mu_1 + (mu_2 - mu_1) / (1 + I_0/I_v_tr) + 5.0/2.0 * phi(i) * sqrt(I_v_tr);
-                    phi_eq = phi_m / 1+sqrt(I_v_tr);
-                } else {
-                    I_v_tr = -1; //undef
-                    mu = mu_1;
+                if (x == 0){
                     phi_eq = 0;
+                } else {
+                    phi_eq = phi_m / 1 + (std::sqrt(eta_0*gdp) / x);
                 }
                 tau_bar = tau_bar_tr - G*gdp*job->dt;
                 beta = K_4 * (phi(i) - phi_eq);
@@ -376,23 +814,21 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     beta += K_3 * (phi(i) - phi_m);
                 }
 
-                dr(0,0) = (tau_bar - (mu + beta)*p - r(0))/(gdp - gammap_dot_tr);
-                dr(1,0) = (p - p_tr - K*job->dt*(beta*gdp) -r(1))/(gdp - gammap_dot_tr);
+                dr(0,0) = (tau_bar - (mu_1*x*x + eta_0*gdp*x*x*(mu_2 - mu_1)/(eta_0*gdp + I_0*x*x) + 5.0/2.0 * std::sqrt(eta_0*gdp)*x) - beta*x*x);
+                dr(0,0) = (dr(0,0) - r(0))/(gdp - gammap_dot_tr);
+                dr(1,0) = x*x - p_tr - K*job->dt*(beta*gdp);
+                dr(1,0) = (dr(1,0) - r(1))/(gdp - gammap_dot_tr);
 
                 //dr/dp
-                if (p > 0){
-                    pt = p*(1+h);
+                if (x != 0){
+                    pt = x*(1+h);
                 } else {
                     pt = h;
                 }
-                if (pt > 0){
-                    I_v_tr = eta_0 * gammap_dot_tr / pt;
-                    mu = mu_1 + (mu_2 - mu_1) / (1 + I_0/I_v_tr) + 5.0/2.0 * phi(i) * sqrt(I_v_tr);
-                    phi_eq = phi_m / 1+sqrt(I_v_tr);
-                } else {
-                    I_v_tr = -1; //undef
-                    mu = mu_1;
+                if (pt == 0){
                     phi_eq = 0;
+                } else {
+                    phi_eq = phi_m / 1 + (std::sqrt(eta_0*gammap_dot_tr) / pt);
                 }
                 tau_bar = tau_bar_tr - G*gammap_dot_tr*job->dt;
                 beta = K_4 * (phi(i) - phi_eq);
@@ -400,16 +836,25 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     beta += K_3 * (phi(i) - phi_m);
                 }
 
-                dr(0,0) = (tau_bar - (mu + beta)*pt - r(0))/(pt - p);
-                dr(1,0) = (pt - p_tr - K*job->dt*(beta*gammap_dot_tr) -r(1))/(pt - p);
+                dr(0,1) = tau_bar - (mu_1*pt*pt + eta_0*gammap_dot_tr*pt*pt*(mu_2 - mu_1)/(eta_0*gammap_dot_tr + I_0*pt*pt) + 5.0/2.0 * std::sqrt(eta_0*gammap_dot_tr)*pt) - beta*pt*pt;
+                dr(0,1) = (dr(0,1) - r(0))/(pt - x);
+                dr(1,1) = pt*pt - p_tr - K*job->dt*(beta*gammap_dot_tr);
+                dr(1,1) = (dr(1,1) - r(1))/(pt - x);
             } else {
-                T = tau_bar / tau_bar_tr * (T_tr - T_tr.trace()/3.0 * job->jobTensor<double>(Job::IDENTITY)) - p*job->jobTensor<double>(Job::IDENTITY);
+                T = tau_bar / tau_bar_tr * (T_tr - T_tr.trace()/T_tr.rows() * job->jobTensor<double>(Job::IDENTITY)) - p*job->jobTensor<double>(Job::IDENTITY);
                 break;
             }
 
             upd = dr.colPivHouseholderQr().solve(r);
             gammap_dot_tr = gammap_dot_tr - upd(0);
-            p = p - upd(1);
+            x = x - upd(1);
+            p = x*x;
+
+            std::cout << i << " : " << r.norm() << " <? " << b.norm() << " : " << gammap_dot_tr << " : " << p << "\r"; //std::endl;
+            //std::cout << dr << std::endl;
+            //std::cout << r << std::endl << std::endl;
+            //std::cout << upd << std::endl << std::endl;
+            //std::cout << T << std::endl << L << std::endl << std::endl;
         }
 
         //check if solution lies on f3 yield surface
@@ -420,7 +865,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             if (SPEC == Material::UPDATE) {
                 gammap_dot(i) = gammap_dot_tr;
                 gammap(i) += job->dt * gammap_dot(i);
-                I_v(i) = I_v_tr; //undefined
+                I_v(i) = eta_0*gammap_dot(i)/(-T.trace()/T.rows()); //undefined
             }
             continue;
         } else if (p <= (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta_0 * gammap_dot_tr ){
@@ -430,92 +875,34 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             if (SPEC == Material::UPDATE) {
                 gammap_dot(i) = gammap_dot_tr;
                 gammap(i) += job->dt * gammap_dot(i);
-                I_v(i) = I_v_tr; //undefined
+                I_v(i) = eta_0*gammap_dot(i)/(-T.trace()/T.rows()); //undefined
             }
             continue;
-        } else if (K_5 == 0){
-            //cannot support pressure
-            r_k5 = tau_bar_tr;
-            b_k5 = r_k5;
-            dr_k5 = 0;
-            gammap_dot_tr = gammap_dot(i);
-
-            while (std::abs(r_k5) > std::abs(b_k5*TOL)){
-                p = (phi(i)*phi(i)) / ((phi_m - phi(i))*(phi_m - phi(i))) * eta_0 * gammap_dot_tr;
-                if (p > 0){
-                    I_v_tr = eta_0 * gammap_dot_tr / p;
-                    mu = mu_1 + (mu_2 - mu_1) / (1 + I_0/I_v_tr) + 5.0/2.0 * phi(i) * sqrt(I_v_tr);
-                    phi_eq = phi_m / 1+sqrt(I_v_tr);
-                } else {
-                    mu = mu_1;
-                    phi_eq = 0;
-                }
-                tau_bar = tau_bar_tr - G*gammap_dot_tr*job->dt;
-                beta = K_4 * (phi(i) - phi_eq);
-                if (phi(i) > phi_m){
-                    beta += K_3 * (phi(i) - phi_m);
-                }
-
-                r_k5 = tau_bar - (mu + beta)*p;
-
-                if (std::abs(r_k5) > std::abs(b_k5*TOL)){
-                    if (gammap_dot_tr > 0) {
-                        gdp = gammap_dot_tr * (1 + h);
-                    } else {
-                        gdp = h;
-                    }
-
-                    if (p > 0){
-                        I_v_tr = eta_0 * gdp / p;
-                        mu = mu_1 + (mu_2 - mu_1) / (1 + I_0/I_v_tr) + 5.0/2.0 * phi(i) * sqrt(I_v_tr);
-                        phi_eq = phi_m / 1+sqrt(I_v_tr);
-                    } else {
-                        mu = mu_1;
-                        phi_eq = 0;
-                    }
-                    tau_bar = tau_bar_tr - G*gdp*job->dt;
-                    beta = K_4 * (phi(i) - phi_eq);
-                    if (phi(i) > phi_m){
-                        beta += K_3 * (phi(i) - phi_m);
-                    }
-
-                    p = (phi(i)*phi(i)) / ((phi_m - phi(i))*(phi_m - phi(i))) * eta_0 * gdp;
-
-                    dr_k5 = (tau_bar - (mu + beta)*p - r_k5)/(gdp - gammap_dot_tr);
-                } else {
-                    T = tau_bar / tau_bar_tr * (T_tr - T_tr.trace()/3.0 * job->jobTensor<double>(Job::IDENTITY)) - p*job->jobTensor<double>(Job::IDENTITY);
-                    break;
-                }
-
-                gammap_dot_tr = gammap_dot_tr - r_k5/dr_k5;
-            }
-
         } else {
             r << tau_bar_tr, p_tr;
             b = r;
             dr.setZero();
-            p = p_tr;
+            p = 0; //p_tr;
+            x = 0; //std::sqrt(std::abs(p));
             gammap_dot_tr = gammap_dot(i);
 
-            while (r.norm() > b.norm()*TOL){
-                if (p > 0){
-                    I_v_tr = eta_0 * gammap_dot_tr / p;
-                    mu = mu_1 + (mu_2 - mu_1) / (1 + I_0/I_v_tr) + 5.0/2.0 * phi(i) * sqrt(I_v_tr);
-                    phi_eq = phi_m / 1+sqrt(I_v_tr);
-                } else {
-                    mu = mu_1;
+            while (r.norm() > b.norm()*REL_TOL && r.norm() > REL_TOL){
+                x = std::abs(x);
+                if (x == 0){
                     phi_eq = 0;
+                } else {
+                    phi_eq = phi_m / 1 + (std::sqrt(eta_0*gammap_dot_tr) / x);
                 }
                 tau_bar = tau_bar_tr - G*gammap_dot_tr*job->dt;
                 beta = K_4 * (phi(i) - phi_eq);
                 if (phi(i) > phi_m){
                     beta += K_3 * (phi(i) - phi_m);
                 }
-                xi_dot_2 = (gammap_dot_tr - p *((phi_m - phi(i))*(phi_m - phi(i))) / (phi(i)*phi(i)) / eta_0) / K_5;
+                xi_dot_2 = (x*x - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
+                r(0) = tau_bar - (mu_1*x*x + eta_0*gammap_dot_tr*x*x*(mu_2 - mu_1)/(eta_0*gammap_dot_tr + I_0*x*x) + 5.0/2.0 * std::sqrt(eta_0*gammap_dot_tr)*x) - beta*x*x;
+                r(1) = x*x - (phi(i)*phi(i)/((phi_m - phi(i))*(phi_m - phi(i)))) * eta_0 * (gammap_dot_tr - K_5*xi_dot_2);
 
-                r(0) = tau_bar - (mu + beta)*p;
-                r(1) = p - p_tr - K*job->dt*(beta*gammap_dot_tr - K_5*xi_dot_2);
-                if (r.norm() > b.norm()*TOL){
+                if (r.norm() > b.norm()*REL_TOL && r.norm() > REL_TOL){
                     //dr/dgamma
                     if (gammap_dot_tr > 0) {
                         gdp = gammap_dot_tr * (1 + h);
@@ -523,57 +910,52 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                         gdp = h;
                     }
 
-                    if (p > 0){
-                        I_v_tr = eta_0 * gdp / p;
-                        mu = mu_1 + (mu_2 - mu_1) / (1 + I_0/I_v_tr) + 5.0/2.0 * phi(i) * sqrt(I_v_tr);
-                        phi_eq = phi_m / 1+sqrt(I_v_tr);
-                    } else {
-                        I_v_tr = -1; //undef
-                        mu = mu_1;
+                    if (x == 0){
                         phi_eq = 0;
+                    } else {
+                        phi_eq = phi_m / 1 + (std::sqrt(eta_0*gdp) / x);
                     }
                     tau_bar = tau_bar_tr - G*gdp*job->dt;
                     beta = K_4 * (phi(i) - phi_eq);
                     if (phi(i) > phi_m){
                         beta += K_3 * (phi(i) - phi_m);
                     }
-                    xi_dot_2 = (gdp - p *((phi_m - phi(i))*(phi_m - phi(i))) / (phi(i)*phi(i)) / eta_0) / K_5;
-
-                    dr(0,0) = (tau_bar - (mu + beta)*p - r(0))/(gdp - gammap_dot_tr);
-                    dr(1,0) = (p - p_tr - K*job->dt*(beta*gdp + xi_dot_2) -r(1))/(gdp - gammap_dot_tr);
+                    xi_dot_2 = (x*x - p_tr)/(K*job->dt) - beta*gdp;
+                    dr(0,0) = tau_bar - (mu_1*x*x + eta_0*gdp*x*x*(mu_2 - mu_1)/(eta_0*gdp + I_0*x*x) + 5.0/2.0 * std::sqrt(eta_0*gdp)*x) - beta*x*x;
+                    dr(0,0) = (dr(0,0) - r(0))/(gdp - gammap_dot_tr);
+                    dr(1,0) = x*x - (phi(i)*phi(i)/((phi_m - phi(i))*(phi_m - phi(i)))) * eta_0 * (gdp - K_5*xi_dot_2);
+                    dr(1,0) = (dr(1,0) - r(1))/(gdp - gammap_dot_tr);
 
                     //dr/dp
-                    if (p > 0){
-                        pt = p*(1+h);
+                    if (x != 0){
+                        pt = x*(1+h);
                     } else {
                         pt = h;
                     }
-                    if (pt > 0){
-                        I_v_tr = eta_0 * gammap_dot_tr / pt;
-                        mu = mu_1 + (mu_2 - mu_1) / (1 + I_0/I_v_tr) + 5.0/2.0 * phi(i) * sqrt(I_v_tr);
-                        phi_eq = phi_m / 1+sqrt(I_v_tr);
-                    } else {
-                        I_v_tr = -1; //undef
-                        mu = mu_1;
+                    if (x == 0){
                         phi_eq = 0;
+                    } else {
+                        phi_eq = phi_m / 1 + (std::sqrt(eta_0*gammap_dot_tr) / pt);
                     }
                     tau_bar = tau_bar_tr - G*gammap_dot_tr*job->dt;
                     beta = K_4 * (phi(i) - phi_eq);
                     if (phi(i) > phi_m){
                         beta += K_3 * (phi(i) - phi_m);
                     }
-                    xi_dot_2 = (gammap_dot_tr - pt *((phi_m - phi(i))*(phi_m - phi(i))) / (phi(i)*phi(i)) / eta_0) / K_5;
-
-                    dr(0,0) = (tau_bar - (mu + beta)*pt - r(0))/(pt - p);
-                    dr(1,0) = (pt - p_tr - K*job->dt*(beta*gammap_dot_tr + xi_dot_2) -r(1))/(pt - p);
+                    xi_dot_2 = (pt*pt - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
+                    dr(0,1) = tau_bar - (mu_1*pt*pt + eta_0*gammap_dot_tr*pt*pt*(mu_2 - mu_1)/(eta_0*gammap_dot_tr + I_0*pt*pt) + 5.0/2.0 * std::sqrt(eta_0*gammap_dot_tr)*pt) - beta*pt*pt;
+                    dr(0,1) = (dr(0,1) - r(0))/(pt - x);
+                    dr(1,1) = pt*pt - (phi(i)*phi(i)/((phi_m - phi(i))*(phi_m - phi(i)))) * eta_0 * (gammap_dot_tr - K_5*xi_dot_2);
+                    dr(1,1) = (dr(1,1) - r(1))/(pt-x);
                 } else {
-                    T = tau_bar / tau_bar_tr * (T_tr - T_tr.trace()/3.0 * job->jobTensor<double>(Job::IDENTITY)) - p*job->jobTensor<double>(Job::IDENTITY);
+                    T = tau_bar / tau_bar_tr * (T_tr - T_tr.trace()/T_tr.rows() * job->jobTensor<double>(Job::IDENTITY)) - p*job->jobTensor<double>(Job::IDENTITY);
                     break;
                 }
 
                 upd = dr.colPivHouseholderQr().solve(r);
                 gammap_dot_tr = gammap_dot_tr - upd(0);
-                p = p - upd(1);
+                x = x - upd(1);
+                p = x*x;
             }
         }
 
@@ -583,11 +965,11 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         if (SPEC == Material::UPDATE) {
             gammap_dot(i) = gammap_dot_tr;
             gammap(i) += job->dt * gammap_dot(i);
-            I_v(i) = I_v_tr; //undefined
+            I_v(i) = eta_0*gammap_dot(i)/(-T.trace()/T.rows()); //undefined
         }
     }
 
-    return;
+    return;*/
 }
 
 /*----------------------------------------------------------------------------*/

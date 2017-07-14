@@ -92,7 +92,7 @@ void serializerInit(Job* job){
 /*----------------------------------------------------------------------------*/
 
 int serializerWriteFrame(Job* job){
-    if ((job->t - t_last_frame) > (1.0/sampleRate) || sampledFrames == 0){ //job->t >= sampledFrames/sampleRate){
+    if ((job->t - t_last_frame) >= (1.0/sampleRate) || sampledFrames == 0){ //job->t >= sampledFrames/sampleRate){
         sampledFrames += 1;
         t_last_frame = job->t;
         //write frame for each body
@@ -587,7 +587,7 @@ int serializerLoadState(Job* job, std::string fullpath){
 
     std::string line;
     std::stringstream ss;
-    std::vector<std::string> headers = {"# job","# serializer","# driver","# solver","# grid","# body","# contacts"};
+    std::vector<std::string> headers = {"# job","# serializer","# driver","# solver","# grid","# body","# contact"};
 
     std::ifstream fin(fullpath);
 
@@ -617,6 +617,8 @@ int serializerLoadState(Job* job, std::string fullpath){
         ss = std::stringstream(line); //read vector into stream
         for (size_t c=0;c<job->activeContacts.size();c++){
             ss >> job->activeContacts[c];
+            job->contacts.push_back(Contact());
+            job->contacts[c].id = c;
         }
         std::getline(fin,line); //number of bodies
         job->activeBodies.resize(std::stoi(line));
@@ -624,6 +626,8 @@ int serializerLoadState(Job* job, std::string fullpath){
         ss = std::stringstream(line); //read vector into stream
         for (size_t b=0;b<job->activeBodies.size();b++){
             ss >> job->activeBodies[b];
+            job->bodies.push_back(Body());
+            job->bodies[b].id = b;
         }
 
         /********/
@@ -733,10 +737,9 @@ int serializerLoadState(Job* job, std::string fullpath){
         /********/
 
         std::getline(fin,line); //# body
+        size_t body_id = 0;
         while (line.compare(headers[5]) == 0) {
-            job->bodies.push_back(Body());
-            size_t id = job->bodies.size() - 1;
-            job->bodies[id].id = id;
+            size_t id = body_id++;
 
             std::getline(fin,line);
             if (0 == job->bodies[id].bodyLoadState(job, &(job->serializer), filepath + line)) {
@@ -804,10 +807,9 @@ int serializerLoadState(Job* job, std::string fullpath){
             } //# contact
         }
 
+        size_t contact_id = 0;
         while (line.compare(headers[6]) == 0){
-            job->contacts.push_back(Contact());
-            size_t id = job->contacts.size() - 1;
-            job->contacts[id].id = id;
+            size_t id = contact_id++;
 
             loadStandardProps(&(job->contacts[id]),fin);
             if (!(job->contacts[id].filename.empty()) && job->activeContacts[id] != 0) {
