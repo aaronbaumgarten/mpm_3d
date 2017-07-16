@@ -1,11 +1,6 @@
 //
-// Created by aaron on 7/10/17.
+// Created by aaron on 7/14/17.
 // slurry_mu_iv.cpp
-//
-
-//
-// Created by aaron on 5/24/17.
-// isolin.cpp
 //
 
 #include <iostream>
@@ -42,6 +37,8 @@ Eigen::VectorXd gammap(0,1);
 Eigen::VectorXd gammap_dot(0,1);
 Eigen::VectorXd I_v(0,1);
 Eigen::VectorXd phi(0,1);
+Eigen::VectorXd eta(0,1);
+int fluid_body_id = -1;
 
 
 extern "C" void materialWriteFrame(Job* job, Body* body, Serializer* serializer);
@@ -56,10 +53,10 @@ extern "C" void materialAssignPressure(Job* job, Body* body, double pressureIN, 
 /*----------------------------------------------------------------------------*/
 
 void materialInit(Job* job, Body* body){
-    if (body->material.fp64_props.size() < 11){
+    if (body->material.fp64_props.size() < 11 || body->material.str_props.size() < 1){
         std::cout << body->material.fp64_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 11 properties defined (E, nu, mu_1, mu_2, I_0, K_3, K_4, K_5, phi_m, grains_rho, eta_0).\n",
+                "%s:%s: Need at least 12 properties defined ({E, nu, mu_1, mu_2, I_0, K_3, K_4, K_5, phi_m, grains_rho, eta_0}, {fluid_body}).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
@@ -77,6 +74,20 @@ void materialInit(Job* job, Body* body){
         phi_m = body->material.fp64_props[8];
         grains_rho = body->material.fp64_props[9];
         eta_0 = body->material.fp64_props[10];
+
+        //set body id by name
+        if (body->material.str_props.size() >= 1){
+            for (size_t b = 0; b < job->bodies.size(); b++) {
+                if (body->material.str_props[0].compare(job->bodies[b].name) == 0){
+                    fluid_body_id = b;
+                    break;
+                }
+            }
+        }
+
+        if (fluid_body_id == -1){
+            std::cout << std::endl << "WARNING: No fluid body defined! Setting eta to 0!" << std::endl << std::endl;
+        }
 
         if (K_4 > mu_1 / phi_m){
             std::cout << std::endl;
@@ -96,6 +107,8 @@ void materialInit(Job* job, Body* body){
     I_v.setZero();
     phi.resize(body->points.x.rows());
     phi.setZero();
+    eta.resize(body->points.x.rows());
+    eta.setZero();
 
     std::cout << "Material Initialized: [" << body->name << "]." << std::endl;
 
@@ -110,6 +123,7 @@ void materialWriteFrame(Job* job, Body* body, Serializer* serializer) {
     serializer->serializerWriteScalarArray(gammap_dot,"gammap_dot");
     serializer->serializerWriteScalarArray(I_v,"I_v");
     serializer->serializerWriteScalarArray(phi,"packing_fraction");
+    serializer->serializerWriteScalarArray(eta,"eta_interp");
     return;
 }
 
@@ -144,6 +158,7 @@ std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std:
         ffile << phi_m << "\n";
         ffile << grains_rho << "\n";
         ffile << eta_0 << "\n";
+        ffile << fluid_body_id << "\n";
 
         ffile << gammap_dot.rows() << "\n";
 
@@ -198,6 +213,8 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
         grains_rho = std::stod(line);
         std::getline(fin,line); //eta_0
         eta_0 = std::stod(line);
+        std::getline(fin,line);//fluid body id
+        fluid_body_id = std::stoi(line);
 
         std::getline(fin,line); //len
         int len = std::stoi(line);
@@ -255,7 +272,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     Eigen::MatrixXd D = job->jobTensor<double>();
     Eigen::MatrixXd D_0 = job->jobTensor<double>();
     Eigen::MatrixXd W = job->jobTensor<double>();
-    
+
     double trD, tau_bar, tau_bar_tr, p, p_tr, p_plus, tau_bar_plus;
     double beta, mu, phi_eq, xi_dot_1, xi_dot_2;
     double I_v_tr, gammap_dot_tr;
@@ -271,6 +288,23 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
     //calculate packing fraction
     phi = 1/grains_rho * (body->points.m.array() / body->points.v.array());
+
+    //interpolate eta from fluid points
+    if (eta_0 > 0) {
+        Eigen::VectorXd pvec = job->bodies[fluid_body_id].points.m * eta_0;
+        Eigen::VectorXd nvec(job->bodies[fluid_body_id].nodes.m.rows());
+        job->bodies[fluid_body_id].bodyCalcNodalValues(job, nvec, pvec, Body::SET);
+        for (size_t i = 0; i < nvec.rows(); i++) {
+            if (job->bodies[fluid_body_id].nodes.m(i) > 0) {
+                nvec(i) = nvec(i) / job->bodies[fluid_body_id].nodes.m(i);
+            } else {
+                nvec(i) = 0;
+            }
+        }
+        body->bodyCalcPointValues(job, eta, nvec, Body::SET);
+    } else {
+        eta.setZero();
+    }
 
     for (size_t i=0;i<body->points.x.rows();i++) {
         if (body->points.active[i] == 0) {
@@ -340,11 +374,11 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                         mu = mu_2;
                         phi_eq = 0;
                     } else {
-                        I_v_tr = eta_0 * gammap_dot_tr / p;
+                        I_v_tr = eta(i) * gammap_dot_tr / p;
                         mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
                         phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
                     }
-                    if (gammap_dot_tr == 0) {
+                    if (gammap_dot_tr == 0 || eta(i) == 0) {
                         mu = mu_1;
                     }
 
@@ -370,11 +404,11 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                             mu = mu_2;
                             phi_eq = 0;
                         } else {
-                            I_v_tr = eta_0 * gammap_dot_tr / p_plus;
+                            I_v_tr = eta(i) * gammap_dot_tr / p_plus;
                             mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
                             phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
                         }
-                        if (gammap_dot_tr == 0) {
+                        if (gammap_dot_tr == 0 || eta(i) == 0) {
                             mu = mu_1;
                         }
 
@@ -402,11 +436,11 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                             mu = mu_2;
                             phi_eq = 0;
                         } else {
-                            I_v_tr = eta_0 * gammap_dot_tr / p;
+                            I_v_tr = eta(i) * gammap_dot_tr / p;
                             mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
                             phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
                         }
-                        if (gammap_dot_tr == 0) {
+                        if (gammap_dot_tr == 0 || eta(i) == 0) {
                             mu = mu_1;
                         }
 
@@ -446,11 +480,11 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                             mu = mu_2;
                             phi_eq = 0;
                         } else {
-                            I_v_tr = eta_0 * gammap_dot_tr / p_tmp;
+                            I_v_tr = eta(i) * gammap_dot_tr / p_tmp;
                             mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
                             phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
                         }
-                        if (gammap_dot_tr == 0) {
+                        if (gammap_dot_tr == 0 || eta(i) == 0) {
                             mu = mu_1;
                         }
 
@@ -497,7 +531,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     }
                 }
 
-                if (phi(i) > phi_m || (p - (phi(i) / (phi_m - phi(i)))*(phi(i) / (phi_m - phi(i))) * eta_0 * (gammap_dot_tr)) < 0){
+                if (phi(i) > phi_m || (p - (phi(i) / (phi_m - phi(i)))*(phi(i) / (phi_m - phi(i))) * eta(i) * (gammap_dot_tr)) < 0){
                     //do nothing
                 } else {
                     //check f1,f3
@@ -515,11 +549,11 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                             mu = mu_2;
                             phi_eq = 0;
                         } else {
-                            I_v_tr = eta_0 * gammap_dot_tr / p;
+                            I_v_tr = eta(i) * gammap_dot_tr / p;
                             mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
                             phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
                         }
-                        if (gammap_dot_tr == 0) {
+                        if (gammap_dot_tr == 0 || eta(i) == 0) {
                             mu = mu_1;
                         }
 
@@ -531,7 +565,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                         xi_dot_2 = (p - p_tr) / (K * job->dt) - beta * gammap_dot_tr;
 
                         r(0) = tau_bar - (mu + beta) * p;
-                        r(1) = p - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta_0 * (gammap_dot_tr - K_5 * xi_dot_2);
+                        r(1) = p - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta(i) * (gammap_dot_tr - K_5 * xi_dot_2);
 
                         if (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
                             if (p > 0) {
@@ -545,11 +579,11 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                                 mu = mu_2;
                                 phi_eq = 0;
                             } else {
-                                I_v_tr = eta_0 * gammap_dot_tr / p_plus;
+                                I_v_tr = eta(i) * gammap_dot_tr / p_plus;
                                 mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
                                 phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
                             }
-                            if (gammap_dot_tr == 0) {
+                            if (gammap_dot_tr == 0 || eta(i) == 0) {
                                 mu = mu_1;
                             }
 
@@ -562,7 +596,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
                             dr(0, 0) = tau_bar - (mu + beta) * p_plus;
                             dr(0, 0) = (dr(0, 0) - r(0)) / (p_plus - p);
-                            dr(1, 0) = p_plus - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta_0 * (gammap_dot_tr - K_5 * xi_dot_2);
+                            dr(1, 0) = p_plus - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta(i) * (gammap_dot_tr - K_5 * xi_dot_2);
                             dr(1, 0) = (dr(1, 0) - r(1)) / (p_plus - p);
 
                             //--------------
@@ -580,11 +614,11 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                                 mu = mu_2;
                                 phi_eq = 0;
                             } else {
-                                I_v_tr = eta_0 * gammap_dot_tr / p;
+                                I_v_tr = eta(i) * gammap_dot_tr / p;
                                 mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
                                 phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
                             }
-                            if (gammap_dot_tr == 0) {
+                            if (gammap_dot_tr == 0 || eta(i) == 0) {
                                 mu = mu_1;
                             }
 
@@ -597,7 +631,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
                             dr(0, 1) = tau_bar_plus - (mu + beta) * p;
                             dr(0, 1) = (dr(0, 1) - r(0)) / (tau_bar_plus - tau_bar);
-                            dr(1, 1) = p - (phi(i) / (phi_m - phi(i)))*(phi(i) / (phi_m - phi(i))) * eta_0 * (gammap_dot_tr - K_5 * xi_dot_2);
+                            dr(1, 1) = p - (phi(i) / (phi_m - phi(i)))*(phi(i) / (phi_m - phi(i))) * eta(i) * (gammap_dot_tr - K_5 * xi_dot_2);
                             dr(1, 1) = (dr(1, 1) - r(1)) / (tau_bar_plus - tau_bar);
                         } else {
                             break;
@@ -626,11 +660,11 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                                 mu = mu_2;
                                 phi_eq = 0;
                             } else {
-                                I_v_tr = eta_0 * gammap_dot_tr / p_tmp;
+                                I_v_tr = eta(i) * gammap_dot_tr / p_tmp;
                                 mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_v_tr) + 5.0 / 2.0 * phi(i) * std::sqrt(I_v_tr);
                                 phi_eq = phi_m / (1 + std::sqrt(I_v_tr));
                             }
-                            if (gammap_dot_tr == 0) {
+                            if (gammap_dot_tr == 0 || eta(i) == 0) {
                                 mu = mu_1;
                             }
 
@@ -642,7 +676,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                             xi_dot_2 = (p_tmp - p_tr) / (K * job->dt) - beta * gammap_dot_tr;
 
                             r_tmp(0) = tau_bar_tmp - (mu + beta) * p_tmp;
-                            r_tmp(1) = p_tmp - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta_0 * (gammap_dot_tr - K_5 * xi_dot_2);
+                            r_tmp(1) = p_tmp - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta(i) * (gammap_dot_tr - K_5 * xi_dot_2);
 
                             lambda_tmp *= 0.5;
                         } while (r_tmp.norm() > r.norm() && lambda_tmp > REL_TOL);
@@ -683,7 +717,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         if (SPEC == Material::UPDATE) {
             gammap_dot(i) = gammap_dot_tr;
             gammap(i) += job->dt * gammap_dot(i);
-            I_v(i) = eta_0*gammap_dot(i)/(-T.trace()/T.rows()); //undefined
+            I_v(i) = eta(i)*gammap_dot(i)/(-T.trace()/T.rows()); //undefined
         }
 
     }

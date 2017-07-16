@@ -1,6 +1,7 @@
 set(DRIVERS
         default_driver.cpp
         ballistic_impactor.cpp
+        shear_driver.cpp
         )
 
 foreach(dric ${DRIVERS})

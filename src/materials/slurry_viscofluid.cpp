@@ -197,6 +197,15 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
     //mass conservation -> density update
     //n*rho_dot/rho = -div((1-n)*v_s + n*v_w)
+    //Eigen::VectorXd solid_n = job->bodies[solid_body_id].points.m.array() * job->bodies[solid_body_id].points.m.array() / job->bodies[solid_body_id].points.v.array();
+    //job->bodies[solid_body_id].bodyCalcNodalValues(job,n,solid_n,Body::SET);
+    //for (size_t i = 0; i < n.rows(); i++) {
+    //    if (job->bodies[solid_body_id].nodes.m(i) > 0){
+    //        n(i) = 1 - n(i)/(job->bodies[solid_body_id].nodes.m(i)*solid_rho);
+    //    } else {
+    //        n(i) = 1;
+    //    }
+    //}
 
     /*----------------------------------------------------------------------------*/
     for (size_t i=0;i<n.rows();i++){

@@ -4,6 +4,7 @@ set(BOUNDARIES
         rigid_linear_motion.cpp
         cartesian_periodic_floor.cpp
         cartesian_floor_freewall.cpp
+        cartesian_periodic_driven.cpp
         )
 
 foreach(bcc ${BOUNDARIES})

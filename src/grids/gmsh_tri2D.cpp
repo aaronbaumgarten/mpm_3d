@@ -28,7 +28,7 @@
 #include "nodes.hpp"
 
 double lc; //characteristic length scale
-std::string filename;
+std::string msh_filename;
 Eigen::VectorXd Lx(0,1); //linear dimensions
 Eigen::VectorXi Nx(0,1); //linear elements (not nodes)
 Eigen::VectorXd hx(0,1);
@@ -318,16 +318,16 @@ void gridInit(Job* job){
         exit(0);
     } else {
         //store length, number of linear nodes, and deltas
-        filename = job->grid.str_props[0];
+        msh_filename = job->grid.str_props[0];
         lc = job->grid.fp64_props[0];
 
-        std::cout << "Grid properties (filename = " << filename << ", lc = " << lc << ")." << std::endl;
+        std::cout << "Grid properties (filename = " << msh_filename << ", lc = " << lc << ")." << std::endl;
     }
 
     int len;
     std::string line; //read line
     std::vector<std::string> lvec;
-    std::ifstream fin(filename); //file to load from
+    std::ifstream fin(msh_filename); //file to load from
     if (fin.is_open()) {
         //if open, read lines
         std::vector<std::string> headers= {"$Nodes","$Elements"};
@@ -389,7 +389,7 @@ void gridInit(Job* job){
             }
         }
     } else {
-        std::cerr << "ERROR: Cannot open " << filename << "! Exiting." << std::endl;
+        std::cerr << "ERROR: Cannot open " << msh_filename << "! Exiting." << std::endl;
         exit(0);
     }
 
@@ -397,7 +397,7 @@ void gridInit(Job* job){
     hiddenInit(job);
 
     //open point file
-    std::ofstream ffile(filename+".vtk", std::ios::trunc);
+    std::ofstream ffile(msh_filename+".vtk", std::ios::trunc);
 
     if (ffile.is_open()){
         ffile << "# vtk DataFile Version 3.0\n";
@@ -425,7 +425,7 @@ void gridInit(Job* job){
         //pfile << "POINT_DATA " << plen << "\n";
         //scalars, vectors and tensors here
     } else {
-        std::cerr << "Could not open file: " << filename+".vtk" << " !" << std::endl;
+        std::cerr << "Could not open file: " << msh_filename+".vtk" << " !" << std::endl;
     }
 
     std::cout << "Grid Initialized." << std::endl;
@@ -460,7 +460,7 @@ std::string gridSaveState(Job* job, Serializer* serializer,std::string filepath)
 
     if (ffile.is_open()){
         ffile << "# mpm_v2 grids/cartesian.so\n";
-        ffile << filename << "\n";
+        ffile << msh_filename << "\n";
         ffile << lc << "\n";
         ffile << x_n.rows() << "\n"; //num nodes
         job->jobVectorArrayToFile(x_n,ffile);
@@ -500,7 +500,7 @@ int gridLoadState(Job* job, Serializer* serializer, std::string fullpath){
         std::getline(fin,line); //first line
 
         std::getline(fin,line); //filename
-        filename = line;
+        msh_filename = line;
         std::getline(fin,line); //lc
         lc = std::stod(line);
 
@@ -509,9 +509,11 @@ int gridLoadState(Job* job, Serializer* serializer, std::string fullpath){
 
         x_n = job->jobVectorArray<double>(len);
         job->jobVectorArrayFromFile(x_n,fin); //node position from file
+        job->grid.node_count = len;
 
         std::getline(fin,line); // elements
         len = std::stoi(line);
+        job->grid.element_count = len;
         std::getline(fin,line); // corners
         npe = std::stoi(line);
 
@@ -523,7 +525,7 @@ int gridLoadState(Job* job, Serializer* serializer, std::string fullpath){
                 nodeIDs(e,c) = std::stoi(lvec[c]);
             }
         }
-        std::cout << "Grid properties (filename = " << filename << ", lc = " << lc << ")." << std::endl;
+        std::cout << "Grid properties (filename = " << msh_filename << ", lc = " << lc << ")." << std::endl;
 
         //call hidden initializer
         hiddenInit(job);
