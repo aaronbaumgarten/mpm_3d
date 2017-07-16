@@ -107,10 +107,10 @@ void driverRun(Job* job) {
                     T = job->jobTensor<double>(tmpVec.data());
                     v += job->bodies[b].points.v(i);
                     p -= T.trace() / T.rows() * job->bodies[b].points.v(i);
-                    tau += (T - T.trace()/T.rows()*job->jobTensor<double>(Job::ONES)).norm() * job->bodies[b].points.v(i);
+                    tau += (T - T.trace()/T.rows()*job->jobTensor<double>(Job::IDENTITY)).norm() * job->bodies[b].points.v(i);
                 }
                 p /= v;
-                tau /= v*std::sqrt(2);
+                tau /= v*std::sqrt(2.0);
 
                 ffile << ", " << p << ", " << tau << ", " << v;
             }

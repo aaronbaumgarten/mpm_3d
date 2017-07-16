@@ -265,7 +265,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         trD = D.trace();
 
         //T = 2*mu*D_0 + K*log(J)*I
-        eta = mu * (1 + 5.0/2.0 * (n_p(i) - 1));
+        eta = mu * (1 + 5.0/2.0 * (1 - n_p(i)));
         T = 2*eta*(D - (trD/D.rows())*job->jobTensor<double>(Job::IDENTITY)) + K*std::log(J_tr(i))*job->jobTensor<double>(Job::IDENTITY);
 
         for (size_t i=0;i<tmpVec.size();i++){
