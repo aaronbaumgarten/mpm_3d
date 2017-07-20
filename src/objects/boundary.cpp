@@ -76,9 +76,8 @@ void Boundary::boundarySetPlugin(Job* job, Body* body, std::string pathIN, std::
 
 void Boundary::boundarySetFnPointers(){
     if (!handle) {
-        //handle = dlopen((fullpath + filename).c_str(), RTLD_LAZY);
-        handle = dlmopen(LM_ID_NEWLM, (fullpath + filename).c_str(), RTLD_LAZY);
-
+        handle = dlopen((fullpath + filename).c_str(), RTLD_LAZY);
+        //handle = dlmopen(LM_ID_NEWLM, (fullpath + filename).c_str(), RTLD_LAZY);
     }
 
     char* dlsym_error;

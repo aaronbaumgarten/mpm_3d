@@ -80,8 +80,8 @@ void Material::materialSetPlugin(Job* job, Body* body, std::string pathIN, std::
 
 void Material::materialSetFnPointers(){
     if (!handle) {
-        //handle = dlopen((fullpath + filename).c_str(), RTLD_LAZY);
-        handle = dlmopen(LM_ID_NEWLM, (fullpath + filename).c_str(), RTLD_LAZY);
+        handle = dlopen((fullpath + filename).c_str(), RTLD_LAZY);
+        //handle = dlmopen(LM_ID_NEWLM, (fullpath + filename).c_str(), RTLD_LAZY);
         //std::cout << "OPEN: " << handle << std::endl;
     }
 

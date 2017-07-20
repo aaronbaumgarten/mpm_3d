@@ -120,6 +120,7 @@ void contactInit(Job* job, Contact* contact){
 
 void contactWriteFrame(Job* job, Serializer* serializer){
     serializer->serializerWriteScalarArray(n,("n_" + job->bodies[solid_body_id].name + "_" + job->bodies[liquid_body_id].name));
+    serializer->serializerWriteVectorArray(divT,"divT");
     return;
 }
 
@@ -258,6 +259,12 @@ void contactApplyRules(Job* job, int SPEC){
     for (size_t i = 0; i < n.rows(); i++) {
         //test every node for contact
         if (job->bodies[solid_body_id].nodes.m[i] > 0 && job->bodies[liquid_body_id].nodes.m[i] > 0) {
+            //distribute solid stess
+            //fsfi =  - (1-n(i))*divT.row(i).transpose();
+            double one_minus_n = 1 - job->bodies[liquid_body_id].nodes.m(i) / (job->grid.gridNodalVolume(job,i) * 1000);
+            job->bodies[solid_body_id].nodes.f.row(i) += one_minus_n*divT.row(i);
+            job->bodies[liquid_body_id].nodes.f.row(i) -= one_minus_n*divT.row(i);
+
             //determine 'center of mass' velocity
             m1 = job->bodies[solid_body_id].nodes.m[i];
             m2 = job->bodies[liquid_body_id].nodes.m[i];
@@ -289,9 +296,7 @@ void contactApplyRules(Job* job, int SPEC){
                 C = 1.0/(job->dt*(1.0/m1 + 1.0/m2)); //enforce damping
             }
 
-            double one_minus_n = 1 - job->bodies[liquid_body_id].nodes.m(i) / (job->grid.gridNodalVolume(job,i) * 1000);
-
-            fsfi = (mv1i / m1 - mv2i / m2)*C - one_minus_n*divT.row(i).transpose();//(1-n(i))*divT.row(i).transpose();
+            fsfi = (mv1i / m1 - mv2i / m2)*C;//(1-n(i))*divT.row(i).transpose();
 
             job->bodies[solid_body_id].nodes.f.row(i) -= fsfi.transpose();
             job->bodies[liquid_body_id].nodes.f.row(i) += fsfi.transpose();

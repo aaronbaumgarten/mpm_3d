@@ -1,4 +1,9 @@
 //
+// Created by aaron on 7/16/17.
+// user_def_grav_driver.cpp
+//
+
+//
 // Created by aaron on 7/15/17.
 // shear_driver.cpp
 //
@@ -22,7 +27,6 @@
 #include "nodes.hpp"
 
 double stop_time;
-std::string output_name;
 Eigen::VectorXd gravity;
 
 extern "C" void driverInit(Job* job); //initialize driver
@@ -36,20 +40,22 @@ extern "C" int driverLoadState(Job* job, Serializer* serializer, std::string ful
 /*----------------------------------------------------------------------------*/
 
 void driverInit(Job* job){
-    if (job->driver.fp64_props.size() < 1 || job->driver.str_props.size() < 1) {
+    if (job->driver.fp64_props.size() < (1+job->DIM)) {
         std::cout << job->driver.fp64_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 2 property defined ({stop_time},{name}).\n",
-                __FILE__, __func__);
+                "%s:%s: Need at least %i properties defined ({stop_time, <gravity vector>}).\n",
+                __FILE__, __func__, job->DIM);
         exit(0);
     } else {
         //store stop_time
         stop_time = job->driver.fp64_props[0];
         gravity = job->jobVector<double>(Job::ZERO);
-        output_name = job->driver.str_props[0];
+        for (size_t pos=0;pos<job->DIM;pos++){
+            gravity(pos) = job->driver.fp64_props[1+pos];
+        }
 
         //print grid properties
-        std::cout << "Driver properties (stop_time = " << stop_time << ", name = " + output_name + ")." << std::endl;
+        std::cout << "Driver properties (stop_time = " << stop_time << ", gravity = " << gravity.transpose() << ")." << std::endl;
     }
 
     std::cout << "Driver Initialized." << std::endl;
@@ -89,41 +95,6 @@ void driverRun(Job* job) {
         }
         std::cout << "\r";
 
-        std::ofstream ffile(output_name+".csv", std::ios::app);
-        if (ffile.is_open()) {
-            ffile << job->t;
-            double p, tau, v;
-            Eigen::MatrixXd T = job->jobTensor<double>();
-            Eigen::MatrixXd T_avg = job->jobTensor<double>();
-            Eigen::VectorXd tmpVec;
-            for (size_t b = 0; b<job->bodies.size(); b++) {
-                if (job->activeBodies[b] == 0){
-                    continue;
-                }
-                T_avg.setZero();
-                tau = 0;
-                p = 0;
-                v = 0;
-                for (size_t i = 0; i < job->bodies[b].points.m.rows(); i++) {
-                    tmpVec = job->bodies[b].points.T.row(i);
-                    T = job->jobTensor<double>(tmpVec.data());
-                    v += job->bodies[b].points.v(i);
-                    //p -= T.trace() / T.rows() * job->bodies[b].points.v(i);
-                    //tau += (T - T.trace()/T.rows()*job->jobTensor<double>(Job::IDENTITY)).norm() * job->bodies[b].points.v(i);
-                    T_avg += T*job->bodies[b].points.v(i);
-                }
-                //p /= v;
-                //tau /= v*std::sqrt(2.0);
-                T_avg  = T_avg / v;
-                tau = (T_avg - T_avg.trace()/T_avg.rows()*job->jobTensor<double>(Job::IDENTITY)).norm() / std::sqrt(2);
-                p = -T_avg.trace() / T_avg.rows();
-
-                ffile << ", " << p << ", " << tau << ", " << v;
-            }
-            ffile << "\n";
-        }
-        ffile.close();
-
         job->t += job->dt;
     }
     tSim = (double)(clock() - clockSim)/CLOCKS_PER_SEC;
@@ -134,15 +105,7 @@ void driverRun(Job* job) {
 /*----------------------------------------------------------------------------*/
 
 void driverGenerateGravity(Job* job) {
-    double g = -9.81;
-    gravity.setZero();
-    //if (job->DIM == 1){
-    //    gravity(0) = g;
-    //} else if (job->DIM == 2){
-    //    gravity(1) = g;
-    //} else if (job->DIM == 3){
-    //    gravity(2) = g;
-    //}
+    //do nothing
     return;
 }
 
@@ -179,9 +142,13 @@ std::string driverSaveState(Job* job, Serializer* serializer, std::string filepa
     std::ofstream ffile((filepath+filename), std::ios::trunc);
 
     if (ffile.is_open()){
-        ffile << "# mpm_v2 drivers/shear_driver.so\n";
+        ffile << "# mpm_v2 drivers/default_driver.so\n";
         ffile << stop_time << "\n"; //save stop time only
-        ffile << output_name;
+        for (size_t i=0;i<gravity.rows();i++){
+            ffile << gravity(i) << "\n";
+        }
+        //print grid properties
+        std::cout << "Driver properties (stop_time = " << stop_time << ", gravity = " << gravity.transpose() << ")." << std::endl;
         ffile.close();
     } else {
         std::cout << "Unable to open \"" << filepath+filename << "\" !\n";
@@ -208,10 +175,12 @@ int driverLoadState(Job* job, Serializer* serializer, std::string fullpath){
         ss = std::stringstream(line);
         ss >> stop_time;
 
-        std::getline(fin,line);
-        output_name = line;
-
         gravity = job->jobVector<double>(Job::ZERO);
+
+        for (size_t i=0;i<gravity.rows();i++){
+            std::getline(fin,line);
+            gravity(i) = std::stod(line);
+        }
 
         //print grid properties
         std::cout << "Driver properties (stop_time = " << stop_time << " )." << std::endl;
