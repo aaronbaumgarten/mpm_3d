@@ -20,8 +20,8 @@ Lx = 1.0
 Ly = 1.0
 Lz = 1.0
 #Ne = 40
-Nx = 20
-Ny = 20
+Nx = 40
+Ny = 40
 Nz = 1
 lmpp = 2
 Lz = 1.0*lmpp
@@ -39,7 +39,7 @@ block_depth = 1.0
 hx = Lx/Nx
 block_primitive = Primitives3d.Cylinder(Primitives3d.Point(Lx/2.0, 0.75, 0.0),
                                         Primitives3d.Point(Lx/2.0, 0.75, 1.0),
-                                        0.15,
+                                        0.1,
                                        )
 block_body = CSGTree3d.Node(block_primitive)
 print "body created"

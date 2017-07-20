@@ -242,7 +242,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             n(i) = 1.0;
             nMat.row(i).setZero();
         }
-        
+
         J_n(i) = (job->grid.gridNodalVolume(job,i)*fluid_rho*n(i)) / body->nodes.m(i);
     }
 

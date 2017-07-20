@@ -261,7 +261,7 @@ void contactApplyRules(Job* job, int SPEC){
         if (job->bodies[solid_body_id].nodes.m[i] > 0 && job->bodies[liquid_body_id].nodes.m[i] > 0) {
             //distribute solid stess
             //fsfi =  - (1-n(i))*divT.row(i).transpose();
-            double one_minus_n = 1 - job->bodies[liquid_body_id].nodes.m(i) / (job->grid.gridNodalVolume(job,i) * 1000);
+            double one_minus_n = (1 - n(i));//1 - job->bodies[liquid_body_id].nodes.m(i) / (job->grid.gridNodalVolume(job,i) * 1000);
             job->bodies[solid_body_id].nodes.f.row(i) += one_minus_n*divT.row(i);
             job->bodies[liquid_body_id].nodes.f.row(i) -= one_minus_n*divT.row(i);
 
@@ -290,13 +290,14 @@ void contactApplyRules(Job* job, int SPEC){
             //1 - C*dt*(1/m_s + 1/m_f) > 0
             //C*dt*(1/m_s + 1/m_f) < 1
             C = n(i) * V(i) * mu_w / k_eff;
-            if (!std::isfinite(k_eff)){
+            /*if (!std::isfinite(k_eff)){
                 C = 0;
             } else if ((C*job->dt*(1.0/m1 + 1.0/m2)) > 1){
                 C = 1.0/(job->dt*(1.0/m1 + 1.0/m2)); //enforce damping
-            }
+            }*/
 
-            fsfi = (mv1i / m1 - mv2i / m2)*C;//(1-n(i))*divT.row(i).transpose();
+            //fsfi = (mv1i / m1 - mv2i / m2)*C;//(1-n(i))*divT.row(i).transpose();
+            fsfi = C/(1 + job->dt*C*(1/m1 + 1/m2)) * (mv1i/m1 - mv2i/m2);
 
             job->bodies[solid_body_id].nodes.f.row(i) -= fsfi.transpose();
             job->bodies[liquid_body_id].nodes.f.row(i) += fsfi.transpose();

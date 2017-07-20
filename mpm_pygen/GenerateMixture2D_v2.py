@@ -19,8 +19,8 @@ print "files named"
 Lx = 1.0
 Ly = 1.0
 #Ne = 40
-Nx = 20
-Ny = 20
+Nx = 40
+Ny = 40
 Nz = 1
 lmpp = 2
 Lz = Nz*lmpp
@@ -56,11 +56,11 @@ bulk_point_array = grid.point_array
 # fluid properties
 fluid_properties = { 'rho': 1000.0 }
 fluid_width = Lx
-fluid_height = 0.5
+fluid_height = 0.08
 #fluid_depth = fluid_depth#Ly
 
 fluid_primitive = Primitives3d.Box(0, Lx,
-                                 0, fluid_height,
+                                 0, 0.5,
                                  0, 1.0
                                  )
 fluid_body = CSGTree3d.Node(fluid_primitive)
