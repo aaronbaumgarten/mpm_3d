@@ -31,15 +31,9 @@ print "grid created"
 g = -9.81
 
 # free block properties
-block_properties = { 'rho': 1500.0 }
-block_width = Lx
-block_height = Ly
-block_depth = 0.06
-hx = Lx/Nx
-block_primitive = Primitives3d.Box(0, Lx,
-                                 0, Ly,
-                                 0, block_depth,
-                                 )
+block_properties = { 'rho': 7800.0 }
+block_radius = 0.005
+block_primitive = Primitives3d.Sphere(Primitives3d.Point(2.0*block_radius,Ly/2.0,0.06 + 2.0*block_radius), block_radius)
 block_body = CSGTree3d.Node(block_primitive)
 print "body created"
 
@@ -70,6 +64,6 @@ with open(particle_filename, 'w') as f:
     #    if (mpm_point['body'] == 1):
     #        nb1 += 1
     #    mpm_points.append(mpm_point)
-        f.write("%g %g %g %g %g %g %g %g %i\n" % (block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 0, 0, 0, 1))
+        f.write("%g %g %g %g %g %g %g %g %i\n" % (block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 137, 0, -61, 1))
 
 print "file written"

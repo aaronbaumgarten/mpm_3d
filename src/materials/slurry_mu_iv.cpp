@@ -258,6 +258,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     
     double trD, tau_bar, tau_bar_tr, p, p_tr, p_plus, tau_bar_plus;
     double beta, mu, phi_eq, xi_dot_1, xi_dot_2;
+    double mu_f;
     double I_v_tr, gammap_dot_tr;
 
     Eigen::MatrixXd tmpMat = job->jobTensor<double>();
@@ -354,7 +355,12 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                         beta = K_4 * (phi(i) - phi_eq);
                     }
 
-                    r(0) = tau_bar - (mu + beta) * p;
+                    mu_f = mu + beta;
+                    if (mu_f < 0){
+                        mu_f = 0;
+                    }
+
+                    r(0) = tau_bar - mu_f * p;
                     r(1) = p - p_tr - K * job->dt * (beta * gammap_dot_tr);
 
                     if (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
@@ -384,7 +390,12 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                             beta = K_4 * (phi(i) - phi_eq);
                         }
 
-                        dr(0, 0) = (tau_bar - (mu + beta) * p_plus - r(0)) / (p_plus - p);
+                        mu_f = mu + beta;
+                        if (mu_f < 0){
+                            mu_f = 0;
+                        }
+
+                        dr(0, 0) = (tau_bar - mu_f * p_plus - r(0)) / (p_plus - p);
                         dr(1, 0) = (p_plus - p_tr - K * job->dt * (beta * gammap_dot_tr) - r(1)) / (p_plus - p);
 
                         //--------------
@@ -416,7 +427,13 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                             beta = K_4 * (phi(i) - phi_eq);
                         }
 
-                        dr(0, 1) = (tau_bar_plus - (mu + beta) * p - r(0)) / (tau_bar_plus - tau_bar);
+
+                        mu_f = mu + beta;
+                        if (mu_f < 0){
+                            mu_f = 0;
+                        }
+
+                        dr(0, 1) = (tau_bar_plus - mu_f * p - r(0)) / (tau_bar_plus - tau_bar);
                         dr(1, 1) = (p - p_tr - K * job->dt * (beta * gammap_dot_tr) - r(1)) / (tau_bar_plus - tau_bar);
                     } else {
                         break;
@@ -460,7 +477,12 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                             beta = K_4 * (phi(i) - phi_eq);
                         }
 
-                        r_tmp(0) = tau_bar_tmp - (mu + beta) * p_tmp;
+                        mu_f = mu + beta;
+                        if (mu_f < 0){
+                            mu_f = 0;
+                        }
+
+                        r_tmp(0) = tau_bar_tmp - mu_f * p_tmp;
                         r_tmp(1) = p_tmp - p_tr - K * job->dt * (beta * gammap_dot_tr);
 
                         lambda_tmp *= 0.5;
@@ -530,7 +552,13 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                         }
                         xi_dot_2 = (p - p_tr) / (K * job->dt) - beta * gammap_dot_tr;
 
-                        r(0) = tau_bar - (mu + beta) * p;
+
+                        mu_f = mu + beta;
+                        if (mu_f < 0){
+                            mu_f = 0;
+                        }
+
+                        r(0) = tau_bar - mu_f * p;
                         r(1) = p - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta_0 * (gammap_dot_tr - K_5 * xi_dot_2);
 
                         if (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
@@ -560,7 +588,13 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                             }
                             xi_dot_2 = (p_plus - p_tr) / (K * job->dt) - beta * gammap_dot_tr;
 
-                            dr(0, 0) = tau_bar - (mu + beta) * p_plus;
+
+                            mu_f = mu + beta;
+                            if (mu_f < 0){
+                                mu_f = 0;
+                            }
+
+                            dr(0, 0) = tau_bar - mu_f * p_plus;
                             dr(0, 0) = (dr(0, 0) - r(0)) / (p_plus - p);
                             dr(1, 0) = p_plus - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta_0 * (gammap_dot_tr - K_5 * xi_dot_2);
                             dr(1, 0) = (dr(1, 0) - r(1)) / (p_plus - p);
@@ -595,7 +629,12 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                             }
                             xi_dot_2 = (p - p_tr) / (K * job->dt) - beta * gammap_dot_tr;
 
-                            dr(0, 1) = tau_bar_plus - (mu + beta) * p;
+                            mu_f = mu + beta;
+                            if (mu_f < 0){
+                                mu_f = 0;
+                            }
+
+                            dr(0, 1) = tau_bar_plus - mu_f * p;
                             dr(0, 1) = (dr(0, 1) - r(0)) / (tau_bar_plus - tau_bar);
                             dr(1, 1) = p - (phi(i) / (phi_m - phi(i)))*(phi(i) / (phi_m - phi(i))) * eta_0 * (gammap_dot_tr - K_5 * xi_dot_2);
                             dr(1, 1) = (dr(1, 1) - r(1)) / (tau_bar_plus - tau_bar);
@@ -641,7 +680,12 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                             }
                             xi_dot_2 = (p_tmp - p_tr) / (K * job->dt) - beta * gammap_dot_tr;
 
-                            r_tmp(0) = tau_bar_tmp - (mu + beta) * p_tmp;
+                            mu_f = mu + beta;
+                            if (mu_f < 0){
+                                mu_f = 0;
+                            }
+
+                            r_tmp(0) = tau_bar_tmp - mu_f * p_tmp;
                             r_tmp(1) = p_tmp - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta_0 * (gammap_dot_tr - K_5 * xi_dot_2);
 
                             lambda_tmp *= 0.5;

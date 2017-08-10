@@ -110,35 +110,46 @@ void driverRun(Job* job) {
         std::ofstream ffile(output_name+".csv", std::ios::app);
         if (ffile.is_open()) {
             ffile << job->t;
-            double p, tau, v, m;
+            double p, tau, v, m, gdp;
             Eigen::MatrixXd T = job->jobTensor<double>();
             Eigen::MatrixXd T_avg = job->jobTensor<double>();
+            Eigen::MatrixXd L = job->jobTensor<double>();
+            Eigen::MatrixXd D = job->jobTensor<double>();
+            Eigen::MatrixXd D_avg = job->jobTensor<double>();
             Eigen::VectorXd tmpVec;
             for (size_t b = 0; b<job->bodies.size(); b++) {
                 if (job->activeBodies[b] == 0){
                     continue;
                 }
                 T_avg.setZero();
+                D_avg.setZero();
                 tau = 0;
                 p = 0;
                 v = 0;
                 m = 0;
+                gdp = 0;
                 for (size_t i = 0; i < job->bodies[b].points.m.rows(); i++) {
                     tmpVec = job->bodies[b].points.T.row(i);
                     T = job->jobTensor<double>(tmpVec.data());
+                    tmpVec = job->bodies[b].points.L.row(i);
+                    L = job->jobTensor<double>(tmpVec.data());
+                    D = 0.5 * (L + L.transpose());
                     v += job->bodies[b].points.v(i);
                     m += job->bodies[b].points.m(i);
                     //p -= T.trace() / T.rows() * job->bodies[b].points.v(i);
                     //tau += (T - T.trace()/T.rows()*job->jobTensor<double>(Job::IDENTITY)).norm() * job->bodies[b].points.v(i);
                     T_avg += T*job->bodies[b].points.v(i);
+                    D_avg += D*job->bodies[b].points.v(i);
                 }
                 //p /= v;
                 //tau /= v*std::sqrt(2.0);
-                T_avg  = T_avg / v;
-                tau = (T_avg - T_avg.trace()/T_avg.rows()*job->jobTensor<double>(Job::IDENTITY)).norm() / std::sqrt(2);
+                T_avg = T_avg / v;
+                D_avg = D_avg / v;
+                tau = (T_avg - T_avg.trace()/T_avg.rows()*job->jobTensor<double>(Job::IDENTITY)).norm() / std::sqrt(2.0);
                 p = -T_avg.trace() / T_avg.rows();
+                gdp = (D_avg - D_avg.trace()/D_avg.rows()*job->jobTensor<double>(Job::IDENTITY)).norm() * std::sqrt(2.0);
 
-                ffile << ", " << p << ", " << tau << ", " << v << ", " << m;
+                ffile << ", " << p << ", " << tau << ", " << v << ", " << m << ", " << gdp;
             }
             ffile << "\n";
         }
