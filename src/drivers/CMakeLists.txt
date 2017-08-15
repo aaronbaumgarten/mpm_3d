@@ -4,6 +4,7 @@ set(DRIVERS
         shear_driver.cpp
         user_def_grav_driver.cpp
         shear_traction_driver.cpp
+        launched_projectile_driver.cpp
         )
 
 foreach(dric ${DRIVERS})

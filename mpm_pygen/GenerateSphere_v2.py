@@ -16,13 +16,13 @@ print "files named"
 
 #grid properties
 #Ly = Lx = Lz = 0.4
-Lx = 0.1
-Ly = 0.04
+Lx = 0.2
+Ly = 0.05
 Lz = 0.1
 #Ne = 40
-Nx = 50
-Ny = 20
-Nz = 50
+Nx = 200
+Ny = 50
+Nz = 100
 lmpp = 2
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
 print "grid created"
@@ -33,7 +33,7 @@ g = -9.81
 # free block properties
 block_properties = { 'rho': 7800.0 }
 block_radius = 0.005
-block_primitive = Primitives3d.Sphere(Primitives3d.Point(2.0*block_radius,Ly/2.0,0.06 + 2.0*block_radius), block_radius)
+block_primitive = Primitives3d.Sphere(Primitives3d.Point(2.0*block_radius,0.0,0.08 + block_radius), block_radius)
 block_body = CSGTree3d.Node(block_primitive)
 print "body created"
 
@@ -64,6 +64,6 @@ with open(particle_filename, 'w') as f:
     #    if (mpm_point['body'] == 1):
     #        nb1 += 1
     #    mpm_points.append(mpm_point)
-        f.write("%g %g %g %g %g %g %g %g %i\n" % (block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 137, 0, -61, 1))
+        f.write("%g %g %g %g %g %g %g %g %i\n" % (block_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, p.z, 0, 0, 0, 1))
 
 print "file written"

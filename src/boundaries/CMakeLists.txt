@@ -6,6 +6,7 @@ set(BOUNDARIES
         cartesian_floor_freewall.cpp
         cartesian_periodic_driven.cpp
         cartesian_periodic_drivenstep.cpp
+        cartesian_customBC.cpp
         )
 
 foreach(bcc ${BOUNDARIES})
