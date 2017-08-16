@@ -145,8 +145,8 @@ void driverRun(Job* job) {
             std::ofstream ffile(name + ".csv", std::ios::app);
             if (ffile.is_open()) {
                 ffile << job->t;
-                Eigen::VectorXd x_t;
-                Eigen::VectorXd x;
+                Eigen::VectorXd x_t = job->jobVector<double>();
+                Eigen::VectorXd x = job->jobVector<double>();
                 double m;
                 for (size_t b = 0; b < job->bodies.size(); b++) {
                     if (job->activeBodies[b] == 0) {
