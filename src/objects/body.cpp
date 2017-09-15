@@ -157,13 +157,13 @@ int Body::bodyLoadState(Job* job, Serializer* serializer, std::string fullpath) 
 }
 
 void Body::bodyGenerateMap(Job *job, int use_cpdi /*= Body::CPDI_ON*/) {
-    pval.clear();
-    nval.clear();
-    phi.clear();
+    pval.resize(0);
+    nval.resize(0);
+    phi.resize(0);
 
-    pgrad.clear();
-    ngrad.clear();
-    gradphi.clear();
+    pgrad.resize(0);
+    ngrad.resize(0);
+    gradphi.resize(0);
 
     //calculate phi and grad phi
     std::vector<int> nvec(0);
@@ -193,8 +193,8 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi /*= Body::CPDI_ON*/) {
 
         //calculate map for ith point
         if (ith_cpdi == Body::CPDI_OFF) {
-            nvec.clear();
-            valvec.clear();
+            nvec.resize(0);
+            valvec.resize(0);
             job->grid.gridEvaluateShapeFnValue(job, points.x.row(i).transpose(), nvec, valvec);
             for (size_t j=0; j<nvec.size(); j++){
                 pval.push_back((int)i);
@@ -202,8 +202,8 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi /*= Body::CPDI_ON*/) {
                 phi.push_back(valvec[j]);
             }
 
-            nvec.clear();
-            gradvec.clear();
+            nvec.resize(0);
+            gradvec.resize(0);
             job->grid.gridEvaluateShapeFnGradient(job, points.x.row(i).transpose(), nvec, gradvec);
             for (size_t j = 0; j < nvec.size(); j++) {
                 pgrad.push_back((int) i);
@@ -211,8 +211,8 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi /*= Body::CPDI_ON*/) {
                 gradphi.push_back(gradvec[j]);
             }
         } else if (ith_cpdi == Body::CPDI_ON){
-            nvec.clear();
-            valvec.clear();
+            nvec.resize(0);
+            valvec.resize(0);
             for (size_t c=0;c<A.rows();c++) {
                 //spread influence
                 job->grid.gridEvaluateShapeFnValue(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c).cast<double>()).transpose(), nvec, valvec);
@@ -224,14 +224,14 @@ void Body::bodyGenerateMap(Job *job, int use_cpdi /*= Body::CPDI_ON*/) {
             }
 
             //average gradients along sides of extent
-            nvec.clear();
-            valvec.clear();
-            gradvec.clear();
+            nvec.resize(0);
+            valvec.resize(0);
+            gradvec.resize(0);
             for (size_t c=0; c<A.rows(); c++){
                 //find shape function value at offset point location
                 //add node ids to nodevec
                 //add values to valvec
-                valvec.clear();
+                valvec.resize(0);
                 job->grid.gridEvaluateShapeFnValue(job, (points.x.row(i) + 0.5*points.extent(i)*A.row(c).cast<double>()).transpose(), nvec, valvec);
                 for (size_t v=0; v<valvec.size(); v++){
                     //gradient contribution from corner

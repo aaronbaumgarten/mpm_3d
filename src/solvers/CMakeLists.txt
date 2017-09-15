@@ -2,6 +2,7 @@ set(SOLVERS
         explicit_usl.cpp
         explicit_usl_es.cpp
         explicit_usl_axisym2D.cpp
+        explicit_usl_parallel.cpp
         newton_cg.cpp
         newton_bicgstab.cpp
         newton_bicgstabl.cpp

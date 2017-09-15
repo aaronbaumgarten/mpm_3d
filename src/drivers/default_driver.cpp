@@ -59,8 +59,12 @@ void driverInit(Job* job){
 void driverRun(Job* job) {
     size_t stepCount = 0;
     size_t frameCount = 0;
-    clock_t clockSim = clock();
-    clock_t clockFrame = clock();
+
+    struct timespec timeStart, timeFrame, timeFinish;
+    clock_gettime(CLOCK_MONOTONIC, &timeStart);
+    timeFrame = timeStart;
+    //clock_t clockSim = clock();
+    //clock_t clockFrame = clock();
     double tSim = 0;
     double tFrame = 0;
 
@@ -79,16 +83,21 @@ void driverRun(Job* job) {
         //std::cout << "Step Completed [" << ++stepCount << "]." << std::flush;
         if (job->serializer.serializerWriteFrame(job) == 1) {
             //successful frame written
-            tFrame = (double)(clock() - clockFrame)/CLOCKS_PER_SEC;
-            tSim = (double)(clock() - clockSim)/CLOCKS_PER_SEC;
+            //tFrame = (double)(clock() - clockFrame)/CLOCKS_PER_SEC;
+            //tSim = (double)(clock() - clockSim)/CLOCKS_PER_SEC;
+            clock_gettime(CLOCK_MONOTONIC,&timeFinish);
+            tFrame = (timeFinish.tv_sec - timeFrame.tv_sec) + (timeFinish.tv_nsec - timeFrame.tv_nsec)/1000000000.0;
+            tSim = (timeFinish.tv_sec - timeStart.tv_sec) + (timeFinish.tv_nsec - timeStart.tv_nsec)/1000000000.0;
+            timeFrame = timeFinish;
             printf("\33[2K");
             std::cout << "Frame Written [" << ++frameCount << "]. Time/Frame [" << tFrame << " s]. Elapsed Time [" << tSim << " s]." << std::flush;
-            clockFrame = clock();
         }
         std::cout << "\r";
         job->t += job->dt;
     }
-    tSim = (double)(clock() - clockSim)/CLOCKS_PER_SEC;
+    //tSim = (double)(clock() - clockSim)/CLOCKS_PER_SEC;
+    clock_gettime(CLOCK_MONOTONIC,&timeFinish);
+    tSim = (timeFinish.tv_sec - timeStart.tv_sec) + (timeFinish.tv_nsec - timeStart.tv_nsec)/1000000000.0;
     std::cout << std::endl << std::endl << "Simulation Complete. Elapsed Time [" << tSim << "s]." << std::endl;
     return;
 }

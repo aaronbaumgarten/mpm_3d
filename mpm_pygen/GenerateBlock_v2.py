@@ -16,14 +16,14 @@ print "files named"
 
 #grid properties
 #Ly = Lx = Lz = 0.4
-Lx = 0.2
-Ly = 0.05
-Lz = 0.1
+Lx = 1.0
+Ly = 1.0
+Lz = 1.0
 #Ne = 40
-Nx = 200
-Ny = 50
+Nx = 100
+Ny = 100
 Nz = 100
-lmpp = 1
+lmpp = 2
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
 print "grid created"
 
@@ -31,14 +31,14 @@ print "grid created"
 g = -9.81
 
 # free block properties
-block_properties = { 'rho': 1620.0 }
-block_width = Lx
-block_height = Ly
-block_depth = 0.07
+block_properties = { 'rho': 1000.0 }
+block_width = 0.2
+block_height = 0.2
+block_depth = 0.2
 hx = Lx/Nx
-block_primitive = Primitives3d.Box(0, Lx,
-                                 0, Ly,
-                                 0, block_depth,
+block_primitive = Primitives3d.Box(0.4, 0.6,
+                                 0.4, 0.6,
+                                 0.4, 0.6,
                                  )
 block_body = CSGTree3d.Node(block_primitive)
 print "body created"
