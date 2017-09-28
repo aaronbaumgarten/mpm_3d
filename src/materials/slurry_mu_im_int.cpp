@@ -436,7 +436,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                             phi_eq = 0;
                         } else {
                             I_v_tr = eta(i) * gammap_dot_tr / p_plus;
-                            I_tr = gammap_dot_tr * grain_diam * std::sqrt(grains_rho/p);
+                            I_tr = gammap_dot_tr * grain_diam * std::sqrt(grains_rho/p_plus);
                             I_m_tr = std::sqrt(I_tr*I_tr + 2*I_v_tr);
                             mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_m_tr) + 5.0 / 2.0 * phi(i) * I_v_tr / (a*I_m_tr);
                             phi_eq = phi_m / (1 + a*I_m_tr);
@@ -526,7 +526,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                             phi_eq = 0;
                         } else {
                             I_v_tr = eta(i) * gammap_dot_tr / p_tmp;
-                            I_tr = gammap_dot_tr * grain_diam * std::sqrt(grains_rho/p);
+                            I_tr = gammap_dot_tr * grain_diam * std::sqrt(grains_rho/p_tmp);
                             I_m_tr = std::sqrt(I_tr*I_tr + 2*I_v_tr);
                             mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_m_tr) + 5.0 / 2.0 * phi(i) * I_v_tr / (a*I_m_tr);
                             phi_eq = phi_m / (1 + a*I_m_tr);
@@ -639,7 +639,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                                 phi_eq = 0;
                             } else {
                                 I_v_tr = eta(i) * gammap_dot_tr / p_plus;
-                                I_tr = gammap_dot_tr * grain_diam * std::sqrt(grains_rho/p);
+                                I_tr = gammap_dot_tr * grain_diam * std::sqrt(grains_rho/p_plus);
                                 I_m_tr = std::sqrt(I_tr*I_tr + 2*I_v_tr);
                                 mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_m_tr) + 5.0 / 2.0 * phi(i) * I_v_tr / (a*I_m_tr);
                                 phi_eq = phi_m / (1 + a*I_m_tr);
@@ -735,7 +735,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                                 phi_eq = 0;
                             } else {
                                 I_v_tr = eta(i) * gammap_dot_tr / p_tmp;
-                                I_tr = gammap_dot_tr * grain_diam * std::sqrt(grains_rho/p);
+                                I_tr = gammap_dot_tr * grain_diam * std::sqrt(grains_rho/p_tmp);
                                 I_m_tr = std::sqrt(I_tr*I_tr + 2*I_v_tr);
                                 mu = mu_1 + (mu_2 - mu_1) / (1 + I_0 / I_m_tr) + 5.0 / 2.0 * phi(i) * I_v_tr / (a*I_m_tr);
                                 phi_eq = phi_m / (1 + a*I_m_tr);
