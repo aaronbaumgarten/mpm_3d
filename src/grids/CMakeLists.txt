@@ -3,6 +3,8 @@ set(GRIDS
         cartesian_periodic.cpp
         gmsh_tri2D.cpp
         cartesian_custom.cpp
+        cartesian_cubic.cpp
+        cartesian_cubic_custom.cpp
         )
 
 foreach(gridc ${GRIDS})

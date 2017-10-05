@@ -1,11 +1,6 @@
 //
-// Created by aaron on 8/14/17.
-// cartesian_custom.cpp
-//
-
-//
-// Created by aaron on 7/5/17.
-// cartesian_periodic.cpp
+// Created by aaron on 9/28/17.
+// cartesian_cubic_custom.cpp
 //
 
 #include <iostream>
@@ -24,18 +19,20 @@
 #include "body.hpp"
 #include "nodes.hpp"
 
-Eigen::VectorXi periodic_props(0,1); //boundary props
 Eigen::VectorXd Lx(0,1); //linear dimensions
 Eigen::VectorXi Nx(0,1); //linear elements (not nodes)
 Eigen::VectorXd hx(0,1);
 Eigen::MatrixXi nodeIDs(0,0); //element to node map
-Eigen::VectorXi nntoni(0,1); //node number to node id
 Eigen::MatrixXi A(0,0); //0,1 for directions in
 size_t npe; //nodes per element
 Eigen::MatrixXd x_n(0,0);
+Eigen::MatrixXi edge_n(0,0); //0-edge, 1-next to boundary, 2-interior
 
 Eigen::VectorXd v_n(0,1); //nodal volume
 double v_e = 1; //element volume
+
+Eigen::VectorXi periodic_props(0,1); //boundary props
+Eigen::VectorXi nntoni(0,1); //node number to node id
 
 extern "C" void gridInit(Job* job);
 
@@ -54,6 +51,40 @@ extern "C" double gridNodalTag(Job* job, int idIN);
 
 /*----------------------------------------------------------------------------*/
 
+double s(double x, double h){
+    if (x < -2*h){
+        return 0;
+    } else if (x < -h){
+        return x*x*x/(6.0 * h*h*h) + x*x/(h*h) + 2.0*x/h + 4.0/3.0;
+    } else if (x < 0){
+        return -1.0*x*x*x/(2.0*h*h*h) - x*x/(h*h) + 2.0/3.0;
+    } else if (x < h){
+        return x*x*x/(2.0*h*h*h) - x*x/(h*h) + 2.0/3.0;
+    } else if (x < 2*h){
+        return -1.0*x*x*x/(6.0*h*h*h) + x*x/(h*h) - 2*x/h + 4.0/3.0;
+    } else {
+        return 0;
+    }
+}
+
+double g(double x, double h){
+    if (x < -2*h){
+        return 0;
+    } else if (x < -h){
+        return x*x/(2.0 * h*h*h) + 2.0*x/(h*h) + 2.0/h;
+    } else if (x < 0){
+        return -3.0*x*x/(2.0*h*h*h) - 2.0*x/(h*h);
+    } else if (x < h){
+        return 3.0*x*x/(2.0*h*h*h) - 2.0*x/(h*h);
+    } else if (x < 2*h){
+        return -1.0*x*x/(2.0*h*h*h) + 2.0*x/(h*h) - 2.0/h;
+    } else {
+        return 0;
+    }
+}
+
+/*----------------------------------------------------------------------------*/
+
 void hiddenInit(Job* job){
     //called from loading or initializing functions
     //needs to have Lx,Nx,hx defined
@@ -65,7 +96,7 @@ void hiddenInit(Job* job){
     for (size_t i=0;i<Nx.rows();i++){
         job->grid.node_count *= (Nx(i)+1);
         job->grid.element_count *= Nx(i);
-        npe *= 2;
+        npe *= 4; //4 linear node contributions per element
     }
 
     x_n = job->jobVectorArray<double>(job->grid.node_count);
@@ -75,65 +106,31 @@ void hiddenInit(Job* job){
 
     //initialize A matrix
     //for mapping position in cube to id
-    //0 -> +0,+0,+0
-    //1 -> +1,+0,+0
+    //0 -> -1,-1,-1
+    //1 -> +0,-1,-1
     //...
-    //8 -> +1,+1,+1
-    Eigen::VectorXi onoff = job->jobVector<int>();
+    //64 -> +2,+2,+2
+    Eigen::VectorXi i_rel = job->jobVector<int>();
     A = job->jobVectorArray<int>(npe);
-    onoff.setZero();
+    i_rel.setOnes();
+    i_rel = -1.0*i_rel;
     for (size_t n=0; n<npe;n++){
-        for (size_t i=0;i<onoff.rows();i++){
-            A(n,i) = onoff(i);
+        for (size_t i=0;i<i_rel.rows();i++){
+            A(n,i) = i_rel(i);
         }
-        for (size_t i=0;i<onoff.rows();i++) {
-            if (onoff(i) == 0){
-                onoff(i) = 1;
+        for (size_t i=0;i<i_rel.rows();i++) {
+            if (i_rel(i) < 2){
+                i_rel(i) += 1;
                 break;
             } else {
-                onoff(i) = 0;
+                i_rel(i) = -1;
             }
         }
-    }
-
-    //setup node number to node id map
-    Eigen::VectorXi ijk = job->jobVector<int>();
-    int tmp;
-    nntoni.resize(job->grid.node_count);
-    for (size_t i=0; i<job->grid.node_count; i++){
-        tmp = i;
-        //find i,j,k for node position
-        for (size_t i=0;i<ijk.rows();i++){
-            ijk(i) = tmp % (Nx(i)+1);
-            tmp = tmp / (Nx(i)+1);
-        }
-
-        //wrap x for 2D sim, x and y for 3D sim
-        if (job->DIM >= 1 && ijk(0) == Nx(0) && periodic_props(0) == 1){
-            ijk(0) = 0;
-        }
-        if (job->DIM >= 2 && ijk(1) == Nx(1) && periodic_props(1) == 1){
-            ijk(1) = 0;
-        }
-        if (job->DIM == 3 && ijk(2) == Nx(2) && periodic_props(2) == 1){
-            ijk(2) = 0;
-        }
-
-        tmp = 0;
-        //create map
-        for (size_t i=0;i<ijk.rows();i++){
-            if (i==0) {
-                tmp += ijk(i);
-            } else if (i==1) {
-                tmp += ijk(i) * (Nx(i-1) + 1);
-            } else if (i==2) {
-                tmp += ijk(i) * (Nx(i-2) + 1) * (Nx(i-1) + 1);
-            }
-        }
-        nntoni(i) = tmp;
     }
 
     //setup element to node map
+    Eigen::VectorXi ijk = job->jobVector<int>();
+    int tmp;
     nodeIDs.resize(job->grid.element_count,npe);
     nodeIDs.setZero();
     for (size_t e=0;e<nodeIDs.rows();e++){
@@ -149,15 +146,61 @@ void hiddenInit(Job* job){
             for (size_t i=0;i<ijk.rows();i++) {
                 //n = i + j*imax + k*imax*jmax
                 //hardcode
+                tmp = ijk(i) + A(n,i); // first guess
+                if (tmp < 0 || tmp > Nx(i)) {
+                    if (periodic_props(i) == 1 && tmp == -1) {
+                        tmp = Nx(i)-1;
+                    } else if (periodic_props(i) == 1 && tmp == Nx(i)+1){
+                        tmp = 1;
+                    } else {
+                        nodeIDs(e, n) = -1;
+                        break;
+                    }
+                }
+
                 if (i==0) {
-                    nodeIDs(e, n) += (ijk(i) + A(n,i));
+                    nodeIDs(e, n) += tmp;
                 } else if (i==1) {
-                    nodeIDs(e, n) += (ijk(i) + A(n,i)) * (Nx(i-1)+1);
+                    nodeIDs(e, n) += tmp * (Nx(i-1)+1);
                 } else if (i==2) {
-                    nodeIDs(e, n) += (ijk(i) + A(n,i)) * (Nx(i-1)+1) * (Nx(i-2)+1);
+                    nodeIDs(e, n) += tmp * (Nx(i-1)+1) * (Nx(i-2)+1);
                 }
             }
         }
+    }
+
+    //setup node number to node id map
+    nntoni.resize(job->grid.node_count);
+    for (size_t i=0; i<job->grid.node_count; i++){
+        tmp = i;
+        //find i,j,k for node position
+        for (size_t i=0;i<ijk.rows();i++){
+            ijk(i) = tmp % (Nx(i)+1);
+            tmp = tmp / (Nx(i)+1);
+        }
+
+        if (job->DIM >= 1 && ijk(0) == Nx(0) && periodic_props(0) == 1){
+            ijk(0) = 0;
+        }
+        if (job->DIM >= 2 && ijk(1) == Nx(1) && periodic_props(1) == 1){
+            ijk(1) = 0;
+        }
+        if (job->DIM == 3 && ijk(2) == Nx(2) && periodic_props(2) == 1){
+            ijk(2) = 0;
+        }
+
+        tmp = 0;
+        //create map
+        for (size_t pos=0;pos<ijk.rows();pos++){
+            if (pos==0) {
+                tmp += ijk(pos);
+            } else if (pos==1) {
+                tmp += ijk(pos) * (Nx(pos-1) + 1);
+            } else if (pos==2) {
+                tmp += ijk(pos) * (Nx(pos-2) + 1) * (Nx(pos-1) + 1);
+            }
+        }
+        nntoni(i) = tmp;
     }
 
     //element volume
@@ -166,12 +209,37 @@ void hiddenInit(Job* job){
         v_e *= hx(pos);
     }
 
-    //nodal volume
+    //nodal volume and edges
+    edge_n = job->jobVectorArray<int>(x_n.rows());
     v_n.resize(x_n.rows());
     v_n.setZero();
-    for (size_t e=0;e<nodeIDs.rows();e++){
-        for (size_t c=0;c<nodeIDs.cols();c++) {
-            v_n(nntoni(nodeIDs(e, c))) += v_e / nodeIDs.cols();
+    for (size_t n=0;n<x_n.rows();n++){
+        tmp = n;
+        v_n(n) = 1;
+        for (size_t i=0;i<ijk.rows();i++){
+            ijk(i) = tmp % (Nx(i)+1);
+            tmp = tmp / (Nx(i)+1);
+
+            if ((ijk(i) > 1 && ijk(i) < (Nx(i)-1)) || periodic_props(i) == 1){
+                v_n(n) *= hx(i);
+                if (ijk(i) == 1) {
+                    edge_n(n, i) = 3; //next to periodic boundary at start
+                } else if (ijk(i) == Nx(i)-1) {
+                    edge_n(n, i) = -3; //next to periodic boundary at end
+                } else {
+                    edge_n(n, i) = 2; //interior
+                }
+            } else if (ijk(i) == 1 || ijk(i) == (Nx(i)-1)) {
+                v_n(n) *= hx(i)*11.0/12.0;
+                if (ijk(i) == 1) {
+                    edge_n(n, i) = 1; //next to boundary at start
+                } else {
+                    edge_n(n, i) = -1; //next to boundary at end
+                }
+            } else {
+                v_n(n) *= hx(i)*7.0/12.0;
+                edge_n(n,i) = 0; //boundary
+            }
         }
     }
 
@@ -197,7 +265,6 @@ void gridInit(Job* job){
         for (size_t pos=0;pos<job->DIM;pos++){
             periodic_props(pos) = job->grid.int_props[job->DIM + pos];
         }
-
         //print grid properties
         std::cout << "Grid properties (Lx = { ";
         for (size_t i=0;i<Lx.rows();i++){
@@ -221,7 +288,8 @@ void gridInit(Job* job){
 /*----------------------------------------------------------------------------*/
 
 void gridWriteFrame(Job* job, Serializer* serializer){
-    //nothing to report
+    Eigen::MatrixXd tmp = edge_n.cast<double>();
+    serializer->serializerWriteVectorArray(tmp,"edge_id");
     return;
 }
 
@@ -244,7 +312,7 @@ std::string gridSaveState(Job* job, Serializer* serializer,std::string filepath)
     std::ofstream ffile((filepath+filename), std::ios::trunc);
 
     if (ffile.is_open()){
-        ffile << "# mpm_v2 grids/cartesian.so\n";
+        ffile << "# mpm_v2 grids/cartesian_cubic_custom.so\n";
         ffile << Lx.transpose() << "\n" << Nx.transpose() << "\n"; //vectors
         ffile << periodic_props.transpose() << "\n";
         ffile.close();
@@ -344,7 +412,6 @@ void fixPosition(Job* job, Eigen::VectorXd& xIN){
 /*----------------------------------------------------------------------------*/
 
 int gridWhichElement(Job* job, Eigen::VectorXd xIN){
-    //adjust xIN
     fixPosition(job,xIN);
 
     bool inDomain;
@@ -367,7 +434,6 @@ int gridWhichElement(Job* job, Eigen::VectorXd xIN){
 /*----------------------------------------------------------------------------*/
 
 bool gridInDomain(Job* job, Eigen::VectorXd xIN){
-    //adjust xIN
     fixPosition(job,xIN);
 
     for (size_t i=0;i<xIN.size();i++){
@@ -396,7 +462,6 @@ Eigen::VectorXd gridNodeIDToPosition(Job* job, int idIN){
 /*----------------------------------------------------------------------------*/
 
 void gridEvaluateShapeFnValue(Job* job, Eigen::VectorXd xIN, std::vector<int>& nID, std::vector<double>& nVAL){
-    //adjust xIN
     fixPosition(job,xIN);
 
     Eigen::VectorXd rst = job->jobVector<double>();
@@ -405,25 +470,50 @@ void gridEvaluateShapeFnValue(Job* job, Eigen::VectorXd xIN, std::vector<int>& n
     if (elementID < 0){
         return;
     }
+
+    //double test_sum = 0;
     for (size_t n=0;n<nodeIDs.cols();n++){
+        if (nodeIDs(elementID,n) == -1){
+            continue; //break out if node id is -1;
+        }
+        tmp = 1.0;
+
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)/hx
-        rst = (xIN - x_n.row(nodeIDs(elementID,n)).transpose()).array() / hx.array();
+        rst = xIN - x_n.row(nodeIDs(elementID,n)).transpose();
         for (size_t i=0;i<xIN.rows();i++){
-            //standard linear hat function
-            tmp *= (1 - std::abs(rst(i)));
+            //check proximity to edge
+            if (edge_n(nodeIDs(elementID,n),i) == 2) {
+                tmp *= s(rst(i), hx(i));
+            } else if (edge_n(nodeIDs(elementID,n),i) == 1) {
+                tmp *= (s(rst(i), hx(i)) - s(rst(i)+2*hx(i), hx(i)));
+            } else if (edge_n(nodeIDs(elementID,n),i) == -1) {
+                tmp *= (s(rst(i), hx(i)) - s(rst(i)-2*hx(i), hx(i)));
+            } else if (edge_n(nodeIDs(elementID,n),i) == 0) {
+                tmp *= (s(rst(i), hx(i)) + 2.0*s(std::abs(rst(i))+hx(i), hx(i)));
+            } else if (edge_n(nodeIDs(elementID,n),i) == 3) {
+                tmp *= (s(rst(i), hx(i)) + s(rst(i) - Lx(i), hx(i))); //sum of two shape functions
+            } else if (edge_n(nodeIDs(elementID,n),i) == -3) {
+                tmp *= (s(rst(i), hx(i)) + s(rst(i) + Lx(i), hx(i))); //sum of two
+            }
         }
+        //if (tmp < 1e-10){
+        //std::cout << "VERY SMALL!!! " << tmp << std::endl;
+        //avoid small numbers for numerical stability
+        //continue;
+        //}
+
+        //test_sum += tmp;
         nID.push_back(nntoni(nodeIDs(elementID,n)));
         nVAL.push_back(tmp);
-        tmp = 1.0;
     }
+    //std::cout << elementID << " : " << test_sum << std::endl;
     return;
 }
 
 /*----------------------------------------------------------------------------*/
 
 void gridEvaluateShapeFnGradient(Job* job, Eigen::VectorXd xIN, std::vector<int>& nID, std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>& nGRAD){
-    //adjust xIN
     fixPosition(job,xIN);
 
     Eigen::VectorXd rst = job->jobVector<double>();
@@ -433,24 +523,67 @@ void gridEvaluateShapeFnGradient(Job* job, Eigen::VectorXd xIN, std::vector<int>
     if (elementID < 0){
         return;
     }
+
+    //Eigen::VectorXd test_grad = job->jobVector<double>(Job::ZERO);
     for (size_t n=0;n<nodeIDs.cols();n++){
+        if (nodeIDs(elementID,n) == -1){
+            continue; //break out if node id is -1;
+        }
+
         //find local coordinates relative to nodal position
-        //r = (x_p - x_n)/hx
-        rst = (xIN - x_n.row(nodeIDs(elementID,n)).transpose()).array() / hx.array();
+        //r = (x_p - x_n)
+        rst = xIN - x_n.row(nodeIDs(elementID,n)).transpose();
         for (size_t i=0;i<xIN.rows();i++){
-            //standard linear hat function
-            //evaluate at point
-            tmp *= (1 - std::abs(rst(i)));
+            //check proximity to edge
+            if (edge_n(nodeIDs(elementID,n),i) == 2) {
+                tmpVec(i) = g(rst(i), hx(i));
+            } else if (edge_n(nodeIDs(elementID,n),i) == 1) {
+                tmpVec(i) = (g(rst(i), hx(i)) - g(rst(i)+2*hx(i), hx(i)));
+            } else if (edge_n(nodeIDs(elementID,n),i) == -1) {
+                tmpVec(i) = (g(rst(i), hx(i)) - g(rst(i)-2*hx(i), hx(i)));
+            } else if (edge_n(nodeIDs(elementID,n),i) == 0) {
+                if (rst(i) >= 0) {
+                    tmpVec(i) = (g(rst(i), hx(i)) + 2.0 * g(rst(i) + hx(i), hx(i)));
+                } else if (rst(i) < 0){
+                    tmpVec(i) = (g(rst(i), hx(i)) + 2.0 * g(rst(i) - hx(i), hx(i)));
+                }
+            } else if (edge_n(nodeIDs(elementID,n),i) == 3) {
+                tmpVec(i) = (g(rst(i), hx(i)) + g(rst(i) - Lx(i), hx(i))); //sum of two shape functions
+            } else if (edge_n(nodeIDs(elementID,n),i) == -3) {
+                tmpVec(i) = (g(rst(i), hx(i)) + g(rst(i) + Lx(i), hx(i))); //sum of two
+            }
         }
+
         for (size_t i=0;i<xIN.rows();i++){
-            //replace i-direction contribution with sign function
-            tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
+            //check proximity to edge
+            if (edge_n(nodeIDs(elementID,n),i) == 2) {
+                tmpVec *= s(rst(i), hx(i));
+                tmpVec(i) *= 1.0/s(rst(i), hx(i));
+            } else if (edge_n(nodeIDs(elementID,n),i) == 1) {
+                tmpVec *= (s(rst(i), hx(i)) - s(rst(i)+2*hx(i), hx(i)));
+                tmpVec(i) *= 1.0/(s(rst(i), hx(i)) - s(rst(i)+2*hx(i), hx(i)));
+            } else if (edge_n(nodeIDs(elementID,n),i) == -1) {
+                tmpVec *= (s(rst(i), hx(i)) - s(rst(i)-2*hx(i), hx(i)));
+                tmpVec(i) *= 1.0/(s(rst(i), hx(i)) - s(rst(i)-2*hx(i), hx(i)));
+            } else if (edge_n(nodeIDs(elementID,n),i) == 0) {
+                tmpVec *= (s(rst(i), hx(i)) + 2.0*s(std::abs(rst(i))+hx(i), hx(i)));
+                tmpVec(i) *= 1.0/(s(rst(i), hx(i)) + 2.0*s(std::abs(rst(i))+hx(i), hx(i)));
+            } else if (edge_n(nodeIDs(elementID,n),i) == 3) {
+                tmpVec *= (s(rst(i), hx(i)) + s(rst(i) - Lx(i), hx(i))); //sum of two shape functions
+                tmpVec(i) /= (s(rst(i), hx(i)) + s(rst(i) - Lx(i), hx(i))); //sum of two shape functions
+            } else if (edge_n(nodeIDs(elementID,n),i) == -3) {
+                tmpVec *= (s(rst(i), hx(i)) + s(rst(i) + Lx(i), hx(i))); //sum of two
+                tmpVec(i) /= (s(rst(i), hx(i)) + s(rst(i) + Lx(i), hx(i))); //sum of two
+            }
         }
+
+        //test_grad = test_grad + tmpVec;
         nID.push_back(nntoni(nodeIDs(elementID,n)));
         nGRAD.push_back(tmpVec);
-        tmp = 1.0;
         tmpVec.setZero();
     }
+
+    //std::cout << elementID << " : " << test_grad.transpose() << std::endl;
     return;
 }
 
@@ -471,4 +604,3 @@ double gridElementVolume(Job* job, int idIN){
 double gridNodalTag(Job* job, int idIN){
     return -1;
 }
-

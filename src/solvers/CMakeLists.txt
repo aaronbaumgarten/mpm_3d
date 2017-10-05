@@ -7,6 +7,7 @@ set(SOLVERS
         newton_bicgstab.cpp
         newton_bicgstabl.cpp
         newton_direct.cpp
+        explicit_usl_cubic.cpp
         )
 
 foreach(solc ${SOLVERS})
