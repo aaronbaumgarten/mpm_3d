@@ -578,12 +578,12 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     //std::cout << T << std::endl << L << std::endl << std::endl;
 
 
-                    if (!std::isfinite(p) || !std::isfinite(tau_bar) || (mu+beta) < 0){
+                    if (!std::isfinite(p) || !std::isfinite(tau_bar)){ // || (mu+beta) < 0){
                         std::cout << "u";
                     }
                 }
 
-                if (phi(i) > phi_m || (p - (phi(i) / (phi_m - phi(i)))*(phi(i) / (phi_m - phi(i))) * eta(i) * (gammap_dot_tr)) < 0){
+                if (phi(i) > phi_m || (p - (a * phi(i) / (phi_m - phi(i)))*(a * phi(i) / (phi_m - phi(i))) * (gammap_dot_tr*gammap_dot_tr * grain_diam * grain_diam * grains_rho + 2 * eta(i) * (gammap_dot_tr))) < 0){
                     //do nothing
                 } else {
                     //check f1,f3
@@ -624,7 +624,8 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                         }
 
                         r(0) = tau_bar - mu_f * p;
-                        r(1) = p - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta(i) * (gammap_dot_tr - K_5 * xi_dot_2);
+                        //r(1) = p - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta(i) * (gammap_dot_tr - K_5 * xi_dot_2);
+                        r(1) = p - (a * phi(i) / (phi_m - phi(i)))*(a * phi(i) / (phi_m - phi(i))) * ((gammap_dot_tr - K_5 * xi_dot_2)*(gammap_dot_tr - K_5 * xi_dot_2) * grain_diam * grain_diam * grains_rho + 2 * eta(i) * ((gammap_dot_tr - K_5 * xi_dot_2)));
 
                         if (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
                             if (p > 0) {
@@ -662,7 +663,8 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
                             dr(0, 0) = tau_bar - mu_f * p_plus;
                             dr(0, 0) = (dr(0, 0) - r(0)) / (p_plus - p);
-                            dr(1, 0) = p_plus - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta(i) * (gammap_dot_tr - K_5 * xi_dot_2);
+                            //dr(1, 0) = p_plus - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta(i) * (gammap_dot_tr - K_5 * xi_dot_2);
+                            dr(1, 0) = p_plus - (a * phi(i) / (phi_m - phi(i)))*(a * phi(i) / (phi_m - phi(i))) * ((gammap_dot_tr - K_5 * xi_dot_2)*(gammap_dot_tr - K_5 * xi_dot_2) * grain_diam * grain_diam * grains_rho + 2 * eta(i) * ((gammap_dot_tr - K_5 * xi_dot_2)));
                             dr(1, 0) = (dr(1, 0) - r(1)) / (p_plus - p);
 
                             //--------------
@@ -705,7 +707,8 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
                             dr(0, 1) = tau_bar_plus - mu_f * p;
                             dr(0, 1) = (dr(0, 1) - r(0)) / (tau_bar_plus - tau_bar);
-                            dr(1, 1) = p - (phi(i) / (phi_m - phi(i)))*(phi(i) / (phi_m - phi(i))) * eta(i) * (gammap_dot_tr - K_5 * xi_dot_2);
+                            //dr(1, 1) = p - (phi(i) / (phi_m - phi(i)))*(phi(i) / (phi_m - phi(i))) * eta(i) * (gammap_dot_tr - K_5 * xi_dot_2);
+                            dr(1, 1) = p - (a * phi(i) / (phi_m - phi(i)))*(a * phi(i) / (phi_m - phi(i))) * ((gammap_dot_tr - K_5 * xi_dot_2)*(gammap_dot_tr - K_5 * xi_dot_2) * grain_diam * grain_diam * grains_rho + 2 * eta(i) * ((gammap_dot_tr - K_5 * xi_dot_2)));
                             dr(1, 1) = (dr(1, 1) - r(1)) / (tau_bar_plus - tau_bar);
                         } else {
                             break;
@@ -757,7 +760,8 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                             }
 
                             r_tmp(0) = tau_bar_tmp - mu_f * p_tmp;
-                            r_tmp(1) = p_tmp - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta(i) * (gammap_dot_tr - K_5 * xi_dot_2);
+                            //r_tmp(1) = p_tmp - (phi(i) / (phi_m - phi(i))) * (phi(i) / (phi_m - phi(i))) * eta(i) * (gammap_dot_tr - K_5 * xi_dot_2);
+                            r_tmp(1) = p_tmp - (a * phi(i) / (phi_m - phi(i)))*(a * phi(i) / (phi_m - phi(i))) * ((gammap_dot_tr - K_5 * xi_dot_2)*(gammap_dot_tr - K_5 * xi_dot_2) * grain_diam * grain_diam * grains_rho + 2 * eta(i) * ((gammap_dot_tr - K_5 * xi_dot_2)));
 
                             lambda_tmp *= 0.5;
                         } while (r_tmp.norm() > r.norm() && lambda_tmp > REL_TOL);

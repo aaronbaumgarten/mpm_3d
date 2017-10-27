@@ -3,6 +3,7 @@ set(CONTACTS
         mixture_slurry.cpp
         contact_rigid.cpp
         contact_bonded.cpp
+        mixture_slurry_explicit.cpp
         )
 
 foreach(conc ${CONTACTS})

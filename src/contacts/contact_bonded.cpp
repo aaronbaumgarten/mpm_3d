@@ -210,6 +210,8 @@ void contactApplyRules(Job* job, int SPEC){
             interaction_force.row(i) = fcti.transpose();
             job->bodies[b1].nodes.f.row(i) += fcti.transpose();
             job->bodies[b2].nodes.f.row(i) -= fcti.transpose();
+        } else {
+            interaction_force.row(i).setZero();
         }
     }
 

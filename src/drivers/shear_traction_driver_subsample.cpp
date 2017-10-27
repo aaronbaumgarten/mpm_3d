@@ -1,6 +1,6 @@
 //
-// Created by aaron on 7/18/17.
-// shear_traction_driver.cpp
+// Created by aaron on 10/12/17.
+// shear_traction_driver_subsample.cpp
 //
 
 #include <iostream>
@@ -30,6 +30,7 @@ double f1;
 double f2;
 double sample_rate;
 int sampled_frames = 0;
+std::vector<int> sample_ids(0);
 
 extern "C" void driverInit(Job* job); //initialize driver
 extern "C" void driverRun(Job* job); //run simulation
@@ -47,10 +48,10 @@ void driverInit(Job* job){
         exit(0);
     }
 
-    if (job->driver.fp64_props.size() < 4 || job->driver.str_props.size() < 2) {
+    if (job->driver.fp64_props.size() < 4 || job->driver.int_props.size() < 1 || job->driver.str_props.size() < 2) {
         std::cout << job->driver.fp64_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 6 property defined ({stop_time, f1, f2, sample_rate},{name,traction_body}).\n",
+                "%s:%s: Need at least 7 property defined ({stop_time, f1, f2, sample_rate},{<list of point ids to sample>},{name,traction_body}).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
@@ -59,6 +60,8 @@ void driverInit(Job* job){
         f1 = job->driver.fp64_props[1];
         f2 = job->driver.fp64_props[2];
         sample_rate = job->driver.fp64_props[3];
+
+        sample_ids = job->driver.int_props;
 
         gravity = job->jobVector<double>(Job::ZERO);
         output_name = job->driver.str_props[0];
@@ -132,18 +135,21 @@ void driverRun(Job* job) {
                     v = 0;
                     m = 0;
                     gdp = 0;
-                    for (size_t i = 0; i < job->bodies[b].points.m.rows(); i++) {
-                        tmpVec = job->bodies[b].points.T.row(i);
+                    for (size_t i = 0; i < sample_ids.size(); i++) {
+                        if (sample_ids[i] >= job->bodies[b].points.x.rows()){
+                            continue;
+                        }
+                        tmpVec = job->bodies[b].points.T.row(sample_ids[i]);
                         T = job->jobTensor<double>(tmpVec.data());
-                        tmpVec = job->bodies[b].points.L.row(i);
+                        tmpVec = job->bodies[b].points.L.row(sample_ids[i]);
                         L = job->jobTensor<double>(tmpVec.data());
                         D = 0.5 * (L + L.transpose());
-                        v += job->bodies[b].points.v(i);
-                        m += job->bodies[b].points.m(i);
+                        v += job->bodies[b].points.v(sample_ids[i]);
+                        m += job->bodies[b].points.m(sample_ids[i]);
                         //p -= T.trace() / T.rows() * job->bodies[b].points.v(i);
                         //tau += (T - T.trace()/T.rows()*job->jobTensor<double>(Job::IDENTITY)).norm() * job->bodies[b].points.v(i);
-                        T_avg += T * job->bodies[b].points.v(i);
-                        D_avg += D * job->bodies[b].points.v(i);
+                        T_avg += T * job->bodies[b].points.v(sample_ids[i]);
+                        D_avg += D * job->bodies[b].points.v(sample_ids[i]);
                     }
                     //p /= v;
                     //tau /= v*std::sqrt(2.0);
@@ -221,7 +227,11 @@ std::string driverSaveState(Job* job, Serializer* serializer, std::string filepa
         ffile << "# mpm_v2 drivers/shear_driver.so\n";
         ffile << stop_time << "\n"; //save stop time only
         ffile << f1 << "\n" << f2 << "\n" << sample_rate << "\n" << sampled_frames << "\n" << traction_body_id << "\n";
-        ffile << output_name;
+        ffile << output_name << "\n";
+        ffile << sample_ids.size();
+        for (size_t i=0;i<sample_ids.size();i++){
+            ffile << "\n" << sample_ids[i];
+        }
         ffile.close();
     } else {
         std::cout << "Unable to open \"" << filepath+filename << "\" !\n";
@@ -240,6 +250,7 @@ int driverLoadState(Job* job, Serializer* serializer, std::string fullpath){
     std::string line;
     std::stringstream ss;
     std::ifstream fin(fullpath);
+    int len;
 
     if(fin.is_open()){
         std::getline(fin,line); //first line
@@ -265,6 +276,15 @@ int driverLoadState(Job* job, Serializer* serializer, std::string fullpath){
 
         std::getline(fin,line);
         output_name = line;
+
+        std::getline(fin,line);
+        len = std::stoi(line);
+        sample_ids.resize(len);
+
+        for (size_t i=0;i<len;i++){
+            std::getline(fin,line);
+            sample_ids[i] = std::stoi(line);
+        }
 
         gravity = job->jobVector<double>(Job::ZERO);
 

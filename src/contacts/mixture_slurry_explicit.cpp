@@ -1,4 +1,9 @@
 //
+// Created by aaron on 10/6/17.
+// mixture_slurry_explicit.cpp
+//
+
+//
 // Created by aaron on 6/10/17.
 // mixture_slurry.cpp
 //
@@ -291,8 +296,8 @@ void contactApplyRules(Job* job, int SPEC){
             m1 = job->bodies[solid_body_id].nodes.m[i];
             m2 = job->bodies[liquid_body_id].nodes.m[i];
             if (SPEC == Contact::EXPLICIT) {
-                mv1i << (job->bodies[solid_body_id].nodes.mx_t.row(i) + job->dt * job->bodies[solid_body_id].nodes.f.row(i)).transpose();
-                mv2i << (job->bodies[liquid_body_id].nodes.mx_t.row(i) + job->dt * job->bodies[liquid_body_id].nodes.f.row(i)).transpose();
+                mv1i << (job->bodies[solid_body_id].nodes.mx_t.row(i)).transpose();// + job->dt * job->bodies[solid_body_id].nodes.f.row(i)).transpose();
+                mv2i << (job->bodies[liquid_body_id].nodes.mx_t.row(i)).transpose();// + job->dt * job->bodies[liquid_body_id].nodes.f.row(i)).transpose();
             } else if (SPEC == Contact::IMPLICIT){
                 mv1i << job->bodies[solid_body_id].nodes.mx_t.row(i).transpose();
                 mv2i << job->bodies[liquid_body_id].nodes.mx_t.row(i).transpose();
@@ -323,7 +328,6 @@ void contactApplyRules(Job* job, int SPEC){
             job->bodies[liquid_body_id].nodes.f.row(i) += fsfi.transpose();
         }
     }
-
     return;
 }
 

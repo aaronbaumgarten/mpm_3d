@@ -1,5 +1,6 @@
 set(SERIALIZERS
         default_vtk.cpp
+        minimal_vtk.cpp
         )
 
 foreach(serc ${SERIALIZERS})
