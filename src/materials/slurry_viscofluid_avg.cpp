@@ -28,6 +28,7 @@ double mu = 8.9e-4;
 double K = 1e9;
 double solid_rho = 2500;
 double fluid_rho = 1000;
+double tau_p = 0.1;
 
 int solid_body_id = -1;
 Eigen::VectorXd J(0,1);
@@ -45,10 +46,10 @@ extern "C" void materialAssignPressure(Job* job, Body* body, double pressureIN, 
 /*----------------------------------------------------------------------------*/
 
 void materialInit(Job* job, Body* body){
-    if (body->material.fp64_props.size() < 4 || (body->material.str_props.size() < 1 && body->material.int_props.size() < 1)){
+    if (body->material.fp64_props.size() < 5 || (body->material.str_props.size() < 1 && body->material.int_props.size() < 1)){
         std::cout << body->material.fp64_props.size() <<", " << body->material.str_props.size() << ", " << body->material.int_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 5 properties defined ({K, mu, solid_rho, fluid_rho}, {solid_body}).\n",
+                "%s:%s: Need at least 6 properties defined ({K, mu, solid_rho, fluid_rho, time_cst}, {solid_body}).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
@@ -56,6 +57,7 @@ void materialInit(Job* job, Body* body){
         mu = body->material.fp64_props[1];
         solid_rho = body->material.fp64_props[2];
         fluid_rho = body->material.fp64_props[3];
+        tau_p = body->material.fp64_props[4];
 
         //set body ids by name
         if (body->material.str_props.size() == 1){
@@ -74,14 +76,14 @@ void materialInit(Job* job, Body* body){
             } else {
                 std::cout << body->material.fp64_props.size() <<", " << body->material.str_props.size() << ", " << body->material.int_props.size() << "\n";
                 fprintf(stderr,
-                        "%s:%s: Need at least 5 properties defined ({K, mu, solid_rho, fluid_rho}, {solid_body}).\n",
+                        "%s:%s: Need at least 6 properties defined ({K, mu, solid_rho, fluid_rho, time_cst}, {solid_body}).\n",
                         __FILE__, __func__);
                 exit(0);
             }
         }
 
-        printf("Material properties ({K = %g, mu = %g, solid_rho = %g, fluid_rho = %g}, {solid_body: %i}).\n",
-               K, mu, solid_rho, fluid_rho, solid_body_id);
+        printf("Material properties ({K = %g, mu = %g, solid_rho = %g, fluid_rho = %g, time_cst = %g}, {solid_body: %i}).\n",
+               K, mu, solid_rho, fluid_rho, tau_p, solid_body_id);
     }
 
     J.resize(body->points.x.rows());
@@ -122,7 +124,7 @@ std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std:
 
     if (ffile.is_open()){
         ffile << "# mpm_v2 materials/isolin.so\n";
-        ffile << K << "\n" << mu << "\n" << solid_rho << "\n" << fluid_rho << "\n" << solid_body_id << "\n";
+        ffile << K << "\n" << mu << "\n" << solid_rho << "\n" << fluid_rho << "\n" << tau_p << "\n" << solid_body_id << "\n";
         ffile << J.rows() << "\n";
         ffile << "J\n";
         ffile << "{\n";
@@ -156,6 +158,8 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
         solid_rho = std::stod(line);
         std::getline(fin,line); //fluid_rho
         fluid_rho = std::stod(line);
+        std::getline(fin,line); //tau_p
+        tau_p = std::stod(line);
         std::getline(fin,line); //solid_body_id
         solid_body_id = std::stoi(line);
 
@@ -170,8 +174,8 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
 
         fin.close();
 
-        printf("Material properties ({K = %g, mu = %g, solid_rho = %g, fluid_rho = %g}, {solid_body: %i}).\n",
-               K, mu, solid_rho, fluid_rho, solid_body_id);
+        printf("Material properties ({K = %g, mu = %g, solid_rho = %g, fluid_rho = %g, time_cst = %g}, {solid_body: %i}).\n",
+               K, mu, solid_rho, fluid_rho, tau_p, solid_body_id);
     } else {
         std::cout << "ERROR: Unable to open file: " << fullpath << std::endl;
         return 0;
@@ -259,6 +263,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     Eigen::VectorXd tmpVec;
     double eta; //fluid viscosity change w/ phi
 
+    double K_6 = 1.0/tau_p;
     for (size_t i=0;i<body->points.x.rows();i++){
         if (body->points.active[i] == 0){
             continue;
@@ -275,7 +280,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             J_tr(i) *= std::exp(job->dt * L.trace());
         }*/
 
-        double K_6 = 10;
+        //double K_6 = 10;
         if (n_p(i) > 0 && n_p(i) < 1.0){
             J_tr(i) *= std::exp(job->dt * (pvec(i) / n_p(i) + K_6*std::min(J_p(i) - J_tr(i),0.0)));
         } else {

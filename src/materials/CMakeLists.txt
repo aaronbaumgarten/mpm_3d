@@ -7,6 +7,7 @@ set(MATERIALS
         slurry_mu_iv_int.cpp
         slurry_viscofluid_avg.cpp
         slurry_mu_im_int.cpp
+        viscofluid_rand.cpp
         )
 
 foreach(matc ${MATERIALS})

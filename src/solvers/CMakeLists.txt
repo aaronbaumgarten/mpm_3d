@@ -8,6 +8,7 @@ set(SOLVERS
         newton_bicgstabl.cpp
         newton_direct.cpp
         explicit_usl_cubic.cpp
+        explicit_usl_delta_correctedmass.cpp
         )
 
 foreach(solc ${SOLVERS})
