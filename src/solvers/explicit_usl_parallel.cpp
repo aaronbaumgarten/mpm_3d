@@ -31,6 +31,7 @@
 #include "material.hpp"
 #include "boundary.hpp"
 
+int use_cpdi;
 int num_threads;
 int phi_iterator;
 int gradphi_iterator;
@@ -64,15 +65,16 @@ struct mappingtask_t {
 /*----------------------------------------------------------------------------*/
 
 void solverInit(Job* job){
-    if (job->solver.int_props.size() < 1) {
+    if (job->solver.int_props.size() < 2) {
         std::cout << job->solver.int_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 1 property defined (num_threads).\n",
+                "%s:%s: Need at least 2 property defined (num_threads, use_cpdi).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
         //store stop_time
         num_threads = job->solver.int_props[0];
+        use_cpdi = job->solver.int_props[1];
     }
 
     std::cout << "Solver Initialized." << std::endl;
@@ -93,23 +95,28 @@ void * parallel_map_method(void* _task){
 
     //for (size_t i = 0; i < task->body->points.x.rows(); i++) {
     for (size_t i = task->p_blockstart; i < (task->p_blockstart + task->p_blocksize); i++) {
-        ith_cpdi = Body::CPDI_ON;
-        //check whether point is active:
-        if (task->body->points.active(i) == 0) {
-            continue;
-        } else if (!task->job->grid.gridInDomain(task->job, task->body->points.x.row(i).transpose())) {
-            task->body->points.active(i) = 0;
-            continue;
-        } else if (ith_cpdi == Body::CPDI_ON) {
-            //check that corners are in domain
-            for (size_t c = 0; c < task->body->A.rows(); c++) {
-                if (!task->job->grid.gridInDomain(task->job, (task->body->points.x.row(i) +
-                                                  0.5 * task->body->points.extent(i) * task->body->A.row(c).cast<double>()).transpose())) {
-                    //corner out of domain
-                    ith_cpdi = Body::CPDI_OFF;
-                    break;
+        if (use_cpdi == 1) {
+            ith_cpdi = Body::CPDI_ON;
+            //check whether point is active:
+            if (task->body->points.active(i) == 0) {
+                continue;
+            } else if (!task->job->grid.gridInDomain(task->job, task->body->points.x.row(i).transpose())) {
+                task->body->points.active(i) = 0;
+                continue;
+            } else if (ith_cpdi == Body::CPDI_ON) {
+                //check that corners are in domain
+                for (size_t c = 0; c < task->body->A.rows(); c++) {
+                    if (!task->job->grid.gridInDomain(task->job, (task->body->points.x.row(i) +
+                                                                  0.5 * task->body->points.extent(i) *
+                                                                  task->body->A.row(c).cast<double>()).transpose())) {
+                        //corner out of domain
+                        ith_cpdi = Body::CPDI_OFF;
+                        break;
+                    }
                 }
             }
+        } else {
+            ith_cpdi = Body::CPDI_OFF;
         }
 
         //calculate map for ith point
@@ -243,23 +250,28 @@ void * parallel_map_method(void* _task){
     }
 
     for (size_t i = task->p_blockstart; i < (task->p_blockstart + task->p_blocksize); i++) {
-        ith_cpdi = Body::CPDI_ON;
-        //check whether point is active:
-        if (task->body->points.active(i) == 0) {
-            continue;
-        } else if (!task->job->grid.gridInDomain(task->job, task->body->points.x.row(i).transpose())) {
-            task->body->points.active(i) = 0;
-            continue;
-        } else if (ith_cpdi == Body::CPDI_ON) {
-            //check that corners are in domain
-            for (size_t c = 0; c < task->body->A.rows(); c++) {
-                if (!task->job->grid.gridInDomain(task->job, (task->body->points.x.row(i) +
-                                                              0.5 * task->body->points.extent(i) * task->body->A.row(c).cast<double>()).transpose())) {
-                    //corner out of domain
-                    ith_cpdi = Body::CPDI_OFF;
-                    break;
+        if (use_cpdi == 1) {
+            ith_cpdi = Body::CPDI_ON;
+            //check whether point is active:
+            if (task->body->points.active(i) == 0) {
+                continue;
+            } else if (!task->job->grid.gridInDomain(task->job, task->body->points.x.row(i).transpose())) {
+                task->body->points.active(i) = 0;
+                continue;
+            } else if (ith_cpdi == Body::CPDI_ON) {
+                //check that corners are in domain
+                for (size_t c = 0; c < task->body->A.rows(); c++) {
+                    if (!task->job->grid.gridInDomain(task->job, (task->body->points.x.row(i) +
+                                                                  0.5 * task->body->points.extent(i) *
+                                                                  task->body->A.row(c).cast<double>()).transpose())) {
+                        //corner out of domain
+                        ith_cpdi = Body::CPDI_OFF;
+                        break;
+                    }
                 }
             }
+        } else {
+            ith_cpdi = Body::CPDI_OFF;
         }
 
         //calculate map for ith point

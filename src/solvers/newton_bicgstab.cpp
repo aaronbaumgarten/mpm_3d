@@ -27,6 +27,7 @@
 double TOL = 1e-14;
 double h = 1e-5;
 int maxIter = 100;
+int use_cpdi = 1;
 
 std::vector<Body> tmp_bodies(0);
 Eigen::VectorXd mv_k(0,1); //initial momentum state
@@ -130,18 +131,19 @@ void applyPinv(Job* job, Eigen::VectorXd& vecOut, Eigen::VectorXd& vecIn); //ret
 /*----------------------------------------------------------------------------*/
 
 void solverInit(Job* job){
-    if (job->solver.fp64_props.size() < 2 && job->solver.int_props.size() > 1){
+    if (job->solver.fp64_props.size() < 2 && job->solver.int_props.size() < 2){
         std::cout << job->solver.fp64_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 3 properties defined ({TOL, linear_step}, {maxIter}).\n",
+                "%s:%s: Need at least 4 properties defined ({TOL, linear_step}, {maxIter, use_cpdi}).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
         TOL = job->solver.fp64_props[0];
         h = job->solver.fp64_props[1];
         maxIter = job->solver.int_props[0];
-        printf("Solver properties (TOL = %g, linear_step = %g, maxIter = %i).\n",
-               TOL, h, maxIter);
+        use_cpdi = job->solver.int_props[1];
+        printf("Solver properties (TOL = %g, linear_step = %g, maxIter = %i, use_cpdi = %i).\n",
+               TOL, h, maxIter, use_cpdi);
     }
 
     //create tmp bodies vector
@@ -434,7 +436,11 @@ void solverStep(Job* job){
 
 void createMappings(Job* job){
     for (size_t b=0;b<job->bodies.size();b++){
-        job->bodies[b].bodyGenerateMap(job, Body::CPDI_ON); //use_cpdi by default
+        if (use_cpdi == 1) {
+            job->bodies[b].bodyGenerateMap(job, Body::CPDI_ON); //use_cpdi by default
+        } else {
+            job->bodies[b].bodyGenerateMap(job, Body::CPDI_OFF);
+        }
     }
     return;
 }

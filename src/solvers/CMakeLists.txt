@@ -9,6 +9,7 @@ set(SOLVERS
         newton_direct.cpp
         explicit_usl_cubic.cpp
         explicit_usl_delta_correctedmass.cpp
+        explicit_usl_apic.cpp
         )
 
 foreach(solc ${SOLVERS})

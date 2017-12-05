@@ -1,6 +1,11 @@
 //
-// Created by aaron on 11/2/17.
-// viscofluid_rand.cpp
+// Created by aaron on 12/5/17.
+// slurry_viscofluid_rand.cpp
+//
+
+//
+// Created by aaron on 6/10/17.
+// slurry_viscofluid.cpp
 //
 
 #include <iostream>
@@ -10,7 +15,6 @@
 #include <string>
 #include <vector>
 #include <eigen3/Eigen/Core>
-#include <eigen3/Eigen/Eigenvalues>
 
 #include "job.hpp"
 #include "serializer.hpp"
@@ -19,7 +23,11 @@
 #include "points.hpp"
 #include "material.hpp"
 
-double mu, K;
+//double mu, K, solid_rho;
+double mu = 8.9e-4;
+double K = 1e9;
+double solid_rho = 2500;
+
 Eigen::VectorXd Lx;
 Eigen::VectorXd delV;
 Eigen::MatrixXd grad_delV;
@@ -27,10 +35,9 @@ Eigen::VectorXd V_i;
 Eigen::VectorXd v_i;
 Eigen::MatrixXd del_pos;
 
-Eigen::VectorXd rho_i;
-Eigen::MatrixXd grad_rho;
-
-Eigen::VectorXd p_i;
+int solid_body_id = -1;
+Eigen::VectorXd J(0,1);
+Eigen::VectorXd n_p(0,1);
 
 extern "C" void materialWriteFrame(Job* job, Body* body, Serializer* serializer);
 extern "C" std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
@@ -44,18 +51,48 @@ extern "C" void materialAssignPressure(Job* job, Body* body, double pressureIN, 
 /*----------------------------------------------------------------------------*/
 
 void materialInit(Job* job, Body* body){
-    if (body->material.fp64_props.size() < 2){
-        std::cout << body->material.fp64_props.size() << "\n";
+    if (body->material.fp64_props.size() < 3 || (body->material.str_props.size() < 1 && body->material.int_props.size() < 1)){
+        std::cout << body->material.fp64_props.size() <<", " << body->material.str_props.size() << ", " << body->material.int_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 2 properties defined (K, mu).\n",
+                "%s:%s: Need at least 4 properties defined ({K, mu, solid_rho}, {solid_body}).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
         K = body->material.fp64_props[0];
         mu = body->material.fp64_props[1];
-        printf("Material properties (K = %g, mu = %g).\n",
-               K, mu);
+        solid_rho = body->material.fp64_props[2];
+
+        //set body ids by name
+        if (body->material.str_props.size() == 1){
+            for (size_t b = 0; b < job->bodies.size(); b++) {
+                if (body->material.str_props[0].compare(job->bodies[b].name) == 0){
+                    solid_body_id = b;
+                    break;
+                }
+            }
+        }
+
+        // or set body ids by int
+        if (solid_body_id < 0){
+            if (body->material.int_props.size() == 1) {
+                solid_body_id = body->material.int_props[0];
+            } else {
+                std::cout << body->material.fp64_props.size() <<", " << body->material.str_props.size() << ", " << body->material.int_props.size() << "\n";
+                fprintf(stderr,
+                        "%s:%s: Need at least 4 properties defined ({K, mu, solid_rho}, {solid_body}).\n",
+                        __FILE__, __func__);
+                exit(0);
+            }
+        }
+
+        printf("Material properties ({K = %g, mu = %g, solid_rho = %g}, {solid_body: %i}).\n",
+               K, mu, solid_rho, solid_body_id);
     }
+
+    J.resize(body->points.x.rows());
+    J.setOnes();
+    n_p.resize(body->points.x.rows());
+    n_p.setOnes();
 
     V_i.resize(job->grid.node_count,1);
     v_i.resize(job->grid.node_count,1);
@@ -63,11 +100,6 @@ void materialInit(Job* job, Body* body){
     grad_delV = job->jobVectorArray<double>(body->points.x.rows());
     del_pos = job->jobVectorArray<double>(body->points.x.rows());
     del_pos.setZero();
-
-    //rho_i.resize(job->grid.node_count,1);
-    //grad_rho = job->jobVectorArray<double>(body->points.x.rows());
-
-    p_i.resize(job->grid.node_count,1);
 
     for (size_t i=0; i<job->grid.node_count;i++){
         V_i(i) = job->grid.gridNodalVolume(job,i);
@@ -83,10 +115,8 @@ void materialInit(Job* job, Body* body){
 /*----------------------------------------------------------------------------*/
 
 void materialWriteFrame(Job* job, Body* body, Serializer* serializer) {
-    serializer->serializerWriteVectorArray(grad_delV,"grad_delV");
-    serializer->serializerWriteVectorArray(del_pos,"del_pos");
-    serializer->serializerWriteScalarArray(p_i,"pressure");
-    //nothing to report
+    serializer->serializerWriteScalarArray(J,"J");
+    serializer->serializerWriteScalarArray(n_p,"porosity");
     return;
 }
 
@@ -110,7 +140,12 @@ std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std:
 
     if (ffile.is_open()){
         ffile << "# mpm_v2 materials/isolin.so\n";
-        ffile << K << "\n" << mu << "\n";
+        ffile << K << "\n" << mu << "\n" << solid_rho << "\n" << solid_body_id << "\n";
+        ffile << J.rows() << "\n";
+        ffile << "J\n";
+        ffile << "{\n";
+        job->jobScalarArrayToFile(J, ffile);
+        ffile << "}";
         ffile.close();
     } else {
         std::cout << "Unable to open \"" << filepath+filename << "\" !\n";
@@ -127,6 +162,7 @@ std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std:
 int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string fullpath){
     std::string line;
     std::ifstream fin(fullpath);
+    int len = 0;
 
     if(fin.is_open()){
         std::getline(fin,line); //first line
@@ -134,15 +170,31 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
         K = std::stod(line);
         std::getline(fin,line); //mu
         mu = std::stod(line);
+        std::getline(fin,line); //solid_rho
+        solid_rho = std::stod(line);
+        std::getline(fin,line); //solid_body_id
+        solid_body_id = std::stoi(line);
+
+        std::getline(fin,line); //len
+        len = std::stoi(line);
+        J.resize(len);
+
+        std::getline(fin, line); //J
+        std::getline(fin, line); //{
+        job->jobScalarArrayFromFile(J, fin);
+        std::getline(fin, line); //}
 
         fin.close();
 
-        printf("Material properties (K = %g, mu = %g).\n",
-               K, mu);
+        printf("Material properties ({K = %g, mu = %g, solid_rho = %g}, {solid_body: %i}).\n",
+               K, mu, solid_rho, solid_body_id);
     } else {
         std::cout << "ERROR: Unable to open file: " << fullpath << std::endl;
         return 0;
     }
+
+    n_p.resize(body->points.x.rows());
+    n_p.setOnes();
 
     V_i.resize(job->grid.node_count,1);
     v_i.resize(job->grid.node_count,1);
@@ -167,23 +219,21 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     Eigen::MatrixXd T = job->jobTensor<double>();
     Eigen::MatrixXd L = job->jobTensor<double>();
     Eigen::MatrixXd D = job->jobTensor<double>();
-    Eigen::MatrixXd tmp = job->jobTensor<double>();
 
-    Eigen::EigenSolver<Eigen::MatrixXd> es;
+    double m1, m2;
+    Eigen::VectorXd mv1i = job->jobVector<double>();
+    Eigen::VectorXd mv2i = job->jobVector<double>();
 
-    double trD;
+    Eigen::VectorXd n(body->nodes.x.rows());
+    Eigen::VectorXd pvec(body->points.x.rows());
+    //Eigen::VectorXd n_p(body->points.x.rows());
+    Eigen::MatrixXd nMat = job->jobVectorArray<double>(body->nodes.x.rows());
+
+    double trD, tmpNum;
     double alpha = 1.0;
-    double w = 0;
-    int max_index = -1;
-    int rnd_num;
-    double tmpNum;
+
+    //perturbation variables
     Eigen::VectorXd e = job->jobVector<double>();
-
-    //Eigen::VectorXd J = body->points.v.array() / body->points.v0.array();
-    //double J;
-
-    Eigen::MatrixXd tmpMat = job->jobTensor<double>();
-    Eigen::VectorXd tmpVec;
 
     //calculate nodal volume integral
     body->bodyCalcNodalValues(job, v_i, body->points.v, Body::SET);
@@ -195,27 +245,41 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     //calculate gradient of nodal overshoot
     body->bodyCalcPointGradient(job, grad_delV, delV, Body::SET);
 
-    //calculate nodal density
-    //rho_i = body->nodes.m.array() / v_i.array();
+    Eigen::VectorXd J_tr = J;
 
-    //calculate gradient of nodal density
-    //body->bodyCalcPointGradient(job, grad_rho, rho_i, Body::SET);
+    /*----------------------------------------------------------------------------*/
+    for (size_t i=0;i<n.rows();i++){
 
-    //strain smoothing
-    Eigen::VectorXd J = body->points.v.array() / body->points.v0.array();
-    /*
-    Eigen::VectorXd pvec(body->points.x.rows());
-    pvec = J.array().log();
-    pvec = pvec.array()*body->points.v.array();
-    Eigen::VectorXd nvec(body->nodes.x.rows());
-    body->bodyCalcNodalValues(job, nvec, pvec, Body::SET);
-    nvec = nvec.array() / v_i.array();
-    body->bodyCalcPointValues(job, pvec, nvec, Body::SET);
-    J = pvec.array().exp();
-    body->points.v = body->points.v0.array() * J.array();
-     */
+        m1 = job->bodies[solid_body_id].nodes.m[i];
+        m2 = body->nodes.m[i];
 
-    //p_i = -K * nvec;
+        // set ((1-n)*vs + n*vw)
+        if (m1 > 0 && m2 > 0) {
+            n(i) = 1 - (m1 / (job->grid.gridNodalVolume(job,i)*solid_rho));
+            mv1i = job->bodies[solid_body_id].nodes.mx_t.row(i).transpose();
+            mv2i = body->nodes.mx_t.row(i).transpose();
+
+            nMat.row(i) = (1-n(i))/m1 * mv1i.transpose() + n(i)/m2 * mv2i.transpose();
+        } else if (m2 > 0) {
+            n(i) = 1.0;
+            mv2i = body->nodes.mx_t.row(i).transpose();
+
+            nMat.row(i) = 1.0/m2 * mv2i.transpose();
+        } else {
+            n(i) = 1.0;
+            nMat.row(i).setZero();
+        }
+    }
+
+    //interpolate n to points
+    body->bodyCalcPointValues<Eigen::VectorXd,Eigen::VectorXd>(job,n_p,n,Body::SET);
+
+    //calculate divergence of ((1-n)*vs + n*vw)
+    body->bodyCalcPointDivergence(job,pvec,nMat,Body::SET);
+
+    Eigen::MatrixXd tmpMat = job->jobTensor<double>();
+    Eigen::VectorXd tmpVec;
+    double eta; //fluid viscosity change w/ phi
 
     for (size_t i=0;i<body->points.x.rows();i++){
         if (body->points.active[i] == 0){
@@ -225,35 +289,21 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         tmpVec = body->points.L.row(i).transpose();
         L = job->jobTensor<double>(tmpVec.data());
 
+        //n*rho_dot/rho = -div((1-n)*v_s + n*v_w)
+        //n*v_dot/v = div((1-n)*v_s + n*v_w)
+        if (n_p(i) > 0 && n_p(i) < 1.0){
+            J_tr(i) *= std::exp(job->dt * pvec(i) / n_p(i));
+        } else {
+            J_tr(i) *= std::exp(job->dt * L.trace());
+        }
+
         D = 0.5*(L+L.transpose());
 
         trD = D.trace();
 
-        //stress update after density correction
-
-        e = -alpha * job->dt * (L - (trD/D.rows())*job->jobTensor<double>(Job::IDENTITY)).norm() * grad_delV.row(i).transpose();
-
-        for (size_t pos=0;pos<e.rows();pos++){
-            if (((body->points.x(i,pos) + e(pos)) >= Lx(pos)) || ((body->points.x(i,pos) + e(pos)) <= 0)){
-                e(pos) = 0;
-            }
-        }
-
-        body->points.x.row(i) += e.transpose();
-        body->points.u.row(i) += e.transpose();
-        del_pos.row(i) += e.transpose();
-
-        body->points.x_t.row(i) += (L*e).transpose();
-        body->points.mx_t.row(i) = body->points.m(i) * body->points.x_t.row(i);
-
-        //rho = rho + e*grad_rho
-        //m/vnew = m/v + e*grad_rho
-        //vnew = 1/(1/v + e*grad_rho/m)
-        //body->points.v(i) = body->points.m(i) / (body->points.m(i)/body->points.v(i) + e.dot(grad_rho.row(i).transpose()));
-        //J = body->points.v(i)/body->points.v0(i);
-
         //T = 2*mu*D_0 + K*log(J)*I
-        T = 2*mu*(D - (trD/D.rows())*job->jobTensor<double>(Job::IDENTITY)) + K*std::log(J(i))*job->jobTensor<double>(Job::IDENTITY);
+        eta = mu * (1 + 5.0/2.0 * (1 - n_p(i)));
+        T = 2*eta*(D - (trD/D.rows())*job->jobTensor<double>(Job::IDENTITY)) + K*std::log(J_tr(i))*job->jobTensor<double>(Job::IDENTITY);
 
         for (size_t i=0;i<tmpVec.size();i++){
             tmpVec(i) = T(i);
@@ -263,30 +313,28 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             body->points.T(i,pos) = T(pos);
         }
 
-        /*
-        es.compute(D - (trD/D.rows())*job->jobTensor<double>(Job::IDENTITY),true);
+        //position correction
+        if (SPEC == Material::UPDATE) {
+            e = -alpha * job->dt * (L - (trD / D.rows()) * job->jobTensor<double>(Job::IDENTITY)).norm() *
+                grad_delV.row(i).transpose();
 
-        //find max eigenvalue of D_0
-        max_index = -1;
-        w = 0;
-        for (int pos=0;pos<D.cols();pos++){
-            if (es.pseudoEigenvalueMatrix()(pos,pos) > w){
-                w = es.pseudoEigenvalueMatrix()(pos,pos);
-                max_index = pos;
+            for (size_t pos = 0; pos < e.rows(); pos++) {
+                if (((body->points.x(i, pos) + e(pos)) >= Lx(pos)) || ((body->points.x(i, pos) + e(pos)) <= 0)) {
+                    e(pos) = 0;
+                }
             }
+
+            body->points.x.row(i) += e.transpose();
+            body->points.u.row(i) += e.transpose();
+            del_pos.row(i) += e.transpose();
+
+            body->points.x_t.row(i) += (L * e).transpose();
+            body->points.mx_t.row(i) = body->points.m(i) * body->points.x_t.row(i);
         }
+    }
 
-        //find associated eigenvector
-        if (max_index >= 0){
-            tmp = es.pseudoEigenvectors();
-            e = tmp.col(max_index);
-
-            rnd_num = 2*(rand()%2) - 1;
-
-            body->points.x.row(i) += w * job->dt * body->points.extent(i) * alpha * rnd_num * e.transpose();
-            body->points.u.row(i) += w * job->dt * body->points.extent(i) * alpha * rnd_num * e.transpose();
-        }
-        */
+    if (SPEC == Material::UPDATE){
+        J = J_tr;
     }
 
     return;
@@ -298,6 +346,7 @@ void materialAssignStress(Job* job, Body* body, Eigen::MatrixXd stressIN, int id
     for (size_t pos=0;pos<stressIN.size();pos++){
         body->points.T(idIN,pos) = stressIN(pos);
     }
+    J(idIN) = std::exp(-stressIN.trace()/(K*stressIN.rows())); //p = K*log(J)
     return;
 }
 
@@ -316,6 +365,9 @@ void materialAssignPressure(Job* job, Body* body, double pressureIN, int idIN, i
     for (size_t pos=0;pos<tmpMat.size();pos++){
         body->points.T(idIN,pos) = tmpMat(pos);
     }
+
+    J(idIN) = std::exp(-pressureIN/K); //p = -K*log(J)
+
     return;
 }
 
