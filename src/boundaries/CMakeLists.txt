@@ -7,6 +7,7 @@ set(BOUNDARIES
         cartesian_periodic_driven.cpp
         cartesian_periodic_drivenstep.cpp
         cartesian_customBC.cpp
+        cartesian_box_w_friction.cpp
         )
 
 foreach(bcc ${BOUNDARIES})

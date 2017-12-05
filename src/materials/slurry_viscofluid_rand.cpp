@@ -27,10 +27,11 @@
 double mu = 8.9e-4;
 double K = 1e9;
 double solid_rho = 2500;
+double h = 0;
 
 Eigen::VectorXd Lx;
-Eigen::VectorXd delV;
-Eigen::MatrixXd grad_delV;
+Eigen::VectorXd e;
+Eigen::MatrixXd grad_e;
 Eigen::VectorXd V_i;
 Eigen::VectorXd v_i;
 Eigen::MatrixXd del_pos;
@@ -51,16 +52,17 @@ extern "C" void materialAssignPressure(Job* job, Body* body, double pressureIN, 
 /*----------------------------------------------------------------------------*/
 
 void materialInit(Job* job, Body* body){
-    if (body->material.fp64_props.size() < 3 || (body->material.str_props.size() < 1 && body->material.int_props.size() < 1)){
+    if (body->material.fp64_props.size() < 4 || (body->material.str_props.size() < 1 && body->material.int_props.size() < 1)){
         std::cout << body->material.fp64_props.size() <<", " << body->material.str_props.size() << ", " << body->material.int_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 4 properties defined ({K, mu, solid_rho}, {solid_body}).\n",
+                "%s:%s: Need at least 5 properties defined ({K, mu, solid_rho, h}, {solid_body}).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
         K = body->material.fp64_props[0];
         mu = body->material.fp64_props[1];
         solid_rho = body->material.fp64_props[2];
+        h = body->material.fp64_props[3];
 
         //set body ids by name
         if (body->material.str_props.size() == 1){
@@ -96,8 +98,8 @@ void materialInit(Job* job, Body* body){
 
     V_i.resize(job->grid.node_count,1);
     v_i.resize(job->grid.node_count,1);
-    delV.resize(job->grid.node_count,1);
-    grad_delV = job->jobVectorArray<double>(body->points.x.rows());
+    e.resize(job->grid.node_count,1);
+    grad_e = job->jobVectorArray<double>(body->points.x.rows());
     del_pos = job->jobVectorArray<double>(body->points.x.rows());
     del_pos.setZero();
 
@@ -117,6 +119,8 @@ void materialInit(Job* job, Body* body){
 void materialWriteFrame(Job* job, Body* body, Serializer* serializer) {
     serializer->serializerWriteScalarArray(J,"J");
     serializer->serializerWriteScalarArray(n_p,"porosity");
+    serializer->serializerWriteVectorArray(grad_e,"grad_err");
+    serializer->serializerWriteVectorArray(del_pos,"del_pos");
     return;
 }
 
@@ -140,7 +144,7 @@ std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std:
 
     if (ffile.is_open()){
         ffile << "# mpm_v2 materials/isolin.so\n";
-        ffile << K << "\n" << mu << "\n" << solid_rho << "\n" << solid_body_id << "\n";
+        ffile << K << "\n" << mu << "\n" << solid_rho << "\n" << h << "\n" << solid_body_id << "\n";
         ffile << J.rows() << "\n";
         ffile << "J\n";
         ffile << "{\n";
@@ -172,6 +176,8 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
         mu = std::stod(line);
         std::getline(fin,line); //solid_rho
         solid_rho = std::stod(line);
+        std::getline(fin,line);//h
+        h = std::stod(line);
         std::getline(fin,line); //solid_body_id
         solid_body_id = std::stoi(line);
 
@@ -198,8 +204,8 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
 
     V_i.resize(job->grid.node_count,1);
     v_i.resize(job->grid.node_count,1);
-    delV.resize(job->grid.node_count,1);
-    grad_delV = job->jobVectorArray<double>(body->points.x.rows());
+    e.resize(job->grid.node_count,1);
+    grad_e = job->jobVectorArray<double>(body->points.x.rows());
     del_pos = job->jobVectorArray<double>(body->points.x.rows());
     del_pos.setZero();
 
@@ -233,17 +239,17 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     double alpha = 1.0;
 
     //perturbation variables
-    Eigen::VectorXd e = job->jobVector<double>();
+    Eigen::VectorXd delta = job->jobVector<double>();
 
     //calculate nodal volume integral
     body->bodyCalcNodalValues(job, v_i, body->points.v, Body::SET);
     for (size_t i=0; i<V_i.rows(); i++){
-        tmpNum = v_i(i) - V_i(i);
-        delV(i) = std::max(0.0,tmpNum);
+        tmpNum = (v_i(i) - V_i(i))/(V_i(i));
+        e(i) = std::max(0.0,tmpNum);
     }
 
     //calculate gradient of nodal overshoot
-    body->bodyCalcPointGradient(job, grad_delV, delV, Body::SET);
+    body->bodyCalcPointGradient(job, grad_e, e, Body::SET);
 
     Eigen::VectorXd J_tr = J;
 
@@ -315,20 +321,20 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
         //position correction
         if (SPEC == Material::UPDATE) {
-            e = -alpha * job->dt * (L - (trD / D.rows()) * job->jobTensor<double>(Job::IDENTITY)).norm() *
-                grad_delV.row(i).transpose();
+            delta = -alpha * job->dt * (L - (trD / D.rows()) * job->jobTensor<double>(Job::IDENTITY)).norm() *
+                grad_e.row(i).transpose() * h * h;
 
-            for (size_t pos = 0; pos < e.rows(); pos++) {
-                if (((body->points.x(i, pos) + e(pos)) >= Lx(pos)) || ((body->points.x(i, pos) + e(pos)) <= 0)) {
-                    e(pos) = 0;
+            for (size_t pos = 0; pos < delta.rows(); pos++) {
+                if (((body->points.x(i, pos) + delta(pos)) >= Lx(pos)) || ((body->points.x(i, pos) + delta(pos)) <= 0)) {
+                    delta(pos) = 0;
                 }
             }
 
-            body->points.x.row(i) += e.transpose();
-            body->points.u.row(i) += e.transpose();
-            del_pos.row(i) += e.transpose();
+            body->points.x.row(i) += delta.transpose();
+            body->points.u.row(i) += delta.transpose();
+            del_pos.row(i) += delta.transpose();
 
-            body->points.x_t.row(i) += (L * e).transpose();
+            body->points.x_t.row(i) += (L * delta).transpose();
             body->points.mx_t.row(i) = body->points.m(i) * body->points.x_t.row(i);
         }
     }

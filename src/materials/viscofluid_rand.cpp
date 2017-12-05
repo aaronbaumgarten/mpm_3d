@@ -21,6 +21,7 @@
 
 double mu, K;
 Eigen::VectorXd Lx;
+double h; //characteristic length of problem
 Eigen::VectorXd delV;
 Eigen::MatrixXd grad_delV;
 Eigen::VectorXd V_i;
@@ -44,17 +45,18 @@ extern "C" void materialAssignPressure(Job* job, Body* body, double pressureIN, 
 /*----------------------------------------------------------------------------*/
 
 void materialInit(Job* job, Body* body){
-    if (body->material.fp64_props.size() < 2){
+    if (body->material.fp64_props.size() < 3){
         std::cout << body->material.fp64_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 2 properties defined (K, mu).\n",
+                "%s:%s: Need at least 3 properties defined (K, mu, h).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
         K = body->material.fp64_props[0];
         mu = body->material.fp64_props[1];
-        printf("Material properties (K = %g, mu = %g).\n",
-               K, mu);
+        h = body->material.fp64_props[2];
+        printf("Material properties (K = %g, mu = %g, h = %g).\n",
+               K, mu, h);
     }
 
     V_i.resize(job->grid.node_count,1);
@@ -110,7 +112,7 @@ std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std:
 
     if (ffile.is_open()){
         ffile << "# mpm_v2 materials/isolin.so\n";
-        ffile << K << "\n" << mu << "\n";
+        ffile << K << "\n" << mu << "\n" << h << "\n";
         ffile.close();
     } else {
         std::cout << "Unable to open \"" << filepath+filename << "\" !\n";
@@ -134,6 +136,8 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
         K = std::stod(line);
         std::getline(fin,line); //mu
         mu = std::stod(line);
+        std::getline(fin,line); //h
+        h = std::stod(line);
 
         fin.close();
 
@@ -188,7 +192,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     //calculate nodal volume integral
     body->bodyCalcNodalValues(job, v_i, body->points.v, Body::SET);
     for (size_t i=0; i<V_i.rows(); i++){
-        tmpNum = v_i(i) - V_i(i);
+        tmpNum = (v_i(i) - V_i(i))/V_i(i);
         delV(i) = std::max(0.0,tmpNum);
     }
 
@@ -231,7 +235,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
         //stress update after density correction
 
-        e = -alpha * job->dt * (L - (trD/D.rows())*job->jobTensor<double>(Job::IDENTITY)).norm() * grad_delV.row(i).transpose();
+        e = -alpha * job->dt * (L - (trD/D.rows())*job->jobTensor<double>(Job::IDENTITY)).norm() * grad_delV.row(i).transpose() * h * h;
 
         for (size_t pos=0;pos<e.rows();pos++){
             if (((body->points.x(i,pos) + e(pos)) >= Lx(pos)) || ((body->points.x(i,pos) + e(pos)) <= 0)){
