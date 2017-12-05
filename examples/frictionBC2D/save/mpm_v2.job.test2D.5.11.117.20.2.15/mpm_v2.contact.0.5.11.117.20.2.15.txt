@@ -1,4 +1,0 @@
-# mpm_v2 contacts/contact_huang.so
-0 1
-0
-0.4

@@ -1,4 +1,0 @@
-# mpm_v2 grids/cartesian.so
-0 1
-0
-0.4
