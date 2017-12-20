@@ -63,6 +63,7 @@ void solverInit(Job* job){
             body_id = job->solver.int_props;
         }
     }
+
     std::cout << "Solver properties: [";
     for (size_t i=0;i<body_id.size();i++){
         if (i>0){
@@ -90,6 +91,11 @@ void mapPointsToNodes(Job* job){
     Nodes *nodes;
     Eigen::MatrixXd pvec;
     Eigen::MatrixXd nvec;
+
+    Eigen::VectorXd v_i;
+    Eigen::MatrixXd Tv_i;
+    Eigen::MatrixXd g_err_i;
+
     for (size_t b=0;b<job->bodies.size();b++){
         if (job->activeBodies[b] == 0){
             continue;
@@ -127,11 +133,39 @@ void mapPointsToNodes(Job* job){
         nvec = job->jobVectorArray<double>(nodes->f.rows());
         body->bodyCalcNodalDivergence(job,nvec,points->T,Body::SET);
         nodes->f += nvec;
-        for (size_t i=0;i<nodes->f.rows();i++){
-            for (size_t j=0; j<body_id.size(); j++){
-                if (b == body_id[j] && (nodes->m(i)/(body_density[j]*job->grid.gridNodalVolume(job,i)) > 0.75)){
-                    nodes->f.row(i) = nodes->f.row(i) + nvec.row(i)*(nodes->m(i)/(body_density[j]*job->grid.gridNodalVolume(job,i)) - 1);
+
+        v_i = Eigen::VectorXd(nodes->f.rows());
+        body->bodyCalcNodalValues(job,v_i,points->v,Body::SET);
+
+        pvec = job->jobTensorArray<double>(points->T.rows());
+        for (size_t i=0; i<points->T.cols(); i++){
+            pvec.col(i) = points->v.array() * points->T.col(i).array();
+        }
+        Tv_i = job->jobTensorArray<double>(nodes->f.rows());
+        body->bodyCalcNodalValues(job, Tv_i, pvec, Body::SET);
+
+        g_err_i = job->jobVectorArray<double>(nodes->f.rows());
+        body->bodyCalcNodalGradient(job, g_err_i, points->v, Body::SET);
+
+        Eigen::VectorXd tmpVec;
+        Eigen::MatrixXd Tv;
+        for (size_t j=0; j<body_id.size(); j++){
+            if (b == body_id[j]){
+                for (size_t i=0;i<nodes->f.rows();i++){
+                    if (v_i(i) > job->grid.gridNodalVolume(job,i)) {
+                        //tmpVec = Tv_i.row(i).transpose();
+                        //Tv = job->jobTensor<double>(tmpVec.data());
+
+                        /*nodes->f.row(i) = nodes->f.row(i) - nvec.row(i) +
+                                          (nvec.row(i) * v_i(i) + (Tv * g_err_i.row(i).transpose()).transpose()) /
+                                          (job->grid.gridNodalVolume(job, i));*/
+
+                        nodes->f.row(i) = nodes->f.row(i) + nvec.row(i) * (v_i(i) / job->grid.gridNodalVolume(job,i) - 1.0);
+                    }
                 }
+                //if (b == body_id[j] && (nodes->m(i)/(body_density[j]*job->grid.gridNodalVolume(job,i)) > 0.75)){
+                //    nodes->f.row(i) = nodes->f.row(i) + nvec.row(i)*(nodes->m(i)/(body_density[j]*job->grid.gridNodalVolume(job,i)) - 1);
+                //}
             }
         }
         //nvec = job->jobVectorArray<double>(nodes->f.rows());

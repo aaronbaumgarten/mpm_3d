@@ -28,6 +28,7 @@ double mu = 8.9e-4;
 double K = 1e9;
 double solid_rho = 2500;
 double h = 0;
+double alpha = 1.0;
 
 Eigen::VectorXd Lx;
 Eigen::VectorXd e;
@@ -91,6 +92,10 @@ void materialInit(Job* job, Body* body){
                K, mu, solid_rho, solid_body_id);
     }
 
+    if (body->material.fp64_props.size() > 4){
+        alpha = body->material.fp64_props[4];
+    }
+
     J.resize(body->points.x.rows());
     J.setOnes();
     n_p.resize(body->points.x.rows());
@@ -121,6 +126,30 @@ void materialWriteFrame(Job* job, Body* body, Serializer* serializer) {
     serializer->serializerWriteScalarArray(n_p,"porosity");
     serializer->serializerWriteVectorArray(grad_e,"grad_err");
     serializer->serializerWriteVectorArray(del_pos,"del_pos");
+
+
+    Eigen::VectorXd nvec(body->nodes.x.rows());
+    Eigen::VectorXd pvec(body->points.x.rows());
+    Eigen::VectorXd tmpVec;
+    Eigen::MatrixXd T;
+    for (size_t i=0;i<body->points.x.rows();i++) {
+        if (body->points.active[i] == 0) {
+            pvec(i) = 0;
+            continue;
+        }
+
+        tmpVec = body->points.T.row(i).transpose();
+        T = job->jobTensor<double>(tmpVec.data());
+
+        pvec(i) = -T.trace() * body->points.v(i) / job->DIM;
+    }
+    body->bodyCalcNodalValues(job, nvec, pvec, Body::SET);
+    body->bodyCalcNodalValues(job, v_i, body->points.v, Body::SET);
+    nvec = nvec.array() / v_i.array();
+    body->bodyCalcPointValues(job, pvec, nvec, Body::SET);
+
+
+    serializer->serializerWriteScalarArray(pvec, "p_smooth");
     return;
 }
 
@@ -144,7 +173,7 @@ std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std:
 
     if (ffile.is_open()){
         ffile << "# mpm_v2 materials/isolin.so\n";
-        ffile << K << "\n" << mu << "\n" << solid_rho << "\n" << h << "\n" << solid_body_id << "\n";
+        ffile << K << "\n" << mu << "\n" << solid_rho << "\n" << h << "\n" << solid_body_id << "\n" << alpha << "\n";
         ffile << J.rows() << "\n";
         ffile << "J\n";
         ffile << "{\n";
@@ -180,6 +209,8 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
         h = std::stod(line);
         std::getline(fin,line); //solid_body_id
         solid_body_id = std::stoi(line);
+        std::getline(fin,line);
+        alpha = std::stod(line);
 
         std::getline(fin,line); //len
         len = std::stoi(line);
@@ -236,7 +267,6 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     Eigen::MatrixXd nMat = job->jobVectorArray<double>(body->nodes.x.rows());
 
     double trD, tmpNum;
-    double alpha = 1.0;
 
     //perturbation variables
     Eigen::VectorXd delta = job->jobVector<double>();

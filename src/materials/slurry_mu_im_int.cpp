@@ -804,7 +804,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             gammap(i) += job->dt * gammap_dot(i);
             I_v(i) = eta(i)*gammap_dot(i)/(-T.trace()/T.rows()); //undefined
             I(i) = gammap_dot(i)*grain_diam*std::sqrt(grains_rho/(-T.trace()/T.rows()));
-            I_m(i) = (I(i)*I(i) + 2*I_v(i));
+            I_m(i) = std::sqrt(I(i)*I(i) + 2*I_v(i));
         }
 
     }

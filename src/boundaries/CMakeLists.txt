@@ -8,6 +8,8 @@ set(BOUNDARIES
         cartesian_periodic_drivenstep.cpp
         cartesian_customBC.cpp
         cartesian_box_w_friction.cpp
+        cartesian_box2D_w_friction.cpp
+        cartesian_box2D_w_friction_poiseuille.cpp
         )
 
 foreach(bcc ${BOUNDARIES})

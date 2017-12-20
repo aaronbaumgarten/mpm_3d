@@ -6,6 +6,7 @@ set(DRIVERS
         shear_traction_driver.cpp
         launched_projectile_driver.cpp
         shear_traction_driver_subsample.cpp
+        column_collapse_driver.cpp
         )
 
 foreach(dric ${DRIVERS})

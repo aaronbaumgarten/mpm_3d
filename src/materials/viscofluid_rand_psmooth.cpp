@@ -1,6 +1,6 @@
 //
-// Created by aaron on 11/2/17.
-// viscofluid_rand.cpp
+// Created by aaron on 12/8/17.
+// viscofluid_rand_psmooth.cpp
 //
 
 #include <iostream>
@@ -19,8 +19,8 @@
 #include "points.hpp"
 #include "material.hpp"
 
-double mu, K;
 double alpha = 1.0;
+double mu, K;
 Eigen::VectorXd Lx;
 double h; //characteristic length of problem
 Eigen::VectorXd delV;
@@ -28,11 +28,6 @@ Eigen::MatrixXd grad_delV;
 Eigen::VectorXd V_i;
 Eigen::VectorXd v_i;
 Eigen::MatrixXd del_pos;
-
-Eigen::VectorXd rho_i;
-Eigen::MatrixXd grad_rho;
-
-Eigen::VectorXd p_i;
 
 extern "C" void materialWriteFrame(Job* job, Body* body, Serializer* serializer);
 extern "C" std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
@@ -71,11 +66,6 @@ void materialInit(Job* job, Body* body){
     del_pos = job->jobVectorArray<double>(body->points.x.rows());
     del_pos.setZero();
 
-    //rho_i.resize(job->grid.node_count,1);
-    //grad_rho = job->jobVectorArray<double>(body->points.x.rows());
-
-    p_i.resize(job->grid.node_count,1);
-
     for (size_t i=0; i<job->grid.node_count;i++){
         V_i(i) = job->grid.gridNodalVolume(job,i);
     }
@@ -92,7 +82,29 @@ void materialInit(Job* job, Body* body){
 void materialWriteFrame(Job* job, Body* body, Serializer* serializer) {
     serializer->serializerWriteVectorArray(grad_delV,"grad_delV");
     serializer->serializerWriteVectorArray(del_pos,"del_pos");
-    serializer->serializerWriteScalarArray(p_i,"pressure");
+
+    Eigen::VectorXd nvec(body->nodes.x.rows());
+    Eigen::VectorXd pvec(body->points.x.rows());
+    Eigen::VectorXd tmpVec;
+    Eigen::MatrixXd T;
+    for (size_t i=0;i<body->points.x.rows();i++) {
+        if (body->points.active[i] == 0) {
+            pvec(i) = 0;
+            continue;
+        }
+
+        tmpVec = body->points.T.row(i).transpose();
+        T = job->jobTensor<double>(tmpVec.data());
+
+        pvec(i) = -T.trace() * body->points.v(i) / job->DIM;
+    }
+    body->bodyCalcNodalValues(job, nvec, pvec, Body::SET);
+    body->bodyCalcNodalValues(job, v_i, body->points.v, Body::SET);
+    nvec = nvec.array() / v_i.array();
+    body->bodyCalcPointValues(job, pvec, nvec, Body::SET);
+
+
+    serializer->serializerWriteScalarArray(pvec, "p_smooth");
     //nothing to report
     return;
 }
@@ -143,7 +155,7 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
         mu = std::stod(line);
         std::getline(fin,line); //h
         h = std::stod(line);
-        std::getline(fin,line); //alpha
+        std::getline(fin,line);
         alpha = std::stod(line);
 
         fin.close();
@@ -183,6 +195,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     Eigen::EigenSolver<Eigen::MatrixXd> es;
 
     double trD;
+    double alpha = 1.0;
     double w = 0;
     int max_index = -1;
     int rnd_num;

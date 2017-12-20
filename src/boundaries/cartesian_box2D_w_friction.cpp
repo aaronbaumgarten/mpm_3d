@@ -1,4 +1,9 @@
 //
+// Created by aaron on 12/6/17.
+// cartesian_box2D_w_friction.cpp
+//
+
+//
 // Created by aaron on 12/5/17.
 // cartesian_box_w_friction.cpp
 //
@@ -24,7 +29,11 @@
 #include "boundary.hpp"
 
 double mu_f = 0;
+double simulated_depth = 0;
 Eigen::MatrixXi bcNodalMask; //store which dof to control
+Eigen::VectorXd bcNodalPressure;
+Eigen::MatrixXd bcNodalForce;
+Eigen::MatrixXd pvec;
 
 extern "C" void boundaryWriteFrame(Job* job, Body* body, Serializer* serializer); //write frame to serializer
 extern "C" std::string boundarySaveState(Job* job, Body* body, Serializer* serializer, std::string filepath); //save state to serializer folder with returned filename
@@ -37,31 +46,40 @@ extern "C" void boundaryApplyRules(Job* job, Body* body); //apply the rules give
 /*----------------------------------------------------------------------------*/
 
 void boundaryInit(Job* job, Body* body){
+    if (job->DIM != 2){
+        std::cerr << "\n FATAL ERROR: cartesian_box2D_w_fritcton.so requires DIM = 2. Given DIM = " << job->DIM << ".\nExiting..." << std::endl;
+        exit(0);
+    }
+
     if (job->grid.filename.compare("cartesian.so") != 0){
         std::cout << "\nBOUNDARY CONDITION WARNING!" << std::endl;
         std::cout << "\"cartesian_box.so\" boundary expects \"cartesian.so\" grid NOT \"" << job->grid.filename << "\"!\n" << std::endl;
     }
 
     //check that contact properties are set
-    if ((body->boundary.fp64_props.size() < 1)){
+    if ((body->boundary.fp64_props.size() < 2)){
         //need to coefficient of friction and bodies
         std::cout << body->boundary.fp64_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 1 property defined (mu_f).\n",
+                "%s:%s: Need at least 2 property defined (mu_f, simulated_depth).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
         mu_f = body->boundary.fp64_props[0];
-        std::cout << "Boundary properties ( mu_f = " << mu_f << ")." << std::endl;
+        simulated_depth = body->boundary.fp64_props[1];
+        std::cout << "Boundary properties ( mu_f = " << mu_f << ", simulated_depth = " << simulated_depth << ")." << std::endl;
     }
 
     //find bounds of box
     Eigen::VectorXd Lx = body->nodes.x.colwise().maxCoeff();
 
     //set bounding mask
-    double len = body->nodes.x.rows();
+    int len = body->nodes.x.rows();
     bcNodalMask = job->jobVectorArray<int>(len);
     bcNodalMask.setZero();
+    bcNodalForce = job->jobVectorArray<double>(len);
+    bcNodalPressure = Eigen::VectorXd(len);
+    //pvec = Eigen::VectorXd(body->points.x.rows());
 
     bool is_edge = false;
     for (size_t i=0;i<len;i++){
@@ -93,6 +111,7 @@ void boundaryWriteFrame(Job* job, Body* body, Serializer* serializer){
     //write nodal mask to frame output
     Eigen::MatrixXd tmpMat = bcNodalMask.cast<double>();
     serializer->serializerWriteVectorArray(tmpMat,"bc_nodal_mask");
+    serializer->serializerWriteScalarArray(bcNodalPressure,"bc_nodal_pressure");
     return;
 }
 
@@ -171,19 +190,29 @@ void boundaryApplyRules(Job* job, Body* body){
     Eigen::VectorXd delta_momentum = job->jobVector<double>();
     double f_normal;
 
+    //map body force
+    pvec = job->jobVectorArray<double>(body->points.b.rows());
+    for (size_t i=0;i<body->points.b.cols();i++){
+        pvec.col(i) = body->points.m.array() * body->points.b.col(i).array();
+    }
+    body->bodyCalcNodalValues(job,bcNodalForce,pvec,Body::SET);
+
+    //map divergence of stress
+    body->bodyCalcNodalDivergence(job,bcNodalForce,body->points.T,Body::ADD);
+
     for (size_t i=0;i<body->nodes.x_t.rows();i++){
         for (size_t pos=0;pos<body->nodes.x_t.cols();pos++){
             if (bcNodalMask(i,pos) == -1){
                 //zero out velocity on lower boundary
                 //only add friction for closing velocity
-                delta_momentum(pos) = -std::min(0.0, body->nodes.mx_t(i,pos) + job->dt * body->nodes.f(i,pos));
+                delta_momentum(pos) = -std::min(0.0, body->nodes.mx_t(i,pos) + job->dt * bcNodalForce(i,pos));
                 body->nodes.x_t(i,pos) = 0;
                 body->nodes.mx_t(i,pos) = 0;
                 body->nodes.f(i,pos) = 0;
             } else if (bcNodalMask(i,pos) == 1){
                 //zero out velocity on upper boundary
                 //only add friction for closing velocity
-                delta_momentum(pos) = -std::max(0.0, body->nodes.mx_t(i,pos) + job->dt * body->nodes.f(i,pos));
+                delta_momentum(pos) = -std::max(0.0, body->nodes.mx_t(i,pos) + job->dt * bcNodalForce(i,pos));
                 body->nodes.x_t(i,pos) = 0;
                 body->nodes.mx_t(i,pos) = 0;
                 body->nodes.f(i,pos) = 0;
@@ -200,6 +229,25 @@ void boundaryApplyRules(Job* job, Body* body){
                     std::min(delta_momentum.norm() / job->dt, f_normal * mu_f) * delta_momentum / delta_momentum.norm();
         }
     }
+
+    //apply planar wall friction to all nodes based on pressure
+    //simulation must be 2D, so we can cheat a little bit using that assumption
+    pvec = Eigen::MatrixXd(body->points.T.rows(),1);
+    pvec = -0.5 * body->points.v.array() * (body->points.T.col(0) + body->points.T.col(3)).array();
+    body->bodyCalcNodalValues(job, bcNodalPressure, pvec, Body::SET);
+
+    double pos_pressure;
+
+    for (size_t i=0; i<body->nodes.x_t.rows();i++){
+        pos_pressure = std::max(0.0, bcNodalPressure(i));
+        delta_momentum = body->nodes.mx_t.row(i).transpose() + job->dt * body->nodes.f.row(i).transpose();
+        if (delta_momentum.norm() > 0) {
+            body->nodes.f.row(i) -=
+                    std::min(delta_momentum.norm() / job->dt, 2.0 * pos_pressure * mu_f / simulated_depth) *
+                    delta_momentum / delta_momentum.norm();
+        }
+    }
+
     return;
 }
 
