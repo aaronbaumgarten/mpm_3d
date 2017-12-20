@@ -279,8 +279,8 @@ void contactApplyRules(Job* job, int SPEC){
         //test every node for contact
         if (job->bodies[solid_body_id].nodes.m[i] > 0 && job->bodies[liquid_body_id].nodes.m[i] > 0) {
             //distribute solid stess
-            job->bodies[solid_body_id].nodes.f.row(i) += (1-n(i))*divT.row(i);
-            job->bodies[liquid_body_id].nodes.f.row(i) -= (1-n(i))*divT.row(i);
+            job->bodies[solid_body_id].nodes.f.row(i) -= (1-n(i))*divT.row(i);
+            job->bodies[liquid_body_id].nodes.f.row(i) += (1-n(i))*divT.row(i);
 
             if (mu_w == 0){
                 //that's weird but OK
