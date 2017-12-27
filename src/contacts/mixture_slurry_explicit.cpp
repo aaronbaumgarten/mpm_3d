@@ -262,6 +262,7 @@ void contactApplyRules(Job* job, int SPEC){
     Eigen::VectorXd vCMi = job->jobVector<double>();
 
     double C, k_eff, Re;
+    double f_stokes_einstein, f_ergun, f_beetstra;
 
     //calculate divergence of liquid stress
     //job->bodies[liquid_body_id].bodyCalcNodalDivergence(job,divT,job->bodies[liquid_body_id].points.T,Body::SET);
@@ -316,13 +317,14 @@ void contactApplyRules(Job* job, int SPEC){
             } else {
                 C = 18.0 * (1 - n(i)) * mu_w / (grains_diam * grains_diam) *
                     (10.0 * (1 - n(i)) / n(i) + n(i) * n(i) * n(i) * (1.0 + 1.5 * std::sqrt(1 - n(i))) +
-                     0.413 * Re / (24.0 * n(i) * n(i)) *
+                     0.413 * Re / (24.0 * n(i)) *
                      (1 / n(i) + 3 * n(i) * (1 - n(i)) + 8.4 * std::pow(Re, -0.343)) /
                      (1 + std::pow(10.0, 3 * (1 - n(i))) * std::pow(Re, -0.5 * (1 + 4 * (1 - n(i))))));
             }
 
+
             //fsfi = (mv1i / m1 - mv2i / m2)*C;
-            fsfi = C/(1 + job->dt*C*(1/m1 + 1/m2)) * (mv1i/m1 - mv2i/m2);
+            fsfi = V(i) * C/(1 + job->dt*C*(1/m1 + 1/m2)) * (mv1i/m1 - mv2i/m2);
 
             job->bodies[solid_body_id].nodes.f.row(i) -= fsfi.transpose();
             job->bodies[liquid_body_id].nodes.f.row(i) += fsfi.transpose();
