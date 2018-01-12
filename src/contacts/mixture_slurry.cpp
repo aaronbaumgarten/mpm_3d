@@ -306,10 +306,10 @@ void contactApplyRules(Job* job, int SPEC){
             Re = (mv1i/m1 - mv2i/m2).norm() * n(i) * fluid_rho * grains_diam / mu_w;
             //Beetstra
             if (Re == 0){
-                C = 18.0 * (1 - n(i)) * mu_w / (grains_diam * grains_diam) *
+                C = V(i) * 18.0 * (1 - n(i)) * mu_w / (grains_diam * grains_diam) *
                     (10.0 * (1 - n(i)) / n(i) + n(i) * n(i) * n(i) * (1.0 + 1.5 * std::sqrt(1 - n(i))));
             } else {
-                C = 18.0 * (1 - n(i)) * mu_w / (grains_diam * grains_diam) *
+                C = V(i) * 18.0 * (1 - n(i)) * mu_w / (grains_diam * grains_diam) *
                     (10.0 * (1 - n(i)) / n(i) + n(i) * n(i) * n(i) * (1.0 + 1.5 * std::sqrt(1 - n(i))) +
                      0.413 * Re / (24.0 * n(i)) *
                      (1 / n(i) + 3 * n(i) * (1 - n(i)) + 8.4 * std::pow(Re, -0.343)) /
@@ -317,7 +317,7 @@ void contactApplyRules(Job* job, int SPEC){
             }
 
             //fsfi = (mv1i / m1 - mv2i / m2)*C;
-            fsfi = V(i) * C/(1 + job->dt*C*(1/m1 + 1/m2)) * (mv1i/m1 - mv2i/m2);
+            fsfi = C/(1 + job->dt*C*(1/m1 + 1/m2)) * (mv1i/m1 - mv2i/m2);
 
             job->bodies[solid_body_id].nodes.f.row(i) -= fsfi.transpose();
             job->bodies[liquid_body_id].nodes.f.row(i) += fsfi.transpose();

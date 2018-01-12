@@ -287,28 +287,73 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
 }
 
 /*----------------------------------------------------------------------------*/
+//some useful functions
+
+inline double getBeta(double phi, double phi_eq){
+    if (phi > phi_m) {
+        return (K_3 * (phi - phi_m) + K_4 * (phi - phi_eq));
+    } else {
+        return (K_4 * (phi - phi_eq));
+    }
+}
+
+void calcState(double &gdp, double &p, double &eta_in, double &phi_in, double &I_out, double &Iv_out, double &Im_out, double &mu_out, double &phi_eq, double &beta_out){
+    I_out = gdp * grain_diam * std::sqrt(grains_rho/p);
+    Iv_out = gdp * eta_in / p;
+    Im_out = std::sqrt(I_out*I_out + 2 * Iv_out);
+
+    if (Im_out == 0){
+        mu_out = mu_1;
+    } else if (p <= 0){
+        mu_out = mu_2;
+    } else {
+        mu_out = mu_1 + (mu_2 - mu_1)/(1 + I_0/Im_out) + 2.5 * phi_in * Iv_out/(a*Im_out);
+    }
+
+    if (p <= 0){
+        phi_eq = 0;
+    } else {
+        phi_eq = phi_m / (1 + a * Im_out);
+    }
+
+    if (phi_in > phi_m) {
+        beta_out = (K_3 * (phi_in - phi_m) + K_4 * (phi_in - phi_eq));
+    } else {
+        beta_out = (K_4 * (phi_in - phi_eq));
+    }
+
+    return;
+}
+
+
+/*----------------------------------------------------------------------------*/
 
 void materialCalculateStress(Job* job, Body* body, int SPEC){
     Eigen::MatrixXd T = job->jobTensor<double>();
     Eigen::MatrixXd T_tr = job->jobTensor<double>();
     Eigen::MatrixXd L = job->jobTensor<double>();
     Eigen::MatrixXd D = job->jobTensor<double>();
-    Eigen::MatrixXd D_0 = job->jobTensor<double>();
     Eigen::MatrixXd W = job->jobTensor<double>();
 
-    double trD, tau_bar, tau_bar_tr, p, p_tr, p_plus, tau_bar_plus;
+    double trD, tau_bar, tau_bar_tr, p, p_tr;
     double beta, mu, phi_eq, xi_dot_1, xi_dot_2;
-    double mu_f;
+    double tau_bar_k, p_k, tau_bar_kplus, p_kplus;
     double I_v_tr, I_tr, I_m_tr, gammap_dot_tr;
+
+    double dgamma_dtau, dI_dtau, dIv_dtau, dIm_dtau, dmu_dtau, dbeta_dtau, dxi_dtau;
+    double dI_dp, dIv_dp, dIm_dp, dmu_dp, dbeta_dp, dxi_dp;
+    double dr1_dtau, dr2_dtau, dr1_dp, dr2_dp;
+    double dr_dp, r_p, r_p_tr, b_p;
 
     Eigen::MatrixXd tmpMat = job->jobTensor<double>();
     Eigen::VectorXd tmpVec;
 
-    Eigen::Vector2d r, b, upd;
+    Eigen::Vector2d r, r_tr, b, upd;
     Eigen::Matrix2d dr;
 
     double p_tmp, tau_bar_tmp, lambda_tmp;
-    Eigen::Vector2d r_tmp;
+
+    bool is_solved;
 
     //calculate packing fraction
     phi = 1/grains_rho * (body->points.m.array() / body->points.v.array());
@@ -330,6 +375,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         eta.setZero();
     }
 
+    //calculate stress state
     for (size_t i=0;i<body->points.x.rows();i++) {
         if (body->points.active[i] == 0) {
             continue;
@@ -345,13 +391,471 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         W = 0.5 * (L - L.transpose());
 
         trD = D.trace();
-        D_0 = D - trD / D.rows() * job->jobTensor<double>(Job::IDENTITY);
 
         //trial stress
         T_tr = T + job->dt * ((2 * G * D) + (lambda * trD * job->jobTensor<double>(Job::IDENTITY)) + (W * T) - (T * W));
         tau_bar_tr = (T_tr - (T_tr.trace() / T_tr.rows()) * job->jobTensor<double>(Job::IDENTITY)).norm() / std::sqrt(2.0);
         p_tr = -T_tr.trace() / T_tr.rows();
 
+        //state determined?
+        is_solved = false;
+
+        //check admissibility ****************************************************************************************//
+        if (!is_solved){
+            beta = getBeta(phi(i), phi_m); //zero plastic flow limit
+
+            if ((p_tr >= 0) && (tau_bar_tr <= ((mu_1 + beta)*p_tr))){
+                gammap_dot_tr = 0;
+                p = p_tr;
+                tau_bar = tau_bar_tr;
+                is_solved = true; //exit condition
+            }
+        }
+
+        //std::cout << "admissible" << std::endl;
+
+        //check f2 yield surface *************************************************************************************//
+        if (!is_solved){
+            beta = getBeta(phi(i), 0.0);
+
+            if ((p_tr + (K*tau_bar_tr/G)*beta) <= 0){
+                gammap_dot_tr = tau_bar_tr/(G*job->dt);
+                p = 0;
+                tau_bar = 0;
+                is_solved = true; //exit condition
+            }
+        }
+
+        //std::cout << "f2" << std::endl;
+
+        //check zero strength limit on f1 only ***********************************************************************//
+        if (!is_solved){
+            beta = getBeta(phi(i), phi_m); //high pressure limit
+
+            //setup newton method to find pressure
+            r_p = -p_tr - (K*tau_bar_tr/G)*beta;
+            b_p = r_p;
+            tau_bar_k = 0;
+            p_k = 0;
+            tau_bar_k = 0;
+
+            //newton method
+            while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
+                //calculate gammap_dot
+                gammap_dot_tr = tau_bar_tr / (G*job->dt);
+
+                //calculate state for step
+                calcState(gammap_dot_tr,p_k,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+                //calculate residual
+                r_p = p_k - p_tr - K*job->dt*beta*gammap_dot_tr;
+
+                //calculate gradients
+                if (p_k > h) {
+                    dI_dp = -0.5 * gammap_dot_tr * grain_diam * std::sqrt(grains_rho) / (p_k * std::sqrt(p_k));
+                    dIv_dp = -1.0 * eta(i) * gammap_dot_tr / (p_k * p_k);
+                    dIm_dp = 0.5 / std::sqrt(I_tr * I_tr + 2 * I_v_tr) * (2 * I_tr * dI_dp + dIv_dp);
+                    dbeta_dp = K_4 * phi_m / ((1 + a * I_m_tr) * (1 + a * I_m_tr)) * a * dIm_dp;
+                    if (I_m_tr == 0){
+                        dIm_dp = 0;
+                        dbeta_dp = 0;
+                    }
+                } else {
+                    //if p is too small, this calculation breaks down, instead use h (small)
+                    calcState(gammap_dot_tr, h, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+                    dI_dp = -0.5 * gammap_dot_tr * grain_diam * std::sqrt(grains_rho) / (h * std::sqrt(h));
+                    dIv_dp = -1.0 * eta(i) * gammap_dot_tr / (h * h);
+                    dIm_dp = 0.5 / std::sqrt(I_tr*I_tr + 2 * I_v_tr) * (2 * I_tr * dI_dp + dIv_dp);
+                    dbeta_dp = K_4 * phi_m / ((1 + a * I_m_tr)*(1 + a * I_m_tr)) * a * dIm_dp;
+                    if (I_m_tr == 0){
+                        dIm_dp = 0;
+                        dbeta_dp = 0;
+                    }
+                }
+
+                dr_dp = 1.0 - K * gammap_dot_tr * job->dt * dbeta_dp;
+
+                //limit step length
+                lambda_tmp = 1.0;
+                r_p_tr = r_p;
+                do{
+                    //update guess
+                    p_kplus = p_k - lambda_tmp * r_p / dr_dp;
+
+                    //calculate new state
+                    calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+                    //test residual
+                    r_p_tr = p_kplus - p_tr - K*job->dt*beta*gammap_dot_tr;
+
+                    //set new lambda
+                    lambda_tmp *= 0.5;
+
+                } while(std::abs(r_p_tr) > std::abs(r_p));
+
+                p_k = p_kplus;
+                r_p = r_p_tr;
+            }
+
+            //check that zero strength assumption is true and admissible
+            gammap_dot_tr = tau_bar_tr / (G*job->dt);
+            if (((mu + beta) <= 0) and ((phi(i) >= phi_m) or (p_k <= (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*(gammap_dot_tr*gammap_dot_tr*grain_diam*grain_diam*grains_rho + 2.0*eta(i)*gammap_dot_tr) ))){
+                p = p_k;
+                tau_bar = tau_bar_k;
+                is_solved = true;
+            }
+        }
+
+        //std::cout << "f1 weak" << std::endl;
+
+        //check f1 yield surface *************************************************************************************//
+        if (!is_solved){
+            //setup initial conditions for newton solve
+            beta = getBeta(phi(i),phi_m);
+            tau_bar_k = 0;
+            p_k = 0;
+            //intial residual is arbitrary
+            r(0) = tau_bar_tr;
+            r(1) = -p_tr - (K*tau_bar_tr/G)*beta;
+            b = r;
+
+            //newton method
+            while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
+                //calculate equiv shear rate
+                gammap_dot_tr = (tau_bar_tr - tau_bar_k)/(G*job->dt);
+
+                //calculate state
+                calcState(gammap_dot_tr, p_k, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+
+                //calculate residual
+                r(0) = tau_bar_k - (mu + beta)*p_k;
+                r(1) = p_k - p_tr - K*job->dt*beta*gammap_dot_tr;
+
+                //calculate gradients
+                dgamma_dtau = -1.0/(G*job->dt);
+                if (p_k > h) {
+                    dI_dtau = grain_diam * std::sqrt(grains_rho/p_k) * dgamma_dtau;
+                    dIv_dtau = eta(i)/p_k * dgamma_dtau;
+                    dIm_dtau =  0.5 / std::sqrt(I_tr * I_tr + 2 * I_v_tr) * (2 * I_tr * dI_dtau + dIv_dtau);
+                    dmu_dtau = (mu_2 - mu_1)/((1 + I_0/I_m_tr)*(1 + I_0/I_m_tr)) * (I_0/(I_m_tr*I_m_tr)) * dIm_dtau + 2.5 * phi(i)/a * (1.0/I_m_tr * dIv_dtau - I_v_tr/(I_m_tr*I_m_tr)*dIm_dtau);
+                    dbeta_dtau = K_4 * phi_m / ((1 + a * I_m_tr)*(1 + a * I_m_tr)) * a * dIm_dtau;
+                    if (I_m_tr == 0){
+                        dIm_dtau = 0;
+                        dmu_dtau = 0;
+                        dbeta_dtau = 0;
+                    }
+
+                    dI_dp = -0.5 * gammap_dot_tr * grain_diam * std::sqrt(grains_rho) / (p_k * std::sqrt(p_k));
+                    dIv_dp = -1.0 * eta(i) * gammap_dot_tr / (p_k * p_k);
+                    dIm_dp = 0.5 / std::sqrt(I_tr * I_tr + 2 * I_v_tr) * (2 * I_tr * dI_dp + dIv_dp);
+                    dmu_dp = (mu_2 - mu_1)/((1 + I_0/I_m_tr)*(1 + I_0/I_m_tr)) * (I_0/(I_m_tr*I_m_tr)) * dIm_dp + 2.5 * phi(i)/a * (1.0/I_m_tr * dIv_dp - I_v_tr/(I_m_tr*I_m_tr)*dIm_dp);
+                    dbeta_dp = K_4 * phi_m / ((1 + a * I_m_tr) * (1 + a * I_m_tr)) * a * dIm_dp;
+                    if (I_m_tr == 0){
+                        dIm_dp = 0;
+                        dmu_dp = 0;
+                        dbeta_dp = 0;
+                    }
+                } else {
+                    //if p is too small, this calculation breaks down, instead use h (small)
+                    calcState(gammap_dot_tr, h, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+                    dI_dtau = grain_diam * std::sqrt(grains_rho/h) * dgamma_dtau;
+                    dIv_dtau = eta(i)/h * dgamma_dtau;
+                    dIm_dtau =  0.5 / std::sqrt(I_tr * I_tr + 2 * I_v_tr) * (2 * I_tr * dI_dtau + dIv_dtau);
+                    dmu_dtau = (mu_2 - mu_1)/((1 + I_0/I_m_tr)*(1 + I_0/I_m_tr)) * (I_0/(I_m_tr*I_m_tr)) * dIm_dtau + 2.5 * phi(i)/a * (1.0/I_m_tr * dIv_dtau - I_v_tr/(I_m_tr*I_m_tr)*dIm_dtau);
+                    dbeta_dtau = K_4 * phi_m / ((1 + a * I_m_tr)*(1 + a * I_m_tr)) * a * dIm_dtau;
+                    if (I_m_tr == 0){
+                        dIm_dtau = 0;
+                        dmu_dtau = 0;
+                        dbeta_dtau = 0;
+                    }
+
+                    dI_dp = -0.5 * gammap_dot_tr * grain_diam * std::sqrt(grains_rho) / (h * std::sqrt(h));
+                    dIv_dp = -1.0 * eta(i) * gammap_dot_tr / (h * h);
+                    dIm_dp = 0.5 / std::sqrt(I_tr * I_tr + 2 * I_v_tr) * (2 * I_tr * dI_dp + dIv_dp);
+                    dmu_dp = (mu_2 - mu_1)/((1 + I_0/I_m_tr)*(1 + I_0/I_m_tr)) * (I_0/(I_m_tr*I_m_tr)) * dIm_dp + 2.5 * phi(i)/a * (1.0/I_m_tr * dIv_dp - I_v_tr/(I_m_tr*I_m_tr)*dIm_dp);
+                    dbeta_dp = K_4 * phi_m / ((1 + a * I_m_tr) * (1 + a * I_m_tr)) * a * dIm_dp;
+                    if (I_m_tr == 0){
+                        dIm_dp = 0;
+                        dmu_dp = 0;
+                        dbeta_dp = 0;
+                    }
+                }
+
+                dr1_dtau = 1.0 - p_k * (dmu_dtau + dbeta_dtau);
+                dr2_dtau = -K *job->dt * (beta * dgamma_dtau + dbeta_dtau * gammap_dot_tr);
+                dr1_dp = -p_k * (dmu_dp + dbeta_dp) - (mu+beta);
+                dr2_dp = 1 - K*job->dt*(gammap_dot_tr*dbeta_dp);
+
+                //form jacobian
+                dr(0,0) = dr1_dtau;
+                dr(0,1) = dr1_dp;
+                dr(1,0) = dr2_dtau;
+                dr(1,1) = dr2_dp;
+
+                //calculate update and limit newton step
+                upd = dr.inverse()*r;
+                lambda_tmp = 1.0;
+                do {
+                    //update variables
+                    tau_bar_kplus = tau_bar_k - lambda_tmp*upd(0);
+                    p_kplus = p_k - lambda_tmp*upd(1);
+
+                    if (p_kplus < 0){
+                        p_kplus = 0;
+                    }
+
+                    //calculate strain rate
+                    gammap_dot_tr = (tau_bar_tr - tau_bar_kplus)/(G*job->dt);
+
+                    //calculate state
+                    calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+                    r_tr(0) = tau_bar_kplus - (mu+beta)*p_kplus;
+                    r_tr(1) = p_kplus - p_tr - K*job->dt*beta*gammap_dot_tr;
+
+                    lambda_tmp *= 0.5;
+                } while (r_tr.norm() > r.norm() && lambda_tmp > REL_TOL);
+
+                //std::cout << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << r_tr.norm() << std::endl;
+
+                p_k = p_kplus;
+                tau_bar_k = tau_bar_kplus;
+                r = r_tr;
+            }
+
+            //check that solution meets criteria for f1 yield ONLY
+            gammap_dot_tr = tau_bar_tr / (G*job->dt);
+            if ((phi(i) >= phi_m) or (p_k <= (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*(gammap_dot_tr*gammap_dot_tr*grain_diam*grain_diam*grains_rho + 2.0*eta(i)*gammap_dot_tr) )){
+                p = p_k;
+                tau_bar = tau_bar_k;
+                is_solved = true;
+            }
+        }
+
+        //std::cout << "f1" << std::endl;
+
+        //check zero strength f1,f3 yield condition ******************************************************************//
+        if (!is_solved){
+            //setup newton method to find pressure
+            r_p = p_tr;
+            b_p = r_p;
+            tau_bar_k = 0;
+            p_k = 0;
+            tau_bar_k = 0;
+
+            //newton method
+            while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
+                //calculate gammap_dot
+                gammap_dot_tr = tau_bar_tr / (G*job->dt);
+
+                //calculate state for step
+                calcState(gammap_dot_tr,p_k,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+                //calculate xi_dot_2
+                xi_dot_2 = (p_k - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
+
+                //calculate residual
+                r_p = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grain_diam*grain_diam*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
+
+                //calculate gradients
+                if (p_k > h) {
+                    dI_dp = -0.5 * gammap_dot_tr * grain_diam * std::sqrt(grains_rho) / (p_k * std::sqrt(p_k));
+                    dIv_dp = -1.0 * eta(i) * gammap_dot_tr / (p_k * p_k);
+                    dIm_dp = 0.5 / std::sqrt(I_tr * I_tr + 2 * I_v_tr) * (2 * I_tr * dI_dp + dIv_dp);
+                    dbeta_dp = K_4 * phi_m / ((1 + a * I_m_tr) * (1 + a * I_m_tr)) * a * dIm_dp;
+                    dxi_dp = 1.0/(K*job->dt) - gammap_dot_tr*dbeta_dp;
+                    if (I_m_tr == 0){
+                        dIm_dp = 0;
+                        dbeta_dp = 0;
+                        dxi_dp = 1.0/(K*job->dt);
+                    }
+                } else {
+                    //if p is too small, this calculation breaks down, instead use h (small)
+                    calcState(gammap_dot_tr, h, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+                    dI_dp = -0.5 * gammap_dot_tr * grain_diam * std::sqrt(grains_rho) / (h * std::sqrt(h));
+                    dIv_dp = -1.0 * eta(i) * gammap_dot_tr / (h * h);
+                    dIm_dp = 0.5 / std::sqrt(I_tr*I_tr + 2 * I_v_tr) * (2 * I_tr * dI_dp + dIv_dp);
+                    dbeta_dp = K_4 * phi_m / ((1 + a * I_m_tr)*(1 + a * I_m_tr)) * a * dIm_dp;
+                    dxi_dp = 1.0/(K*job->dt) - gammap_dot_tr*dbeta_dp;
+                    if (I_m_tr == 0){
+                        dIm_dp = 0;
+                        dbeta_dp = 0;
+                        dxi_dp = 1.0/(K*job->dt);
+                    }
+                }
+
+                dr_dp = 1.0 + (a*a*phi(i)*phi(i)/((phi_m - phi(i))*(phi_m - phi(i)))) * (2*grain_diam*grain_diam*grains_rho*(gammap_dot_tr - K_5*xi_dot_2) + 2*eta(i)) * K_5 * dxi_dp;
+
+                //limit step length
+                lambda_tmp = 1.0;
+                r_p_tr = r_p;
+                do{
+                    //update guess
+                    p_kplus = p_k - lambda_tmp * r_p / dr_dp;
+
+                    //calculate new state
+                    calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+                    //test residual
+                    r_p_tr = p_kplus - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grain_diam*grain_diam*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
+
+                    //set new lambda
+                    lambda_tmp *= 0.5;
+
+                } while(std::abs(r_p_tr) > std::abs(r_p));
+
+                p_k = p_kplus;
+                r_p = r_p_tr;
+            }
+
+            //check that zero strength assumption is true
+            gammap_dot_tr = tau_bar_tr / (G*job->dt);
+            if ((mu + beta) <= 0){
+                p = p_k;
+                tau_bar = tau_bar_k;
+                is_solved = true;
+            }
+        }
+
+        //std::cout << "f1 f3 weak" << std::endl;
+
+        //check f1,f3 yield surface **********************************************************************************//
+        if (!is_solved){
+            //setup initial conditions for newton solve
+            beta = getBeta(phi(i),0.0);
+            tau_bar_k = 0;
+            p_k = 0;
+            //intial residual is arbitrary
+            r(0) = tau_bar_tr;
+            r(1) = p_tr;
+            b = r;
+
+            //newton method
+            while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
+                //calculate equiv shear rate
+                gammap_dot_tr = (tau_bar_tr - tau_bar_k)/(G*job->dt);
+
+                //calculate state
+                calcState(gammap_dot_tr, p_k, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+
+                //calculate xi_dot_2
+                xi_dot_2 = (p_k - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
+
+                //calculate residual
+                r(0) = tau_bar_k - (mu + beta)*p_k;
+                r(1) = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grain_diam*grain_diam*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
+
+                //calculate gradients
+                dgamma_dtau = -1.0/(G*job->dt);
+                if (p_k > h) {
+                    dI_dtau = grain_diam * std::sqrt(grains_rho/p_k) * dgamma_dtau;
+                    dIv_dtau = eta(i)/p_k * dgamma_dtau;
+                    dIm_dtau =  0.5 / std::sqrt(I_tr * I_tr + 2 * I_v_tr) * (2 * I_tr * dI_dtau + dIv_dtau);
+                    dmu_dtau = (mu_2 - mu_1)/((1 + I_0/I_m_tr)*(1 + I_0/I_m_tr)) * (I_0/(I_m_tr*I_m_tr)) * dIm_dtau + 2.5 * phi(i)/a * (1.0/I_m_tr * dIv_dtau - I_v_tr/(I_m_tr*I_m_tr)*dIm_dtau);
+                    dbeta_dtau = K_4 * phi_m / ((1 + a * I_m_tr)*(1 + a * I_m_tr)) * a * dIm_dtau;
+                    dxi_dtau = -1.0 * (beta * dgamma_dtau + gammap_dot_tr * dbeta_dp);
+                    if (I_m_tr == 0){
+                        dIm_dtau = 0;
+                        dmu_dtau = 0;
+                        dbeta_dtau = 0;
+                        dxi_dtau = -1.0 * (beta * dgamma_dtau);
+                    }
+
+                    dI_dp = -0.5 * gammap_dot_tr * grain_diam * std::sqrt(grains_rho) / (p_k * std::sqrt(p_k));
+                    dIv_dp = -1.0 * eta(i) * gammap_dot_tr / (p_k * p_k);
+                    dIm_dp = 0.5 / std::sqrt(I_tr * I_tr + 2 * I_v_tr) * (2 * I_tr * dI_dp + dIv_dp);
+                    dmu_dp = (mu_2 - mu_1)/((1 + I_0/I_m_tr)*(1 + I_0/I_m_tr)) * (I_0/(I_m_tr*I_m_tr)) * dIm_dp + 2.5 * phi(i)/a * (1.0/I_m_tr * dIv_dp - I_v_tr/(I_m_tr*I_m_tr)*dIm_dp);
+                    dbeta_dp = K_4 * phi_m / ((1 + a * I_m_tr) * (1 + a * I_m_tr)) * a * dIm_dp;
+                    dxi_dp = 1.0/(K*job->dt) - gammap_dot_tr*dbeta_dp;
+                    if (I_m_tr == 0){
+                        dIm_dp = 0;
+                        dmu_dp = 0;
+                        dbeta_dp = 0;
+                        dxi_dp = 1.0/(K*job->dt);
+                    }
+                } else {
+                    //if p is too small, this calculation breaks down, instead use h (small)
+                    calcState(gammap_dot_tr, h, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+                    dI_dtau = grain_diam * std::sqrt(grains_rho/h) * dgamma_dtau;
+                    dIv_dtau = eta(i)/h * dgamma_dtau;
+                    dIm_dtau =  0.5 / std::sqrt(I_tr * I_tr + 2 * I_v_tr) * (2 * I_tr * dI_dtau + dIv_dtau);
+                    dmu_dtau = (mu_2 - mu_1)/((1 + I_0/I_m_tr)*(1 + I_0/I_m_tr)) * (I_0/(I_m_tr*I_m_tr)) * dIm_dtau + 2.5 * phi(i)/a * (1.0/I_m_tr * dIv_dtau - I_v_tr/(I_m_tr*I_m_tr)*dIm_dtau);
+                    dbeta_dtau = K_4 * phi_m / ((1 + a * I_m_tr)*(1 + a * I_m_tr)) * a * dIm_dtau;
+                    dxi_dtau = -1.0 * (beta * dgamma_dtau + gammap_dot_tr * dbeta_dp);
+                    if (I_m_tr == 0){
+                        dIm_dtau = 0;
+                        dmu_dtau = 0;
+                        dbeta_dtau = 0;
+                        dxi_dtau = -1.0 * (beta * dgamma_dtau);
+                    }
+
+                    dI_dp = -0.5 * gammap_dot_tr * grain_diam * std::sqrt(grains_rho) / (h * std::sqrt(h));
+                    dIv_dp = -1.0 * eta(i) * gammap_dot_tr / (h * h);
+                    dIm_dp = 0.5 / std::sqrt(I_tr * I_tr + 2 * I_v_tr) * (2 * I_tr * dI_dp + dIv_dp);
+                    dmu_dp = (mu_2 - mu_1)/((1 + I_0/I_m_tr)*(1 + I_0/I_m_tr)) * (I_0/(I_m_tr*I_m_tr)) * dIm_dp + 2.5 * phi(i)/a * (1.0/I_m_tr * dIv_dp - I_v_tr/(I_m_tr*I_m_tr)*dIm_dp);
+                    dbeta_dp = K_4 * phi_m / ((1 + a * I_m_tr) * (1 + a * I_m_tr)) * a * dIm_dp;
+                    dxi_dp = 1.0/(K*job->dt) - gammap_dot_tr*dbeta_dp;
+                    if (I_m_tr == 0){
+                        dIm_dp = 0;
+                        dmu_dp = 0;
+                        dbeta_dp = 0;
+                        dxi_dp = 1.0/(K*job->dt);
+                    }
+                }
+
+                dr1_dtau = 1.0 - p_k * (dmu_dtau + dbeta_dtau);
+                dr2_dtau = -1.0 * (a*a*phi(i)*phi(i)/((phi_m - phi(i))*(phi_m - phi(i)))) * (2*grain_diam*grain_diam*grains_rho*(gammap_dot_tr - K_5*xi_dot_2) + 2*eta(i)) * (dgamma_dtau - K_5 * dxi_dtau);
+
+                dr1_dp = -p_k * (dmu_dp + dbeta_dp) - (mu+beta);
+                dr2_dp = 1.0 + (a*a*phi(i)*phi(i)/((phi_m - phi(i))*(phi_m - phi(i)))) * (2*grain_diam*grain_diam*grains_rho*(gammap_dot_tr - K_5*xi_dot_2) + 2*eta(i)) * K_5 * dxi_dp;
+
+
+                //form jacobian
+                dr(0,0) = dr1_dtau;
+                dr(0,1) = dr1_dp;
+                dr(1,0) = dr2_dtau;
+                dr(1,1) = dr2_dp;
+
+                //calculate update and limit newton step
+                upd = dr.inverse()*r;
+                lambda_tmp = 1.0;
+                do {
+                    //update variables
+                    tau_bar_kplus = tau_bar_k - lambda_tmp*upd(0);
+                    p_kplus = p_k - lambda_tmp*upd(1);
+
+                    if (p_kplus < 0){
+                        p_kplus = 0;
+                    }
+
+                    //calculate strain rate
+                    gammap_dot_tr = (tau_bar_tr - tau_bar_kplus)/(G*job->dt);
+
+                    //calculate state
+                    calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+                    //calculate residual
+                    r_tr(0) = tau_bar_kplus - (mu + beta)*p_kplus;
+                    r_tr(1) = p_kplus - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grain_diam*grain_diam*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
+
+                    lambda_tmp *= 0.5;
+                } while (r_tr.norm() > r.norm() && lambda_tmp > REL_TOL);
+
+                p_k = p_kplus;
+                tau_bar_k = tau_bar_kplus;
+                r = r_tr;
+            }
+
+            //this is the last possible case, if we got here then this is the answer
+            gammap_dot_tr = tau_bar_tr / (G*job->dt);
+            p = p_k;
+            tau_bar = tau_bar_k;
+            is_solved = true;
+        }
+
+        //std::cout << "success: " << job->t << std::endl;
+
+        /*
         //check f2 yield surface
         if (phi(i) > phi_m) {
             beta = K_3 * (phi(i) - phi_m) + K_4 * (phi(i));
@@ -782,6 +1286,8 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                 }
             }
         }
+         */
+
         //update stress
         if (p > 0 && tau_bar > 0) {
             T = tau_bar / tau_bar_tr * (T_tr - T_tr.trace() / T_tr.rows() * job->jobTensor<double>(Job::IDENTITY));
