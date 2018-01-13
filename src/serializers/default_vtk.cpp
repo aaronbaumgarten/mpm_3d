@@ -93,8 +93,8 @@ void serializerInit(Job* job){
 
 int serializerWriteFrame(Job* job){
     if ((job->t - t_last_frame) >= (1.0/sampleRate) || sampledFrames == 0){ //job->t >= sampledFrames/sampleRate){
+        t_last_frame = sampledFrames/sampleRate;
         sampledFrames += 1;
-        t_last_frame += 1.0/sampleRate;
         //write frame for each body
         for (size_t b=0;b<job->bodies.size();b++) {
             currentBody = &(job->bodies[b]);

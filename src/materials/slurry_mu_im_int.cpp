@@ -475,12 +475,19 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
                 dr_dp = 1.0 - K * gammap_dot_tr * job->dt * dbeta_dp;
 
+                //std::cout << r_p << ", " << dr_dp << ", " << p_k << std::endl;
+
                 //limit step length
                 lambda_tmp = 1.0;
                 r_p_tr = r_p;
                 do{
+
                     //update guess
                     p_kplus = p_k - lambda_tmp * r_p / dr_dp;
+
+                    if (p_kplus < 0){
+                        p_kplus = 0;
+                    }
 
                     //calculate new state
                     calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
@@ -491,7 +498,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     //set new lambda
                     lambda_tmp *= 0.5;
 
-                } while(std::abs(r_p_tr) > std::abs(r_p));
+                } while(std::abs(r_p_tr) >= std::abs(r_p) && lambda_tmp > REL_TOL);
 
                 p_k = p_kplus;
                 r_p = r_p_tr;
@@ -604,6 +611,10 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                         p_kplus = 0;
                     }
 
+                    if (tau_bar_kplus > tau_bar_tr){
+                        tau_bar_kplus = tau_bar_tr;
+                    }
+
                     //calculate strain rate
                     gammap_dot_tr = (tau_bar_tr - tau_bar_kplus)/(G*job->dt);
 
@@ -614,7 +625,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     r_tr(1) = p_kplus - p_tr - K*job->dt*beta*gammap_dot_tr;
 
                     lambda_tmp *= 0.5;
-                } while (r_tr.norm() > r.norm() && lambda_tmp > REL_TOL);
+                } while (r_tr.norm() >= r.norm() && lambda_tmp > REL_TOL);
 
                 //std::cout << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << r_tr.norm() << std::endl;
 
@@ -622,13 +633,16 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                 tau_bar_k = tau_bar_kplus;
                 r = r_tr;
             }
+            //std::cout << gammap_dot_tr << ", " << p_kplus << ", " << eta(i) << ", " << phi(i) << std::endl;
+            //std::cout << mu << ", " << beta << ", " << p_k << ", " << tau_bar_k << std::endl;
 
             //check that solution meets criteria for f1 yield ONLY
-            gammap_dot_tr = tau_bar_tr / (G*job->dt);
+            gammap_dot_tr = (tau_bar_tr - tau_bar_k) / (G*job->dt);
             if ((phi(i) >= phi_m) or (p_k <= (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*(gammap_dot_tr*gammap_dot_tr*grain_diam*grain_diam*grains_rho + 2.0*eta(i)*gammap_dot_tr) )){
                 p = p_k;
                 tau_bar = tau_bar_k;
                 is_solved = true;
+                //std::cout << "success ^" << std::endl;
             }
         }
 
@@ -693,6 +707,10 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     //update guess
                     p_kplus = p_k - lambda_tmp * r_p / dr_dp;
 
+                    if (p_kplus < 0){
+                        p_kplus = 0;
+                    }
+
                     //calculate new state
                     calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
 
@@ -702,7 +720,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     //set new lambda
                     lambda_tmp *= 0.5;
 
-                } while(std::abs(r_p_tr) > std::abs(r_p));
+                } while(std::abs(r_p_tr) >= std::abs(r_p) && lambda_tmp > REL_TOL);
 
                 p_k = p_kplus;
                 r_p = r_p_tr;
@@ -827,6 +845,9 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     if (p_kplus < 0){
                         p_kplus = 0;
                     }
+                    if (tau_bar_kplus > tau_bar_tr){
+                        tau_bar_kplus = tau_bar_tr;
+                    }
 
                     //calculate strain rate
                     gammap_dot_tr = (tau_bar_tr - tau_bar_kplus)/(G*job->dt);
@@ -839,7 +860,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     r_tr(1) = p_kplus - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grain_diam*grain_diam*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
 
                     lambda_tmp *= 0.5;
-                } while (r_tr.norm() > r.norm() && lambda_tmp > REL_TOL);
+                } while (r_tr.norm() >= r.norm() && lambda_tmp > REL_TOL);
 
                 p_k = p_kplus;
                 tau_bar_k = tau_bar_kplus;
@@ -847,7 +868,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             }
 
             //this is the last possible case, if we got here then this is the answer
-            gammap_dot_tr = tau_bar_tr / (G*job->dt);
+            gammap_dot_tr = (tau_bar_tr - tau_bar_k) / (G*job->dt);
             p = p_k;
             tau_bar = tau_bar_k;
             is_solved = true;
@@ -1289,7 +1310,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
          */
 
         //update stress
-        if (p > 0 && tau_bar > 0) {
+        if (p >= 0 && tau_bar >= 0) {
             T = tau_bar / tau_bar_tr * (T_tr - T_tr.trace() / T_tr.rows() * job->jobTensor<double>(Job::IDENTITY));
             T = T - p * job->jobTensor<double>(Job::IDENTITY);
         } else {
