@@ -325,6 +325,18 @@ void calcState(double &gdp, double &p, double &eta_in, double &phi_in, double &I
     return;
 }
 
+inline double getStep(double val, double ub, double lb){
+    if (val == 0){
+        return h;
+    } if (val*(1+h) >= ub){
+        if (val*(1-h) <= lb){
+            std::cout << "getStep() OUT OF BOUNDS!" << std::endl;
+        }
+        return val*(1-h);
+    } else {
+        return val*(1+h);
+    }
+}
 
 /*----------------------------------------------------------------------------*/
 
@@ -339,6 +351,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     double beta, mu, phi_eq, xi_dot_1, xi_dot_2;
     double tau_bar_k, p_k, tau_bar_kplus, p_kplus;
     double I_v_tr, I_tr, I_m_tr, gammap_dot_tr;
+    double tmpVal;
 
     double dgamma_dtau, dI_dtau, dIv_dtau, dIm_dtau, dmu_dtau, dbeta_dtau, dxi_dtau;
     double dI_dp, dIv_dp, dIm_dp, dmu_dp, dbeta_dp, dxi_dp;
@@ -351,9 +364,10 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     Eigen::Vector2d r, r_tr, b, upd;
     Eigen::Matrix2d dr;
 
-    double p_tmp, tau_bar_tmp, lambda_tmp;
+    double p_tmp, tau_bar_tmp, lambda_tmp, gammap_dot_tmp;
 
     bool is_solved;
+    int k;
 
     //calculate packing fraction
     phi = 1/grains_rho * (body->points.m.array() / body->points.v.array());
@@ -412,8 +426,6 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             }
         }
 
-        //std::cout << "admissible" << std::endl;
-
         //check f2 yield surface *************************************************************************************//
         if (!is_solved){
             beta = getBeta(phi(i), 0.0);
@@ -426,21 +438,24 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             }
         }
 
-        //std::cout << "f2" << std::endl;
-
         //check zero strength limit on f1 only ***********************************************************************//
         if (!is_solved){
             beta = getBeta(phi(i), phi_m); //high pressure limit
 
             //setup newton method to find pressure
-            r_p = -p_tr - (K*tau_bar_tr/G)*beta;
+            r_p = std::max(std::abs(p_tr),std::abs(p_tr + (K*tau_bar_tr/G)*beta));
             b_p = r_p;
             tau_bar_k = 0;
             p_k = 0;
-            tau_bar_k = 0;
+            k = 0;
 
             //newton method
             while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
+                k += 1;
+                if (k > 100){
+                    std::cout << "f1 weak: " << p_k << ", " << r_p << ", " << dr_dp << std::endl;
+                }
+
                 //calculate gammap_dot
                 gammap_dot_tr = tau_bar_tr / (G*job->dt);
 
@@ -450,6 +465,12 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                 //calculate residual
                 r_p = p_k - p_tr - K*job->dt*beta*gammap_dot_tr;
 
+                //approx gradients
+                p_tmp = getStep(p_k,NAN,0.0);
+                calcState(gammap_dot_tr,p_tmp,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+                dr_dp = (p_tmp - p_tr - K*job->dt*beta*gammap_dot_tr - r_p)/(p_tmp - p_k);
+
+                /*
                 //calculate gradients
                 if (p_k > h) {
                     dI_dp = -0.5 * gammap_dot_tr * grain_diam * std::sqrt(grains_rho) / (p_k * std::sqrt(p_k));
@@ -474,6 +495,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                 }
 
                 dr_dp = 1.0 - K * gammap_dot_tr * job->dt * dbeta_dp;
+                 */
 
                 //std::cout << r_p << ", " << dr_dp << ", " << p_k << std::endl;
 
@@ -513,8 +535,6 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             }
         }
 
-        //std::cout << "f1 weak" << std::endl;
-
         //check f1 yield surface *************************************************************************************//
         if (!is_solved){
             //setup initial conditions for newton solve
@@ -526,8 +546,13 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             r(1) = -p_tr - (K*tau_bar_tr/G)*beta;
             b = r;
 
+            k = 0;
             //newton method
             while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
+                k+=1;
+                if (k>100){
+                    std::cout << "f1: " << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << dr.norm() << std::endl;
+                }
                 //calculate equiv shear rate
                 gammap_dot_tr = (tau_bar_tr - tau_bar_k)/(G*job->dt);
 
@@ -538,6 +563,19 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                 r(0) = tau_bar_k - (mu + beta)*p_k;
                 r(1) = p_k - p_tr - K*job->dt*beta*gammap_dot_tr;
 
+                //approx gradients
+                tau_bar_tmp = getStep(tau_bar_k, tau_bar_tr, 0.0);
+                gammap_dot_tmp = (tau_bar_tr - tau_bar_tmp)/(G*job->dt);
+                calcState(gammap_dot_tmp,p_k,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+                dr1_dtau = (tau_bar_tmp - (mu + beta)*p_k - r(0))/(tau_bar_tmp - tau_bar_k);
+                dr2_dtau = (p_k - p_tr - K*job->dt*beta*gammap_dot_tmp - r(1))/(tau_bar_tmp - tau_bar_k);
+
+                p_tmp = getStep(p_k, NAN, 0.0);
+                calcState(gammap_dot_tr, p_tmp, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+                dr1_dp = (tau_bar_k - (mu+beta)*p_tmp - r(0))/(p_tmp - p_k);
+                dr2_dp = (p_tmp - p_tr - K*job->dt*beta*gammap_dot_tr - r(1))/(p_tmp - p_k);
+
+                /*
                 //calculate gradients
                 dgamma_dtau = -1.0/(G*job->dt);
                 if (p_k > h) {
@@ -592,6 +630,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                 dr2_dtau = -K *job->dt * (beta * dgamma_dtau + dbeta_dtau * gammap_dot_tr);
                 dr1_dp = -p_k * (dmu_dp + dbeta_dp) - (mu+beta);
                 dr2_dp = 1 - K*job->dt*(gammap_dot_tr*dbeta_dp);
+                 */
 
                 //form jacobian
                 dr(0,0) = dr1_dtau;
@@ -646,19 +685,22 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             }
         }
 
-        //std::cout << "f1" << std::endl;
-
         //check zero strength f1,f3 yield condition ******************************************************************//
         if (!is_solved){
             //setup newton method to find pressure
-            r_p = p_tr;
+            r_p = std::max(std::abs(p_tr),std::abs(p_tr + (K*tau_bar_tr/G)*beta));
             b_p = r_p;
             tau_bar_k = 0;
             p_k = 0;
-            tau_bar_k = 0;
 
+            k = 0;
             //newton method
             while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
+                k += 1;
+                if (k > 100){
+                    std::cout << "f1,f3 weak: " << p_k << ", " << r_p << ", " << dr_dp << std::endl;
+                }
+
                 //calculate gammap_dot
                 gammap_dot_tr = tau_bar_tr / (G*job->dt);
 
@@ -671,6 +713,14 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                 //calculate residual
                 r_p = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grain_diam*grain_diam*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
 
+
+                //approx gradients
+                p_tmp = getStep(p_k, NAN, 0.0);
+                calcState(gammap_dot_tr,p_tmp,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+                xi_dot_2 = (p_tmp - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
+                dr_dp = (p_tmp - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grain_diam*grain_diam*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2)) - r_p)/(p_tmp - p_k);
+
+                /*
                 //calculate gradients
                 if (p_k > h) {
                     dI_dp = -0.5 * gammap_dot_tr * grain_diam * std::sqrt(grains_rho) / (p_k * std::sqrt(p_k));
@@ -698,7 +748,14 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     }
                 }
 
-                dr_dp = 1.0 + (a*a*phi(i)*phi(i)/((phi_m - phi(i))*(phi_m - phi(i)))) * (2*grain_diam*grain_diam*grains_rho*(gammap_dot_tr - K_5*xi_dot_2) + 2*eta(i)) * K_5 * dxi_dp;
+                tmpVal = (phi_m - phi(i))*(phi_m - phi(i));
+                //limit how close gradient calculation can be to singular
+                if (tmpVal < h){
+                    tmpVal = h;
+                }
+
+                dr_dp = 1.0 + (a*a*phi(i)*phi(i)/tmpVal) * (2*grain_diam*grain_diam*grains_rho*(gammap_dot_tr - K_5*xi_dot_2) + 2*eta(i)) * K_5 * dxi_dp;
+                 */
 
                 //limit step length
                 lambda_tmp = 1.0;
@@ -735,8 +792,6 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             }
         }
 
-        //std::cout << "f1 f3 weak" << std::endl;
-
         //check f1,f3 yield surface **********************************************************************************//
         if (!is_solved){
             //setup initial conditions for newton solve
@@ -748,8 +803,21 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             r(1) = p_tr;
             b = r;
 
+            k = 0;
+
             //newton method
             while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
+                k+=1;
+                if (k>100){
+                    //std::cout << "f1,f3: " << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << dr.norm() << std::endl;
+                    std::cout << "f1,f3: " << p_k << ", " << tau_bar_k << std::endl;
+                    std::cout << "       " << r(0) << ", " << r(1) << std::endl;
+                    std::cout << "       " << dr(0,0) << ", " << dr(0,1) << std::endl;
+                    std::cout << "       " << dr(1,0) << ", " << dr(1,1) << std::endl;
+                    std::cout << "       " << i << ", " << phi(i) << ", " << ", " << p_tr << ", " << tau_bar_tr << std::endl;
+                    std::cout << "       " << lambda_tmp << ", " << upd(0) << ", " << upd(1) << std::endl << std::endl;
+
+                }
                 //calculate equiv shear rate
                 gammap_dot_tr = (tau_bar_tr - tau_bar_k)/(G*job->dt);
 
@@ -763,6 +831,21 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                 r(0) = tau_bar_k - (mu + beta)*p_k;
                 r(1) = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grain_diam*grain_diam*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
 
+                //approx gradients
+                tau_bar_tmp = getStep(tau_bar_k, tau_bar_tr, 0.0);
+                gammap_dot_tmp = (tau_bar_tr - tau_bar_tmp)/(G*job->dt);
+                calcState(gammap_dot_tmp,p_k,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+                xi_dot_2 = (p_k - p_tr)/(K*job->dt) - beta*gammap_dot_tmp;
+                dr1_dtau = (tau_bar_tmp - (mu + beta)*p_k - r(0))/(tau_bar_tmp - tau_bar_k);
+                dr2_dtau = (p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tmp - K_5*xi_dot_2)*(gammap_dot_tmp - K_5*xi_dot_2)*grain_diam*grain_diam*grains_rho + 2.0*eta(i)*(gammap_dot_tmp - K_5*xi_dot_2)) - r(1))/(tau_bar_tmp - tau_bar_k);
+
+                p_tmp = getStep(p_k, NAN, 0.0);
+                calcState(gammap_dot_tr, p_tmp, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+                xi_dot_2 = (p_tmp - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
+                dr1_dp = (tau_bar_k - (mu+beta)*p_tmp - r(0))/(p_tmp - p_k);
+                dr2_dp = (p_tmp - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grain_diam*grain_diam*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2)) - r(1))/(p_tmp - p_k);
+
+                /*
                 //calculate gradients
                 dgamma_dtau = -1.0/(G*job->dt);
                 if (p_k > h) {
@@ -771,7 +854,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     dIm_dtau =  0.5 / std::sqrt(I_tr * I_tr + 2 * I_v_tr) * (2 * I_tr * dI_dtau + dIv_dtau);
                     dmu_dtau = (mu_2 - mu_1)/((1 + I_0/I_m_tr)*(1 + I_0/I_m_tr)) * (I_0/(I_m_tr*I_m_tr)) * dIm_dtau + 2.5 * phi(i)/a * (1.0/I_m_tr * dIv_dtau - I_v_tr/(I_m_tr*I_m_tr)*dIm_dtau);
                     dbeta_dtau = K_4 * phi_m / ((1 + a * I_m_tr)*(1 + a * I_m_tr)) * a * dIm_dtau;
-                    dxi_dtau = -1.0 * (beta * dgamma_dtau + gammap_dot_tr * dbeta_dp);
+                    dxi_dtau = -1.0 * (beta * dgamma_dtau + gammap_dot_tr * dbeta_dtau);
                     if (I_m_tr == 0){
                         dIm_dtau = 0;
                         dmu_dtau = 0;
@@ -799,7 +882,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     dIm_dtau =  0.5 / std::sqrt(I_tr * I_tr + 2 * I_v_tr) * (2 * I_tr * dI_dtau + dIv_dtau);
                     dmu_dtau = (mu_2 - mu_1)/((1 + I_0/I_m_tr)*(1 + I_0/I_m_tr)) * (I_0/(I_m_tr*I_m_tr)) * dIm_dtau + 2.5 * phi(i)/a * (1.0/I_m_tr * dIv_dtau - I_v_tr/(I_m_tr*I_m_tr)*dIm_dtau);
                     dbeta_dtau = K_4 * phi_m / ((1 + a * I_m_tr)*(1 + a * I_m_tr)) * a * dIm_dtau;
-                    dxi_dtau = -1.0 * (beta * dgamma_dtau + gammap_dot_tr * dbeta_dp);
+                    dxi_dtau = -1.0 * (beta * dgamma_dtau + gammap_dot_tr * dbeta_dtau);
                     if (I_m_tr == 0){
                         dIm_dtau = 0;
                         dmu_dtau = 0;
@@ -821,12 +904,18 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     }
                 }
 
+                tmpVal = (phi_m - phi(i))*(phi_m - phi(i));
+                //limit how close gradient calculation can be to singular
+                if (tmpVal < h){
+                    tmpVal = h;
+                }
+
                 dr1_dtau = 1.0 - p_k * (dmu_dtau + dbeta_dtau);
-                dr2_dtau = -1.0 * (a*a*phi(i)*phi(i)/((phi_m - phi(i))*(phi_m - phi(i)))) * (2*grain_diam*grain_diam*grains_rho*(gammap_dot_tr - K_5*xi_dot_2) + 2*eta(i)) * (dgamma_dtau - K_5 * dxi_dtau);
+                dr2_dtau = -1.0 * (a*a*phi(i)*phi(i)/tmpVal) * (2*grain_diam*grain_diam*grains_rho*(gammap_dot_tr - K_5*xi_dot_2) + 2*eta(i)) * (dgamma_dtau - K_5 * dxi_dtau);
 
                 dr1_dp = -p_k * (dmu_dp + dbeta_dp) - (mu+beta);
-                dr2_dp = 1.0 + (a*a*phi(i)*phi(i)/((phi_m - phi(i))*(phi_m - phi(i)))) * (2*grain_diam*grain_diam*grains_rho*(gammap_dot_tr - K_5*xi_dot_2) + 2*eta(i)) * K_5 * dxi_dp;
-
+                dr2_dp = 1.0 + (a*a*phi(i)*phi(i)/tmpVal) * (2*grain_diam*grain_diam*grains_rho*(gammap_dot_tr - K_5*xi_dot_2) + 2*eta(i)) * K_5 * dxi_dp;
+                */
 
                 //form jacobian
                 dr(0,0) = dr1_dtau;
@@ -873,8 +962,6 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             tau_bar = tau_bar_k;
             is_solved = true;
         }
-
-        //std::cout << "success: " << job->t << std::endl;
 
         /*
         //check f2 yield surface

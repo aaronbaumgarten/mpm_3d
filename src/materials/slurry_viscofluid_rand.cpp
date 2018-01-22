@@ -148,7 +148,7 @@ void materialWriteFrame(Job* job, Body* body, Serializer* serializer) {
     nvec = nvec.array() / v_i.array();
     body->bodyCalcPointValues(job, pvec, nvec, Body::SET);
 
-
+    serializer->serializerWriteScalarArray(nvec, "nodal_pressure");
     serializer->serializerWriteScalarArray(pvec, "p_smooth");
     return;
 }
