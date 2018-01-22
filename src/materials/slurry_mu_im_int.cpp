@@ -522,6 +522,13 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
                 } while(std::abs(r_p_tr) >= std::abs(r_p) && lambda_tmp > REL_TOL);
 
+                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL){
+                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_p_tr << std::endl;
+                    p_k = p_kplus;
+                    r_p = r_p_tr;
+                    break;
+                }
+
                 p_k = p_kplus;
                 r_p = r_p_tr;
             }
@@ -668,6 +675,14 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
                 //std::cout << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << r_tr.norm() << std::endl;
 
+                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
+                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_tr.norm() << std::endl;
+                    p_k = p_kplus;
+                    tau_bar_k = tau_bar_kplus;
+                    r = r_tr;
+                    break;
+                }
+
                 p_k = p_kplus;
                 tau_bar_k = tau_bar_kplus;
                 r = r_tr;
@@ -778,6 +793,13 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
                     lambda_tmp *= 0.5;
 
                 } while(std::abs(r_p_tr) >= std::abs(r_p) && lambda_tmp > REL_TOL);
+
+                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL){
+                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_p_tr << std::endl;
+                    p_k = p_kplus;
+                    r_p = r_p_tr;
+                    break;
+                }
 
                 p_k = p_kplus;
                 r_p = r_p_tr;
@@ -950,6 +972,14 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
                     lambda_tmp *= 0.5;
                 } while (r_tr.norm() >= r.norm() && lambda_tmp > REL_TOL);
+
+                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
+                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_tr.norm() << std::endl;
+                    p_k = p_kplus;
+                    tau_bar_k = tau_bar_kplus;
+                    r = r_tr;
+                    break;
+                }
 
                 p_k = p_kplus;
                 tau_bar_k = tau_bar_kplus;
