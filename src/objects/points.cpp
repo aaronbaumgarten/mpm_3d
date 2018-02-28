@@ -142,11 +142,20 @@ void Points::pointsWriteFrame(Job* job, Body* body, Serializer* serializer){
     serializer->serializerWriteScalarArray(extent,"extent");
 
     //pressure
+    /*
     if (job->DIM == 1) {
         tmpVec = -1.0*T;
     } else if (job->DIM == 2) {
         tmpVec = -1.0/2.0 * (T.col(0) + T.col(3));
     } else if (job->DIM == 3) {
+        tmpVec = -1.0/3.0 * (T.col(job->XX) + T.col(job->YY) + T.col(job->ZZ));
+    }
+     */
+    if (T.cols() == 1) {
+        tmpVec = -1.0*T;
+    } else if (T.cols() == 4) {
+        tmpVec = -1.0/2.0 * (T.col(0) + T.col(3));
+    } else if (T.cols() == 9) {
         tmpVec = -1.0/3.0 * (T.col(job->XX) + T.col(job->YY) + T.col(job->ZZ));
     }
     serializer->serializerWriteScalarArray(tmpVec,"pressure");

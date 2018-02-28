@@ -229,6 +229,10 @@ void contactGenerateRules(Job* job){
     for (size_t i=0;i<n.rows();i++){
         //n = 1 - phi
         n(i) = 1 - (job->bodies[solid_body_id].nodes.m(i) / (job->grid.gridNodalVolume(job,i)*grains_rho));
+        
+        if (n(i) < 0.2){
+            n(i) = 0.2; //keep packing from overestimates...
+        }
     }
 
     /*Eigen::VectorXd solid_n = job->bodies[solid_body_id].points.m.array() * job->bodies[solid_body_id].points.m.array() / job->bodies[solid_body_id].points.v.array();
@@ -264,11 +268,22 @@ void contactApplyRules(Job* job, int SPEC){
     //calculate gradient of fluid pressure
     Eigen::VectorXd fluid_pressure;
     //pressure
+    /*
     if (job->DIM == 1) {
         fluid_pressure = -1.0*job->bodies[liquid_body_id].points.T;
     } else if (job->DIM == 2) {
         fluid_pressure = -1.0/2.0 * (job->bodies[liquid_body_id].points.T.col(0) + job->bodies[liquid_body_id].points.T.col(3));
     } else if (job->DIM == 3) {
+        fluid_pressure = -1.0/3.0 * (job->bodies[liquid_body_id].points.T.col(job->XX) + job->bodies[liquid_body_id].points.T.col(job->YY) + job->bodies[liquid_body_id].points.T.col(job->ZZ));
+    }
+    */
+
+    //hack in pressure for now because I fucked up 2D stress tensor, goddamit
+    if (job->bodies[liquid_body_id].points.T.cols() == 1) {
+        fluid_pressure = -1.0*job->bodies[liquid_body_id].points.T;
+    } else if (job->bodies[liquid_body_id].points.T.cols() == 4) {
+        fluid_pressure = -1.0/2.0 * (job->bodies[liquid_body_id].points.T.col(0) + job->bodies[liquid_body_id].points.T.col(3));
+    } else if (job->bodies[liquid_body_id].points.T.cols() == 9) {
         fluid_pressure = -1.0/3.0 * (job->bodies[liquid_body_id].points.T.col(job->XX) + job->bodies[liquid_body_id].points.T.col(job->YY) + job->bodies[liquid_body_id].points.T.col(job->ZZ));
     }
     fluid_pressure = fluid_pressure.array() * job->bodies[liquid_body_id].points.v.array();

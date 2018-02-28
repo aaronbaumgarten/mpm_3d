@@ -1,4 +1,9 @@
 //
+// Created by aaron on 2/19/18.
+// slurry_mu_im_rand_2D.cpp
+//
+
+//
 // Created by aaron on 7/14/17.
 // slurry_mu_iv.cpp
 //
@@ -46,6 +51,16 @@ Eigen::VectorXd eta(0,1);
 int fluid_body_id = -1;
 
 
+double h_grid = 0;
+double alpha = 1.0;
+
+Eigen::VectorXd Lx;
+Eigen::VectorXd e;
+Eigen::MatrixXd grad_e;
+Eigen::VectorXd V_i;
+Eigen::VectorXd v_i;
+Eigen::MatrixXd del_pos;
+
 extern "C" void materialWriteFrame(Job* job, Body* body, Serializer* serializer);
 extern "C" std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
 extern "C" int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
@@ -58,10 +73,10 @@ extern "C" void materialAssignPressure(Job* job, Body* body, double pressureIN, 
 /*----------------------------------------------------------------------------*/
 
 void materialInit(Job* job, Body* body){
-    if (body->material.fp64_props.size() < 14 || body->material.str_props.size() < 1){
+    if (body->material.fp64_props.size() < 15 || body->material.str_props.size() < 1){
         std::cout << body->material.fp64_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 13 properties defined ({E, nu, mu_1, mu_2, a, b, K_3, K_4, K_5, phi_m, grains_rho, eta_0, grain_diam, fluid_rho}, {fluid_body}).\n",
+                "%s:%s: Need at least 15 properties defined ({E, nu, mu_1, mu_2, a, b, K_3, K_4, K_5, phi_m, grains_rho, eta_0, grain_diam, fluid_rho, h_grid}, {fluid_body}).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
@@ -82,6 +97,10 @@ void materialInit(Job* job, Body* body){
         eta_0 = body->material.fp64_props[11];
         grain_diam = body->material.fp64_props[12];
         fluid_rho = body->material.fp64_props[13];
+        h_grid = body->material.fp64_props[14];
+        if (body->material.fp64_props.size() > 15){
+            alpha = body->material.fp64_props[15];
+        }
 
         //set body id by name
         if (body->material.str_props.size() >= 1){
@@ -122,6 +141,19 @@ void materialInit(Job* job, Body* body){
     eta.resize(body->points.x.rows());
     eta.setZero();
 
+    V_i.resize(job->grid.node_count,1);
+    v_i.resize(job->grid.node_count,1);
+    e.resize(job->grid.node_count,1);
+    grad_e = job->jobVectorArray<double>(body->points.x.rows());
+    del_pos = job->jobVectorArray<double>(body->points.x.rows());
+    del_pos.setZero();
+
+    for (size_t i=0; i<job->grid.node_count;i++){
+        V_i(i) = job->grid.gridNodalVolume(job,i);
+    }
+
+    Lx = body->nodes.x.colwise().maxCoeff();
+
     std::cout << "Material Initialized: [" << body->name << "]." << std::endl;
 
     return;
@@ -138,6 +170,8 @@ void materialWriteFrame(Job* job, Body* body, Serializer* serializer) {
     serializer->serializerWriteScalarArray(I_m,"I_m");
     serializer->serializerWriteScalarArray(phi,"packing_fraction");
     serializer->serializerWriteScalarArray(eta,"eta_interp");
+    serializer->serializerWriteVectorArray(del_pos,"del_pos");
+    serializer->serializerWriteVectorArray(grad_e,"grad_e");
     return;
 }
 
@@ -195,7 +229,7 @@ std::string materialSaveState(Job* job, Body* body, Serializer* serializer, std:
         return "ERR";
     }
 
-    std::cout << "Material Saved: [" << body->name << "]." << std::endl;
+    std::cout << "Material Saved POORLY: [" << body->name << "]." << std::endl;
 
     return filename;
 }
@@ -282,7 +316,7 @@ int materialLoadState(Job* job, Body* body, Serializer* serializer, std::string 
         return 0;
     }
 
-    std::cout << "Material Loaded: [" << body->name << "]." << std::endl;
+    std::cout << "Material Loaded POORLY: [" << body->name << "]. GOOD LUCK!" << std::endl;
     return 1;
 }
 
@@ -341,28 +375,43 @@ inline double getStep(double val, double ub, double lb){
 /*----------------------------------------------------------------------------*/
 
 void materialCalculateStress(Job* job, Body* body, int SPEC){
-    Eigen::MatrixXd T = job->jobTensor<double>();
-    Eigen::MatrixXd T_tr = job->jobTensor<double>();
-    Eigen::MatrixXd L = job->jobTensor<double>();
-    Eigen::MatrixXd D = job->jobTensor<double>();
-    Eigen::MatrixXd W = job->jobTensor<double>();
+    //Eigen::MatrixXd T = job->jobTensor<double>();
+    //Eigen::MatrixXd T_tr = job->jobTensor<double>();
+    //Eigen::MatrixXd L = job->jobTensor<double>();
+    //Eigen::MatrixXd D = job->jobTensor<double>();
+    //Eigen::MatrixXd W = job->jobTensor<double>();
+
+    Eigen::Matrix<double,3,3,Eigen::RowMajor> T, T_tr, L, D, W;
 
     double trD, tau_bar, tau_bar_tr, p, p_tr;
     double beta, mu, phi_eq, xi_dot_1, xi_dot_2;
     double tau_bar_k, p_k, tau_bar_kplus, p_kplus;
     double I_v_tr, I_tr, I_m_tr, gammap_dot_tr;
-    double tmpVal;
+    double tmpVal, tmpNum;
 
     double dgamma_dtau, dI_dtau, dIv_dtau, dIm_dtau, dmu_dtau, dbeta_dtau, dxi_dtau;
     double dI_dp, dIv_dp, dIm_dp, dmu_dp, dbeta_dp, dxi_dp;
     double dr1_dtau, dr2_dtau, dr1_dp, dr2_dp;
     double dr_dp, r_p, r_p_tr, b_p;
 
-    Eigen::MatrixXd tmpMat = job->jobTensor<double>();
+    Eigen::Matrix<double,3,3,Eigen::RowMajor> tmpMat;
     Eigen::VectorXd tmpVec;
 
     Eigen::Vector2d r, r_tr, b, upd;
     Eigen::Matrix2d dr;
+
+    //perturbation variables
+    Eigen::VectorXd delta = job->jobVector<double>();
+
+    //calculate nodal volume integral
+    body->bodyCalcNodalValues(job, v_i, body->points.v, Body::SET);
+    for (size_t i=0; i<V_i.rows(); i++){
+        tmpNum = (v_i(i) - V_i(i))/(V_i(i));
+        e(i) = std::max(0.0,tmpNum);
+    }
+
+    //calculate gradient of nodal overshoot
+    body->bodyCalcPointGradient(job, grad_e, e, Body::SET);
 
     double p_tmp, tau_bar_tmp, lambda_tmp, gammap_dot_tmp;
 
@@ -396,10 +445,10 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         }
 
         tmpVec = body->points.L.row(i).transpose();
-        L = job->jobTensor<double>(tmpVec.data());
+        L = Eigen::Matrix<double,3,3,Eigen::RowMajor>(tmpVec.data());
 
         tmpVec = body->points.T.row(i).transpose();
-        T = job->jobTensor<double>(tmpVec.data());
+        T = Eigen::Matrix<double,3,3,Eigen::RowMajor>(tmpVec.data());
 
         D = 0.5 * (L + L.transpose());
         W = 0.5 * (L - L.transpose());
@@ -407,8 +456,8 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         trD = D.trace();
 
         //trial stress
-        T_tr = T + job->dt * ((2 * G * D) + (lambda * trD * job->jobTensor<double>(Job::IDENTITY)) + (W * T) - (T * W));
-        tau_bar_tr = (T_tr - (T_tr.trace() / T_tr.rows()) * job->jobTensor<double>(Job::IDENTITY)).norm() / std::sqrt(2.0);
+        T_tr = T + job->dt * ((2 * G * D) + (lambda * trD * Eigen::Matrix3d::Identity()) + (W * T) - (T * W));
+        tau_bar_tr = (T_tr - (T_tr.trace() / T_tr.rows()) * Eigen::Matrix3d::Identity()).norm() / std::sqrt(2.0);
         p_tr = -T_tr.trace() / T_tr.rows();
 
         //state determined?
@@ -1432,10 +1481,10 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
         //update stress
         if (p > 0 && tau_bar > 0) {
-            T = tau_bar / tau_bar_tr * (T_tr - T_tr.trace() / T_tr.rows() * job->jobTensor<double>(Job::IDENTITY));
-            T = T - p * job->jobTensor<double>(Job::IDENTITY);
+            T = tau_bar / tau_bar_tr * (T_tr - T_tr.trace() / T_tr.rows() * Eigen::Matrix3d::Identity());
+            T = T - p * Eigen::Matrix3d::Identity();
         } else {
-            T = job->jobTensor<double>(Job::ZERO);
+            T = Eigen::Matrix3d::Zero();
         }
 
         for (size_t pos=0;pos<T.size();pos++){
@@ -1455,6 +1504,25 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             I_m(i) = std::sqrt(I(i)*I(i) + 2*I_v(i));
         }
 
+        //position correction
+        if (SPEC == Material::UPDATE) {
+            delta = -alpha * job->dt * (L - (trD / D.rows()) * Eigen::Matrix3d::Identity()).norm() *
+                    grad_e.row(i).transpose() * h_grid * h_grid;
+
+            for (size_t pos = 0; pos < delta.rows(); pos++) {
+                if (((body->points.x(i, pos) + delta(pos)) >= Lx(pos)) || ((body->points.x(i, pos) + delta(pos)) <= 0)) {
+                    delta(pos) = 0;
+                }
+            }
+
+            body->points.x.row(i) += delta.transpose();
+            body->points.u.row(i) += delta.transpose();
+            del_pos.row(i) += delta.transpose();
+
+            //body->points.x_t.row(i) += (L * delta).transpose();
+            //body->points.mx_t.row(i) = body->points.m(i) * body->points.x_t.row(i);
+        }
+
     }
 
     return;
@@ -1463,6 +1531,13 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 /*----------------------------------------------------------------------------*/
 
 void materialAssignStress(Job* job, Body* body, Eigen::MatrixXd stressIN, int idIN, int SPEC){
+
+    if (body->points.T.cols() != 9){
+        //this is pretty dangerous, so maybe zero it?
+        body->points.T.resize(Eigen::NoChange, 9);
+        body->points.T.setZero();
+    }
+
     for (size_t pos=0;pos<stressIN.size();pos++){
         body->points.T(idIN,pos) = stressIN(pos);
     }
@@ -1476,11 +1551,17 @@ void materialAssignPressure(Job* job, Body* body, double pressureIN, int idIN, i
     Eigen::VectorXd tmpVec;
     double trT;
 
+    if (body->points.T.cols() != 9){
+        //this is pretty dangerous, so maybe zero it?
+        body->points.T.resize(Eigen::NoChange, 9);
+        body->points.T.setZero();
+    }
+
     tmpVec = body->points.T.row(idIN).transpose();
-    tmpMat = job->jobTensor<double>(tmpVec.data());
+    tmpMat = Eigen::Matrix<double,3,3,Eigen::RowMajor>(tmpVec.data());
 
     trT = tmpMat.trace();
-    tmpMat = tmpMat - (trT/tmpMat.rows() + pressureIN) * job->jobTensor<double>(Job::IDENTITY);
+    tmpMat = tmpMat - (trT/tmpMat.rows() + pressureIN) * Eigen::Matrix3d::Identity();
     for (size_t pos=0;pos<tmpMat.size();pos++){
         body->points.T(idIN,pos) = tmpMat(pos);
     }

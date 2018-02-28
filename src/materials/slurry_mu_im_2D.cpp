@@ -341,11 +341,13 @@ inline double getStep(double val, double ub, double lb){
 /*----------------------------------------------------------------------------*/
 
 void materialCalculateStress(Job* job, Body* body, int SPEC){
-    Eigen::MatrixXd T = job->jobTensor<double>();
-    Eigen::MatrixXd T_tr = job->jobTensor<double>();
-    Eigen::MatrixXd L = job->jobTensor<double>();
-    Eigen::MatrixXd D = job->jobTensor<double>();
-    Eigen::MatrixXd W = job->jobTensor<double>();
+    //Eigen::MatrixXd T = job->jobTensor<double>();
+    //Eigen::MatrixXd T_tr = job->jobTensor<double>();
+    //Eigen::MatrixXd L = job->jobTensor<double>();
+    //Eigen::MatrixXd D = job->jobTensor<double>();
+    //Eigen::MatrixXd W = job->jobTensor<double>();
+
+    Eigen::Matrix<double,3,3,Eigen::RowMajor> T, T_tr, L, D, W;
 
     double trD, tau_bar, tau_bar_tr, p, p_tr;
     double beta, mu, phi_eq, xi_dot_1, xi_dot_2;
@@ -358,7 +360,7 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
     double dr1_dtau, dr2_dtau, dr1_dp, dr2_dp;
     double dr_dp, r_p, r_p_tr, b_p;
 
-    Eigen::MatrixXd tmpMat = job->jobTensor<double>();
+    Eigen::Matrix<double,3,3,Eigen::RowMajor> tmpMat;
     Eigen::VectorXd tmpVec;
 
     Eigen::Vector2d r, r_tr, b, upd;
@@ -396,10 +398,10 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         }
 
         tmpVec = body->points.L.row(i).transpose();
-        L = job->jobTensor<double>(tmpVec.data());
+        L = Eigen::Matrix<double,3,3,Eigen::RowMajor>(tmpVec.data());
 
         tmpVec = body->points.T.row(i).transpose();
-        T = job->jobTensor<double>(tmpVec.data());
+        T = Eigen::Matrix<double,3,3,Eigen::RowMajor>(tmpVec.data());
 
         D = 0.5 * (L + L.transpose());
         W = 0.5 * (L - L.transpose());
@@ -407,8 +409,8 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
         trD = D.trace();
 
         //trial stress
-        T_tr = T + job->dt * ((2 * G * D) + (lambda * trD * job->jobTensor<double>(Job::IDENTITY)) + (W * T) - (T * W));
-        tau_bar_tr = (T_tr - (T_tr.trace() / T_tr.rows()) * job->jobTensor<double>(Job::IDENTITY)).norm() / std::sqrt(2.0);
+        T_tr = T + job->dt * ((2 * G * D) + (lambda * trD * Eigen::Matrix3d::Identity()) + (W * T) - (T * W));
+        tau_bar_tr = (T_tr - (T_tr.trace() / T_tr.rows()) * Eigen::Matrix3d::Identity()).norm() / std::sqrt(2.0);
         p_tr = -T_tr.trace() / T_tr.rows();
 
         //state determined?
@@ -1432,10 +1434,10 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 
         //update stress
         if (p > 0 && tau_bar > 0) {
-            T = tau_bar / tau_bar_tr * (T_tr - T_tr.trace() / T_tr.rows() * job->jobTensor<double>(Job::IDENTITY));
-            T = T - p * job->jobTensor<double>(Job::IDENTITY);
+            T = tau_bar / tau_bar_tr * (T_tr - T_tr.trace() / T_tr.rows() * Eigen::Matrix3d::Identity());
+            T = T - p * Eigen::Matrix3d::Identity();
         } else {
-            T = job->jobTensor<double>(Job::ZERO);
+            T = Eigen::Matrix3d::Zero();
         }
 
         for (size_t pos=0;pos<T.size();pos++){
@@ -1463,6 +1465,13 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
 /*----------------------------------------------------------------------------*/
 
 void materialAssignStress(Job* job, Body* body, Eigen::MatrixXd stressIN, int idIN, int SPEC){
+
+    if (body->points.T.cols() != 9){
+        //this is pretty dangerous, so maybe zero it?
+        body->points.T.resize(Eigen::NoChange, 9);
+        body->points.T.setZero();
+    }
+
     for (size_t pos=0;pos<stressIN.size();pos++){
         body->points.T(idIN,pos) = stressIN(pos);
     }
@@ -1476,11 +1485,17 @@ void materialAssignPressure(Job* job, Body* body, double pressureIN, int idIN, i
     Eigen::VectorXd tmpVec;
     double trT;
 
+    if (body->points.T.cols() != 9){
+        //this is pretty dangerous, so maybe zero it?
+        body->points.T.resize(Eigen::NoChange, 9);
+        body->points.T.setZero();
+    }
+
     tmpVec = body->points.T.row(idIN).transpose();
-    tmpMat = job->jobTensor<double>(tmpVec.data());
+    tmpMat = Eigen::Matrix<double,3,3,Eigen::RowMajor>(tmpVec.data());
 
     trT = tmpMat.trace();
-    tmpMat = tmpMat - (trT/tmpMat.rows() + pressureIN) * job->jobTensor<double>(Job::IDENTITY);
+    tmpMat = tmpMat - (trT/tmpMat.rows() + pressureIN) * Eigen::Matrix3d::Identity();
     for (size_t pos=0;pos<tmpMat.size();pos++){
         body->points.T(idIN,pos) = tmpMat(pos);
     }

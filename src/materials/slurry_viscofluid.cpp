@@ -232,6 +232,10 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             n(i) = 1.0;
             nMat.row(i).setZero();
         }
+
+        if (n(i) < 0.2){
+            n(i) = 0.2; //keep packing from overestimates...
+        }
     }
 
     //interpolate n to points

@@ -10,6 +10,7 @@ set(SOLVERS
         explicit_usl_cubic.cpp
         explicit_usl_delta_correctedmass.cpp
         explicit_usl_apic.cpp
+        explicit_usl_2D.cpp
         )
 
 foreach(solc ${SOLVERS})

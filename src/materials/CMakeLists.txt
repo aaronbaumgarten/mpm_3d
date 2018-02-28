@@ -10,6 +10,10 @@ set(MATERIALS
         viscofluid_rand.cpp
         slurry_viscofluid_rand.cpp
         viscofluid_rand_psmooth.cpp
+        slurry_mu_im_2D.cpp
+        slurry_viscofluid_2D.cpp
+        isolin_2D.cpp
+        slurry_mu_im_rand_2D.cpp
         )
 
 foreach(matc ${MATERIALS})

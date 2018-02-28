@@ -10,6 +10,8 @@ set(BOUNDARIES
         cartesian_box_w_friction.cpp
         cartesian_box2D_w_friction.cpp
         cartesian_box2D_w_friction_poiseuille.cpp
+        cartesian_periodic_bedload.cpp
+        cartesian_box_w_friction_reduced.cpp
         )
 
 foreach(bcc ${BOUNDARIES})

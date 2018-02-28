@@ -295,6 +295,10 @@ void materialCalculateStress(Job* job, Body* body, int SPEC){
             mv1i = job->bodies[solid_body_id].nodes.mx_t.row(i).transpose();
             mv2i = body->nodes.mx_t.row(i).transpose();
 
+            if (n(i) < 0.2){
+                n(i) = 0.2; //keep packing from overestimates...
+            }
+
             nMat.row(i) = (1-n(i))/m1 * mv1i.transpose() + n(i)/m2 * mv2i.transpose();
         } else if (m2 > 0) {
             n(i) = 1.0;
