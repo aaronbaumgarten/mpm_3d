@@ -78,8 +78,8 @@ void Contact::contactSetPlugin(Job* job, std::string pathIN, std::string nameIN,
 
 void Contact::contactSetFnPointers(){
     if (!handle) {
-        handle = dlopen((fullpath + filename).c_str(), RTLD_LAZY);
-        //handle = dlmopen(LM_ID_NEWLM, (fullpath + filename).c_str(), RTLD_LAZY);
+        //handle = dlopen((fullpath + filename).c_str(), RTLD_LAZY);
+        handle = dlmopen(LM_ID_NEWLM, (fullpath + filename).c_str(), RTLD_LAZY);
     }
 
     char* dlsym_error;
