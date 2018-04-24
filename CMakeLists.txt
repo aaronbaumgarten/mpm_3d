@@ -1,45 +1,19 @@
 cmake_minimum_required(VERSION 2.8.12)
-project(mpm_v2)
+project(mpm_v3)
 
+#compiler flags (through conversation with others, not sure what most of them do.
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -march=native -O3 -fPIC -g -D_GLIBCXX_USE_CXX11_ABI=0 -pthread")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -ldl -rdynamic")
 
-# dlopen required for file read
-find_package(DL REQUIRED)
-
+#set main source file
 set(SOURCE_FILES src/main/main.cpp)
-set(SOURCE_FILES ${SOURCE_FILES}
-        src/objects/job.cpp
-        src/objects/serializer.cpp
-        src/objects/driver.cpp
-        src/objects/solver.cpp
-        src/objects/body.cpp
-        src/objects/contact.cpp
-        src/objects/grid.cpp
-        src/objects/config.cpp
-        src/objects/points.cpp
-        src/objects/nodes.cpp
-        src/objects/boundary.cpp
-        src/objects/material.cpp
-        src/functions/stringparser.cpp)
 
+#set include directories
 include_directories(include)
-include_directories(/usr/include/eigen3)
-include_directories(${DL_INCLUDE_DIR})
+include_directories(/usr/include/eigen3) #eigen is required for this
 
-add_subdirectory(src/serializers)
-add_subdirectory(src/drivers)
-add_subdirectory(src/solvers)
-add_subdirectory(src/grids)
-add_subdirectory(src/materials)
-add_subdirectory(src/boundaries)
-add_subdirectory(src/contacts)
-add_executable(mpm_v2 ${SOURCE_FILES})
 
-target_link_libraries(mpm_v2 ${DL_LIBRARIES})
+add_subdirectory(src/algebra)
+add_subdirectory(src/tests)
 
-#set(UNIT_TEST_SOURCE_FILES
-#    src/tests/unitTestMain.cpp
-#    src/tests/unitShapeFunctions.cpp)
-#add_executable(unit ${UNIT_TEST_SOURCE_FILES})
+add_executable(mpm_v3 ${SOURCE_FILES})
