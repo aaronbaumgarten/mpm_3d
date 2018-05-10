@@ -1,15 +1,362 @@
 //
 // Created by aaron on 4/22/18.
-// algebra.cpp
+// algebra.hpp
 //
 
-#include <math.h>
-#include "mpm_tensor.hpp"
+#ifndef MPM_V2_TENSOR_HPP
+#define MPM_V2_TENSOR_HPP
+
+#include <stdlib.h>
+#include <eigen3/Eigen/Core>
+#include <eigen3/Eigen/Dense>
 #include <iostream>
+
+/*----------------------------------------------------------------------------*/
+//Eigen::Map object which interfaces with KinematicTensor object.
+
+typedef Eigen::Map<Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor>,0,Eigen::Stride<3,1>> EIGEN_MAP_OF_KINEMATIC_TENSOR;
+
+/*----------------------------------------------------------------------------*/
+//Eigen::Map object which interfaces with MaterialTensor object.
+
+typedef Eigen::Map<Eigen::Matrix<double,3,3,Eigen::RowMajor>> EIGEN_MAP_OF_MATERIAL_TENSOR;
+
+/*----------------------------------------------------------------------------*/
+//base class for KinematicTensor and MaterialTensor.
+class MPMTensor {
+public:
+    MPMTensor(){
+        buffer = { {0} };
+        data_ptr = buffer.data();
+    }
+
+    MPMTensor(const MPMTensor& other){
+        for (int i=0;i<TENSOR_MAX_LENGTH;i++){
+            buffer[i] = other.data_ptr[i];
+        }
+        data_ptr = buffer.data(); //make sure not to copy stale pointer
+    }
+
+    MPMTensor& operator= (const MPMTensor& other){
+        for (int i=0;i<TENSOR_MAX_LENGTH;i++){
+            buffer[i] = other.data_ptr[i];
+        }
+        data_ptr = buffer.data(); //make sure not to copy stale pointer
+    }
+
+    //set standard tensor length
+    static const int TENSOR_MAX_DIM = 3, TENSOR_MAX_LENGTH = TENSOR_MAX_DIM*TENSOR_MAX_DIM;
+
+    //set standard tensor access variables
+    static const int XX = 0, XY = 1, XZ = 2,
+                     YX = 3, YY = 4, YZ = 5,
+                     ZX = 6, ZY = 7, ZZ = 8;
+
+    //set standard vector access variables
+    static const int X = 0,  Y = 1,  Z = 2;
+
+    /*------------------------------------------------------------------------*/
+    //functions for accessing tensor data
+    double& operator() (int i, int j) const {
+        return data_ptr[TENSOR_MAX_DIM*i + j];
+    }
+
+    double& operator() (int i) const {
+        return data_ptr[i];
+    }
+
+    double& operator[] (int i) const {
+        return data_ptr[i];
+    }
+
+    /*------------------------------------------------------------------------*/
+    //return pointer to data
+    double* data(){
+        return data_ptr;
+    }
+
+    /*------------------------------------------------------------------------*/
+    //return size of tensor
+    double size(){
+        return TENSOR_MAX_LENGTH;
+    }
+
+    /*------------------------------------------------------------------------*/
+    //return rows and columns
+    double rows(){
+        return TENSOR_MAX_DIM;
+    }
+
+    double cols(){
+        return TENSOR_MAX_DIM;
+    }
+
+    /*------------------------------------------------------------------------*/
+private:
+    //standard buffer for data
+    std::array<double, TENSOR_MAX_LENGTH> buffer;
+
+    /*------------------------------------------------------------------------*/
+protected:
+    //pointer to data (by default points to standard buffer)
+    double* data_ptr;
+};
+
+
+/*----------------------------------------------------------------------------*/
+class KinematicTensor;
+
+/*----------------------------------------------------------------------------*/
+class MaterialTensor : public MPMTensor{
+public:
+    //default constructor
+    MaterialTensor(){}
+
+    //copy constructor
+    MaterialTensor(const MaterialTensor& other) : MPMTensor(other){}
+
+    //construct tensor from data pointer
+    MaterialTensor(double* otherdata);
+
+    //copy from KinematicTensor
+    MaterialTensor(KinematicTensor&);
+
+    //forward declare Map class
+    class Map;
+
+    //construct from Eigen::Matrix
+    template <typename OtherDerived>
+    MaterialTensor(Eigen::MatrixBase<OtherDerived> &other){
+        assert(other.rows() == TENSOR_MAX_DIM && other.cols() == TENSOR_MAX_DIM);
+        for(int i=0;i<TENSOR_MAX_DIM;i++){
+            for(int j=0;j<TENSOR_MAX_DIM;j++){
+                data_ptr[TENSOR_MAX_DIM*i+j] = other(i,j);
+            }
+        }
+    }
+
+    /*------------------------------------------------------------------------*/
+    //define operators
+    operator EIGEN_MAP_OF_MATERIAL_TENSOR () {return EIGEN_MAP_OF_MATERIAL_TENSOR(data_ptr);}
+    MaterialTensor operator-();
+    MaterialTensor& operator*= (const int &rhs);
+    MaterialTensor& operator*= (const double &rhs);
+    MaterialTensor& operator/= (const int &rhs);
+    MaterialTensor& operator/= (const double &rhs);
+
+    /*------------------------------------------------------------------------*/
+    //set to standard tensors
+    void setZero();
+    void setIdentity();
+
+    /*------------------------------------------------------------------------*/
+    //tensor contractions
+    double dot(const MaterialTensor &rhs);
+    double dot(const KinematicTensor &rhs);
+
+    //tensor trace
+    double trace();
+
+    //tensor frobenius norm
+    double norm();
+
+    //tensor determinant
+    double det();
+
+    /*------------------------------------------------------------------------*/
+    //inverse
+    MaterialTensor inverse();
+
+    //deviator
+    MaterialTensor deviator();
+
+    //transpose
+    MaterialTensor transpose();
+
+    //symetric and skew decomposition
+    MaterialTensor sym();
+    MaterialTensor skw();
+};
+
+/*----------------------------------------------------------------------------*/
+class MaterialTensor::Map : public MaterialTensor{
+public:
+    //point to other data (not safe)
+    Map(double* dataIN){ data_ptr = dataIN; }
+
+    //assignment operator
+    Map& operator= (const MaterialTensor &other);
+    Map& operator= (const KinematicTensor &other);
+};
+
+/*----------------------------------------------------------------------------*/
+class KinematicTensor : public MPMTensor{
+public:
+    //KinematicTensor types
+    static const int TENSOR_1D = 1, TENSOR_2D = 2, TENSOR_3D = 3, TENSOR_AXISYM = 4;
+
+    //default dimension
+    int DIM = TENSOR_MAX_DIM;
+    int TENSOR_TYPE = TENSOR_3D;
+
+    void assignTensorType(int input){
+        TENSOR_TYPE = input;
+        if (TENSOR_TYPE == TENSOR_1D){
+            DIM = 1;
+        } else if (TENSOR_TYPE == TENSOR_2D){
+            DIM = 2;
+        } else if (TENSOR_TYPE == TENSOR_3D){
+            DIM = 3;
+        } else {
+            std::cerr << "KinematicTensor doesn't have defined type for input " << TENSOR_TYPE << "." << std::endl;
+        }
+    }
+
+    //default constructor
+    KinematicTensor() : MPMTensor(){
+        DIM = TENSOR_MAX_DIM;
+        TENSOR_TYPE = TENSOR_3D;
+    };
+
+    //copy constructor
+    KinematicTensor(const KinematicTensor& other) : MPMTensor(other){
+        DIM = other.DIM;
+        TENSOR_TYPE = other.TENSOR_TYPE;
+    }
+
+    KinematicTensor(int input){
+        assignTensorType(input);
+    }
+
+    //construct tensor from data pointer
+    KinematicTensor(double* otherdata, int input);
+
+    //copy from KinematicTensor
+    //KinematicTensor(KinematicTensor&);
+    //KinematicTensor(const KinematicTensor&, int input);
+
+    //copy from MaterialTensor
+    KinematicTensor(MaterialTensor&, int input);
+
+    //forward declare Map class
+    class Map;
+
+    //construct from Eigen::Matrix
+    template <typename OtherDerived>
+    KinematicTensor(Eigen::MatrixBase<OtherDerived> &other, int input){
+        assignTensorType(input);
+        assert(other.rows() == DIM && other.cols() == DIM);
+        for(int i=0;i<DIM;i++){
+            for(int j=0;j<DIM;j++){
+                data_ptr[TENSOR_MAX_DIM * i + j] = other(i,j);
+            }
+        }
+        for (int i=DIM;i<3;i++) {
+            for (int j = DIM; j < 3; j++) {
+                data_ptr[TENSOR_MAX_DIM * i + j] = 0;
+            }
+        }
+    }
+
+    /*------------------------------------------------------------------------*/
+    //define operators
+    operator EIGEN_MAP_OF_KINEMATIC_TENSOR () {return EIGEN_MAP_OF_KINEMATIC_TENSOR(data_ptr,DIM,DIM);}
+    KinematicTensor operator-();
+    KinematicTensor& operator*= (const int &rhs);
+    KinematicTensor& operator*= (const double &rhs);
+    KinematicTensor& operator/= (const int &rhs);
+    KinematicTensor& operator/= (const double &rhs);
+
+    /*------------------------------------------------------------------------*/
+    //set to standard tensors
+    void setZero();
+    void setIdentity();
+
+    /*------------------------------------------------------------------------*/
+    //tensor contractions
+    double dot(const MaterialTensor &rhs);
+    double dot(const KinematicTensor &rhs);
+
+    //tensor trace
+    double trace();
+
+    //tensor frobenius norm
+    double norm();
+
+    //tensor determinant
+    double det();
+
+    /*------------------------------------------------------------------------*/
+    //inverse
+    KinematicTensor inverse();
+
+    //deviator
+    MaterialTensor deviator();
+
+    //transpose
+    KinematicTensor transpose();
+
+    //symetric and skew decomposition
+    KinematicTensor sym();
+    KinematicTensor skw();
+};
+
+/*----------------------------------------------------------------------------*/
+class KinematicTensor::Map : public KinematicTensor{
+public:
+    //point to other data (not safe)
+    Map(double* dataIN, int input){
+        assignTensorType(input);
+        data_ptr = dataIN;
+    }
+
+    //assignment operator
+    Map& operator= (const KinematicTensor &other);
+};
+
+/*----------------------------------------------------------------------------*/
+//operations which return a material tensor
+inline MaterialTensor operator+ (const MaterialTensor&, const MaterialTensor&);
+inline MaterialTensor operator+ (const MaterialTensor&, const KinematicTensor&);
+inline MaterialTensor operator+ (const KinematicTensor&, const MaterialTensor&);
+inline MaterialTensor operator- (const MaterialTensor&, const MaterialTensor&);
+inline MaterialTensor operator- (const MaterialTensor&, const KinematicTensor&);
+inline MaterialTensor operator- (const KinematicTensor&, const MaterialTensor&);
+inline MaterialTensor operator* (const double&, const MaterialTensor&);
+inline MaterialTensor operator* (const int&, const MaterialTensor&);
+inline MaterialTensor operator* (const MaterialTensor&, const double&);
+inline MaterialTensor operator* (const MaterialTensor&, const int&);
+inline MaterialTensor operator* (const MaterialTensor&, const MaterialTensor&);
+inline MaterialTensor operator* (const MaterialTensor&, const KinematicTensor&);
+inline MaterialTensor operator* (const KinematicTensor&, const MaterialTensor&);
+inline MaterialTensor operator/ (const MaterialTensor&, const double&);
+inline MaterialTensor operator/ (const MaterialTensor&, const int&);
+
+/*----------------------------------------------------------------------------*/
+//operations which return a material tensor
+inline KinematicTensor operator+ (const KinematicTensor&, const KinematicTensor&);
+inline KinematicTensor operator- (const KinematicTensor&, const KinematicTensor&);
+inline KinematicTensor operator* (const double&, const KinematicTensor&);
+inline KinematicTensor operator* (const int&, const KinematicTensor&);
+inline KinematicTensor operator* (const KinematicTensor&, const double&);
+inline KinematicTensor operator* (const KinematicTensor&, const int&);
+inline KinematicTensor operator* (const KinematicTensor&, const KinematicTensor&);
+inline KinematicTensor operator/ (const KinematicTensor&, const double&);
+inline KinematicTensor operator/ (const KinematicTensor&, const int&);
+
+
+
+
+/*----------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
+
+
 
 /*------------------------------------------------------------------------*/
 //construct MaterialTensor with pointer to data (not safe, but who cares right?)
-MaterialTensor::MaterialTensor(double* otherdata){
+inline MaterialTensor::MaterialTensor(double* otherdata){
     for (int i=0; i<TENSOR_MAX_LENGTH; i++){
         data_ptr[i] = otherdata[i];
     }
@@ -17,7 +364,7 @@ MaterialTensor::MaterialTensor(double* otherdata){
 
 
 //construct MaterialTensor from a KinematicTensor
-MaterialTensor::MaterialTensor(KinematicTensor& other){
+inline MaterialTensor::MaterialTensor(KinematicTensor& other){
     for(int i=0; i<TENSOR_MAX_LENGTH; i++){
         data_ptr[i] = other(i);
     }
@@ -34,7 +381,7 @@ MaterialTensor::MaterialTensor(const MaterialTensor& other){
 
 /*------------------------------------------------------------------------*/
 //define -A
-MaterialTensor MaterialTensor::operator-(){
+inline MaterialTensor MaterialTensor::operator-(){
     std::array<double,TENSOR_MAX_LENGTH> tmp;
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
         tmp[i] = -data_ptr[i];
@@ -43,7 +390,7 @@ MaterialTensor MaterialTensor::operator-(){
 }
 
 //define A *= s for integer values
-MaterialTensor& MaterialTensor::operator*= (const int &rhs){
+inline MaterialTensor& MaterialTensor::operator*= (const int &rhs){
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
         data_ptr[i] = data_ptr[i]*rhs;
     }
@@ -51,7 +398,7 @@ MaterialTensor& MaterialTensor::operator*= (const int &rhs){
 }
 
 //define A *= s for double values
-MaterialTensor& MaterialTensor::operator*= (const double &rhs){
+inline MaterialTensor& MaterialTensor::operator*= (const double &rhs){
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
         data_ptr[i] = data_ptr[i]*rhs;
     }
@@ -59,7 +406,7 @@ MaterialTensor& MaterialTensor::operator*= (const double &rhs){
 }
 
 //define A /= s for integer values
-MaterialTensor& MaterialTensor::operator/= (const int &rhs){
+inline MaterialTensor& MaterialTensor::operator/= (const int &rhs){
     double tmp = 1.0/rhs;
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
         data_ptr[i] = data_ptr[i]*tmp;
@@ -68,7 +415,7 @@ MaterialTensor& MaterialTensor::operator/= (const int &rhs){
 }
 
 //define A /= s for double values
-MaterialTensor& MaterialTensor::operator/= (const double &rhs){
+inline MaterialTensor& MaterialTensor::operator/= (const double &rhs){
     double tmp = 1.0/rhs;
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
         data_ptr[i] = data_ptr[i]*tmp;
@@ -78,7 +425,7 @@ MaterialTensor& MaterialTensor::operator/= (const double &rhs){
 
 /*------------------------------------------------------------------------*/
 //set A to zero tensor
-void MaterialTensor::setZero(){
+inline void MaterialTensor::setZero(){
     for (int i=0;i<TENSOR_MAX_LENGTH;i++){
         data_ptr[i] = 0;
     }
@@ -86,7 +433,7 @@ void MaterialTensor::setZero(){
 }
 
 //set A to identity tensor
-void MaterialTensor::setIdentity(){
+inline void MaterialTensor::setIdentity(){
     data_ptr[XX] = 1; data_ptr[XY] = 0; data_ptr[XZ] = 0;
     data_ptr[YX] = 0; data_ptr[YY] = 1; data_ptr[YZ] = 0;
     data_ptr[ZX] = 0; data_ptr[ZY] = 0; data_ptr[ZZ] = 1;
@@ -95,7 +442,7 @@ void MaterialTensor::setIdentity(){
 
 /*------------------------------------------------------------------------*/
 //tensor inner products
-double MaterialTensor::dot(const MaterialTensor &rhs){
+inline double MaterialTensor::dot(const MaterialTensor &rhs){
     double tmp=0;
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
         tmp += data_ptr[i]*rhs[i];
@@ -103,7 +450,7 @@ double MaterialTensor::dot(const MaterialTensor &rhs){
     return tmp;
 }
 
-double MaterialTensor::dot(const KinematicTensor &rhs){
+inline double MaterialTensor::dot(const KinematicTensor &rhs){
     double tmp=0;
     for(int i=0;i<rhs.DIM;i++){
         for(int j=0;j<rhs.DIM;j++) {
@@ -114,12 +461,12 @@ double MaterialTensor::dot(const KinematicTensor &rhs){
 }
 
 //trace of MaterialTensor
-double MaterialTensor::trace(){
+inline double MaterialTensor::trace(){
     return data_ptr[XX]+data_ptr[YY]+data_ptr[ZZ];
 }
 
 //tensor norm given by sqrt(A:A)
-double MaterialTensor::norm(){
+inline double MaterialTensor::norm(){
     double tmp = 0;
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
         tmp += data_ptr[i]*data_ptr[i];
@@ -128,7 +475,7 @@ double MaterialTensor::norm(){
 }
 
 //determinant of MaterialTensor
-double MaterialTensor::det(){
+inline double MaterialTensor::det(){
     double a = data_ptr[XX]*(data_ptr[YY]*data_ptr[ZZ] - data_ptr[ZY]*data_ptr[YZ]);
     double b = data_ptr[XY]*(data_ptr[YX]*data_ptr[ZZ] - data_ptr[ZX]*data_ptr[YZ]);
     double c = data_ptr[XZ]*(data_ptr[YX]*data_ptr[ZY] - data_ptr[ZX]*data_ptr[YY]);
@@ -137,7 +484,7 @@ double MaterialTensor::det(){
 
 /*------------------------------------------------------------------------*/
 //tensor inverse of MaterialTensor (not safe)
-MaterialTensor MaterialTensor::inverse(){
+inline MaterialTensor MaterialTensor::inverse(){
     std::array<double,TENSOR_MAX_LENGTH> tmp;
     double detA = det();
     tmp[XX] = 1/detA * (data_ptr[YY]*data_ptr[ZZ] - data_ptr[ZY]*data_ptr[YZ]);
@@ -158,7 +505,7 @@ MaterialTensor MaterialTensor::inverse(){
 }
 
 //tensor deviator (A_0 = A - 1/3 tr(A) I)
-MaterialTensor MaterialTensor::deviator(){
+inline MaterialTensor MaterialTensor::deviator(){
     std::array<double,TENSOR_MAX_LENGTH> tmp;
     double trA = trace();
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
@@ -169,7 +516,7 @@ MaterialTensor MaterialTensor::deviator(){
 }
 
 //transpose (A^T)
-MaterialTensor MaterialTensor::transpose(){
+inline MaterialTensor MaterialTensor::transpose(){
     std::array<double,9> tmp;
     tmp[XX] = data_ptr[XX]; tmp[XY] = data_ptr[YX]; tmp[XZ] = data_ptr[ZX];
     tmp[YX] = data_ptr[XY]; tmp[YY] = data_ptr[YY]; tmp[YZ] = data_ptr[ZY];
@@ -178,11 +525,11 @@ MaterialTensor MaterialTensor::transpose(){
 }
 
 //symmetric and skew decompositions of A
-MaterialTensor MaterialTensor::sym(){
+inline MaterialTensor MaterialTensor::sym(){
     MaterialTensor tmp(this->data());
     return 0.5*(tmp + tmp.transpose());
 }
-MaterialTensor MaterialTensor::skw(){
+inline MaterialTensor MaterialTensor::skw(){
     MaterialTensor tmp(this->data());
     return 0.5*(tmp - tmp.transpose());
 }
@@ -190,7 +537,7 @@ MaterialTensor MaterialTensor::skw(){
 
 /*------------------------------------------------------------------------*/
 //construct KinematicTensor from data pointer and input tensor_type
-KinematicTensor::KinematicTensor(double* otherdata, int input){
+inline KinematicTensor::KinematicTensor(double* otherdata, int input){
     assignTensorType(input);
     for(int i=0;i<DIM;i++){
         for(int j=0;j<DIM;j++){
@@ -207,36 +554,8 @@ KinematicTensor::KinematicTensor(double* otherdata, int input){
     }
 }
 
-/*
-//copy KinematicTensor from KinematicTensor
-KinematicTensor::KinematicTensor(const KinematicTensor& other){
-    DIM = other.DIM;
-    TENSOR_TYPE = other.TENSOR_TYPE;
-    for(int i=0;i<TENSOR_MAX_LENGTH;i++){
-        data_ptr[i] = other[i];
-    }
-}
-
-KinematicTensor::KinematicTensor(const KinematicTensor& other, int input){
-    assignTensorType(input);
-    for(int i=0;i<DIM;i++){
-        for(int j=0;j<DIM;j++){
-            data_ptr[TENSOR_MAX_DIM * i + j] = other[TENSOR_MAX_DIM * i + j];
-        }
-    }
-    for (int i=DIM;i<3;i++) {
-        for (int j = DIM; j < TENSOR_MAX_DIM; j++) {
-            if (other[TENSOR_MAX_DIM * i + j] != 0){
-                std::cerr << "WARNING: ignoring non-zero entries in input data to KinematicTensor." << std::endl;
-            }
-            data_ptr[TENSOR_MAX_DIM * i + j] = 0;
-        }
-    }
-}
-*/
-
 //copy KinematicTensor from MaterialTensor
-KinematicTensor::KinematicTensor(MaterialTensor& other, int input){
+inline KinematicTensor::KinematicTensor(MaterialTensor& other, int input){
     assignTensorType(input);
     for(int i=0;i<DIM;i++){
         for(int j=0;j<DIM;j++){
@@ -255,7 +574,7 @@ KinematicTensor::KinematicTensor(MaterialTensor& other, int input){
 
 /*------------------------------------------------------------------------*/
 //define -A
-KinematicTensor KinematicTensor::operator-(){
+inline KinematicTensor KinematicTensor::operator-(){
     std::array<double,TENSOR_MAX_LENGTH> tmp;
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
         tmp[i] = -data_ptr[i];
@@ -264,7 +583,7 @@ KinematicTensor KinematicTensor::operator-(){
 }
 
 //define A *= s for integer values
-KinematicTensor& KinematicTensor::operator*= (const int &rhs){
+inline KinematicTensor& KinematicTensor::operator*= (const int &rhs){
     if (DIM == 1){
         data_ptr[XX] *= rhs;
     } else if (DIM ==2){
@@ -279,7 +598,7 @@ KinematicTensor& KinematicTensor::operator*= (const int &rhs){
 }
 
 //define A *= s for double values
-KinematicTensor& KinematicTensor::operator*= (const double &rhs){
+inline KinematicTensor& KinematicTensor::operator*= (const double &rhs){
     if (DIM == 1){
         data_ptr[XX] *= rhs;
     } else if (DIM ==2){
@@ -294,7 +613,7 @@ KinematicTensor& KinematicTensor::operator*= (const double &rhs){
 }
 
 //define A /= s for integer values
-KinematicTensor& KinematicTensor::operator/= (const int &rhs){
+inline KinematicTensor& KinematicTensor::operator/= (const int &rhs){
     double tmp = 1.0/rhs;
     if (DIM == 1){
         data_ptr[XX] *= tmp;
@@ -310,7 +629,7 @@ KinematicTensor& KinematicTensor::operator/= (const int &rhs){
 }
 
 //define A /= s for double values
-KinematicTensor& KinematicTensor::operator/= (const double &rhs){
+inline KinematicTensor& KinematicTensor::operator/= (const double &rhs){
     double tmp = 1.0/rhs;
     if (DIM == 1){
         data_ptr[XX] *= tmp;
@@ -327,14 +646,14 @@ KinematicTensor& KinematicTensor::operator/= (const double &rhs){
 
 /*------------------------------------------------------------------------*/
 //set to standard tensors
-void KinematicTensor::setZero(){
+inline void KinematicTensor::setZero(){
     for (int i = 0; i < TENSOR_MAX_LENGTH; i++) {
         data_ptr[i] = 0;
     }
     return;
 }
 
-void KinematicTensor::setIdentity(){
+inline void KinematicTensor::setIdentity(){
     if (DIM == 1){
         data_ptr[XX] = 1;
     } else if (DIM ==2){
@@ -350,7 +669,7 @@ void KinematicTensor::setIdentity(){
 
 /*------------------------------------------------------------------------*/
 //tensor inner products
-double KinematicTensor::dot(const MaterialTensor &rhs){
+inline double KinematicTensor::dot(const MaterialTensor &rhs){
     double tmp=0;
     for(int i=0;i<DIM;i++){
         for(int j=0;j<DIM;j++) {
@@ -360,7 +679,7 @@ double KinematicTensor::dot(const MaterialTensor &rhs){
     return tmp;
 }
 
-double KinematicTensor::dot(const KinematicTensor &rhs){
+inline double KinematicTensor::dot(const KinematicTensor &rhs){
     double tmp=0;
     for(int i=0;i<DIM;i++){
         for(int j=0;j<DIM;j++) {
@@ -371,12 +690,12 @@ double KinematicTensor::dot(const KinematicTensor &rhs){
 }
 
 //trace of KinematicTensor
-double KinematicTensor::trace(){
+inline double KinematicTensor::trace(){
     return data_ptr[XX]+data_ptr[YY]+data_ptr[ZZ];
 }
 
 //tensor norm given by sqrt(A:A)
-double KinematicTensor::norm(){
+inline double KinematicTensor::norm(){
     double tmp = 0;
     for(int i=0;i<DIM;i++){
         for(int j=0;j<DIM;j++) {
@@ -387,7 +706,7 @@ double KinematicTensor::norm(){
 }
 
 //determinant of KinematicTensor
-double KinematicTensor::det(){
+inline double KinematicTensor::det(){
     if (DIM == 1){
         return data_ptr[XX];
     } else if (DIM == 2){
@@ -402,7 +721,7 @@ double KinematicTensor::det(){
 
 /*------------------------------------------------------------------------*/
 //tensor inverse of KinematicTensor (not safe)
-KinematicTensor KinematicTensor::inverse(){
+inline KinematicTensor KinematicTensor::inverse(){
     std::array<double,TENSOR_MAX_LENGTH> tmp;
     double detA = det();
     if (DIM==1){
@@ -434,7 +753,7 @@ KinematicTensor KinematicTensor::inverse(){
 }
 
 //tensor deviator (A_0 = A - 1/3 tr(A) I)
-MaterialTensor KinematicTensor::deviator(){
+inline MaterialTensor KinematicTensor::deviator(){
     std::array<double,TENSOR_MAX_LENGTH> tmp;
     double trA = trace();
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
@@ -445,7 +764,7 @@ MaterialTensor KinematicTensor::deviator(){
 }
 
 //transpose (A^T)
-KinematicTensor KinematicTensor::transpose(){
+inline KinematicTensor KinematicTensor::transpose(){
     std::array<double,9> tmp;
     if (DIM == 1){
         return KinematicTensor(data_ptr,TENSOR_TYPE);
@@ -461,18 +780,18 @@ KinematicTensor KinematicTensor::transpose(){
 }
 
 //symmetric and skew decompositions of A
-KinematicTensor KinematicTensor::sym(){
+inline KinematicTensor KinematicTensor::sym(){
     KinematicTensor tmp(this->data(),this->TENSOR_TYPE);
     return 0.5*(tmp + tmp.transpose());
 }
-KinematicTensor KinematicTensor::skw(){
+inline KinematicTensor KinematicTensor::skw(){
     KinematicTensor tmp(this->data(),this->TENSOR_TYPE);
     return 0.5*(tmp - tmp.transpose());
 }
 
 /*----------------------------------------------------------------------------*/
 //Tensor Addition
-MaterialTensor operator+ (const MaterialTensor& lhs, const MaterialTensor& rhs){
+inline MaterialTensor operator+ (const MaterialTensor& lhs, const MaterialTensor& rhs){
     std::array<double, MPMTensor::TENSOR_MAX_LENGTH> tmp;
     for(int i=0;i<MPMTensor::TENSOR_MAX_LENGTH;i++){
         tmp[i] = lhs[i]+rhs[i];
@@ -480,7 +799,7 @@ MaterialTensor operator+ (const MaterialTensor& lhs, const MaterialTensor& rhs){
     return MaterialTensor(tmp.data());
 }
 
-MaterialTensor operator+ (const MaterialTensor& lhs, const KinematicTensor& rhs){
+inline MaterialTensor operator+ (const MaterialTensor& lhs, const KinematicTensor& rhs){
     std::array<double, MPMTensor::TENSOR_MAX_LENGTH> tmp;
     for(int i=0;i<MPMTensor::TENSOR_MAX_LENGTH;i++){
         tmp[i] = lhs[i]+rhs[i];
@@ -488,11 +807,11 @@ MaterialTensor operator+ (const MaterialTensor& lhs, const KinematicTensor& rhs)
     return MaterialTensor(tmp.data());
 }
 
-MaterialTensor operator+ (const KinematicTensor& lhs, const MaterialTensor& rhs){
+inline MaterialTensor operator+ (const KinematicTensor& lhs, const MaterialTensor& rhs){
     return rhs+lhs;
 }
 
-KinematicTensor operator+ (const KinematicTensor& lhs, const KinematicTensor& rhs){
+inline KinematicTensor operator+ (const KinematicTensor& lhs, const KinematicTensor& rhs){
     assert(lhs.TENSOR_TYPE == rhs.TENSOR_TYPE && "Addition failed.");
     std::array<double, MPMTensor::TENSOR_MAX_LENGTH> tmp;
     for(int i=0;i<MPMTensor::TENSOR_MAX_LENGTH;i++){
@@ -503,7 +822,7 @@ KinematicTensor operator+ (const KinematicTensor& lhs, const KinematicTensor& rh
 
 /*----------------------------------------------------------------------------*/
 //Tensor Subtraction
-MaterialTensor operator- (const MaterialTensor& lhs, const MaterialTensor& rhs){
+inline MaterialTensor operator- (const MaterialTensor& lhs, const MaterialTensor& rhs){
     std::array<double, MPMTensor::TENSOR_MAX_LENGTH> tmp;
     for(int i=0;i<MPMTensor::TENSOR_MAX_LENGTH;i++){
         tmp[i] = lhs[i]-rhs[i];
@@ -511,7 +830,7 @@ MaterialTensor operator- (const MaterialTensor& lhs, const MaterialTensor& rhs){
     return MaterialTensor(tmp.data());
 }
 
-MaterialTensor operator- (const MaterialTensor& lhs, const KinematicTensor& rhs){
+inline MaterialTensor operator- (const MaterialTensor& lhs, const KinematicTensor& rhs){
     std::array<double, MPMTensor::TENSOR_MAX_LENGTH> tmp;
     for(int i=0;i<MPMTensor::TENSOR_MAX_LENGTH;i++){
         tmp[i] = lhs[i]-rhs[i];
@@ -519,7 +838,7 @@ MaterialTensor operator- (const MaterialTensor& lhs, const KinematicTensor& rhs)
     return MaterialTensor(tmp.data());
 }
 
-MaterialTensor operator- (const KinematicTensor& lhs, const MaterialTensor& rhs){
+inline MaterialTensor operator- (const KinematicTensor& lhs, const MaterialTensor& rhs){
     std::array<double, MPMTensor::TENSOR_MAX_LENGTH> tmp;
     for(int i=0;i<MPMTensor::TENSOR_MAX_LENGTH;i++){
         tmp[i] = lhs[i]-rhs[i];
@@ -527,7 +846,7 @@ MaterialTensor operator- (const KinematicTensor& lhs, const MaterialTensor& rhs)
     return MaterialTensor(tmp.data());
 }
 
-KinematicTensor operator- (const KinematicTensor& lhs, const KinematicTensor& rhs){
+inline KinematicTensor operator- (const KinematicTensor& lhs, const KinematicTensor& rhs){
     assert(lhs.TENSOR_TYPE == rhs.TENSOR_TYPE && "Addition failed.");
     std::array<double, MPMTensor::TENSOR_MAX_LENGTH> tmp;
     for(int i=0;i<MPMTensor::TENSOR_MAX_LENGTH;i++){
@@ -538,56 +857,56 @@ KinematicTensor operator- (const KinematicTensor& lhs, const KinematicTensor& rh
 
 /*----------------------------------------------------------------------------*/
 //Tensor Multiplication (returning MaterialTensor)
-MaterialTensor operator* (const double& lhs, const MaterialTensor& rhs){
+inline MaterialTensor operator* (const double& lhs, const MaterialTensor& rhs){
     MaterialTensor tmp = MaterialTensor(rhs);
     return tmp*=lhs;
 }
 
-MaterialTensor operator* (const int& lhs, const MaterialTensor& rhs){
+inline MaterialTensor operator* (const int& lhs, const MaterialTensor& rhs){
     MaterialTensor tmp = MaterialTensor(rhs);
     return tmp*=lhs;
 }
 
-MaterialTensor operator* (const MaterialTensor& lhs, const double& rhs){
+inline MaterialTensor operator* (const MaterialTensor& lhs, const double& rhs){
     MaterialTensor tmp = MaterialTensor(lhs);
     return tmp*=rhs;
 }
 
-MaterialTensor operator* (const MaterialTensor& lhs, const int& rhs){
+inline MaterialTensor operator* (const MaterialTensor& lhs, const int& rhs){
     MaterialTensor tmp = MaterialTensor(lhs);
     return tmp*=rhs;
 }
 
-MaterialTensor operator/ (const MaterialTensor& lhs, const double& rhs){
+inline MaterialTensor operator/ (const MaterialTensor& lhs, const double& rhs){
     MaterialTensor tmp = MaterialTensor(lhs);
     return tmp/=rhs;
 }
 
-MaterialTensor operator/ (const MaterialTensor& lhs, const int& rhs){
+inline MaterialTensor operator/ (const MaterialTensor& lhs, const int& rhs){
     MaterialTensor tmp = MaterialTensor(lhs);
     return tmp/=rhs;
 }
 
-MaterialTensor operator* (const MaterialTensor& lhs, const MaterialTensor& rhs){
+inline MaterialTensor operator* (const MaterialTensor& lhs, const MaterialTensor& rhs){
     std::array<double,MPMTensor::TENSOR_MAX_LENGTH> tmp;
     for(int i=0;i<MPMTensor::TENSOR_MAX_DIM;i++){
         for(int j=0;j<MPMTensor::TENSOR_MAX_DIM;j++) {
             tmp[MPMTensor::TENSOR_MAX_DIM*i+j] = lhs[MPMTensor::TENSOR_MAX_DIM * i + 0]*rhs[MPMTensor::TENSOR_MAX_DIM * 0 + j] +
-                                      lhs[MPMTensor::TENSOR_MAX_DIM * i + 1]*rhs[MPMTensor::TENSOR_MAX_DIM * 1 + j] +
-                                      lhs[MPMTensor::TENSOR_MAX_DIM * i + 2]*rhs[MPMTensor::TENSOR_MAX_DIM * 2 + j];
+                                                 lhs[MPMTensor::TENSOR_MAX_DIM * i + 1]*rhs[MPMTensor::TENSOR_MAX_DIM * 1 + j] +
+                                                 lhs[MPMTensor::TENSOR_MAX_DIM * i + 2]*rhs[MPMTensor::TENSOR_MAX_DIM * 2 + j];
         }
     }
     return MaterialTensor(tmp.data());
 }
 
-MaterialTensor operator* (const MaterialTensor& lhs, const KinematicTensor& rhs){
+inline MaterialTensor operator* (const MaterialTensor& lhs, const KinematicTensor& rhs){
     std::array<double,MPMTensor::TENSOR_MAX_LENGTH> tmp;
     if (rhs.DIM == MPMTensor::TENSOR_MAX_DIM){
         for(int i=0;i<MPMTensor::TENSOR_MAX_DIM;i++){
             for(int j=0;j<MPMTensor::TENSOR_MAX_DIM;j++) {
                 tmp[MPMTensor::TENSOR_MAX_DIM*i+j] = lhs[MPMTensor::TENSOR_MAX_DIM * i + 0]*rhs[MPMTensor::TENSOR_MAX_DIM * 0 + j] +
-                                          lhs[MPMTensor::TENSOR_MAX_DIM * i + 1]*rhs[MPMTensor::TENSOR_MAX_DIM * 1 + j] +
-                                          lhs[MPMTensor::TENSOR_MAX_DIM * i + 2]*rhs[MPMTensor::TENSOR_MAX_DIM * 2 + j];
+                                                     lhs[MPMTensor::TENSOR_MAX_DIM * i + 1]*rhs[MPMTensor::TENSOR_MAX_DIM * 1 + j] +
+                                                     lhs[MPMTensor::TENSOR_MAX_DIM * i + 2]*rhs[MPMTensor::TENSOR_MAX_DIM * 2 + j];
             }
         }
     } else {
@@ -608,14 +927,14 @@ MaterialTensor operator* (const MaterialTensor& lhs, const KinematicTensor& rhs)
     return MaterialTensor(tmp.data());
 }
 
-MaterialTensor operator* (const KinematicTensor& lhs, const MaterialTensor& rhs){
+inline MaterialTensor operator* (const KinematicTensor& lhs, const MaterialTensor& rhs){
     std::array<double,MPMTensor::TENSOR_MAX_LENGTH> tmp;
     if (lhs.DIM == MPMTensor::TENSOR_MAX_DIM){
         for(int i=0;i<MPMTensor::TENSOR_MAX_DIM;i++){
             for(int j=0;j<MPMTensor::TENSOR_MAX_DIM;j++) {
                 tmp[MPMTensor::TENSOR_MAX_DIM*i+j] = lhs[MPMTensor::TENSOR_MAX_DIM*i+0]*rhs[MPMTensor::TENSOR_MAX_DIM *0+j] +
-                                          lhs[MPMTensor::TENSOR_MAX_DIM*i+1]*rhs[MPMTensor::TENSOR_MAX_DIM*1+j] +
-                                          lhs[MPMTensor::TENSOR_MAX_DIM*i+2]*rhs[MPMTensor::TENSOR_MAX_DIM*2+j];
+                                                     lhs[MPMTensor::TENSOR_MAX_DIM*i+1]*rhs[MPMTensor::TENSOR_MAX_DIM*1+j] +
+                                                     lhs[MPMTensor::TENSOR_MAX_DIM*i+2]*rhs[MPMTensor::TENSOR_MAX_DIM*2+j];
             }
         }
     } else {
@@ -639,43 +958,43 @@ MaterialTensor operator* (const KinematicTensor& lhs, const MaterialTensor& rhs)
 
 /*----------------------------------------------------------------------------*/
 //Tensor Multiplication (returning KinematicTensor)
-KinematicTensor operator* (const double& lhs, const KinematicTensor& rhs){
+inline KinematicTensor operator* (const double& lhs, const KinematicTensor& rhs){
     KinematicTensor tmp = KinematicTensor(rhs);
     return tmp*=lhs;
 }
 
-KinematicTensor operator* (const int& lhs, const KinematicTensor& rhs){
+inline KinematicTensor operator* (const int& lhs, const KinematicTensor& rhs){
     KinematicTensor tmp = KinematicTensor(rhs);
     return tmp*=lhs;
 }
 
-KinematicTensor operator* (const KinematicTensor& lhs, const double& rhs){
+inline KinematicTensor operator* (const KinematicTensor& lhs, const double& rhs){
     return rhs*lhs;
 }
 
-KinematicTensor operator* (const KinematicTensor& lhs, const int& rhs){
+inline KinematicTensor operator* (const KinematicTensor& lhs, const int& rhs){
     return rhs*lhs;
 }
 
-KinematicTensor operator/ (const KinematicTensor& lhs, const double& rhs){
+inline KinematicTensor operator/ (const KinematicTensor& lhs, const double& rhs){
     KinematicTensor tmp = KinematicTensor(lhs);
     return tmp/=rhs;
 }
 
-KinematicTensor operator/ (const KinematicTensor& lhs, const int& rhs){
+inline KinematicTensor operator/ (const KinematicTensor& lhs, const int& rhs){
     KinematicTensor tmp = KinematicTensor(lhs);
     return tmp/=rhs;
 }
 
-KinematicTensor operator* (const KinematicTensor& lhs, const KinematicTensor& rhs){
+inline KinematicTensor operator* (const KinematicTensor& lhs, const KinematicTensor& rhs){
     assert(lhs.TENSOR_TYPE == rhs.TENSOR_TYPE && "Multiplication failed.");
     std::array<double,MPMTensor::TENSOR_MAX_LENGTH> tmp;
     if (lhs.DIM == MPMTensor::TENSOR_MAX_DIM){
         for(int i=0;i<MPMTensor::TENSOR_MAX_DIM;i++){
             for(int j=0;j<MPMTensor::TENSOR_MAX_DIM;j++) {
                 tmp[MPMTensor::TENSOR_MAX_DIM*i+j] = lhs[MPMTensor::TENSOR_MAX_DIM*i+0]*rhs[MPMTensor::TENSOR_MAX_DIM *0+j] +
-                                          lhs[MPMTensor::TENSOR_MAX_DIM*i+1]*rhs[MPMTensor::TENSOR_MAX_DIM*1+j] +
-                                          lhs[MPMTensor::TENSOR_MAX_DIM*i+2]*rhs[MPMTensor::TENSOR_MAX_DIM*2+j];
+                                                     lhs[MPMTensor::TENSOR_MAX_DIM*i+1]*rhs[MPMTensor::TENSOR_MAX_DIM*1+j] +
+                                                     lhs[MPMTensor::TENSOR_MAX_DIM*i+2]*rhs[MPMTensor::TENSOR_MAX_DIM*2+j];
             }
         }
     } else {
@@ -700,17 +1019,19 @@ KinematicTensor operator* (const KinematicTensor& lhs, const KinematicTensor& rh
 
 /*----------------------------------------------------------------------------*/
 //Tensor Maps
-MaterialTensor::Map& MaterialTensor::Map::operator= (const MaterialTensor &other){
+inline MaterialTensor::Map& MaterialTensor::Map::operator= (const MaterialTensor &other){
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){data_ptr[i]=other(i);};
     return *this;
 }
 
-MaterialTensor::Map& MaterialTensor::Map::operator= (const KinematicTensor &other){
+inline MaterialTensor::Map& MaterialTensor::Map::operator= (const KinematicTensor &other){
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){data_ptr[i]=other(i);};
     return *this;
 }
 
-KinematicTensor::Map& KinematicTensor::Map::operator= (const KinematicTensor &other){
+inline KinematicTensor::Map& KinematicTensor::Map::operator= (const KinematicTensor &other){
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){data_ptr[i]=other(i);};
     return *this;
 }
+
+#endif //MPM_V2_TENSOR_HPP

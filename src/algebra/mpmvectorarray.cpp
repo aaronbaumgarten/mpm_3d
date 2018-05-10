@@ -3,8 +3,8 @@
 // mpmvectorarray.cpp
 //
 
-#include "mpmvector.hpp"
-#include "mpmvectorarray.hpp"
+#include "mpm_vector.hpp"
+#include "mpm_vectorarray.hpp"
 
 /*----------------------------------------------------------------------------*/
 //access j(th) component of i(th) vector

@@ -8,6 +8,7 @@
 #include <stdlib.h>
 
 #include "test.hpp"
+#include "mpm_objects.hpp"
 
 void usage(char* program_name){
     std::cout << program_name << " [OPTION]" << std::endl;
@@ -24,6 +25,8 @@ int main(int argc, char *argv[]) {
 
     //read command
     std::cout << argc << " arguments given." << std::endl;
+
+    algebra_test();
 
     std::cout << "Exiting." << std::endl;
     return 0;

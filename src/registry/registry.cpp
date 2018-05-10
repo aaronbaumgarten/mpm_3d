@@ -5,7 +5,7 @@
 
 #include "registry.hpp"
 
-template<typename Base, typename Derived> std::unique_ptr<B> createInstance() { return std::unique_ptr<Base>(new Derived); }
+template<typename Base, typename Derived> std::unique_ptr<Base> createInstance() { return std::unique_ptr<Base>(new Derived); }
 
 /*template<>
 Registry<Base>::Registry() {

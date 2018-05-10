@@ -3,8 +3,8 @@
 // mpmtensorarray.cpp
 //
 
-#include "mpmtensor.hpp"
-#include "mpmtensorarray.hpp"
+#include "mpm_tensor.hpp"
+#include "mpm_tensorarray.hpp"
 
 /*----------------------------------------------------------------------------*/
 //access j,k(th) component of i(th) MaterialTensor in MaterialTensorArray

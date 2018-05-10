@@ -3,8 +3,8 @@
 // mpmvector.cpp
 //
 
-#include "mpmtensor.hpp"
-#include "mpmvector.hpp"
+#include "mpm_tensor.hpp"
+#include "mpm_vector.hpp"
 #include <math.h>
 #include <iostream>
 

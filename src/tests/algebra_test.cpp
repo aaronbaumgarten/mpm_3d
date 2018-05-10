@@ -3,10 +3,10 @@
 // algebra_test.cpp
 //
 
-#include "mpmtensor.hpp"
-#include "mpmtensorarray.hpp"
-#include "mpmvector.hpp"
-#include "mpmvectorarray.hpp"
+#include "mpm_tensor.hpp"
+#include "mpm_tensorarray.hpp"
+#include "mpm_vector.hpp"
+#include "mpm_vectorarray.hpp"
 #include <stdlib.h>
 #include "test.hpp"
 
