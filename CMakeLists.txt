@@ -10,10 +10,20 @@ set(SOURCE_FILES src/main/main.cpp)
 
 #set include directories
 include_directories(include)
+include_directories(src)
 include_directories(/usr/include/eigen3) #eigen is required for this
 
 add_subdirectory(src/tests)
 add_subdirectory(src/registry)
-add_subdirectory(src/objects)
+add_subdirectory(src/algebra)
+
+add_subdirectory(src/objects/serializers)
+add_subdirectory(src/objects/drivers)
+add_subdirectory(src/objects/solvers)
+
+add_subdirectory(src/objects/points)
+add_subdirectory(src/objects/nodes)
+add_subdirectory(src/objects/materials)
+add_subdirectory(src/objects/boundaries)
 
 add_executable(mpm_v3 ${SOURCE_FILES})

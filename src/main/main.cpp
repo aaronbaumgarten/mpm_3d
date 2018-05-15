@@ -9,6 +9,8 @@
 
 #include "test.hpp"
 #include "mpm_objects.hpp"
+#include "registry.hpp"
+#include "job.hpp"
 
 void usage(char* program_name){
     std::cout << program_name << " [OPTION]" << std::endl;
@@ -26,7 +28,18 @@ int main(int argc, char *argv[]) {
     //read command
     std::cout << argc << " arguments given." << std::endl;
 
+
+    /*------------------------------------------------------------------------*/
     algebra_test();
+
+    Registry<Serializer> registry;
+    std::unique_ptr<Serializer> a = registry.get_object("DefaultVTK");
+
+    Job *job = new(Job);
+    a->saveState(job);
+    delete(job);
+    /*------------------------------------------------------------------------*/
+
 
     std::cout << "Exiting." << std::endl;
     return 0;

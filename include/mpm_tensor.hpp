@@ -71,23 +71,23 @@ public:
 
     /*------------------------------------------------------------------------*/
     //return pointer to data
-    double* data(){
+    double* data() const {
         return data_ptr;
     }
 
     /*------------------------------------------------------------------------*/
     //return size of tensor
-    double size(){
+    double size() const {
         return TENSOR_MAX_LENGTH;
     }
 
     /*------------------------------------------------------------------------*/
     //return rows and columns
-    double rows(){
+    double rows() const {
         return TENSOR_MAX_DIM;
     }
 
-    double cols(){
+    double cols() const {
         return TENSOR_MAX_DIM;
     }
 
@@ -139,6 +139,10 @@ public:
     //define operators
     operator EIGEN_MAP_OF_MATERIAL_TENSOR () {return EIGEN_MAP_OF_MATERIAL_TENSOR(data_ptr);}
     MaterialTensor operator-();
+    inline MaterialTensor& operator+= (const MaterialTensor &rhs);
+    inline MaterialTensor& operator+= (const KinematicTensor &rhs);
+    inline MaterialTensor& operator-= (const MaterialTensor &rhs);
+    inline MaterialTensor& operator-= (const KinematicTensor &rhs);
     MaterialTensor& operator*= (const int &rhs);
     MaterialTensor& operator*= (const double &rhs);
     MaterialTensor& operator/= (const int &rhs);
@@ -148,6 +152,7 @@ public:
     //set to standard tensors
     void setZero();
     void setIdentity();
+    static MaterialTensor Identity();
 
     /*------------------------------------------------------------------------*/
     //tensor contractions
@@ -262,6 +267,8 @@ public:
     //define operators
     operator EIGEN_MAP_OF_KINEMATIC_TENSOR () {return EIGEN_MAP_OF_KINEMATIC_TENSOR(data_ptr,DIM,DIM);}
     KinematicTensor operator-();
+    inline KinematicTensor& operator+= (const KinematicTensor &rhs);
+    inline KinematicTensor& operator-= (const KinematicTensor &rhs);
     KinematicTensor& operator*= (const int &rhs);
     KinematicTensor& operator*= (const double &rhs);
     KinematicTensor& operator/= (const int &rhs);
@@ -271,6 +278,7 @@ public:
     //set to standard tensors
     void setZero();
     void setIdentity();
+    static KinematicTensor Identity();
 
     /*------------------------------------------------------------------------*/
     //tensor contractions
@@ -389,6 +397,50 @@ inline MaterialTensor MaterialTensor::operator-(){
     return MaterialTensor(tmp.data());
 }
 
+//define A += B
+inline MaterialTensor& MaterialTensor::operator+= (const MaterialTensor &rhs){
+    for (int i=0;i<TENSOR_MAX_LENGTH;i++){
+        data_ptr[i] = data_ptr[i]+rhs(i);
+    }
+    return *this;
+}
+
+inline MaterialTensor& MaterialTensor::operator+= (const KinematicTensor &rhs){
+    if (rhs.DIM == 1){
+        data_ptr[XX] += rhs(XX);
+    } else if (rhs.DIM ==2){
+        data_ptr[XX] += rhs(XX); data_ptr[XY] += rhs(XY);
+        data_ptr[YX] += rhs(YX); data_ptr[YY] += rhs(YY);
+    } else {
+        for (int i = 0; i < TENSOR_MAX_LENGTH; i++) {
+            data_ptr[i] = data_ptr[i] + rhs(i);
+        }
+    }
+    return *this;
+}
+
+//define A -= B
+inline MaterialTensor& MaterialTensor::operator-= (const MaterialTensor &rhs){
+    for (int i=0;i<TENSOR_MAX_LENGTH;i++){
+        data_ptr[i] = data_ptr[i]-rhs(i);
+    }
+    return *this;
+}
+
+inline MaterialTensor& MaterialTensor::operator-= (const KinematicTensor &rhs){
+    if (rhs.DIM == 1){
+        data_ptr[XX] -= rhs(XX);
+    } else if (rhs.DIM ==2){
+        data_ptr[XX] -= rhs(XX); data_ptr[XY] -= rhs(XY);
+        data_ptr[YX] -= rhs(YX); data_ptr[YY] -= rhs(YY);
+    } else {
+        for (int i = 0; i < TENSOR_MAX_LENGTH; i++) {
+            data_ptr[i] = data_ptr[i] - rhs(i);
+        }
+    }
+    return *this;
+}
+
 //define A *= s for integer values
 inline MaterialTensor& MaterialTensor::operator*= (const int &rhs){
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
@@ -438,6 +490,15 @@ inline void MaterialTensor::setIdentity(){
     data_ptr[YX] = 0; data_ptr[YY] = 1; data_ptr[YZ] = 0;
     data_ptr[ZX] = 0; data_ptr[ZY] = 0; data_ptr[ZZ] = 1;
     return;
+}
+
+//return identity tensor
+inline static MaterialTensor MaterialTensor::Identity() {
+    MaterialTensor tmp;
+    tmp[XX] = 1; tmp[XY] = 0; tmp[XZ] = 0;
+    tmp[YX] = 0; tmp[YY] = 1; tmp[YZ] = 0;
+    tmp[ZX] = 0; tmp[ZY] = 0; tmp[ZZ] = 1;
+    return tmp;
 }
 
 /*------------------------------------------------------------------------*/
@@ -582,6 +643,36 @@ inline KinematicTensor KinematicTensor::operator-(){
     return KinematicTensor(tmp.data(),TENSOR_TYPE);
 }
 
+//define A += B
+inline KinematicTensor& KinematicTensor::operator+= (const KinematicTensor &rhs){
+    if (DIM == 1){
+        data_ptr[XX] += rhs(XX);
+    } else if (DIM ==2){
+        data_ptr[XX] += rhs(XX); data_ptr[XY] += rhs(XY);
+        data_ptr[YX] += rhs(YX); data_ptr[YY] += rhs(YY);
+    } else {
+        for (int i = 0; i < TENSOR_MAX_LENGTH; i++) {
+            data_ptr[i] = data_ptr[i] + rhs(i);
+        }
+    }
+    return *this;
+}
+
+//define A -= B
+inline KinematicTensor& KinematicTensor::operator-= (const KinematicTensor &rhs){
+    if (DIM == 1){
+        data_ptr[XX] -= rhs(XX);
+    } else if (DIM ==2){
+        data_ptr[XX] -= rhs(XX); data_ptr[XY] -= rhs(XY);
+        data_ptr[YX] -= rhs(YX); data_ptr[YY] -= rhs(YY);
+    } else {
+        for (int i = 0; i < TENSOR_MAX_LENGTH; i++) {
+            data_ptr[i] = data_ptr[i] - rhs(i);
+        }
+    }
+    return *this;
+}
+
 //define A *= s for integer values
 inline KinematicTensor& KinematicTensor::operator*= (const int &rhs){
     if (DIM == 1){
@@ -665,6 +756,22 @@ inline void KinematicTensor::setIdentity(){
         data_ptr[ZX] = 0; data_ptr[ZY] = 0; data_ptr[ZZ] = 1;
     }
     return;
+}
+
+//return identity tensor
+inline static KinematicTensor KinematicTensor::Identity() {
+    KinematicTensor tmp(TENSOR_TYPE);
+    if (DIM == 1){
+        tmp[XX] = 1;
+    } else if (DIM ==2){
+        tmp[XX] = 1; tmp[XY] = 0;
+        tmp[YX] = 0; tmp[YY] = 1;
+    } else {
+        tmp[XX] = 1; tmp[XY] = 0; tmp[XZ] = 0;
+        tmp[YX] = 0; tmp[YY] = 1; tmp[YZ] = 0;
+        tmp[ZX] = 0; tmp[ZY] = 0; tmp[ZZ] = 1;
+    }
+    return tmp;
 }
 
 /*------------------------------------------------------------------------*/

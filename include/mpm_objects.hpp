@@ -9,11 +9,16 @@
 #include <stdlib.h>
 #include <string>
 #include <vector>
+#include <Eigen/Core>
+
 #include "parser.hpp"
+
 #include "mpm_vector.hpp"
 #include "mpm_vectorarray.hpp"
 #include "mpm_tensor.hpp"
 #include "mpm_tensorarray.hpp"
+
+#include "mpm_sparse.hpp"
 
 class Job; //forward declare job object
 class Body; //forward declare body object
@@ -26,6 +31,7 @@ class Material; //forward declare material
 //base class for all registry objects
 class MPMObject{
 public:
+    std::string object_name;            //name of object (in registry)
     std::vector<double> fp64_props;     //double properties
     std::vector<int> int_props;         //integer properties
     std::vector<std::string> str_props; //string properties
@@ -102,6 +108,9 @@ public:
     int activeMaterial; //is the continuum body material defined?
     int activeBoundary; //is the continuum body boundary defined?
 
+    MPMScalarSparseMatrix S; //S_ip maps ith node to pth point
+    KinematicVectorSparseMatrix gradS; //gradS_ip maps ith node gradient to pth point
+
     std::unique_ptr<Points> points;
     std::unique_ptr<Nodes> nodes;
     std::unique_ptr<Material> material;
@@ -110,6 +119,7 @@ public:
     virtual void init(Job*) = 0;                                        //initialiaze from Job
     virtual std::string saveState(Job*, Serializer*, std::string) = 0;  //save to file (in given directory)
     virtual int loadState(Job*, Serializer*, std::string) = 0;          //load data from full path
+    virtual void generateMap(Job*, int) = 0;                            //generate S and gradS
 };
 
 
@@ -163,14 +173,15 @@ public:
     virtual void assignPressure(Job*, Body*, double, int, int) = 0;         //assign pressure to given id
 
     virtual void writeFrame(Job*, Body*, Serializer*) = 0;          //send frame data to Serializer
-    virtual std::string saveState(Job*, Body*, Serializer*) = 0;    //save state to file
-    virtual int loadState(Job*, Body*, Serializer*) = 0;            //load from full path
+    virtual std::string saveState(Job*, Body*, Serializer*, std::string) = 0;    //save state to file
+    virtual int loadState(Job*, Body*, Serializer*, std::string) = 0;            //load from full path
 };
 
 /*----------------------------------------------------------------------------*/
 //boundary file
 //responsible for boundary conditions on continuum body
 class Boundary : public MPMObject{
+public:
     virtual void init(Job*, Body*) = 0;             //initialize from Job and Body
     virtual void generateRules(Job*, Body*) = 0;    //generate boundary rules
     virtual void applyRules(Job*, Body*) = 0;       //apply boundary rules
@@ -180,7 +191,50 @@ class Boundary : public MPMObject{
     virtual int loadState(Job*, Body*, Serializer*, std::string) = 0;           //load from fullpath
 };
 
-class Contact; class Grid;
+
+/*----------------------------------------------------------------------------*/
+//contact class
+//responsible for inter-body interactions
+class Contact : public MPMObject{
+public:
+    static const int IMPLICIT = 1; //explicit contact rules
+    static const int EXPLICIT = 0; //implicit contact rules
+
+    int id;             //numerical id of contact in simulation
+    std::string name;   //name of contact in simulation
+
+    virtual void init(Job*) = 0;            //initialize from Job
+    virtual void generateRules(Job*) = 0;   //generate contact rules
+    virtual void applyRules(Job*, int) = 0; //apply contact rules
+
+    virtual void writeFrame(Job*, Serializer*) = 0;                     //send frame data to Serializer
+    virtual std::string saveState(Job*, Serializer*, std::string) = 0;  //save state to file
+    virtual int loadState(Job*, Serializer*, std::string) = 0;          //load from file
+};
+
+/*----------------------------------------------------------------------------*/
+//grid class
+//responsible for the definition of background grid
+class Grid : public MPMObject{
+public:
+    size_t node_count;      //number of nodes which define grid
+    size_t element_count;   //number of elements in grid
+
+    virtual void init(Job*) = 0; //initialize from Job
+
+    virtual void writeFrame(Job*, Serializer*) = 0;                     //send frame data to Serializer
+    virtual std::string saveState(Job*, Serializer*, std::string) = 0;  //save to file
+    virtual int loadState(Job*, Serializer*, std::string) = 0;          //load from file
+
+    virtual int whichElement(Job*, KinematicVector&) = 0;                                                       //return element given position
+    virtual bool inDomain(Job*, KinematicVector&) = 0;                                                          //check if location is in domain
+    virtual KinematicVector nodeIDToPosition(Job*, int) = 0;                                                    //return position of given node
+    virtual void evaluateBasisFnValue(Job*, KinematicVector&, std::vector<int>&, std::vector<double>&) = 0;     //fill id and value for nodal weights of position
+    virtual void evaluateBasisFnGradient(Job*, KinematicVector&, std::vector<int>&, KinematicVectorArray&) = 0; //fill id and gradient for nodal gradient of position
+    virtual double nodeVolume(Job*, int) = 0;                                                                   //return node volume of id
+    virtual double elementVolume(Job*, int) = 0;                                                                //return element volume of id
+    virtual int nodeTag(Job*, int) = 0;                                                                         //return 'tag' of node id
+};
 
 
 #endif //MPM_V3_MPMOBJECT_HPP

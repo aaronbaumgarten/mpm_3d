@@ -19,6 +19,13 @@ public:
     //construction with initial length (data stored in single vector)
     //MPMTensorArray(int i){ buffer.resize(MPMTensor::TENSOR_MAX_LENGTH*i); }
 
+    /*------------------------------------------------------------------------*/
+    //access j,k(th) component of i(th) tensor
+    virtual double& operator() (int i, int j, int k) = 0;
+
+    //access j(th) component of i(th) tensor
+    virtual double& operator() (int i, int j) = 0;
+
     //resize data to size of i tensors
     void resize(int i){ buffer.resize(MPMTensor::TENSOR_MAX_LENGTH*i); return; }
 
@@ -34,7 +41,7 @@ public:
     }
 
     //return buffer size/9 (number of tensors)
-    int size(){ return (buffer.size()/MPMTensor::TENSOR_MAX_LENGTH); }
+    int size() const { return (buffer.size()/MPMTensor::TENSOR_MAX_LENGTH); }
 
     //return pointer to data
     double* data(){ return buffer.data(); }
@@ -43,6 +50,8 @@ public:
 protected:
     std::vector<double> buffer;
 };
+
+class KinematicTensorArray; //forward declare class
 
 /*----------------------------------------------------------------------------*/
 //storage unit for MaterialTensors
@@ -72,6 +81,19 @@ public:
 
     //effectively add one KinematicTensor
     void push_back(KinematicTensor& tensor);
+
+    friend class KinematicTensorArray;
+
+    //addition, subtraction, and scaling
+    MaterialTensorArray operator-();
+    MaterialTensorArray& operator+= (const MaterialTensorArray &rhs);
+    MaterialTensorArray& operator-= (const MaterialTensorArray &rhs);
+    MaterialTensorArray& operator+= (const KinematicTensorArray &rhs);
+    MaterialTensorArray& operator-= (const KinematicTensorArray &rhs);
+    MaterialTensorArray& operator*= (const int &rhs);
+    MaterialTensorArray& operator*= (const double &rhs);
+    MaterialTensorArray& operator/= (const int &rhs);
+    MaterialTensorArray& operator/= (const double &rhs);
 };
 
 /*----------------------------------------------------------------------------*/
@@ -107,8 +129,46 @@ public:
 
     //effectively add on KinematicTensor
     void push_back(KinematicTensor& tensor);
+
+    friend class MaterialTensorArray;
+
+    //addition subtraction and scaling
+    KinematicTensorArray operator-();
+    KinematicTensorArray& operator+= (const KinematicTensorArray &rhs);
+    KinematicTensorArray& operator-= (const KinematicTensorArray &rhs);
+    KinematicTensorArray& operator*= (const int &rhs);
+    KinematicTensorArray& operator*= (const double &rhs);
+    KinematicTensorArray& operator/= (const int &rhs);
+    KinematicTensorArray& operator/= (const double &rhs);
 };
 
+/*----------------------------------------------------------------------------*/
+//math functions
+inline MaterialTensorArray operator+ (const MaterialTensorArray&, const MaterialTensorArray&);
+inline MaterialTensorArray operator+ (const MaterialTensorArray&, const KinematicTensorArray&);
+inline MaterialTensorArray operator+ (const KinematicTensorArray&, const MaterialTensorArray&);
+inline KinematicTensorArray operator+ (const KinematicTensorArray&, const KinematicTensorArray&);
+
+inline MaterialTensorArray operator- (const MaterialTensorArray&, const MaterialTensorArray&);
+inline MaterialTensorArray operator- (const MaterialTensorArray&, const KinematicTensorArray&);
+inline MaterialTensorArray operator- (const KinematicTensorArray&, const MaterialTensorArray&);
+inline KinematicTensorArray operator- (const KinematicTensorArray&, const KinematicTensorArray&);
+
+inline MaterialTensorArray operator* (const MaterialTensorArray&, const int&);
+inline MaterialTensorArray operator* (const MaterialTensorArray&, const double&);
+inline MaterialTensorArray operator* (const int&, const MaterialTensorArray&);
+inline MaterialTensorArray operator* (const double&, const MaterialTensorArray&);
+
+inline KinematicTensorArray operator* (const KinematicTensorArray&, const int&);
+inline KinematicTensorArray operator* (const KinematicTensorArray&, const double&);
+inline KinematicTensorArray operator* (const int&, const KinematicTensorArray&);
+inline KinematicTensorArray operator* (const double&, const KinematicTensorArray&);
+
+inline MaterialTensorArray operator/ (const MaterialTensorArray&, const int&);
+inline MaterialTensorArray operator/ (const MaterialTensorArray&, const double&);
+
+inline KinematicTensorArray operator/ (const KinematicTensorArray&, const int&);
+inline KinematicTensorArray operator/ (const KinematicTensorArray&, const double&);
 
 /*----------------------------------------------------------------------------*/
 //access j,k(th) component of i(th) MaterialTensor in MaterialTensorArray
@@ -150,6 +210,80 @@ inline void MaterialTensorArray::push_back(KinematicTensor& tensor){
         buffer.push_back(tensor[i]);
     }
     return;
+}
+
+/*----------------------------------------------------------------------------*/
+//simple math operators for the MaterialTensorArray
+inline MaterialTensorArray MaterialTensorArray::operator-(){
+    MaterialTensorArray tmp(size());
+    for(int i=0;i<buffer.size();i++){
+        tmp.buffer[i] = -buffer[i];
+    }
+    return tmp;
+}
+
+inline MaterialTensorArray& MaterialTensorArray::operator+= (const MaterialTensorArray &rhs){
+    assert(size() == rhs.size() && "MaterialTensorArray addition failed.");
+    for (int i=0;i<buffer.size();i++){
+        buffer[i] = buffer[i] + rhs.buffer[i];
+    }
+    return *this;
+}
+
+inline MaterialTensorArray& MaterialTensorArray::operator-= (const MaterialTensorArray &rhs){
+    assert(size() == rhs.size() && "MaterialTensorArray subtraction failed.");
+    for (int i=0;i<buffer.size();i++){
+        buffer[i] = buffer[i] - rhs.buffer[i];
+    }
+    return *this;
+}
+
+inline MaterialTensorArray& MaterialTensorArray::operator+= (const KinematicTensorArray &rhs){
+    assert(size() == rhs.size() && "MaterialTensorArray addition failed.");
+    for (int i=0;i<buffer.size();i++){
+        buffer[i] = buffer[i] + rhs.buffer[i];
+    }
+    return *this;
+}
+
+inline MaterialTensorArray& MaterialTensorArray::operator-= (const KinematicTensorArray &rhs){
+    assert(size() == rhs.size() && "MaterialTensorArray subtraction failed.");
+    for (int i=0;i<buffer.size();i++){
+        buffer[i] = buffer[i] - rhs.buffer[i];
+    }
+    return *this;
+}
+
+inline MaterialTensorArray& MaterialTensorArray::operator*= (const int &rhs){
+    for (int i=0;i<buffer.size();i++){
+        buffer[i] = buffer[i] * rhs;
+    }
+    return *this;
+}
+
+inline MaterialTensorArray& MaterialTensorArray::operator*= (const double &rhs){
+    for (int i=0;i<buffer.size();i++){
+        buffer[i] = buffer[i] * rhs;
+    }
+    return *this;
+}
+
+inline MaterialTensorArray& MaterialTensorArray::operator/= (const int &rhs){
+    double tmp = 1.0/rhs;
+    for (int i=0;i<buffer.size();i++){
+        //buffer[i] = buffer[i] / rhs;
+        buffer[i] = buffer[i] * tmp;
+    }
+    return *this;
+}
+
+inline MaterialTensorArray& MaterialTensorArray::operator/= (const double &rhs){
+    double tmp = 1.0/rhs;
+    for (int i=0;i<buffer.size();i++){
+        //buffer[i] = buffer[i] / rhs;
+        buffer[i] = buffer[i] * tmp;
+    }
+    return *this;
 }
 
 
@@ -200,6 +334,166 @@ inline void KinematicTensorArray::push_back(KinematicTensor& tensor){
         buffer.push_back(tensor[i]);
     }
     return;
+}
+
+/*----------------------------------------------------------------------------*/
+//simple math operators for the MaterialTensorArray
+inline KinematicTensorArray KinematicTensorArray::operator-(){
+    KinematicTensorArray tmp(size(),TENSOR_TYPE);
+    for(int i=0;i<buffer.size();i++){
+        tmp.buffer[i] = -buffer[i];
+    }
+    return tmp;
+}
+
+inline KinematicTensorArray& KinematicTensorArray::operator+= (const KinematicTensorArray &rhs){
+    assert(size() == rhs.size() && TENSOR_TYPE == rhs.TENSOR_TYPE && "KinematicTensorArray addition failed.");
+    for (int i=0;i<buffer.size();i++){
+        buffer[i] = buffer[i] + rhs.buffer[i];
+    }
+    return *this;
+}
+
+inline KinematicTensorArray& KinematicTensorArray::operator-= (const KinematicTensorArray &rhs){
+    assert(size() == rhs.size() && TENSOR_TYPE == rhs.TENSOR_TYPE && "KinematicTensorArray addition failed.");
+    for (int i=0;i<buffer.size();i++){
+        buffer[i] = buffer[i] - rhs.buffer[i];
+    }
+    return *this;
+}
+
+inline KinematicTensorArray& KinematicTensorArray::operator*= (const int &rhs){
+    for (int i=0;i<buffer.size();i++){
+        buffer[i] = buffer[i] * rhs;
+    }
+    return *this;
+}
+
+inline KinematicTensorArray& KinematicTensorArray::operator*= (const double &rhs){
+    for (int i=0;i<buffer.size();i++){
+        buffer[i] = buffer[i] * rhs;
+    }
+    return *this;
+}
+
+inline KinematicTensorArray& KinematicTensorArray::operator/= (const int &rhs){
+    double tmp = 1.0/rhs;
+    for (int i=0;i<buffer.size();i++){
+        //buffer[i] = buffer[i] / rhs;
+        buffer[i] = buffer[i] * tmp;
+    }
+    return *this;
+}
+
+inline KinematicTensorArray& KinematicTensorArray::operator/= (const double &rhs){
+    double tmp = 1.0/rhs;
+    for (int i=0;i<buffer.size();i++){
+        //buffer[i] = buffer[i] / rhs;
+        buffer[i] = buffer[i] * tmp;
+    }
+    return *this;
+}
+
+/*----------------------------------------------------------------------------*/
+//math functions
+inline MaterialTensorArray operator+ (const MaterialTensorArray& lhs, const MaterialTensorArray& rhs){
+    MaterialTensorArray tmp = MaterialTensorArray(lhs);
+    return tmp+=rhs;
+}
+
+inline MaterialTensorArray operator+ (const MaterialTensorArray& lhs, const KinematicTensorArray& rhs){
+    MaterialTensorArray tmp = MaterialTensorArray(lhs);
+    return tmp+=rhs;
+}
+
+inline MaterialTensorArray operator+ (const KinematicTensorArray& lhs, const MaterialTensorArray& rhs){
+    MaterialTensorArray tmp = MaterialTensorArray(rhs);
+    return tmp+=lhs;
+}
+
+inline KinematicTensorArray operator+ (const KinematicTensorArray& lhs, const KinematicTensorArray& rhs){
+    KinematicTensorArray tmp = KinematicTensorArray(lhs);
+    return tmp+=rhs;
+}
+
+inline MaterialTensorArray operator- (const MaterialTensorArray& lhs, const MaterialTensorArray& rhs){
+    MaterialTensorArray tmp = MaterialTensorArray(lhs);
+    return tmp-=rhs;
+}
+
+inline MaterialTensorArray operator- (const MaterialTensorArray& lhs, const KinematicTensorArray& rhs){
+    MaterialTensorArray tmp = MaterialTensorArray(lhs);
+    return tmp-=rhs;
+}
+
+inline MaterialTensorArray operator- (const KinematicTensorArray& lhs, const MaterialTensorArray& rhs){
+    return -(rhs-lhs);
+}
+
+inline KinematicTensorArray operator- (const KinematicTensorArray& lhs, const KinematicTensorArray& rhs){
+    KinematicTensorArray tmp = KinematicTensorArray(lhs);
+    return tmp-=rhs;
+}
+
+
+inline MaterialTensorArray operator* (const MaterialTensorArray& lhs, const int& rhs){
+    MaterialTensorArray tmp = MaterialTensorArray(lhs);
+    return tmp*=rhs;
+}
+
+inline MaterialTensorArray operator* (const MaterialTensorArray& lhs, const double& rhs){
+    MaterialTensorArray tmp = MaterialTensorArray(lhs);
+    return tmp*=rhs;
+}
+
+inline MaterialTensorArray operator* (const int& lhs, const MaterialTensorArray& rhs){
+    MaterialTensorArray tmp = MaterialTensorArray(rhs);
+    return tmp*=lhs;
+}
+
+inline MaterialTensorArray operator* (const double& lhs, const MaterialTensorArray& rhs){
+    MaterialTensorArray tmp = MaterialTensorArray(rhs);
+    return tmp*=lhs;
+}
+
+inline KinematicTensorArray operator* (const KinematicTensorArray& lhs, const int& rhs){
+    KinematicTensorArray tmp = KinematicTensorArray(lhs);
+    return tmp*=rhs;
+}
+
+inline KinematicTensorArray operator* (const KinematicTensorArray& lhs, const double& rhs){
+    KinematicTensorArray tmp = KinematicTensorArray(lhs);
+    return tmp*=rhs;
+}
+
+inline KinematicTensorArray operator* (const int& lhs, const KinematicTensorArray& rhs){
+    KinematicTensorArray tmp = KinematicTensorArray(rhs);
+    return tmp*=lhs;
+}
+
+inline KinematicTensorArray operator* (const double& lhs, const KinematicTensorArray& rhs){
+    KinematicTensorArray tmp = KinematicTensorArray(rhs);
+    return tmp*=lhs;
+}
+
+inline MaterialTensorArray operator/ (const MaterialTensorArray& lhs, const int& rhs){
+    MaterialTensorArray tmp = MaterialTensorArray(lhs);
+    return tmp/=rhs;
+}
+
+inline MaterialTensorArray operator/ (const MaterialTensorArray& lhs, const double& rhs){
+    MaterialTensorArray tmp = MaterialTensorArray(lhs);
+    return tmp/=rhs;
+}
+
+inline KinematicTensorArray operator/ (const KinematicTensorArray& lhs, const int& rhs){
+    KinematicTensorArray tmp = KinematicTensorArray(lhs);
+    return tmp/=rhs;
+}
+
+inline KinematicTensorArray operator/ (const KinematicTensorArray& lhs, const double& rhs){
+    KinematicTensorArray tmp = KinematicTensorArray(lhs);
+    return tmp/=rhs;
 }
 
 

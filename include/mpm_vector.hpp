@@ -59,23 +59,23 @@ public:
 
     /*------------------------------------------------------------------------*/
     //return pointer to data
-    double* data(){
+    double* data() const {
         return data_ptr;
     }
 
     /*------------------------------------------------------------------------*/
     //return size of vector
-    double size(){
+    double size() const {
         return VECTOR_MAX_DIM;
     }
 
     /*------------------------------------------------------------------------*/
     //return rows and columns
-    double rows(){
+    double rows() const {
         return VECTOR_MAX_DIM;
     }
 
-    double cols(){
+    double cols() const {
         return 1;
     }
 
@@ -125,10 +125,14 @@ public:
     //define operators
     operator EIGEN_MAP_OF_MATERIAL_VECTOR () {return EIGEN_MAP_OF_MATERIAL_VECTOR(data_ptr);}
     MaterialVector operator-();
-    MaterialVector& operator*= (const int &rhs);
-    MaterialVector& operator*= (const double &rhs);
-    MaterialVector& operator/= (const int &rhs);
-    MaterialVector& operator/= (const double &rhs);
+    inline MaterialVector& operator+= (const MaterialVector &rhs);
+    inline MaterialVector& operator-= (const MaterialVector &rhs);
+    inline MaterialVector& operator+= (const KinematicVector &rhs);
+    inline MaterialVector& operator-= (const KinematicVector &rhs);
+    inline MaterialVector& operator*= (const int &rhs);
+    inline MaterialVector& operator*= (const double &rhs);
+    inline MaterialVector& operator/= (const int &rhs);
+    inline MaterialVector& operator/= (const double &rhs);
 
     /*------------------------------------------------------------------------*/
     //set to standard vector
@@ -227,11 +231,13 @@ public:
     /*------------------------------------------------------------------------*/
     //define operators
     operator EIGEN_MAP_OF_KINEMATIC_VECTOR () {return EIGEN_MAP_OF_KINEMATIC_VECTOR(data_ptr,DIM);}
-    KinematicVector operator-();
-    KinematicVector& operator*= (const int &rhs);
-    KinematicVector& operator*= (const double &rhs);
-    KinematicVector& operator/= (const int &rhs);
-    KinematicVector& operator/= (const double &rhs);
+    inline KinematicVector operator-();
+    inline KinematicVector& operator+= (const KinematicVector &rhs);
+    inline KinematicVector& operator-= (const KinematicVector &rhs);
+    inline KinematicVector& operator*= (const int &rhs);
+    inline KinematicVector& operator*= (const double &rhs);
+    inline KinematicVector& operator/= (const int &rhs);
+    inline KinematicVector& operator/= (const double &rhs);
 
     /*------------------------------------------------------------------------*/
     //set to standard vectors
@@ -335,6 +341,35 @@ inline MaterialVector MaterialVector::operator-(){
         tmp[i] = -data_ptr[i];
     }
     return MaterialVector(tmp.data());
+}
+
+//define v += s and v -= s
+MaterialVector& MaterialVector::operator+= (const MaterialVector &rhs){
+    for(int i=0;i<VECTOR_MAX_DIM;i++){
+        data_ptr[i] += rhs(i);
+    }
+    return *this;
+}
+
+MaterialVector& MaterialVector::operator-= (const MaterialVector &rhs){
+    for(int i=0;i<VECTOR_MAX_DIM;i++){
+        data_ptr[i] -= rhs(i);
+    }
+    return *this;
+}
+
+MaterialVector& MaterialVector::operator+= (const KinematicVector &rhs){
+    for(int i=0;i<rhs.DIM;i++){
+        data_ptr[i] += rhs(i);
+    }
+    return *this;
+}
+
+MaterialVector& MaterialVector::operator-= (const KinematicVector &rhs){
+    for(int i=0;i<rhs.DIM;i++){
+        data_ptr[i] += rhs(i);
+    }
+    return *this;
 }
 
 //define v *= s for integer scalar value
@@ -488,6 +523,21 @@ inline KinematicVector KinematicVector::operator-(){
         tmp[i] = -data_ptr[i];
     }
     return KinematicVector(tmp.data(),VECTOR_TYPE);
+}
+
+//define v += s and v -= s
+KinematicVector& KinematicVector::operator+= (const KinematicVector &rhs){
+    for(int i=0;i<DIM;i++){
+        data_ptr[i] += rhs(i);
+    }
+    return *this;
+}
+
+KinematicVector& KinematicVector::operator-= (const KinematicVector &rhs){
+    for(int i=0;i<DIM;i++){
+        data_ptr[i] -= rhs(i);
+    }
+    return *this;
 }
 
 //define v *= s for integer scalar value
