@@ -105,11 +105,11 @@ class Body : public MPMObject{
 public:
     int id;             //numerical id of body in simulation
     std::string name;   //name of body in simulation
-    int activeMaterial; //is the continuum body material defined?
-    int activeBoundary; //is the continuum body boundary defined?
+    int activeMaterial = 0; //is the continuum body material defined?
+    int activeBoundary = 0; //is the continuum body boundary defined?
 
-    MPMScalarSparseMatrix S; //S_ip maps ith node to pth point
-    KinematicVectorSparseMatrix gradS; //gradS_ip maps ith node gradient to pth point
+    MPMScalarSparseMatrix S = MPMScalarSparseMatrix(0,0); //S_ip maps ith node to pth point
+    KinematicVectorSparseMatrix gradS = KinematicVectorSparseMatrix(0,0); //gradS_ip maps ith node gradient to pth point
 
     std::unique_ptr<Points> points;
     std::unique_ptr<Nodes> nodes;
@@ -133,7 +133,7 @@ public:
     KinematicVectorArray x, u, x_t, mx_t, b;    //state vectors
     KinematicTensorArray L;                     //velocity gradient
     MaterialTensorArray T;                      //cauchy stress
-    Eigen::VectorXd m, v, v0;                   //weight measures
+    Eigen::VectorXd m, v, v0, extent;           //weight measures
     Eigen::VectorXi active;                     //active?
 
     virtual void init(Job*, Body*) = 0;                         //initialize from Job and Body
@@ -149,7 +149,7 @@ public:
 //carries grid node representation of continuum fields
 class Nodes : public MPMObject{
 public:
-    KinematicVectorArray x, u, x_t, a, mx_t, f; //state vectors
+    KinematicVectorArray x, u, x_t, a, mx_t, f, diff_x_t; //state vectors
     Eigen::VectorXd m, V;                       //weight measures
     Eigen::VectorXi active;                     //active?
 

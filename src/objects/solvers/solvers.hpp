@@ -6,9 +6,6 @@
 #ifndef MPM_V3_SOLVERS_HPP
 #define MPM_V3_SOLVERS_HPP
 
-#ifndef MPM_V3_DRIVERS_HPP
-#define MPM_V3_DRIVERS_HPP
-
 #include "mpm_objects.hpp"
 #include "mpm_vector.hpp"
 #include "mpm_tensor.hpp"
@@ -24,7 +21,7 @@
 #include <Eigen/Core>
 
 /*
- * IN THIS FILE, DEFINE DRIVER OBJECTS.
+ * IN THIS FILE, DEFINE SOLVER OBJECTS.
  * EACH OBJECT MUST BE ADDED TO THE REGISTRY IN src/registry
  * BEFORE USE.
  */
@@ -46,16 +43,25 @@ public:
         object_name = "ExplicitUSL"; //set name of object from registry
     }
 
+    int cpdi_spec = 1;
+    int contact_spec = Contact::IMPLICIT;
+
     void init(Job* job);
     void step(Job* job);
+    std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Serializer* serializer, std::string fullpath);
 
     void createMappings(Job *job);
     void mapPointsToNodes(Job* job);
     void generateContacts(Job* job);
     void addContacts(Job* job);
     void generateBoundaryConditions(Job* job);
-    void addBoundaryCondition(Job* job);
-    //??
+    void addBoundaryConditions(Job* job);
+    void moveGrid(Job* job);
+    void movePoints(Job* job);
+    void calculateStrainRate(Job* job);
+    void updateDensity(Job* job);
+    void updateStress(Job* job);
 };
 
 #endif //MPM_V3_SOLVERS_HPP

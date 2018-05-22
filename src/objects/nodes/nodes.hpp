@@ -51,8 +51,6 @@ public:
         object_name = "DefaultNodes";
     }
 
-    KinematicVectorArray diff_x_t; //dummy vector array for standard mpm
-
     void init(Job* job, Body* body);
     void writeFrame(Job* job, Body* body, Serializer* serializer);
     std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);

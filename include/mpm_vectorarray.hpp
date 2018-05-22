@@ -66,16 +66,16 @@ public:
     double& operator() (int i, int j);
 
     //MaterialTensor::Map to data stored in i(th) tensor
-    MaterialVector::Map operator() (int i);
+    MaterialVector::Map operator() (int i) const;
 
     //MaterialTensor::Map to data stored in i(th) tensor
-    MaterialVector::Map operator[] (int i);
+    MaterialVector::Map operator[] (int i) const;
 
     //effectively add one MaterialVector
-    void push_back(MaterialVector& vector);
+    void push_back(const MaterialVector& vector);
 
     //effectively add one KinematicVector
-    void push_back(KinematicVector& vector);
+    void push_back(const KinematicVector& vector);
 
     friend class KinematicVectorArray;
 
@@ -116,13 +116,13 @@ public:
     double& operator() (int i, int j);
 
     //KinematicTensor::Map to data stored in i(th) vector
-    KinematicVector::Map operator() (int i);
+    KinematicVector::Map operator() (int i) const;
 
     //KinematicTensor::Map to data stored in i(th) vector
-    KinematicVector::Map operator[] (int i);
+    KinematicVector::Map operator[] (int i) const;
 
     //effectively add on KinematicVector
-    void push_back(KinematicVector& vector);
+    void push_back(const KinematicVector& vector);
 
     friend class MaterialVectorArray;
 
@@ -171,26 +171,26 @@ inline KinematicVectorArray operator/ (const KinematicVectorArray&, const double
 
 /*----------------------------------------------------------------------------*/
 //access j(th) component of i(th) vector
-inline double& MaterialVectorArray::operator() (int i, int j){
+inline double& MaterialVectorArray::operator() (int i, int j) {
     assert((MPMVector::VECTOR_MAX_DIM * i + j) < buffer.size());
     return buffer[MPMVector::VECTOR_MAX_DIM * i + j];
 }
 
 //MaterialTensor::Map to data stored in i(th) tensor
-inline MaterialVector::Map MaterialVectorArray::operator() (int i){
+inline MaterialVector::Map MaterialVectorArray::operator() (int i) const {
     assert((MPMVector::VECTOR_MAX_DIM * (i + 1) <= buffer.size()));
     return MaterialVector::Map(buffer.data() + MPMVector::VECTOR_MAX_DIM * i);
 }
 
 //MaterialTensor::Map to data stored in i(th) tensor
-inline MaterialVector::Map MaterialVectorArray::operator[] (int i){
+inline MaterialVector::Map MaterialVectorArray::operator[] (int i) const {
     assert((MPMVector::VECTOR_MAX_DIM * (i + 1) <= buffer.size()));
     return MaterialVector::Map(buffer.data() + MPMVector::VECTOR_MAX_DIM * i);
 }
 
 /*----------------------------------------------------------------------------*/
 //add one MaterialVector to the end of MaterialVectorArray
-inline void MaterialVectorArray::push_back(MaterialVector& vector){
+inline void MaterialVectorArray::push_back(const MaterialVector& vector){
     for(int i=0;i<MPMVector::VECTOR_MAX_DIM;i++) {
         buffer.push_back(vector[i]);
     }
@@ -198,7 +198,7 @@ inline void MaterialVectorArray::push_back(MaterialVector& vector){
 }
 
 //add one KinematicVector to the end of MaterialVectorArray
-inline void MaterialVectorArray::push_back(KinematicVector& vector){
+inline void MaterialVectorArray::push_back(const KinematicVector& vector){
     for(int i=0;i<MPMVector::VECTOR_MAX_DIM;i++) {
         buffer.push_back(vector[i]);
     }
@@ -262,19 +262,19 @@ inline MaterialVectorArray& MaterialVectorArray::operator*= (const double &rhs){
 }
 
 inline MaterialVectorArray& MaterialVectorArray::operator/= (const int &rhs){
-    double tmp = 1.0/rhs;
+    //double tmp = 1.0/rhs;
     for (int i=0;i<buffer.size();i++){
         //buffer[i] = buffer[i] / rhs;
-        buffer[i] = buffer[i] * tmp;
+        buffer[i] = buffer[i] / rhs;
     }
     return *this;
 }
 
 inline MaterialVectorArray& MaterialVectorArray::operator/= (const double &rhs){
-    double tmp = 1.0/rhs;
+    //double tmp = 1.0/rhs;
     for (int i=0;i<buffer.size();i++){
         //buffer[i] = buffer[i] / rhs;
-        buffer[i] = buffer[i] * tmp;
+        buffer[i] = buffer[i] / rhs;
     }
     return *this;
 }
@@ -297,25 +297,25 @@ inline KinematicVectorArray::KinematicVectorArray(int i, int input){
 
 /*------------------------------------------------------------------------*/
 //access j(th) component of i(th) KinematicVector
-inline double& KinematicVectorArray::operator() (int i, int j){
+inline double& KinematicVectorArray::operator() (int i, int j) {
     assert((MPMVector::VECTOR_MAX_DIM * i + j) < buffer.size());
     return buffer[MPMVector::VECTOR_MAX_DIM * i + j];
 }
 
 //KinematicTensor::Map to data stored in i(th) vector
-inline KinematicVector::Map KinematicVectorArray::operator() (int i){
+inline KinematicVector::Map KinematicVectorArray::operator() (int i) const {
     assert(MPMVector::VECTOR_MAX_DIM * (i+1) <= buffer.size());
     return KinematicVector::Map(buffer.data() + MPMVector::VECTOR_MAX_DIM * i, VECTOR_TYPE);
 }
 
 //KinematicTensor::Map to data stored in i(th) vector
-inline KinematicVector::Map KinematicVectorArray::operator[] (int i){
+inline KinematicVector::Map KinematicVectorArray::operator[] (int i) const {
     assert(MPMVector::VECTOR_MAX_DIM * (i+1) <= buffer.size());
     return KinematicVector::Map(buffer.data() + MPMVector::VECTOR_MAX_DIM * i, VECTOR_TYPE);
 }
 
 //effectively add on KinematicVector
-inline void KinematicVectorArray::push_back(KinematicVector& vector){
+inline void KinematicVectorArray::push_back(const KinematicVector& vector){
     assert(VECTOR_TYPE == vector.VECTOR_TYPE && "Insert failed.");
     for(int i=0;i<MPMVector::VECTOR_MAX_DIM;i++) {
         buffer.push_back(vector[i]);
@@ -364,19 +364,19 @@ inline KinematicVectorArray& KinematicVectorArray::operator*= (const double &rhs
 }
 
 inline KinematicVectorArray& KinematicVectorArray::operator/= (const int &rhs){
-    double tmp = 1.0/rhs;
+    //double tmp = 1.0/rhs;
     for (int i=0;i<buffer.size();i++){
         //buffer[i] = buffer[i] / rhs;
-        buffer[i] = buffer[i] * tmp;
+        buffer[i] = buffer[i] / rhs;
     }
     return *this;
 }
 
 inline KinematicVectorArray& KinematicVectorArray::operator/= (const double &rhs){
-    double tmp = 1.0/rhs;
+    //double tmp = 1.0/rhs;
     for (int i=0;i<buffer.size();i++){
         //buffer[i] = buffer[i] / rhs;
-        buffer[i] = buffer[i] * tmp;
+        buffer[i] = buffer[i] / rhs;
     }
     return *this;
 }

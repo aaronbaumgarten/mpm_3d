@@ -71,16 +71,16 @@ public:
     double& operator() (int i, int j);
 
     //MaterialTensor::Map to data stored in i(th) tensor
-    MaterialTensor::Map operator() (int i);
+    MaterialTensor::Map operator() (int i) const;
 
     //MaterialTensor::Map to data stored in i(th) tensor
-    MaterialTensor::Map operator[] (int i);
+    MaterialTensor::Map operator[] (int i) const;
 
     //effectively add one MaterialTensor
-    void push_back(MaterialTensor& tensor);
+    void push_back(const MaterialTensor& tensor);
 
     //effectively add one KinematicTensor
-    void push_back(KinematicTensor& tensor);
+    void push_back(const KinematicTensor& tensor);
 
     friend class KinematicTensorArray;
 
@@ -122,13 +122,13 @@ public:
     double& operator() (int i, int j);
 
     //KinematicTensor::Map to data stored in i(th) tensor
-    KinematicTensor::Map operator() (int i);
+    KinematicTensor::Map operator() (int i) const;
 
     //KinematicTensor::Map to data stored in i(th) tensor
-    KinematicTensor::Map operator[] (int i);
+    KinematicTensor::Map operator[] (int i) const;
 
     //effectively add on KinematicTensor
-    void push_back(KinematicTensor& tensor);
+    void push_back(const KinematicTensor& tensor);
 
     friend class MaterialTensorArray;
 
@@ -184,20 +184,20 @@ inline double& MaterialTensorArray::operator() (int i, int j) {
 }
 
 //return MaterialTensor::Map to data stored in i(th) MaterialTensor
-inline MaterialTensor::Map MaterialTensorArray::operator() (int i){
+inline MaterialTensor::Map MaterialTensorArray::operator() (int i) const {
     assert(MPMTensor::TENSOR_MAX_LENGTH * (i+1) <= buffer.size());
     return MaterialTensor::Map(buffer.data() + MPMTensor::TENSOR_MAX_LENGTH * i);
 }
 
 //return MaterialTensor::Map to data stored in i(th) MaterialTensor
-inline MaterialTensor::Map MaterialTensorArray::operator[] (int i){
+inline MaterialTensor::Map MaterialTensorArray::operator[] (int i) const {
     assert(MPMTensor::TENSOR_MAX_LENGTH * (i+1) <= buffer.size());
     return MaterialTensor::Map(buffer.data() + MPMTensor::TENSOR_MAX_LENGTH * i);
 }
 
 /*----------------------------------------------------------------------------*/
 //add one MaterialTensor to the end of MaterialTensorArray
-inline void MaterialTensorArray::push_back(MaterialTensor& tensor){
+inline void MaterialTensorArray::push_back(const MaterialTensor& tensor){
     for(int i=0;i<MPMTensor::TENSOR_MAX_LENGTH;i++) {
         buffer.push_back(tensor[i]);
     }
@@ -205,7 +205,7 @@ inline void MaterialTensorArray::push_back(MaterialTensor& tensor){
 }
 
 //add one KinematicTensor to the end of MaterialTensorArray
-inline void MaterialTensorArray::push_back(KinematicTensor& tensor){
+inline void MaterialTensorArray::push_back(const KinematicTensor& tensor){
     for(int i=0;i<MPMTensor::TENSOR_MAX_LENGTH;i++) {
         buffer.push_back(tensor[i]);
     }
@@ -269,19 +269,19 @@ inline MaterialTensorArray& MaterialTensorArray::operator*= (const double &rhs){
 }
 
 inline MaterialTensorArray& MaterialTensorArray::operator/= (const int &rhs){
-    double tmp = 1.0/rhs;
+    //double tmp = 1.0/rhs;
     for (int i=0;i<buffer.size();i++){
         //buffer[i] = buffer[i] / rhs;
-        buffer[i] = buffer[i] * tmp;
+        buffer[i] = buffer[i] / rhs;
     }
     return *this;
 }
 
 inline MaterialTensorArray& MaterialTensorArray::operator/= (const double &rhs){
-    double tmp = 1.0/rhs;
+    //double tmp = 1.0/rhs;
     for (int i=0;i<buffer.size();i++){
         //buffer[i] = buffer[i] / rhs;
-        buffer[i] = buffer[i] * tmp;
+        buffer[i] = buffer[i] / rhs;
     }
     return *this;
 }
@@ -316,19 +316,19 @@ inline double& KinematicTensorArray::operator() (int i, int j) {
 }
 
 //return KinematicTensor::Map to data stored in i(th) KinematicTensor
-inline KinematicTensor::Map KinematicTensorArray::operator() (int i){
+inline KinematicTensor::Map KinematicTensorArray::operator() (int i) const {
     assert(MPMTensor::TENSOR_MAX_LENGTH * (i+1) <= buffer.size());
     return KinematicTensor::Map(buffer.data() + MPMTensor::TENSOR_MAX_LENGTH * i, TENSOR_TYPE);
 }
 
 //same as previous, but with [] instead of ()
-inline KinematicTensor::Map KinematicTensorArray::operator[] (int i){
+inline KinematicTensor::Map KinematicTensorArray::operator[] (int i) const {
     assert(MPMTensor::TENSOR_MAX_LENGTH * (i+1) <= buffer.size());
     return KinematicTensor::Map(buffer.data() + MPMTensor::TENSOR_MAX_LENGTH * i, TENSOR_TYPE);
 }
 
 //add one KinematicTensor to end of KinematicTensorArray
-inline void KinematicTensorArray::push_back(KinematicTensor& tensor){
+inline void KinematicTensorArray::push_back(const KinematicTensor& tensor){
     assert(TENSOR_TYPE == tensor.TENSOR_TYPE && "Insert failed.");
     for(int i=0;i<MPMTensor::TENSOR_MAX_LENGTH;i++) {
         buffer.push_back(tensor[i]);
@@ -377,19 +377,19 @@ inline KinematicTensorArray& KinematicTensorArray::operator*= (const double &rhs
 }
 
 inline KinematicTensorArray& KinematicTensorArray::operator/= (const int &rhs){
-    double tmp = 1.0/rhs;
+    //double tmp = 1.0/rhs;
     for (int i=0;i<buffer.size();i++){
         //buffer[i] = buffer[i] / rhs;
-        buffer[i] = buffer[i] * tmp;
+        buffer[i] = buffer[i] / rhs;
     }
     return *this;
 }
 
 inline KinematicTensorArray& KinematicTensorArray::operator/= (const double &rhs){
-    double tmp = 1.0/rhs;
+    //double tmp = 1.0/rhs;
     for (int i=0;i<buffer.size();i++){
         //buffer[i] = buffer[i] / rhs;
-        buffer[i] = buffer[i] * tmp;
+        buffer[i] = buffer[i] / rhs;
     }
     return *this;
 }

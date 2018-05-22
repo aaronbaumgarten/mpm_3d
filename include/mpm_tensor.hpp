@@ -37,7 +37,21 @@ public:
         data_ptr = buffer.data(); //make sure not to copy stale pointer
     }
 
+    MPMTensor(const MPMTensor&& other){
+        for (int i=0;i<TENSOR_MAX_LENGTH;i++){
+            buffer[i] = other.data_ptr[i];
+        }
+        data_ptr = buffer.data(); //make sure not to copy stale pointer
+    }
+
     MPMTensor& operator= (const MPMTensor& other){
+        for (int i=0;i<TENSOR_MAX_LENGTH;i++){
+            buffer[i] = other.data_ptr[i];
+        }
+        data_ptr = buffer.data(); //make sure not to copy stale pointer
+    }
+
+    MPMTensor& operator= (const MPMTensor&& other){
         for (int i=0;i<TENSOR_MAX_LENGTH;i++){
             buffer[i] = other.data_ptr[i];
         }
@@ -83,11 +97,11 @@ public:
 
     /*------------------------------------------------------------------------*/
     //return rows and columns
-    double rows() const {
+    virtual double rows() const {
         return TENSOR_MAX_DIM;
     }
 
-    double cols() const {
+    virtual double cols() const {
         return TENSOR_MAX_DIM;
     }
 
@@ -113,13 +127,13 @@ public:
     MaterialTensor(){}
 
     //copy constructor
-    MaterialTensor(const MaterialTensor& other) : MPMTensor(other){}
+    MaterialTensor(const MaterialTensor& other) : MPMTensor(other){};
 
     //construct tensor from data pointer
-    MaterialTensor(double* otherdata);
+    MaterialTensor(const double* otherdata);
 
     //copy from KinematicTensor
-    MaterialTensor(KinematicTensor&);
+    MaterialTensor(const KinematicTensor&);
 
     //forward declare Map class
     class Map;
@@ -187,7 +201,7 @@ public:
 class MaterialTensor::Map : public MaterialTensor{
 public:
     //point to other data (not safe)
-    Map(double* dataIN){ data_ptr = dataIN; }
+    Map(const double* dataIN){ data_ptr = (double*)(dataIN); }
 
     //assignment operator
     Map& operator= (const MaterialTensor &other);
@@ -217,6 +231,16 @@ public:
         }
     }
 
+    /*------------------------------------------------------------------------*/
+    //return rows and columns
+    double rows() const {
+        return DIM;
+    }
+
+    double cols() const {
+        return DIM;
+    }
+
     //default constructor
     KinematicTensor() : MPMTensor(){
         DIM = TENSOR_MAX_DIM;
@@ -234,21 +258,21 @@ public:
     }
 
     //construct tensor from data pointer
-    KinematicTensor(double* otherdata, int input);
+    KinematicTensor(const double* otherdata, int input);
 
     //copy from KinematicTensor
     //KinematicTensor(KinematicTensor&);
     //KinematicTensor(const KinematicTensor&, int input);
 
     //copy from MaterialTensor
-    KinematicTensor(MaterialTensor&, int input);
+    KinematicTensor(const MaterialTensor&, int input);
 
     //forward declare Map class
     class Map;
 
     //construct from Eigen::Matrix
     template <typename OtherDerived>
-    KinematicTensor(Eigen::MatrixBase<OtherDerived> &other, int input){
+    KinematicTensor(const Eigen::MatrixBase<OtherDerived> &other, int input){
         assignTensorType(input);
         assert(other.rows() == DIM && other.cols() == DIM);
         for(int i=0;i<DIM;i++){
@@ -278,7 +302,7 @@ public:
     //set to standard tensors
     void setZero();
     void setIdentity();
-    static KinematicTensor Identity();
+    static KinematicTensor Identity(int input);
 
     /*------------------------------------------------------------------------*/
     //tensor contractions
@@ -313,9 +337,9 @@ public:
 class KinematicTensor::Map : public KinematicTensor{
 public:
     //point to other data (not safe)
-    Map(double* dataIN, int input){
+    Map(const double* dataIN, int input){
         assignTensorType(input);
-        data_ptr = dataIN;
+        data_ptr = (double*)(dataIN);
     }
 
     //assignment operator
@@ -364,7 +388,7 @@ inline KinematicTensor operator/ (const KinematicTensor&, const int&);
 
 /*------------------------------------------------------------------------*/
 //construct MaterialTensor with pointer to data (not safe, but who cares right?)
-inline MaterialTensor::MaterialTensor(double* otherdata){
+inline MaterialTensor::MaterialTensor(const double* otherdata){
     for (int i=0; i<TENSOR_MAX_LENGTH; i++){
         data_ptr[i] = otherdata[i];
     }
@@ -372,7 +396,7 @@ inline MaterialTensor::MaterialTensor(double* otherdata){
 
 
 //construct MaterialTensor from a KinematicTensor
-inline MaterialTensor::MaterialTensor(KinematicTensor& other){
+inline MaterialTensor::MaterialTensor(const KinematicTensor& other){
     for(int i=0; i<TENSOR_MAX_LENGTH; i++){
         data_ptr[i] = other(i);
     }
@@ -493,7 +517,7 @@ inline void MaterialTensor::setIdentity(){
 }
 
 //return identity tensor
-inline static MaterialTensor MaterialTensor::Identity() {
+inline MaterialTensor MaterialTensor::Identity() {
     MaterialTensor tmp;
     tmp[XX] = 1; tmp[XY] = 0; tmp[XZ] = 0;
     tmp[YX] = 0; tmp[YY] = 1; tmp[YZ] = 0;
@@ -598,7 +622,7 @@ inline MaterialTensor MaterialTensor::skw(){
 
 /*------------------------------------------------------------------------*/
 //construct KinematicTensor from data pointer and input tensor_type
-inline KinematicTensor::KinematicTensor(double* otherdata, int input){
+inline KinematicTensor::KinematicTensor(const double* otherdata, int input){
     assignTensorType(input);
     for(int i=0;i<DIM;i++){
         for(int j=0;j<DIM;j++){
@@ -608,7 +632,7 @@ inline KinematicTensor::KinematicTensor(double* otherdata, int input){
     for (int i=DIM;i<3;i++) {
         for (int j = DIM; j < TENSOR_MAX_DIM; j++) {
             if (otherdata[3*i+j] != 0){
-                std::cerr << "WARNING: ignoring non-zero entries in input data to KinematicTensor." << std::endl;
+                std::cerr << "WARNING: ignoring non-zero entries in input data to KinematicTensor. (" << otherdata[3*i+j] << ")" << std::endl;
             }
             data_ptr[TENSOR_MAX_DIM * i + j] = 0;
         }
@@ -616,7 +640,7 @@ inline KinematicTensor::KinematicTensor(double* otherdata, int input){
 }
 
 //copy KinematicTensor from MaterialTensor
-inline KinematicTensor::KinematicTensor(MaterialTensor& other, int input){
+inline KinematicTensor::KinematicTensor(const MaterialTensor& other, int input){
     assignTensorType(input);
     for(int i=0;i<DIM;i++){
         for(int j=0;j<DIM;j++){
@@ -626,7 +650,7 @@ inline KinematicTensor::KinematicTensor(MaterialTensor& other, int input){
     for (int i=DIM;i<3;i++) {
         for (int j = DIM; j < TENSOR_MAX_DIM; j++) {
             if (other[TENSOR_MAX_DIM * i + j] != 0){
-                std::cerr << "WARNING: ignoring non-zero entries in input data to KinematicTensor." << std::endl;
+                std::cerr << "WARNING: ignoring non-zero entries in input data to KinematicTensor. (" << other[TENSOR_MAX_DIM * i + j] << ")" << std::endl;
             }
             data_ptr[TENSOR_MAX_DIM * i + j] = 0;
         }
@@ -645,6 +669,7 @@ inline KinematicTensor KinematicTensor::operator-(){
 
 //define A += B
 inline KinematicTensor& KinematicTensor::operator+= (const KinematicTensor &rhs){
+    assert(TENSOR_TYPE == rhs.TENSOR_TYPE && "Addition failed.");
     if (DIM == 1){
         data_ptr[XX] += rhs(XX);
     } else if (DIM ==2){
@@ -759,11 +784,11 @@ inline void KinematicTensor::setIdentity(){
 }
 
 //return identity tensor
-inline static KinematicTensor KinematicTensor::Identity() {
-    KinematicTensor tmp(TENSOR_TYPE);
-    if (DIM == 1){
+inline KinematicTensor KinematicTensor::Identity(int input) {
+    KinematicTensor tmp(input);
+    if (tmp.DIM == 1){
         tmp[XX] = 1;
-    } else if (DIM ==2){
+    } else if (tmp.DIM == 2){
         tmp[XX] = 1; tmp[XY] = 0;
         tmp[YX] = 0; tmp[YY] = 1;
     } else {

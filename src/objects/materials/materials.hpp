@@ -22,7 +22,7 @@
 
 
 /*
- * IN THIS FILE, DEFINE NODES OBJECTS.
+ * IN THIS FILE, DEFINE MATERIAL OBJECTS.
  * EACH OBJECT MUST BE ADDED TO THE REGISTRY IN src/registry
  * BEFORE USE.
  */
@@ -45,6 +45,7 @@ public:
  */
 
 class IsotropicLinearElasticity : public Material {
+public:
     IsotropicLinearElasticity(){
         object_name = "IsotropicLinearElasticity";
     }

@@ -22,15 +22,15 @@
 /*----------------------------------------------------------------------------*/
 
 void DefaultDriver::init(Job* job){
-    if (job->driver->fp64_props.size() < 1) {
-        std::cout << job->driver->fp64_props.size() << "\n";
+    if (fp64_props.size() < 1) {
+        std::cout << fp64_props.size() << "\n";
         fprintf(stderr,
                 "%s:%s: Need at least 1 property defined (stop_time).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
         //store stop_time
-        stop_time = job->driver->fp64_props[0];
+        stop_time = fp64_props[0];
         gravity = KinematicVector(job->JOB_TYPE);
 
         //print grid properties

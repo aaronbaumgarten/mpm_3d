@@ -23,18 +23,18 @@
 /*----------------------------------------------------------------------------*/
 
 void DefaultVTK::init(Job* job){
-    if (job->serializer->str_props.size() < 3 || job->serializer->fp64_props.size() < 1){
+    if (str_props.size() < 3 || fp64_props.size() < 1){
         std::cout << job->serializer->str_props.size() << "\n";
         fprintf(stderr,
                 "%s:%s: Need at least 4 properties defined ({sampleRate}, {frameDirectory, outputDirectory, outputName}).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
-        frameDirectory = Parser::makeDirectory(job->serializer->str_props[0]);
-        outputDirectory = Parser::makeDirectory(job->serializer->str_props[1]);
-        outputName = job->serializer->str_props[2];
+        frameDirectory = Parser::makeDirectory(str_props[0]);
+        outputDirectory = Parser::makeDirectory(str_props[1]);
+        outputName = str_props[2];
 
-        sampleRate = job->serializer->fp64_props[0];
+        sampleRate = fp64_props[0];
         sampledFrames = 0;
         t_last_frame = 0;
 

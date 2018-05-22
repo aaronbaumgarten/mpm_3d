@@ -8,6 +8,11 @@
 
 #include "objects/serializers/serializers.hpp"
 #include "objects/drivers/drivers.hpp"
+#include "objects/solvers/solvers.hpp"
+
+#include "objects/bodies/bodies.hpp"
+#include "objects/contacts/contacts.hpp"
+#include "objects/grids/grids.hpp"
 
 #include "objects/points/points.hpp"
 #include "objects/nodes/nodes.hpp"
@@ -39,10 +44,42 @@ Registry<Driver>::Registry() {
 
 
 /*----------------------------------------------------------------------------*/
+//solvers
+template<>
+Registry<Solver>::Registry() {
+    object["ExplicitUSL"] = &createInstance<Solver,ExplicitUSL>;
+}
+
+
+/*----------------------------------------------------------------------------*/
+//
+template<>
+Registry<Body>::Registry() {
+    object["DefaultBody"] = &createInstance<Body,DefaultBody>;
+}
+
+
+/*----------------------------------------------------------------------------*/
+//contacts
+template<>
+Registry<Contact>::Registry() {
+    object["ContactHuang"] = &createInstance<Contact,ContactHuang>;
+}
+
+
+/*----------------------------------------------------------------------------*/
+//grids
+template<>
+Registry<Grid>::Registry() {
+    object["CartesianLinear"] = &createInstance<Grid,CartesianLinear>;
+}
+
+
+/*----------------------------------------------------------------------------*/
 //points
 template<>
 Registry<Points>::Registry() {
-    object["DefaulPoints"] = &createInstance<Points,DefaultPoints>;
+    object["DefaultPoints"] = &createInstance<Points,DefaultPoints>;
 }
 
 

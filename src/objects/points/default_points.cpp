@@ -49,6 +49,9 @@ void DefaultPoints::init(Job* job, Body* body){
             extent[i] = 0.5 * std::cbrt(v[i]);
         }
     }
+
+    std::cout << "Points Initialized: [" << file << "]." << std::endl;
+
     return;
 }
 

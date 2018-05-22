@@ -27,8 +27,96 @@
 
 /*----------------------------------------------------------------------------*/
 //sparse matrix multiplication operators
-Eigen::VectorXd operator* (MPMScalarSparseMatrix& lhs, Eigen::VectorXd& rhs){
-    assert(lhs.cols() == rhs.rows() && "Scalar sparse matrix multiplication failed.");
+Eigen::VectorXd MPMScalarSparseMatrix::operate(const Eigen::VectorXd& rhs, int SPEC) const {
+    assert(cols(SPEC) == rhs.rows() && "Scalar sparse matrix multiplication failed.");
+    Eigen::VectorXd tmp = Eigen::VectorXd::Zero(rows(SPEC));
+
+    int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
+    for (int k=0;k<size();k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        tmp[i_tmp] += buffer[k] * rhs[j_tmp];
+    }
+    return tmp;
+}
+
+MaterialVectorArray MPMScalarSparseMatrix::operate(const MaterialVectorArray& rhs, int SPEC) const {
+    assert(cols(SPEC) == rhs.size() && "Scalar sparse matrix multiplication failed.");
+    MaterialVectorArray tmp = MaterialVectorArray(rows(SPEC));
+    tmp.setZero();
+
+    int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
+    for (int k=0;k<size();k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        tmp[i_tmp] += buffer[k] * rhs[j_tmp];
+    }
+    return tmp;
+}
+
+//??
+
+
+KinematicVectorArray MPMScalarSparseMatrix::operate(const KinematicVectorArray& rhs, int SPEC) const {
+    assert(cols(SPEC) == rhs.size() && "Scalar sparse matrix multiplication failed.");
+    KinematicVectorArray tmp = KinematicVectorArray(rows(SPEC),rhs.VECTOR_TYPE);
+    tmp.setZero();
+
+    int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
+    for (int k=0;k<size();k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        tmp[i_tmp] += buffer[k] * rhs[j_tmp];
+    }
+    return tmp;
+}
+
+MaterialTensorArray MPMScalarSparseMatrix::operate(const MaterialTensorArray& rhs, int SPEC) const {
+    assert(cols(SPEC) == rhs.size() && "Scalar sparse matrix multiplication failed.");
+    MaterialTensorArray tmp = MaterialTensorArray(rows(SPEC));
+    tmp.setZero();
+
+    int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
+    for (int k=0;k<size();k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        tmp[i_tmp] += buffer[k] * rhs[j_tmp];
+    }
+    return tmp;
+}
+
+KinematicTensorArray MPMScalarSparseMatrix::operate(const KinematicTensorArray& rhs, int SPEC) const {
+    assert(cols(SPEC) == rhs.size() && "Scalar sparse matrix multiplication failed.");
+    KinematicTensorArray tmp = KinematicTensorArray(rows(SPEC), rhs.TENSOR_TYPE);
+    tmp.setZero();
+
+    int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
+    for (int k=0;k<size();k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        tmp[i_tmp] += buffer[k] * rhs[j_tmp];
+    }
+    return tmp;
+}
+
+Eigen::VectorXd operator* (const MPMScalarSparseMatrix& lhs, const Eigen::VectorXd& rhs){
+    return lhs.operate(rhs);
+    /*assert(lhs.cols() == rhs.rows() && "Scalar sparse matrix multiplication failed.");
     Eigen::VectorXd tmp = Eigen::VectorXd::Zero(lhs.rows());
     int i_tmp, j_tmp;
     for (int k=0;k<lhs.size();k++){
@@ -36,119 +124,208 @@ Eigen::VectorXd operator* (MPMScalarSparseMatrix& lhs, Eigen::VectorXd& rhs){
         j_tmp = lhs.j_vec[k];
         tmp[i_tmp] += lhs.buffer[k] * rhs[j_tmp];
     }
-    return tmp;
+    return tmp;*/
 }
 
-MaterialVectorArray operator* (MaterialVectorSparseMatrix& lhs, Eigen::VectorXd& rhs){
-    assert(lhs.cols() == rhs.rows() && "Vector sparse matrix multiplication failed.");
-    MaterialVectorArray tmp = MaterialVectorArray(lhs.rows());
+MaterialVectorArray operator* (const MPMScalarSparseMatrix& lhs, const MaterialVectorArray& rhs){
+    return lhs.operate(rhs);
+}
+
+KinematicVectorArray operator* (const MPMScalarSparseMatrix& lhs, const KinematicVectorArray& rhs){
+    return lhs.operate(rhs);
+}
+
+MaterialTensorArray operator* (const MPMScalarSparseMatrix& lhs, const MaterialTensorArray& rhs){
+    return lhs.operate(rhs);
+}
+KinematicTensorArray operator* (const MPMScalarSparseMatrix& lhs, const KinematicTensorArray& rhs){
+    return lhs.operate(rhs);
+}
+
+
+
+/*----------------------------------------------------------------------------*/
+//vector sparse matrix multiplication
+
+MaterialVectorArray MaterialVectorSparseMatrix::operate(const Eigen::VectorXd& rhs, int SPEC) const {
+    assert(cols(SPEC) == rhs.rows() && "Vector sparse matrix multiplication failed.");
+    MaterialVectorArray tmp = MaterialVectorArray(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
-    for (int k=0;k<lhs.size();k++){
-        i_tmp = lhs.i_vec[k];
-        j_tmp = lhs.j_vec[k];
-        tmp[i_tmp] += lhs.buffer[k] * rhs[j_tmp];
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
+    for (int k=0;k<size();k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        tmp[i_tmp] += buffer[k] * rhs[j_tmp];
     }
     return tmp;
 }
 
-KinematicVectorArray operator* (KinematicVectorSparseMatrix& lhs, Eigen::VectorXd& rhs){
-    assert(lhs.cols() == rhs.rows() && "Vector sparse matrix multiplication failed.");
-    KinematicVectorArray tmp = KinematicVectorArray(lhs.rows(),lhs.VECTOR_TYPE);
+MaterialVectorArray operator* (const MaterialVectorSparseMatrix& lhs, const Eigen::VectorXd& rhs){
+    return lhs.operate(rhs);
+}
+
+KinematicVectorArray KinematicVectorSparseMatrix::operate(const Eigen::VectorXd& rhs, int SPEC) const {
+    assert(cols(SPEC) == rhs.rows() && "Vector sparse matrix multiplication failed.");
+    KinematicVectorArray tmp = KinematicVectorArray(rows(SPEC), VECTOR_TYPE);
     tmp.setZero();
+
     int i_tmp, j_tmp;
-    for (int k=0;k<lhs.size();k++){
-        i_tmp = lhs.i_vec[k];
-        j_tmp = lhs.j_vec[k];
-        tmp[i_tmp] += lhs.buffer[k] * rhs[j_tmp];
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
+    for (int k=0;k<size();k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        tmp[i_tmp] += buffer[k] * rhs[j_tmp];
     }
     return tmp;
 }
 
-MaterialVectorArray operator* (MaterialTensorSparseMatrix& lhs, MaterialVectorArray& rhs){
-    assert(lhs.cols() == rhs.size() && "Tensor sparse matrix multiplication failed.");
-    MaterialVectorArray tmp = MaterialVectorArray(lhs.rows());
+KinematicVectorArray operator* (const KinematicVectorSparseMatrix& lhs, const Eigen::VectorXd& rhs){
+    return lhs.operate(rhs);
+}
+
+
+
+/*----------------------------------------------------------------------------*/
+//tensor sparse matrix multiplication
+
+MaterialVectorArray MaterialTensorSparseMatrix::operate(const MaterialVectorArray& rhs, int SPEC) const {
+    assert(cols(SPEC) == rhs.size() && "Tensor sparse matrix multiplication failed.");
+    MaterialVectorArray tmp = MaterialVectorArray(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
-    for (int k=0;k<lhs.size();k++){
-        i_tmp = lhs.i_vec[k];
-        j_tmp = lhs.j_vec[k];
-        tmp[i_tmp] += lhs.buffer[k] * rhs[j_tmp];
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
+    for (int k=0;k<size();k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        tmp[i_tmp] += buffer[k] * rhs[j_tmp];
     }
     return tmp;
 }
 
-MaterialVectorArray operator* (MaterialTensorSparseMatrix& lhs, KinematicVectorArray& rhs){
-    assert(lhs.cols() == rhs.size() && "Tensor sparse matrix multiplication failed.");
-    MaterialVectorArray tmp = MaterialVectorArray(lhs.rows());
+MaterialVectorArray operator* (const MaterialTensorSparseMatrix& lhs, const MaterialVectorArray& rhs){
+    return lhs.operate(rhs);
+}
+
+MaterialVectorArray MaterialTensorSparseMatrix::operate(const KinematicVectorArray& rhs, int SPEC) const {
+    assert(cols(SPEC) == rhs.size() && "Tensor sparse matrix multiplication failed.");
+    MaterialVectorArray tmp = MaterialVectorArray(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
-    for (int k=0;k<lhs.size();k++){
-        i_tmp = lhs.i_vec[k];
-        j_tmp = lhs.j_vec[k];
-        tmp[i_tmp] += lhs.buffer[k] * rhs[j_tmp];
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
+    for (int k=0;k<size();k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        tmp[i_tmp] += buffer[k] * rhs[j_tmp];
     }
     return tmp;
 }
 
+MaterialVectorArray operator* (const MaterialTensorSparseMatrix& lhs, const KinematicVectorArray& rhs){
+    return lhs.operate(rhs);
+}
 
-MaterialVectorArray operator* (KinematicTensorSparseMatrix& lhs, MaterialVectorArray& rhs){
-    assert(lhs.cols() == rhs.size() && "Tensor sparse matrix multiplication failed.");
-    MaterialVectorArray tmp = MaterialVectorArray(lhs.rows());
+
+MaterialVectorArray KinematicTensorSparseMatrix::operate(const MaterialVectorArray& rhs, int SPEC) const {
+    assert(cols(SPEC) == rhs.size() && "Tensor sparse matrix multiplication failed.");
+    MaterialVectorArray tmp = MaterialVectorArray(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
-    for (int k=0;k<lhs.size();k++){
-        i_tmp = lhs.i_vec[k];
-        j_tmp = lhs.j_vec[k];
-        tmp[i_tmp] += lhs.buffer[k] * rhs[j_tmp];
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
+    for (int k=0;k<size();k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        tmp[i_tmp] += buffer[k] * rhs[j_tmp];
     }
     return tmp;
 }
 
-KinematicVectorArray operator* (KinematicTensorSparseMatrix& lhs, KinematicVectorArray& rhs){
-    assert(lhs.cols() == rhs.size() && lhs.TENSOR_TYPE == rhs.VECTOR_TYPE && "Tensor sparse matrix multiplication failed.");
-    KinematicVectorArray tmp = KinematicVectorArray(lhs.rows(),rhs.VECTOR_TYPE);
+MaterialVectorArray operator* (const KinematicTensorSparseMatrix& lhs, const MaterialVectorArray& rhs){
+    return lhs.operate(rhs);
+}
+
+KinematicVectorArray KinematicTensorSparseMatrix::operate(const KinematicVectorArray& rhs, int SPEC) const {
+    assert(cols(SPEC) == rhs.size() && "Tensor sparse matrix multiplication failed.");
+    KinematicVectorArray tmp = KinematicVectorArray(rows(SPEC), rhs.VECTOR_TYPE);
     tmp.setZero();
+
     int i_tmp, j_tmp;
-    for (int k=0;k<lhs.size();k++){
-        i_tmp = lhs.i_vec[k];
-        j_tmp = lhs.j_vec[k];
-        tmp[i_tmp] += lhs.buffer[k] * rhs[j_tmp];
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
+    for (int k=0;k<size();k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        tmp[i_tmp] += buffer[k] * rhs[j_tmp];
     }
     return tmp;
 }
 
-MaterialTensorArray operator* (MaterialTensorSparseMatrix& lhs, Eigen::VectorXd& rhs){
-    assert(lhs.cols() == rhs.rows() && "Vector sparse matrix multiplication failed.");
-    MaterialTensorArray tmp = MaterialTensorArray(lhs.rows());
+KinematicVectorArray operator* (const KinematicTensorSparseMatrix& lhs, const KinematicVectorArray& rhs){
+    return lhs.operate(rhs);
+}
+
+MaterialTensorArray MaterialTensorSparseMatrix::operate(const Eigen::VectorXd &rhs, int SPEC) const {
+    assert(cols(SPEC) == rhs.size() && "Tensor sparse matrix multiplication failed.");
+    MaterialTensorArray tmp = MaterialTensorArray(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
-    for (int k=0;k<lhs.size();k++){
-        i_tmp = lhs.i_vec[k];
-        j_tmp = lhs.j_vec[k];
-        tmp[i_tmp] += lhs.buffer[k] * rhs[j_tmp];
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
+    for (int k=0;k<size();k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        tmp[i_tmp] += buffer[k] * rhs[j_tmp];
     }
     return tmp;
 }
 
-KinematicTensorArray operator* (KinematicTensorSparseMatrix& lhs, Eigen::VectorXd& rhs){
-    assert(lhs.cols() == rhs.rows() && "Vector sparse matrix multiplication failed.");
-    KinematicTensorArray tmp = KinematicTensorArray(lhs.rows(),lhs.TENSOR_TYPE);
+MaterialTensorArray operator* (const MaterialTensorSparseMatrix& lhs, const Eigen::VectorXd& rhs){
+    return lhs.operate(rhs);
+}
+
+KinematicTensorArray KinematicTensorSparseMatrix::operate(const Eigen::VectorXd &rhs, int SPEC) const {
+    assert(cols(SPEC) == rhs.size() && "Tensor sparse matrix multiplication failed.");
+    KinematicTensorArray tmp = KinematicTensorArray(rows(SPEC), TENSOR_TYPE);
     tmp.setZero();
+
     int i_tmp, j_tmp;
-    for (int k=0;k<lhs.size();k++){
-        i_tmp = lhs.i_vec[k];
-        j_tmp = lhs.j_vec[k];
-        tmp[i_tmp] += lhs.buffer[k] * rhs[j_tmp];
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
+    for (int k=0;k<size();k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        tmp[i_tmp] += buffer[k] * rhs[j_tmp];
     }
     return tmp;
+}
+
+KinematicTensorArray operator* (const KinematicTensorSparseMatrix& lhs, const Eigen::VectorXd& rhs){
+    return lhs.operate(rhs);
 }
 
 
 /*----------------------------------------------------------------------------*/
 
 //diagonalize
-Eigen::VectorXd MPMScalarSparseMatrix::rowsum(){
+Eigen::VectorXd MPMScalarSparseMatrix::rowsum() const {
     Eigen::VectorXd tmp(rows());
     tmp.setZero();
     int i_tmp, j_tmp;
@@ -160,7 +337,7 @@ Eigen::VectorXd MPMScalarSparseMatrix::rowsum(){
     return tmp;
 }
 
-Eigen::VectorXd MPMScalarSparseMatrix::colsum(){
+Eigen::VectorXd MPMScalarSparseMatrix::colsum() const {
     Eigen::VectorXd tmp(cols());
     tmp.setZero();
     int i_tmp, j_tmp;
@@ -176,7 +353,7 @@ Eigen::VectorXd MPMScalarSparseMatrix::colsum(){
 /*----------------------------------------------------------------------------*/
 
 //diagonalize
-MaterialVectorArray MaterialVectorSparseMatrix::rowsum(){
+MaterialVectorArray MaterialVectorSparseMatrix::rowsum() const {
     MaterialVectorArray tmp(rows());
     tmp.setZero();
     int i_tmp, j_tmp;
@@ -188,7 +365,7 @@ MaterialVectorArray MaterialVectorSparseMatrix::rowsum(){
     return tmp;
 }
 
-MaterialVectorArray MaterialVectorSparseMatrix::colsum(){
+MaterialVectorArray MaterialVectorSparseMatrix::colsum() const {
     MaterialVectorArray tmp(cols());
     tmp.setZero();
     int i_tmp, j_tmp;
@@ -201,135 +378,175 @@ MaterialVectorArray MaterialVectorSparseMatrix::colsum(){
 }
 
 //contraction operator
-Eigen::VectorXd MaterialVectorSparseMatrix::dot(MaterialVectorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (dot product) failed.");
-    Eigen::VectorXd tmp(rows());
+Eigen::VectorXd MaterialVectorSparseMatrix::dot(const MaterialVectorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (dot product) failed.");
+    Eigen::VectorXd tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += buffer[k].dot(other[j_tmp]);
     }
     return tmp;
 }
 
-Eigen::VectorXd MaterialVectorSparseMatrix::dot(KinematicVectorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (dot product) failed.");
-    Eigen::VectorXd tmp(rows());
+Eigen::VectorXd MaterialVectorSparseMatrix::dot(const KinematicVectorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (dot product) failed.");
+    Eigen::VectorXd tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += buffer[k].dot(other[j_tmp]);
     }
     return tmp;
 }
 
 //tensor product operator
-MaterialTensorArray MaterialVectorSparseMatrix::tensor(MaterialVectorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (tensor product) failed.");
-    MaterialTensorArray tmp(rows());
+MaterialTensorArray MaterialVectorSparseMatrix::tensor(const MaterialVectorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (tensor product) failed.");
+    MaterialTensorArray tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += buffer[k].tensor(other[j_tmp]);
     }
     return tmp;
 }
 
-MaterialTensorArray MaterialVectorSparseMatrix::tensor(KinematicVectorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (tensor product) failed.");
-    MaterialTensorArray tmp(rows());
+MaterialTensorArray MaterialVectorSparseMatrix::tensor(const KinematicVectorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (tensor product) failed.");
+    MaterialTensorArray tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += buffer[k].tensor(other[j_tmp]);
     }
     return tmp;
 }
 
 //transpose of tensor product
-MaterialTensorArray MaterialVectorSparseMatrix::tensor_transpose(MaterialVectorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (tensor product) failed.");
-    MaterialTensorArray tmp(rows());
+MaterialTensorArray MaterialVectorSparseMatrix::tensor_product_transpose(const MaterialVectorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (tensor product) failed.");
+    MaterialTensorArray tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp].tensor(buffer[k]);
     }
     return tmp;
 }
 
-MaterialTensorArray MaterialVectorSparseMatrix::tensor_transpose(KinematicVectorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (tensor product) failed.");
-    MaterialTensorArray tmp(rows());
+MaterialTensorArray MaterialVectorSparseMatrix::tensor_product_transpose(const KinematicVectorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (tensor product) failed.");
+    MaterialTensorArray tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp].tensor(buffer[k]);
     }
     return tmp;
 }
 
 //left multiply by tensor
-MaterialVectorArray MaterialVectorSparseMatrix::left_multiply(MaterialTensorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (tensor multiplication) failed.");
-    MaterialVectorArray tmp(rows());
+MaterialVectorArray MaterialVectorSparseMatrix::left_multiply_by_tensor(const MaterialTensorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (tensor multiplication) failed.");
+    MaterialVectorArray tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp]*buffer[k];
     }
     return tmp;
 }
 
-MaterialVectorArray MaterialVectorSparseMatrix::left_multiply(KinematicTensorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (tensor multiplication) failed.");
-    MaterialVectorArray tmp(rows());
+MaterialVectorArray MaterialVectorSparseMatrix::left_multiply_by_tensor(const KinematicTensorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (tensor multiplication) failed.");
+    MaterialVectorArray tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp]*buffer[k];
     }
     return tmp;
 }
 
 //left multiply by tensor transpose
-MaterialVectorArray MaterialVectorSparseMatrix::left_multiply_by_transpose(MaterialTensorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (tensor transpose multiplication) failed.");
-    MaterialVectorArray tmp(rows());
+MaterialVectorArray MaterialVectorSparseMatrix::left_multiply_by_tensor_transpose(const MaterialTensorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (tensor transpose multiplication) failed.");
+    MaterialVectorArray tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp].transpose()*buffer[k];
     }
     return tmp;
 }
 
-MaterialVectorArray MaterialVectorSparseMatrix::left_multiply_by_transpose(KinematicTensorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (tensor transpose multiplication) failed.");
-    MaterialVectorArray tmp(rows());
+MaterialVectorArray MaterialVectorSparseMatrix::left_multiply_by_tensor_transpose(const KinematicTensorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (tensor transpose multiplication) failed.");
+    MaterialVectorArray tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp].transpose()*buffer[k];
     }
     return tmp;
@@ -341,7 +558,7 @@ MaterialVectorArray MaterialVectorSparseMatrix::left_multiply_by_transpose(Kinem
 /*----------------------------------------------------------------------------*/
 
 //diagonalize
-KinematicVectorArray KinematicVectorSparseMatrix::rowsum(){
+KinematicVectorArray KinematicVectorSparseMatrix::rowsum() const {
     KinematicVectorArray tmp(rows(),VECTOR_TYPE);
     tmp.setZero();
     int i_tmp, j_tmp;
@@ -353,7 +570,7 @@ KinematicVectorArray KinematicVectorSparseMatrix::rowsum(){
     return tmp;
 }
 
-KinematicVectorArray KinematicVectorSparseMatrix::colsum(){
+KinematicVectorArray KinematicVectorSparseMatrix::colsum() const {
     KinematicVectorArray tmp(cols(),VECTOR_TYPE);
     tmp.setZero();
     int i_tmp, j_tmp;
@@ -366,135 +583,175 @@ KinematicVectorArray KinematicVectorSparseMatrix::colsum(){
 }
 
 //contraction operator
-Eigen::VectorXd KinematicVectorSparseMatrix::dot(MaterialVectorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (dot product) failed.");
-    Eigen::VectorXd tmp(rows());
+Eigen::VectorXd KinematicVectorSparseMatrix::dot(const MaterialVectorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (dot product) failed.");
+    Eigen::VectorXd tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += buffer[k].dot(other[j_tmp]);
     }
     return tmp;
 }
 
-Eigen::VectorXd KinematicVectorSparseMatrix::dot(KinematicVectorArray& other){
-    assert(other.size() == cols() && other.VECTOR_TYPE == VECTOR_TYPE && "Vector sparse matrix multiplication (dot product) failed.");
-    Eigen::VectorXd tmp(rows());
+Eigen::VectorXd KinematicVectorSparseMatrix::dot(const KinematicVectorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && other.VECTOR_TYPE == VECTOR_TYPE && "Vector sparse matrix multiplication (dot product) failed.");
+    Eigen::VectorXd tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += buffer[k].dot(other[j_tmp]);
     }
     return tmp;
 }
 
 //tensor product operator
-MaterialTensorArray KinematicVectorSparseMatrix::tensor(MaterialVectorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (tensor product) failed.");
-    MaterialTensorArray tmp(rows());
+MaterialTensorArray KinematicVectorSparseMatrix::tensor(const MaterialVectorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (tensor product) failed.");
+    MaterialTensorArray tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += buffer[k].tensor(other[j_tmp]);
     }
     return tmp;
 }
 
-KinematicTensorArray KinematicVectorSparseMatrix::tensor(KinematicVectorArray& other){
-    assert(other.size() == cols() && other.VECTOR_TYPE == VECTOR_TYPE && "Vector sparse matrix multiplication (tensor product) failed.");
-    KinematicTensorArray tmp(rows(),VECTOR_TYPE);
+KinematicTensorArray KinematicVectorSparseMatrix::tensor(const KinematicVectorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && other.VECTOR_TYPE == VECTOR_TYPE && "Vector sparse matrix multiplication (tensor product) failed.");
+    KinematicTensorArray tmp(rows(SPEC),VECTOR_TYPE);
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += buffer[k].tensor(other[j_tmp]);
     }
     return tmp;
 }
 
 //transpose of tensor product
-MaterialTensorArray KinematicVectorSparseMatrix::tensor_transpose(MaterialVectorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (tensor transpose product) failed.");
-    MaterialTensorArray tmp(rows());
+MaterialTensorArray KinematicVectorSparseMatrix::tensor_product_transpose(const MaterialVectorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (tensor transpose product) failed.");
+    MaterialTensorArray tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp].tensor(buffer[k]);
     }
     return tmp;
 }
 
-KinematicTensorArray KinematicVectorSparseMatrix::tensor_transpose(KinematicVectorArray& other){
-    assert(other.size() == cols() && other.VECTOR_TYPE == VECTOR_TYPE && "Vector sparse matrix multiplication (tensor transpose product) failed.");
-    KinematicTensorArray tmp(rows(),VECTOR_TYPE);
+KinematicTensorArray KinematicVectorSparseMatrix::tensor_product_transpose(const KinematicVectorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && other.VECTOR_TYPE == VECTOR_TYPE && "Vector sparse matrix multiplication (tensor transpose product) failed.");
+    KinematicTensorArray tmp(rows(SPEC),VECTOR_TYPE);
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp].tensor(buffer[k]);
     }
     return tmp;
 }
 
 //left multiply by tensor
-MaterialVectorArray KinematicVectorSparseMatrix::left_multiply(MaterialTensorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (tensor multiplication) failed.");
-    MaterialVectorArray tmp(rows());
+MaterialVectorArray KinematicVectorSparseMatrix::left_multiply_by_tensor(const MaterialTensorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (tensor multiplication) failed.");
+    MaterialVectorArray tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp]*buffer[k];
     }
     return tmp;
 }
 
-KinematicVectorArray KinematicVectorSparseMatrix::left_multiply(KinematicTensorArray& other){
-    assert(other.size() == cols() && other.TENSOR_TYPE == VECTOR_TYPE && "Vector sparse matrix multiplication (tensor multiplication) failed.");
-    KinematicVectorArray tmp(rows(),VECTOR_TYPE);
+KinematicVectorArray KinematicVectorSparseMatrix::left_multiply_by_tensor(const KinematicTensorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && other.TENSOR_TYPE == VECTOR_TYPE && "Vector sparse matrix multiplication (tensor multiplication) failed.");
+    KinematicVectorArray tmp(rows(SPEC),VECTOR_TYPE);
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp]*buffer[k];
     }
     return tmp;
 }
 
 //left multiply by tensor transpose
-MaterialVectorArray KinematicVectorSparseMatrix::left_multiply_by_transpose(MaterialTensorArray& other){
-    assert(other.size() == cols() && "Vector sparse matrix multiplication (tensor transpose multiplication) failed.");
-    MaterialVectorArray tmp(rows());
+MaterialVectorArray KinematicVectorSparseMatrix::left_multiply_by_tensor_transpose(const MaterialTensorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Vector sparse matrix multiplication (tensor transpose multiplication) failed.");
+    MaterialVectorArray tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp].transpose()*buffer[k];
     }
     return tmp;
 }
 
-KinematicVectorArray KinematicVectorSparseMatrix::left_multiply_by_transpose(KinematicTensorArray& other){
-    assert(other.size() == cols() && other.TENSOR_TYPE == VECTOR_TYPE && "Vector sparse matrix multiplication (tensor transpose multiplication) failed.");
-    KinematicVectorArray tmp(rows(),VECTOR_TYPE);
+KinematicVectorArray KinematicVectorSparseMatrix::left_multiply_by_tensor_transpose(const KinematicTensorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && other.TENSOR_TYPE == VECTOR_TYPE && "Vector sparse matrix multiplication (tensor transpose multiplication) failed.");
+    KinematicVectorArray tmp(rows(SPEC),VECTOR_TYPE);
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp].transpose()*buffer[k];
     }
     return tmp;
@@ -503,7 +760,7 @@ KinematicVectorArray KinematicVectorSparseMatrix::left_multiply_by_transpose(Kin
 /*----------------------------------------------------------------------------*/
 
 //diagonalize
-MaterialTensorArray MaterialTensorSparseMatrix::rowsum(){
+MaterialTensorArray MaterialTensorSparseMatrix::rowsum() const {
     MaterialTensorArray tmp(rows());
     tmp.setZero();
     int i_tmp, j_tmp;
@@ -515,7 +772,7 @@ MaterialTensorArray MaterialTensorSparseMatrix::rowsum(){
     return tmp;
 }
 
-MaterialTensorArray MaterialTensorSparseMatrix::colsum(){
+MaterialTensorArray MaterialTensorSparseMatrix::colsum() const {
     MaterialTensorArray tmp(cols());
     tmp.setZero();
     int i_tmp, j_tmp;
@@ -528,27 +785,35 @@ MaterialTensorArray MaterialTensorSparseMatrix::colsum(){
 }
 
 //contraction operator
-Eigen::VectorXd MaterialTensorSparseMatrix::dot(MaterialTensorArray& other){
-    assert(other.size() == cols() && "Tensor sparse matrix multiplication (dot product) failed.");
-    Eigen::VectorXd tmp(rows());
+Eigen::VectorXd MaterialTensorSparseMatrix::dot(const MaterialTensorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Tensor sparse matrix multiplication (dot product) failed.");
+    Eigen::VectorXd tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp].dot(buffer[k]);
     }
     return tmp;
 }
 
-Eigen::VectorXd MaterialTensorSparseMatrix::dot(KinematicTensorArray& other){
-    assert(other.size() == cols() && "Tensor sparse matrix multiplication (dot product) failed.");
-    Eigen::VectorXd tmp(rows());
+Eigen::VectorXd MaterialTensorSparseMatrix::dot(const KinematicTensorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Tensor sparse matrix multiplication (dot product) failed.");
+    Eigen::VectorXd tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp].dot(buffer[k]);
     }
     return tmp;
@@ -557,7 +822,7 @@ Eigen::VectorXd MaterialTensorSparseMatrix::dot(KinematicTensorArray& other){
 /*----------------------------------------------------------------------------*/
 
 //diagonalize
-KinematicTensorArray KinematicTensorSparseMatrix::rowsum(){
+KinematicTensorArray KinematicTensorSparseMatrix::rowsum() const {
     KinematicTensorArray tmp(rows(),TENSOR_TYPE);
     tmp.setZero();
     int i_tmp, j_tmp;
@@ -569,7 +834,7 @@ KinematicTensorArray KinematicTensorSparseMatrix::rowsum(){
     return tmp;
 }
 
-KinematicTensorArray KinematicTensorSparseMatrix::colsum(){
+KinematicTensorArray KinematicTensorSparseMatrix::colsum() const {
     KinematicTensorArray tmp(cols(),TENSOR_TYPE);
     tmp.setZero();
     int i_tmp, j_tmp;
@@ -582,27 +847,35 @@ KinematicTensorArray KinematicTensorSparseMatrix::colsum(){
 }
 
 //contraction operator
-Eigen::VectorXd KinematicTensorSparseMatrix::dot(MaterialTensorArray& other){
-    assert(other.size() == cols() && "Tensor sparse matrix multiplication (dot product) failed.");
-    Eigen::VectorXd tmp(rows());
+Eigen::VectorXd KinematicTensorSparseMatrix::dot(const MaterialTensorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && "Tensor sparse matrix multiplication (dot product) failed.");
+    Eigen::VectorXd tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp].dot(buffer[k]);
     }
     return tmp;
 }
 
-Eigen::VectorXd KinematicTensorSparseMatrix::dot(KinematicTensorArray& other){
-    assert(other.size() == cols() && other.TENSOR_TYPE == TENSOR_TYPE && "Tensor sparse matrix multiplication (dot product) failed.");
-    Eigen::VectorXd tmp(rows());
+Eigen::VectorXd KinematicTensorSparseMatrix::dot(const KinematicTensorArray& other, int SPEC) const {
+    assert(other.size() == cols(SPEC) && other.TENSOR_TYPE == TENSOR_TYPE && "Tensor sparse matrix multiplication (dot product) failed.");
+    Eigen::VectorXd tmp(rows(SPEC));
     tmp.setZero();
+
     int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = get_j_index_ref(SPEC);
+
     for (int k=0;k<size();k++){
-        i_tmp = i_vec[k];
-        j_tmp = j_vec[k];
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
         tmp[i_tmp] += other[j_tmp].dot(buffer[k]);
     }
     return tmp;

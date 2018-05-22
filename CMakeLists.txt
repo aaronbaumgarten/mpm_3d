@@ -17,9 +17,15 @@ add_subdirectory(src/tests)
 add_subdirectory(src/registry)
 add_subdirectory(src/algebra)
 
+add_subdirectory(src/config)
+
 add_subdirectory(src/objects/serializers)
 add_subdirectory(src/objects/drivers)
 add_subdirectory(src/objects/solvers)
+
+add_subdirectory(src/objects/bodies)
+add_subdirectory(src/objects/contacts)
+add_subdirectory(src/objects/grids)
 
 add_subdirectory(src/objects/points)
 add_subdirectory(src/objects/nodes)

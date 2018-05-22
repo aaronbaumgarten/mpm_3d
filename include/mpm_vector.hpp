@@ -34,7 +34,21 @@ public:
         data_ptr = buffer.data(); //make sure not to copy stale pointer
     }
 
+    MPMVector(const MPMVector&& other){
+        for (int i=0;i<VECTOR_MAX_DIM;i++){
+            buffer[i] = other.data_ptr[i];
+        }
+        data_ptr = buffer.data(); //make sure not to copy stale pointer
+    }
+
     MPMVector& operator= (const MPMVector& other){
+        for (int i=0;i<VECTOR_MAX_DIM;i++){
+            buffer[i] = other.data_ptr[i];
+        }
+        data_ptr = buffer.data(); //make sure not to copy stale pointer
+    }
+
+    MPMVector& operator= (const MPMVector&& other){
         for (int i=0;i<VECTOR_MAX_DIM;i++){
             buffer[i] = other.data_ptr[i];
         }
@@ -65,13 +79,13 @@ public:
 
     /*------------------------------------------------------------------------*/
     //return size of vector
-    double size() const {
+    virtual double size() const {
         return VECTOR_MAX_DIM;
     }
 
     /*------------------------------------------------------------------------*/
     //return rows and columns
-    double rows() const {
+    virtual double rows() const {
         return VECTOR_MAX_DIM;
     }
 
@@ -107,14 +121,14 @@ public:
     MaterialVector(double* otherdata);
 
     //copy from KinematicVector
-    MaterialVector(KinematicVector&);
+    MaterialVector(const KinematicVector&);
 
     //forward declare Map class
     class Map;
 
     //construct from Eigen::Matrix
     template <typename OtherDerived>
-    MaterialVector(Eigen::MatrixBase<OtherDerived> &other){
+    MaterialVector(const Eigen::MatrixBase<OtherDerived> &other){
         assert(other.rows() == VECTOR_MAX_DIM && other.cols() == 1);
         for(int i=0;i<VECTOR_MAX_DIM;i++){
             data_ptr[i] = other(i);
@@ -161,7 +175,7 @@ public:
 class MaterialVector::Map : public MaterialVector{
 public:
     //point to other data (not safe)
-    Map(double* dataIN){ data_ptr = dataIN; }
+    Map(const double* dataIN){ data_ptr = (double*)(dataIN); }
 
     //assignment operator
     Map& operator= (const MaterialVector &other);
@@ -195,6 +209,18 @@ public:
         }
     }
 
+    /*------------------------------------------------------------------------*/
+    //return size of vector
+    double size() const {
+        return DIM;
+    }
+
+    /*------------------------------------------------------------------------*/
+    //return rows and columns
+    double rows() const {
+        return DIM;
+    }
+
     //default constructor
     KinematicVector(){};
     KinematicVector(int input){
@@ -210,14 +236,14 @@ public:
     KinematicVector(double* otherdata, int input);
 
     //copy from MaterialVector
-    KinematicVector(MaterialVector&, int input);
+    KinematicVector(const MaterialVector&, int input);
 
     //forward declare Map class
     class Map;
 
     //construct from Eigen::Matrix
     template <typename OtherDerived>
-    KinematicVector(Eigen::MatrixBase<OtherDerived> &other, int input){
+    KinematicVector(const Eigen::MatrixBase<OtherDerived> &other, int input){
         assignVectorType(input);
         assert(other.rows() == DIM && other.cols() == 1);
         for(int i=0;i<DIM;i++){
@@ -266,9 +292,9 @@ public:
 class KinematicVector::Map : public KinematicVector{
 public:
     //point to other data (not safe)
-    Map(double* dataIN, int input){
+    Map(const double* dataIN, const int input){
         assignVectorType(input);
-        data_ptr = dataIN;
+        data_ptr = (double*)dataIN;
     }
 
     //assignment operator
@@ -327,7 +353,7 @@ inline MaterialVector::MaterialVector(double* otherdata){
 }
 
 //construct MaterialVector from KinematicVector
-inline MaterialVector::MaterialVector(KinematicVector& other){
+inline MaterialVector::MaterialVector(const KinematicVector& other){
     for(int i=0;i<VECTOR_MAX_DIM;i++){
         data_ptr[i] = other[i];
     }
@@ -502,14 +528,14 @@ inline KinematicVector::KinematicVector(double* otherdata, int input){
 }
 
 //construct KinematicVector from MaterialVector
-inline KinematicVector::KinematicVector(MaterialVector& other, int input){
+inline KinematicVector::KinematicVector(const MaterialVector& other, int input){
     assignVectorType(input);
     for(int i=0;i<DIM;i++){
         data_ptr[i] = other[i];
     }
     for(int i=DIM;i<VECTOR_MAX_DIM;i++){
         if (other[i] != 0){
-            std::cerr << "WARNING: ignoring non-zero entries in input data to KinematicVector." << std::endl;
+            std::cerr << "WARNING: ignoring non-zero entries in input data to KinematicVector. (" << other[i] << ")" << std::endl;
         }
         data_ptr[i] = 0;
     }
@@ -527,6 +553,7 @@ inline KinematicVector KinematicVector::operator-(){
 
 //define v += s and v -= s
 KinematicVector& KinematicVector::operator+= (const KinematicVector &rhs){
+    assert(VECTOR_TYPE == rhs.VECTOR_TYPE && "Addition failed.");
     for(int i=0;i<DIM;i++){
         data_ptr[i] += rhs(i);
     }

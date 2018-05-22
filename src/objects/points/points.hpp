@@ -39,7 +39,7 @@ public:
     KinematicVectorArray x, u, x_t, mx_t, b;    //state vectors
     KinematicTensorArray L;                     //velocity gradient
     MaterialTensorArray T;                      //cauchy stress
-    Eigen::VectorXd m, v, v0;                   //weight measures
+    Eigen::VectorXd m, v, v0, extent;           //weight measures
     Eigen::VectorXi active;                     //active?
 
     virtual void init(Job*, Body*) = 0;                         //initialize from Job and Body
@@ -56,8 +56,6 @@ public:
     DefaultPoints(){
         object_name = "DefaultPoints";
     }
-
-    Eigen::VectorXd extent;
 
     void init(Job* job, Body* body);
     void readFromFile(Job* job, Body* body, std::string fileIN);

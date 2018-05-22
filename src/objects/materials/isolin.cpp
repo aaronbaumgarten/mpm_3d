@@ -24,15 +24,15 @@
 //initialize assuming that general properties have been assigned correctly
 //fp64_props etc. have been filled by configuration object
 void IsotropicLinearElasticity::init(Job* job, Body* body){
-    if (body->material->fp64_props.size() < 2){
-        std::cout << body->material->fp64_props.size() << "\n";
+    if (fp64_props.size() < 2){
+        std::cout << fp64_props.size() << "\n";
         fprintf(stderr,
                 "%s:%s: Need at least 2 properties defined (E, nu).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
-        E = body->material->fp64_props[0];
-        nu = body->material->fp64_props[1];
+        E = fp64_props[0];
+        nu = fp64_props[1];
         G = E / (2.0 * (1.0 + nu));
         K = E / (3.0 * (1.0 - 2 * nu));
         lambda = K - 2.0 * G / 3.0;
@@ -89,7 +89,9 @@ void IsotropicLinearElasticity::assignStress(Job* job, Body* body, MaterialTenso
 /*----------------------------------------------------------------------------*/
 //define pressure assignement for consistency with history dependent materials
 void IsotropicLinearElasticity::assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC){
-    body->points->T[idIN]
+    MaterialTensor tmp = body->points->T[idIN];
+    body->points->T[idIN] = tmp - (1.0/3.0 * tmp.trace() + pressureIN)*MaterialTensor::Identity();
+    return;
 }
 
 

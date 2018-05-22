@@ -57,6 +57,8 @@ void DefaultNodes::init(Job* job, Body* body) {
 
     active.setOnes(); //all nodes active
 
+    std::cout << "Nodes Initialized: [" << body->name << "]." << std::endl;
+
     return;
 }
 
