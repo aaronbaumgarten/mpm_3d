@@ -172,7 +172,7 @@ void DefaultBody::generateMap(Job* job, int SPEC) {
                 gradS.push_back(nvec[j], i, gradvec[j]); //node, point, value
             }
         } else {
-            std::cerr << "Unrecognized Argument for use_cpdi in Body::bodyGenerateMap(): " << SPEC << std::endl;
+            std::cerr << "Unrecognized Argument for use_cpdi in DefaultBody::generateMap(): " << SPEC << std::endl;
         }
     }
     return;

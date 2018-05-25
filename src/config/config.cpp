@@ -684,7 +684,7 @@ int Configurator::configureJob(Job* job){
                                 exit(0);
                             }
 
-                            std::cout << "Body [" << id << ", " << job->bodies[id]->name << "] Configured."  << std::endl;
+                            std::cout << "Body [" << id << ", " << job->bodies[id]->name << "] Configured: " << job->bodies[id]->object_name << std::endl;
                         }
                         break;
                     case 6:
@@ -764,7 +764,7 @@ int Configurator::configureJob(Job* job){
                                 std::cerr << "ERROR: Contact object needs valid \'class\' defined. Exiting." << std::endl;
                                 exit(0);
                             }
-                            std::cout << "Contact [" << id << ", " << job->contacts[id]->name << "] Configured." << std::endl;
+                            std::cout << "Contact [" << id << ", " << job->contacts[id]->name << "] Configured: " << job->contacts[id]->object_name << std::endl;
                         }
                         break;
                     default:

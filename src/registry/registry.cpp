@@ -40,6 +40,8 @@ Registry<Serializer>::Registry() {
 template<>
 Registry<Driver>::Registry() {
     object["DefaultDriver"] = &createInstance<Driver,DefaultDriver>;
+    object["ColumnCollapseDriver"] = &createInstance<Driver,ColumnCollapseDriver>;
+    object["UserDefinedGravityDriver"] = &createInstance<Driver,UserDefinedGravityDriver>;
 }
 
 
@@ -64,6 +66,7 @@ Registry<Body>::Registry() {
 template<>
 Registry<Contact>::Registry() {
     object["ContactHuang"] = &createInstance<Contact,ContactHuang>;
+    object["SlurryMixture"] = &createInstance<Contact,SlurryMixture>;
 }
 
 
@@ -72,6 +75,8 @@ Registry<Contact>::Registry() {
 template<>
 Registry<Grid>::Registry() {
     object["CartesianLinear"] = &createInstance<Grid,CartesianLinear>;
+    object["CartesianCubic"] = &createInstance<Grid,CartesianCubic>;
+    object["CartesianPeriodic"] = &createInstance<Grid,CartesianPeriodic>;
 }
 
 
@@ -104,4 +109,7 @@ Registry<Material>::Registry() {
 template<>
 Registry<Boundary>::Registry() {
     object["CartesianBox"] = &createInstance<Boundary,CartesianBox>;
+    object["CartesianSmoothBox"] = &createInstance<Boundary,CartesianSmoothBox>;
+    object["CartesianFrictionalBox"] = &createInstance<Boundary,CartesianFrictionalBox>;
+    object["CartesianBoxCustom"] = &createInstance<Boundary,CartesianBoxCustom>;
 }

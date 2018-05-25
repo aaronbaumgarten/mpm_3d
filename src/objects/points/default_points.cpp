@@ -131,6 +131,12 @@ void DefaultPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
 }
 
 /*----------------------------------------------------------------------------*/
+void DefaultPoints::writeHeader(Job *job, Body *body, Serializer *serializer, std::ofstream &pfile, int SPEC) {
+    //use default header
+    serializer->writeDefaultPointHeader(job, body, pfile, SPEC);
+    return;
+}
+
 //write relavent point data to file
 void DefaultPoints::writeFrame(Job* job, Body* body, Serializer* serializer){
     //serializer will use x-position to create format for file

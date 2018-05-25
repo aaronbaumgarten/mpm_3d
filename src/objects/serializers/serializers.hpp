@@ -43,6 +43,8 @@ public:
     virtual std::string saveState(Job*) = 0;        //save entire job to file
     virtual int loadState(Job*, std::string) = 0;   //load from file
     virtual int writeFrame(Job*) = 0;               //write frame for job object (return 1 on success)
+    virtual void writeDefaultPointHeader(Job*, Body*, std::ofstream&, int) = 0; //write default header to file
+    virtual void writeDefaultNodeHeader(Job*, Body*, std::ofstream&, int) = 0; //write default header to file
     virtual void writeScalarArray(Eigen::VectorXd&, std::string) = 0;   //write scalar array to file (named by string)
     virtual void writeVectorArray(MPMVectorArray&, std::string) = 0;    //write vector array to file
     virtual void writeTensorArray(MPMTensorArray&, std::string) = 0;    //write tensor array to file
@@ -70,7 +72,7 @@ public:
     //frame writing variables
     std::string pfilename, nfilename;
     std::ofstream pfile, nfile;
-    size_t plen, nlen;
+    int plen, nlen;
     Body* currentBody;
 
     void init(Job* job);
@@ -78,6 +80,8 @@ public:
     int loadState(Job* job, std::string fullpath);
     int writeFrame(Job*);
 
+    void writeDefaultPointHeader(Job* job, Body* body, std::ofstream& pfile, int SPEC);
+    void writeDefaultNodeHeader(Job* job, Body* body, std::ofstream& nfile, int SPEC);
     void writeScalarArray(Eigen::VectorXd& scalarArray, std::string scalarName);
     void writeVectorArray(MPMVectorArray& vectorArray, std::string vectorName);
     void writeTensorArray(MPMTensorArray& tensorArray, std::string tensorName);

@@ -693,7 +693,7 @@ inline double KinematicVector::norm(){
     for(int i=0;i<DIM;i++){
         tmp += data_ptr[i]*data_ptr[i];
     }
-    return tmp;
+    return std::sqrt(tmp);
 }
 
 

@@ -1,6 +1,6 @@
 //
-// Created by aaron on 5/15/18.
-// cartesian.cpp
+// Created by aaron on 5/23/18.
+// cartesian_cubic.cpp
 //
 
 #include <iostream>
@@ -20,8 +20,44 @@
 #include "grids.hpp"
 
 /*----------------------------------------------------------------------------*/
+
+double CartesianCubic::s(double x, double h){
+    if (x < -2*h){
+        return 0;
+    } else if (x < -h){
+        return x*x*x/(6.0 * h*h*h) + x*x/(h*h) + 2.0*x/h + 4.0/3.0;
+    } else if (x < 0){
+        return -1.0*x*x*x/(2.0*h*h*h) - x*x/(h*h) + 2.0/3.0;
+    } else if (x < h){
+        return x*x*x/(2.0*h*h*h) - x*x/(h*h) + 2.0/3.0;
+    } else if (x < 2*h){
+        return -1.0*x*x*x/(6.0*h*h*h) + x*x/(h*h) - 2*x/h + 4.0/3.0;
+    } else {
+        return 0;
+    }
+}
+
+double CartesianCubic::g(double x, double h){
+    if (x < -2*h){
+        return 0;
+    } else if (x < -h){
+        return x*x/(2.0 * h*h*h) + 2.0*x/(h*h) + 2.0/h;
+    } else if (x < 0){
+        return -3.0*x*x/(2.0*h*h*h) - 2.0*x/(h*h);
+    } else if (x < h){
+        return 3.0*x*x/(2.0*h*h*h) - 2.0*x/(h*h);
+    } else if (x < 2*h){
+        return -1.0*x*x/(2.0*h*h*h) + 2.0*x/(h*h) - 2.0/h;
+    } else {
+        return 0;
+    }
+}
+
+/*----------------------------------------------------------------------------*/
+
+/*----------------------------------------------------------------------------*/
 //initialize grid assuming that job is set up
-void CartesianLinear::init(Job* job){
+void CartesianCubic::init(Job* job){
     if (fp64_props.size() < job->DIM || int_props.size() < job->DIM){
         std::cout << fp64_props.size() << "\n";
         fprintf(stderr,
@@ -42,11 +78,11 @@ void CartesianLinear::init(Job* job){
 
         //print grid properties
         std::cout << "Grid properties (Lx = { ";
-        for (size_t i=0;i<Lx.size();i++){
+        for (size_t i=0;i<Lx.rows();i++){
             std::cout << Lx(i) << " ";
         }
         std::cout << "}, Nx = { ";
-        for (size_t i=0;i<Nx.size();i++){
+        for (size_t i=0;i<Nx.rows();i++){
             std::cout << Nx(i) << " ";
         }
         std::cout << "})." << std::endl;
@@ -63,8 +99,7 @@ void CartesianLinear::init(Job* job){
 
 /*----------------------------------------------------------------------------*/
 //hidden initializer
-void CartesianLinear::hiddenInit(Job* job){
-    //called from loading or initializing functions
+void CartesianCubic::hiddenInit(Job* job){//called from loading or initializing functions
     //needs to have Lx,Nx,hx defined
 
     //count nodes
@@ -74,7 +109,7 @@ void CartesianLinear::hiddenInit(Job* job){
     for (size_t i=0;i<Nx.rows();i++){
         node_count *= (Nx(i)+1);
         element_count *= Nx(i);
-        npe *= 2;
+        npe *= 4; //4 linear node contributions per element
     }
 
     x_n = KinematicVectorArray(node_count,job->JOB_TYPE);
@@ -84,29 +119,30 @@ void CartesianLinear::hiddenInit(Job* job){
 
     //initialize A matrix
     //for mapping position in cube to id
-    //0 -> +0,+0,+0
-    //1 -> +1,+0,+0
+    //0 -> -1,-1,-1
+    //1 -> +0,-1,-1
     //...
-    //8 -> +1,+1,+1
-    Eigen::VectorXi onoff(job->DIM);
+    //64 -> +2,+2,+2
+    Eigen::VectorXi i_rel = Eigen::VectorXi(job->DIM);
     A = Eigen::MatrixXi(npe,job->DIM);
-    onoff.setZero();
+    i_rel.setOnes();
+    i_rel = -1*i_rel;
     for (size_t n=0; n<npe;n++){
-        for (size_t i=0;i<onoff.rows();i++){
-            A(n,i) = onoff(i);
+        for (size_t i=0;i<i_rel.rows();i++){
+            A(n,i) = i_rel(i);
         }
-        for (size_t i=0;i<onoff.rows();i++) {
-            if (onoff(i) == 0){
-                onoff(i) = 1;
+        for (size_t i=0;i<i_rel.rows();i++) {
+            if (i_rel(i) < 2){
+                i_rel(i) += 1;
                 break;
             } else {
-                onoff(i) = 0;
+                i_rel(i) = -1;
             }
         }
     }
 
     //setup element to node map
-    Eigen::VectorXi ijk(job->DIM);
+    Eigen::VectorXi ijk = Eigen::VectorXi(job->DIM);
     int tmp;
     nodeIDs.resize(element_count,npe);
     nodeIDs.setZero();
@@ -123,6 +159,11 @@ void CartesianLinear::hiddenInit(Job* job){
             for (size_t i=0;i<ijk.rows();i++) {
                 //n = i + j*imax + k*imax*jmax
                 //hardcode
+                if ((ijk(i) + A(n,i) < 0) || (ijk(i) + A(n,i) > Nx(i))) {
+                    nodeIDs(e, n) = -1;
+                    break;
+                }
+
                 if (i==0) {
                     nodeIDs(e, n) += (ijk(i) + A(n,i));
                 } else if (i==1) {
@@ -140,12 +181,31 @@ void CartesianLinear::hiddenInit(Job* job){
         v_e *= hx(pos);
     }
 
-    //nodal volume
+    //nodal volume and edges
+    edge_n = KinematicVectorArray(x_n.size(), job->JOB_TYPE);
     v_n.resize(x_n.size());
     v_n.setZero();
-    for (size_t e=0;e<nodeIDs.rows();e++){
-        for (size_t c=0;c<nodeIDs.cols();c++) {
-            v_n(nodeIDs(e, c)) += v_e / nodeIDs.cols();
+    for (size_t n=0;n<x_n.size();n++){
+        tmp = n;
+        v_n(n) = 1;
+        for (size_t i=0;i<ijk.rows();i++){
+            ijk(i) = tmp % (Nx(i)+1);
+            tmp = tmp / (Nx(i)+1);
+
+            if (ijk(i) > 1 && ijk(i) < (Nx(i)-1)){
+                v_n(n) *= hx(i);
+                edge_n(n,i) = 2; //interior
+            } else if (ijk(i) == 1 || ijk(i) == (Nx(i)-1)) {
+                v_n(n) *= hx(i)*11.0/12.0;
+                if (ijk(i) == 1) {
+                    edge_n(n, i) = 1; //next to boundary at start
+                } else {
+                    edge_n(n, i) = -1; //next to boundary at end
+                }
+            } else {
+                v_n(n) *= hx(i)*7.0/12.0;
+                edge_n(n,i) = 0; //boundary
+            }
         }
     }
 
@@ -156,22 +216,22 @@ void CartesianLinear::hiddenInit(Job* job){
 
 /*----------------------------------------------------------------------------*/
 //
-void CartesianLinear::writeFrame(Job* job, Serializer* serializer){
-    //nothing to report
+void CartesianCubic::writeFrame(Job* job, Serializer* serializer){
+    serializer->writeVectorArray(edge_n,"edge_id");
     return;
 }
 
 
 /*----------------------------------------------------------------------------*/
 //
-std::string CartesianLinear::saveState(Job* job, Serializer* serializer, std::string filepath){
+std::string CartesianCubic::saveState(Job* job, Serializer* serializer, std::string filepath){
     return "err";
 }
 
 
 /*----------------------------------------------------------------------------*/
 //
-int CartesianLinear::loadState(Job* job, Serializer* serializer, std::string fullpath){
+int CartesianCubic::loadState(Job* job, Serializer* serializer, std::string fullpath){
     return 0;
 }
 
@@ -179,34 +239,13 @@ int CartesianLinear::loadState(Job* job, Serializer* serializer, std::string ful
 
 /*----------------------------------------------------------------------------*/
 //
-int CartesianLinear::whichElement(Job* job, KinematicVector& xIN){
-    return cartesianWhichElement(job, xIN, Lx, hx, Nx);
+int CartesianCubic::whichElement(Job* job, KinematicVector& xIN){
+    return CartesianLinear::cartesianWhichElement(job, xIN, Lx, hx, Nx);
 }
-
-//standard function that other cartesian grids may use
-int CartesianLinear::cartesianWhichElement(Job* job, KinematicVector& xIN, KinematicVector& LxIN, KinematicVector& hxIN, Eigen::VectorXi& NxIN){
-    assert(xIN.VECTOR_TYPE == LxIN.VECTOR_TYPE && xIN.VECTOR_TYPE == hxIN.VECTOR_TYPE && "cartesianWhichElement failed");
-    bool inDomain;
-    int elementID = floor(xIN[0] / hxIN[0]); //id in x-dimension
-    for (int i = 0; i < xIN.DIM; i++) {
-        inDomain = (xIN[i] < LxIN[i] && xIN[i] >= 0);
-        if (!inDomain) { //if xIn is outside domain, return -1
-            return -1;
-        }
-        if (i == 1) {
-            //add number of elements in next layer of id in higher dimensions
-            elementID += floor(xIN[i] / hxIN[i]) * (NxIN[i - 1]);
-        } else if (i == 2) {
-            elementID += floor(xIN[i] / hxIN[i]) * (NxIN[i - 1]) * (NxIN[i - 2]);
-        }
-    }
-    return elementID;
-}
-
 
 /*----------------------------------------------------------------------------*/
 //
-bool CartesianLinear::inDomain(Job* job, KinematicVector& xIN){
+bool CartesianCubic::inDomain(Job* job, KinematicVector& xIN){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "inDomain failed");
     for (int i=0;i<xIN.size();i++){
         if (!(xIN[i] <= Lx[i] && xIN[i] >= 0)) { //if xIn is outside domain, return -1
@@ -219,7 +258,7 @@ bool CartesianLinear::inDomain(Job* job, KinematicVector& xIN){
 
 /*----------------------------------------------------------------------------*/
 //
-KinematicVector CartesianLinear::nodeIDToPosition(Job* job, int idIN){
+KinematicVector CartesianCubic::nodeIDToPosition(Job* job, int idIN){
     Eigen::VectorXi ijk(job->DIM);
     KinematicVector tmpVec(job->JOB_TYPE);
     int tmp = idIN;
@@ -238,7 +277,7 @@ KinematicVector CartesianLinear::nodeIDToPosition(Job* job, int idIN){
 
 /*----------------------------------------------------------------------------*/
 //
-void CartesianLinear::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL){
+void CartesianCubic::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "evaluateShapeFnValue failed");
     KinematicVector rst(job->JOB_TYPE);
     double tmp = 1.0;
@@ -246,26 +285,47 @@ void CartesianLinear::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::
     if (elementID < 0){
         return;
     }
-    for (size_t n=0;n<nodeIDs.cols();n++){
-        //find local coordinates relative to nodal position
-        for (int i=0;i<xIN.DIM;i++){
-            //r = (x_p - x_n)/hx
-            rst[i] = (xIN[i] - x_n(nodeIDs(elementID,n),i)) / hx(i);
 
-            //standard linear hat function
-            tmp *= (1 - std::abs(rst[i]));
+    //double test_sum = 0;
+    for (size_t n=0;n<nodeIDs.cols();n++){
+        if (nodeIDs(elementID,n) == -1){
+            continue; //break out if node id is -1;
         }
+        tmp = 1.0;
+
+        //find local coordinates relative to nodal position
+        //r = (x_p - x_n)/hx
+        rst = xIN - x_n(nodeIDs(elementID,n));
+        for (size_t i=0;i<xIN.rows();i++){
+            //check proximity to edge
+            if (edge_n(nodeIDs(elementID,n),i) == 2) {
+                tmp *= s(rst(i), hx(i));
+            } else if (edge_n(nodeIDs(elementID,n),i) == 1) {
+                tmp *= (s(rst(i), hx(i)) - s(rst(i)+2*hx(i), hx(i)));
+            } else if (edge_n(nodeIDs(elementID,n),i) == -1) {
+                tmp *= (s(rst(i), hx(i)) - s(rst(i)-2*hx(i), hx(i)));
+            } else if (edge_n(nodeIDs(elementID,n),i) == 0) {
+                tmp *= (s(rst(i), hx(i)) + 2.0*s(std::abs(rst(i))+hx(i), hx(i)));
+            }
+        }
+        //if (tmp < 1e-10){
+        //std::cout << "VERY SMALL!!! " << tmp << std::endl;
+        //avoid small numbers for numerical stability
+        //continue;
+        //}
+
+        //test_sum += tmp;
         nID.push_back(nodeIDs(elementID,n));
         nVAL.push_back(tmp);
-        tmp = 1.0;
     }
+    //std::cout << elementID << " : " << test_sum << std::endl;
     return;
 }
 
 
 /*----------------------------------------------------------------------------*/
 //
-void CartesianLinear::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD){
+void CartesianCubic::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && nGRAD.VECTOR_TYPE == Lx.VECTOR_TYPE && "evaluateShapeFnGradient failed");
     KinematicVector rst(job->JOB_TYPE);
     KinematicVector tmpVec(job->JOB_TYPE);
@@ -274,53 +334,84 @@ void CartesianLinear::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
     if (elementID < 0){
         return;
     }
-    for (size_t n=0;n<nodeIDs.cols();n++){
-        //find local coordinates relative to nodal position
-        for (int i=0;i<xIN.DIM;i++){
-            //r = (x_p - x_n)/hx
-            rst[i] = (xIN[i] - x_n(nodeIDs(elementID,n),i)) / hx(i);
 
-            //standard linear hat function
-            //evaluate at point
-            tmp *= (1 - std::abs(rst(i)));
+    //Eigen::VectorXd test_grad = job->jobVector<double>(Job::ZERO);
+    for (size_t n=0;n<nodeIDs.cols();n++){
+        if (nodeIDs(elementID,n) == -1){
+            continue; //break out if node id is -1;
         }
+
+        //find local coordinates relative to nodal position
+        //r = (x_p - x_n)
+        rst = xIN - x_n(nodeIDs(elementID,n));
         for (size_t i=0;i<xIN.rows();i++){
-            //replace i-direction contribution with sign function
-            tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
+            //check proximity to edge
+            if (edge_n(nodeIDs(elementID,n),i) == 2) {
+                tmpVec(i) = g(rst(i), hx(i));
+            } else if (edge_n(nodeIDs(elementID,n),i) == 1) {
+                tmpVec(i) = (g(rst(i), hx(i)) - g(rst(i)+2*hx(i), hx(i)));
+            } else if (edge_n(nodeIDs(elementID,n),i) == -1) {
+                tmpVec(i) = (g(rst(i), hx(i)) - g(rst(i)-2*hx(i), hx(i)));
+            } else if (edge_n(nodeIDs(elementID,n),i) == 0) {
+                if (rst(i) >= 0) {
+                    tmpVec(i) = (g(rst(i), hx(i)) + 2.0 * g(rst(i) + hx(i), hx(i)));
+                } else if (rst(i) < 0){
+                    tmpVec(i) = (g(rst(i), hx(i)) + 2.0 * g(rst(i) - hx(i), hx(i)));
+                }
+            }
         }
+
+        for (size_t i=0;i<xIN.rows();i++){
+            //check proximity to edge
+            if (edge_n(nodeIDs(elementID,n),i) == 2) {
+                tmpVec *= s(rst(i), hx(i));
+                tmpVec(i) *= 1.0/s(rst(i), hx(i));
+            } else if (edge_n(nodeIDs(elementID,n),i) == 1) {
+                tmpVec *= (s(rst(i), hx(i)) - s(rst(i)+2*hx(i), hx(i)));
+                tmpVec(i) *= 1.0/(s(rst(i), hx(i)) - s(rst(i)+2*hx(i), hx(i)));
+            } else if (edge_n(nodeIDs(elementID,n),i) == -1) {
+                tmpVec *= (s(rst(i), hx(i)) - s(rst(i)-2*hx(i), hx(i)));
+                tmpVec(i) *= 1.0/(s(rst(i), hx(i)) - s(rst(i)-2*hx(i), hx(i)));
+            } else if (edge_n(nodeIDs(elementID,n),i) == 0) {
+                tmpVec *= (s(rst(i), hx(i)) + 2.0*s(std::abs(rst(i))+hx(i), hx(i)));
+                tmpVec(i) *= 1.0/(s(rst(i), hx(i)) + 2.0*s(std::abs(rst(i))+hx(i), hx(i)));
+            }
+        }
+
+        //test_grad = test_grad + tmpVec;
         nID.push_back(nodeIDs(elementID,n));
         nGRAD.push_back(tmpVec);
-        tmp = 1.0;
         tmpVec.setZero();
     }
+
+    //std::cout << elementID << " : " << test_grad.transpose() << std::endl;
     return;
 }
 
 
 /*----------------------------------------------------------------------------*/
 //
-double CartesianLinear::nodeVolume(Job* job, int idIN){
+double CartesianCubic::nodeVolume(Job* job, int idIN){
     return v_n(idIN);
 }
 
 
 /*----------------------------------------------------------------------------*/
 //
-double CartesianLinear::elementVolume(Job* job, int idIN){
+double CartesianCubic::elementVolume(Job* job, int idIN){
     return v_e;
 }
 
 
 /*----------------------------------------------------------------------------*/
 //
-int CartesianLinear::nodeTag(Job* job, int idIN){
+int CartesianCubic::nodeTag(Job* job, int idIN){
     return -1;
 }
 
-
 /*----------------------------------------------------------------------------*/
 //
-void CartesianLinear::writeHeader(Job *job, Body *body, Serializer *serializer, std::ofstream &nfile, int SPEC) {
+void CartesianCubic::writeHeader(Job *job, Body *body, Serializer *serializer, std::ofstream &nfile, int SPEC) {
     int nlen = body->nodes->x.size();
 
     nfile << "ASCII\n";
@@ -378,4 +469,3 @@ void CartesianLinear::writeHeader(Job *job, Body *body, Serializer *serializer, 
 
     nfile << "POINT_DATA " << nlen << "\n";
 }
-

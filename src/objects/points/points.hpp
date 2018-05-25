@@ -45,6 +45,7 @@ public:
     virtual void init(Job*, Body*) = 0;                         //initialize from Job and Body
     virtual void readFromFile(Job*, Body*, std::string) = 0;    //construct points from given file
 
+    virtual void writeHeader(Job*, Body*, Serializer*, std::ofstream&, int) = 0;
     virtual void writeFrame(Job*, Body*, Serializer*) = 0;                      //send frame data to Serializer
     virtual std::string saveState(Job*, Body*, Serializer*, std::string) = 0;   //save to file (in given directory)
     virtual int loadState(Job*, Body*, Serializer*, std::string) = 0;           //load data from full path
@@ -60,6 +61,7 @@ public:
     void init(Job* job, Body* body);
     void readFromFile(Job* job, Body* body, std::string fileIN);
 
+    void writeHeader(Job* job, Body* body, Serializer* serializer, std::ofstream& pfile, int SPEC);
     void writeFrame(Job* job, Body* body, Serializer* serializer);
     std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);

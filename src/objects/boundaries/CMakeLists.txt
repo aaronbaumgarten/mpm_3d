@@ -1,5 +1,8 @@
 set(SOURCE_FILES
         ${SOURCE_FILES}
         ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_box.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_smooth_box.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_frictional_box.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_box_custom.cpp
         PARENT_SCOPE
         )

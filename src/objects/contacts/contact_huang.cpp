@@ -82,12 +82,8 @@ void ContactHuang::generateRules(Job* job){
     contact_normal = job->bodies[bodyIDs[0]]->gradS * job->bodies[bodyIDs[0]]->points->m;
     for (size_t i=0;i<contact_normal.size();i++){
         //normalize
-        contact_normal(i) *= -1.0/contact_normal(i).norm();
+        contact_normal(i) /= contact_normal(i).norm();
     }
-
-    //store initial velocity for implicit update
-    mv1_k = job->bodies[bodyIDs[0]]->nodes->mx_t;
-    mv2_k = job->bodies[bodyIDs[1]]->nodes->mx_t;
 
     return;
 }
@@ -146,8 +142,8 @@ void ContactHuang::applyRules(Job* job, int SPEC){
                     job->bodies[b2]->nodes->f(i) -= fcti;
                 }
             } else if (SPEC == Contact::EXPLICIT){
-                mv1i = (mv1_k(i) + job->dt * job->bodies[b1]->nodes->f(i));
-                mv2i = (mv2_k(i) + job->dt * job->bodies[b2]->nodes->f(i));
+                mv1i = job->bodies[b1]->nodes->mx_t(i);
+                mv2i = job->bodies[b2]->nodes->mx_t(i);
                 //mv1i << job->bodies[b1].nodes.mx_t.row(i).transpose();
                 //mv2i << job->bodies[b2].nodes.mx_t.row(i).transpose();
 

@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <Eigen/Core>
+#include <fstream>
 
 #include "parser.hpp"
 
@@ -44,6 +45,8 @@ public:
 //responsible for writing frames and reading/writing save files
 class Serializer : public MPMObject{
 public:
+    static const int VTK = 1; //in case i ever make another type of serializer
+
     //path to main program
     std::string mainpath;
 
@@ -65,6 +68,8 @@ public:
     virtual std::string saveState(Job*) = 0;        //save entire job to file
     virtual int loadState(Job*, std::string) = 0;   //load from file
     virtual int writeFrame(Job*) = 0;               //write frame for job object (return 1 on success)
+    virtual void writeDefaultPointHeader(Job*, Body*, std::ofstream&, int) = 0; //write default header to file
+    virtual void writeDefaultNodeHeader(Job*, Body*, std::ofstream&, int) = 0; //write default header to file
     virtual void writeScalarArray(Eigen::VectorXd&, std::string) = 0;   //write scalar array to file (named by string)
     virtual void writeVectorArray(MPMVectorArray&, std::string) = 0;    //write vector array to file
     virtual void writeTensorArray(MPMTensorArray&, std::string) = 0;    //write tensor array to file
@@ -139,6 +144,7 @@ public:
     virtual void init(Job*, Body*) = 0;                         //initialize from Job and Body
     virtual void readFromFile(Job*, Body*, std::string) = 0;    //construct points from given file
 
+    virtual void writeHeader(Job*, Body*, Serializer*, std::ofstream&, int) = 0;
     virtual void writeFrame(Job*, Body*, Serializer*) = 0;                      //send frame data to Serializer
     virtual std::string saveState(Job*, Body*, Serializer*, std::string) = 0;   //save to file (in given directory)
     virtual int loadState(Job*, Body*, Serializer*, std::string) = 0;           //load data from full path
@@ -197,8 +203,8 @@ public:
 //responsible for inter-body interactions
 class Contact : public MPMObject{
 public:
-    static const int IMPLICIT = 1; //explicit contact rules
-    static const int EXPLICIT = 0; //implicit contact rules
+    static const int IMPLICIT = 1; //implicit contact rules
+    static const int EXPLICIT = 0; //explicit contact rules
 
     int id;             //numerical id of contact in simulation
     std::string name;   //name of contact in simulation
@@ -222,6 +228,7 @@ public:
 
     virtual void init(Job*) = 0; //initialize from Job
 
+    virtual void writeHeader(Job*, Body*, Serializer*, std::ofstream&, int) = 0; //write cell types
     virtual void writeFrame(Job*, Serializer*) = 0;                     //send frame data to Serializer
     virtual std::string saveState(Job*, Serializer*, std::string) = 0;  //save to file
     virtual int loadState(Job*, Serializer*, std::string) = 0;          //load from file

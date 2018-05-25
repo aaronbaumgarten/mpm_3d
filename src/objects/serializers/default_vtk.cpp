@@ -48,6 +48,71 @@ void DefaultVTK::init(Job* job){
 }
 
 /*----------------------------------------------------------------------------*/
+void DefaultVTK::writeDefaultPointHeader(Job *job, Body *body, std::ofstream &pfile, int SPEC) {
+    int plen = body->points->x.size();
+
+    pfile << "ASCII\n";
+    pfile << "DATASET UNSTRUCTURED_GRID\n";
+
+    pfile << "POINTS " << plen << " double\n";
+    for (size_t i=0;i<plen;i++){
+        //vtk files require x,y,z
+        for (size_t pos = 0; pos < 3; pos++){
+            if (pos < body->points->x.DIM && (body->points->active(i) != 0) && std::isfinite(body->points->x(i,pos))){
+                pfile << body->points->x(i,pos) << " ";
+            } else {
+                pfile << "0 ";
+            }
+        }
+        pfile << "\n";
+    }
+
+    pfile << "CELLS " << plen << " " << 2*plen << "\n";
+    for (size_t i=0;i<plen;i++){
+        pfile << "1 " << i << "\n";
+    }
+
+    pfile << "CELL_TYPES " << plen << "\n";
+    for (size_t i=0;i<plen;i++){
+        pfile << "1\n";
+    }
+
+    pfile << "POINT_DATA " << plen << "\n";
+
+    return;
+}
+
+void DefaultVTK::writeDefaultNodeHeader(Job *job, Body *body, std::ofstream &nfile, int SPEC) {
+    int nlen = body->nodes->x.size();
+
+    nfile << "ASCII\n";
+    nfile << "DATASET UNSTRUCTURED_GRID\n";
+
+    nfile << "POINTS " << nlen << " double\n";
+    for (size_t i=0;i<nlen;i++){
+        //vtk files require x,y,z
+        for (size_t pos = 0; pos < 3; pos++){
+            if (pos < body->nodes->x.DIM && (body->nodes->active(i) != 0) && std::isfinite(body->nodes->x(i,pos))){
+                nfile << body->nodes->x(i,pos) << " ";
+            } else {
+                nfile << "0 ";
+            }
+        }
+        nfile << "\n";
+    }
+
+    nfile << "CELLS " << nlen << " " << 2*nlen << "\n";
+    for (size_t i=0;i<nlen;i++){
+        nfile << "1 " << i << "\n";
+    }
+
+    nfile << "CELL_TYPES " << nlen << "\n";
+    for (size_t i=0;i<nlen;i++){
+        nfile << "1\n";
+    }
+
+    nfile << "POINT_DATA " << nlen << "\n";
+}
 
 int DefaultVTK::writeFrame(Job* job){
     if ((job->t - t_last_frame) >= (1.0/sampleRate) || sampledFrames == 0){ //job->t >= sampledFrames/sampleRate){
@@ -78,33 +143,9 @@ int DefaultVTK::writeFrame(Job* job){
             if (pfile.is_open()){
                 pfile << "# vtk DataFile Version 3.0\n";
                 pfile << "Frame: " << (sampledFrames-1) << ", Time: " << job->t << "\n";
-                pfile << "ASCII\n";
-                pfile << "DATASET UNSTRUCTURED_GRID\n";
 
-                pfile << "POINTS " << plen << " double\n";
-                for (size_t i=0;i<plen;i++){
-                    //vtk files require x,y,z
-                    for (size_t pos = 0; pos < 3; pos++){
-                        if (pos < job->bodies[b]->points->x.DIM && (job->bodies[b]->points->active(i) != 0) && std::isfinite(job->bodies[b]->points->x(i,pos))){
-                            pfile << job->bodies[b]->points->x(i,pos) << " ";
-                        } else {
-                            pfile << "0 ";
-                        }
-                    }
-                    pfile << "\n";
-                }
+                job->bodies[b]->points->writeHeader(job, currentBody, job->serializer.get(), pfile, VTK);
 
-                pfile << "CELLS " << plen << " " << 2*plen << "\n";
-                for (size_t i=0;i<plen;i++){
-                    pfile << "1 " << i << "\n";
-                }
-
-                pfile << "CELL_TYPES " << plen << "\n";
-                for (size_t i=0;i<plen;i++){
-                    pfile << "1\n";
-                }
-
-                pfile << "POINT_DATA " << plen << "\n";
                 //scalars, vectors and tensors here
             } else {
                 std::cerr << "Could not open point frame: " << frameDirectory+pfilename << " !" << std::endl;
@@ -113,33 +154,9 @@ int DefaultVTK::writeFrame(Job* job){
             if (nfile.is_open()){
                 nfile << "# vtk DataFile Version 3.0\n";
                 nfile << "Frame: " << sampledFrames << ", Time: " << job->t << "\n";
-                nfile << "ASCII\n";
-                nfile << "DATASET UNSTRUCTURED_GRID\n";
 
-                nfile << "POINTS " << nlen << " double\n";
-                for (size_t i=0;i<nlen;i++){
-                    //vtk files require x,y,z
-                    for (size_t pos = 0; pos < 3; pos++){
-                        if (pos < job->bodies[b]->nodes->x.DIM && (job->bodies[b]->nodes->active(i) != 0) && std::isfinite(job->bodies[b]->nodes->x(i,pos))){
-                            nfile << job->bodies[b]->nodes->x(i,pos) << " ";
-                        } else {
-                            nfile << "0 ";
-                        }
-                    }
-                    nfile << "\n";
-                }
+                job->grid->writeHeader(job, currentBody, job->serializer.get(), nfile, VTK);
 
-                nfile << "CELLS " << nlen << " " << 2*nlen << "\n";
-                for (size_t i=0;i<nlen;i++){
-                    nfile << "1 " << i << "\n";
-                }
-
-                nfile << "CELL_TYPES " << nlen << "\n";
-                for (size_t i=0;i<nlen;i++){
-                    nfile << "1\n";
-                }
-
-                nfile << "POINT_DATA " << nlen << "\n";
                 //scalars, vectors and tensors here
             } else {
                 std::cerr << "Could not open node frame: " << frameDirectory+nfilename << " !" << std::endl;

@@ -56,4 +56,79 @@ public:
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
 };
 
+/*----------------------------------------------------------------------------*/
+
+class CartesianSmoothBox : public Boundary{
+public:
+    CartesianSmoothBox(){
+        object_name = "CartesianSmoothBox";
+    }
+
+    KinematicVectorArray bcNodalMask; //store dof control
+
+    void init(Job* job, Body* body);
+    void generateRules(Job* job, Body* body);
+    void applyRules(Job* job, Body* body);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class CartesianFrictionalBox : public Boundary{
+public:
+    CartesianFrictionalBox(){
+        object_name = "CartesianFrictionalBox";
+        mu_f = 0;
+    }
+
+    double mu_f;
+    KinematicVectorArray bcNodalMask; //store dof control
+    KinematicVectorArray bcNodalForce; //store forces
+    KinematicVectorArray pvec;
+    MaterialTensorArray tmp;
+    MaterialVectorArray nvec;
+
+    void init(Job* job, Body* body);
+    void generateRules(Job* job, Body* body);
+    void applyRules(Job* job, Body* body);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class CartesianBoxCustom : public Boundary{
+public:
+    CartesianBoxCustom(){
+        object_name = "CartesianBoxCustom";
+        mu_f = 0;
+    }
+
+    static const int NO_SLIP_WALL       = 0;
+    static const int FRICTION_LESS_WALL = 1;
+    static const int FRICTIONAL_WALL    = 2;
+    static const int PERIODIC           = 3;
+
+    double mu_f;
+    KinematicVector Lx;
+    Eigen::VectorXi limit_props;
+    KinematicVectorArray bcNodalMask, bcNodalForce;
+    MaterialTensorArray tmp;
+    MaterialVectorArray nvec;
+    KinematicVectorArray pvec;
+
+    void init(Job* job, Body* body);
+    void generateRules(Job* job, Body* body);
+    void applyRules(Job* job, Body* body);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
 #endif //MPM_V3_BOUNDARIES_HPP

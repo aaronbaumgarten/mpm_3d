@@ -1,6 +1,6 @@
 //
-// Created by aaron on 5/15/18.
-// cartesian_box.cpp
+// Created by aaron on 5/23/18.
+// cartesian_smooth_box.cpp
 //
 
 #include <iostream>
@@ -20,10 +20,10 @@
 
 /*----------------------------------------------------------------------------*/
 //initialize boundary assuming other objects have been constructed correctly
-void CartesianBox::init(Job* job, Body* body){
+void CartesianSmoothBox::init(Job* job, Body* body){
     if (job->grid->object_name.compare("CartesianLinear") != 0){
         std::cout << "\nBOUNDARY CONDITION WARNING!" << std::endl;
-        std::cout << "\"CartesianBox\" boundary expects \"CartesianLinear\" grid NOT \"" << job->grid->object_name << "\"!\n" << std::endl;
+        std::cout << "\"CartesianSmoothBox\" boundary expects \"CartesianLinear\" grid NOT \"" << job->grid->object_name << "\"!\n" << std::endl;
     }
 
     //find bounds of box
@@ -45,8 +45,7 @@ void CartesianBox::init(Job* job, Body* body){
     for (int i=0;i<len;i++){
         for (int pos=0;pos<body->nodes->x.DIM;pos++){
             if (body->nodes->x(i,pos) == 0 || body->nodes->x(i,pos) == Lx(pos)) {
-                bcNodalMask(i).setOnes();
-                break;
+                bcNodalMask(i,pos) = 1; //only lock normal direction
             }
         }
     }
@@ -59,7 +58,7 @@ void CartesianBox::init(Job* job, Body* body){
 
 /*----------------------------------------------------------------------------*/
 //generate boundary conditions
-void CartesianBox::generateRules(Job* job, Body* body){
+void CartesianSmoothBox::generateRules(Job* job, Body* body){
     //nothing to do here
     return;
 }
@@ -67,7 +66,7 @@ void CartesianBox::generateRules(Job* job, Body* body){
 
 /*----------------------------------------------------------------------------*/
 //apply boundary rules
-void CartesianBox::applyRules(Job* job, Body* body){
+void CartesianSmoothBox::applyRules(Job* job, Body* body){
     for (int i=0;i<body->nodes->x_t.size();i++){
         for (int pos=0; pos < body->nodes->x_t.DIM; pos++){
             if (bcNodalMask(i,pos) == 1){
@@ -84,15 +83,15 @@ void CartesianBox::applyRules(Job* job, Body* body){
 
 /*----------------------------------------------------------------------------*/
 //write frame and save file
-void CartesianBox::writeFrame(Job* job, Body* body, Serializer* serializer){
+void CartesianSmoothBox::writeFrame(Job* job, Body* body, Serializer* serializer){
     serializer->writeVectorArray(bcNodalMask,"bc_nodal_mask");
     return;
 }
 
-std::string CartesianBox::saveState(Job* job, Body* body, Serializer* serializer, std::string filepath){
+std::string CartesianSmoothBox::saveState(Job* job, Body* body, Serializer* serializer, std::string filepath){
     return "err";
 }
 
-int CartesianBox::loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath){
+int CartesianSmoothBox::loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath){
     return 0;
 }

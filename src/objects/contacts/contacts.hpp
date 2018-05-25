@@ -53,7 +53,36 @@ public:
 
     double mu_f = 0.4;
     std::vector<int> bodyIDs = {-1,-1};
-    KinematicVectorArray contact_normal, mv1_k, mv2_k;
+    KinematicVectorArray contact_normal;
+
+    void init(Job* job);
+    void generateRules(Job* job);
+    void applyRules(Job* job, int SPEC);
+
+    void writeFrame(Job* job, Serializer* serializer);
+    std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Serializer* serializer, std::string fullpath);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class SlurryMixture : public Contact{
+public:
+    SlurryMixture(){
+        object_name = "SlurryMixture";
+    }
+
+    double grains_rho = 2500; //kg/m^3
+    double grains_d = 0.001; //m
+    double eta_0 = 8.9e-4; //Pa*s
+    double fluid_rho = 1000; //kg/m^3
+
+    std::vector<int> bodyIDs = {-1,-1};
+    int solid_body_id = -1;
+    int fluid_body_id = -1;
+
+    Eigen::VectorXd n, V;
+    KinematicVectorArray divT;
 
     void init(Job* job);
     void generateRules(Job* job);

@@ -54,6 +54,48 @@ public:
     void applyGravity(Job* job);
 };
 
+/*----------------------------------------------------------------------------*/
 
+class ColumnCollapseDriver : public Driver{
+public:
+    ColumnCollapseDriver(){
+        object_name = "ColumnCollapseDriver";
+    }
+
+    double stop_time;
+    KinematicVector gravity;
+
+    void setPressure(Job* job);
+
+    void init(Job* job);
+    std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    void run(Job* job);
+    void generateGravity(Job* job);
+    void applyGravity(Job* job);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class UserDefinedGravityDriver : public Driver{
+public:
+    UserDefinedGravityDriver(){
+        object_name = "UserDefinedGravityDriver";
+    }
+
+    double stop_time;
+    KinematicVector gravity;
+
+    void setPressure(Job* job);
+
+    void init(Job* job);
+    std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    void run(Job* job);
+    void generateGravity(Job* job);
+    void applyGravity(Job* job);
+};
 
 #endif //MPM_V3_DRIVERS_HPP
