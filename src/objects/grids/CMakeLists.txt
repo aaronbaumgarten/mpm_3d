@@ -3,5 +3,8 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/cartesian.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_cubic.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_periodic.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_custom.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_cubic_custom.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/gmsh_tri2D.cpp
         PARENT_SCOPE
         )

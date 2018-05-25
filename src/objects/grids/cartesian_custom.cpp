@@ -1,6 +1,6 @@
 //
 // Created by aaron on 5/25/18.
-// cartesian_periodic.cpp
+// cartesian_custom.cpp
 //
 
 #include <iostream>
@@ -21,7 +21,51 @@
 
 /*----------------------------------------------------------------------------*/
 //
-void CartesianPeriodic::hiddenInit(Job* job){
+void CartesianCustom::init(Job* job){
+    if (fp64_props.size() < job->DIM || int_props.size() < 2*job->DIM){
+        std::cout << fp64_props.size() << ", " << int_props.size() << "\n";
+        fprintf(stderr,
+                "%s:%s: Need at least %i dimensions and %i properties defined.\n",
+                __FILE__, __func__, job->DIM, job->DIM);
+        exit(0);
+    } else {
+        //store length, number of linear nodes, and deltas
+        Lx = KinematicVector(job->JOB_TYPE);
+        Nx = Eigen::VectorXi(job->DIM);
+        hx = KinematicVector(job->JOB_TYPE);
+
+        for (int pos=0;pos<hx.size();pos++){
+            Lx(pos) = fp64_props[pos];
+            Nx(pos) = int_props[pos];
+            hx(pos) = Lx(pos) / Nx(pos);
+        }
+
+        periodic_props = Eigen::VectorXi(job->DIM);
+        for (size_t pos=0;pos<job->DIM;pos++){
+            periodic_props(pos) = int_props[job->DIM + pos];
+        }
+
+        //print grid properties
+        std::cout << "Grid properties (Lx = { ";
+        for (size_t i=0;i<Lx.rows();i++){
+            std::cout << Lx(i) << " ";
+        }
+        std::cout << "}, Nx = { ";
+        for (size_t i=0;i<Nx.rows();i++){
+            std::cout << Nx(i) << " ";
+        }
+        std::cout << "})." << std::endl;
+    }
+
+    //call initializing function
+    hiddenInit(job);
+
+    std::cout << "Grid Initialized." << std::endl;
+
+    return;
+}
+
+void CartesianCustom::hiddenInit(Job* job){
     //called from loading or initializing functions
     //needs to have Lx,Nx,hx defined
 
@@ -29,14 +73,14 @@ void CartesianPeriodic::hiddenInit(Job* job){
     node_count = 1;
     element_count = 1;
     npe = 1;
-    for (size_t i=0;i<Nx.rows();i++){
+    for (int i=0;i<Nx.rows();i++){
         node_count *= (Nx(i)+1);
         element_count *= Nx(i);
         npe *= 2;
     }
 
-    x_n = KinematicVectorArray(node_count,job->JOB_TYPE);
-    for (size_t i=0;i<x_n.size();i++){
+    x_n = KinematicVectorArray(node_count, job->JOB_TYPE);
+    for (int i=0;i<x_n.size();i++){
         x_n(i) = nodeIDToPosition(job,i);
     }
 
@@ -76,11 +120,14 @@ void CartesianPeriodic::hiddenInit(Job* job){
         }
 
         //wrap x for 2D sim, x and y for 3D sim
-        if (job->DIM >= 2 && ijk(0) == Nx(0)){
+        if (job->DIM >= 1 && ijk(0) == Nx(0) && periodic_props(0) == PERIODIC){
             ijk(0) = 0;
         }
-        if (job->DIM == 3 && ijk(1) == Nx(1)){
+        if (job->DIM >= 2 && ijk(1) == Nx(1) && periodic_props(1) == PERIODIC){
             ijk(1) = 0;
+        }
+        if (job->DIM == 3 && ijk(2) == Nx(2) && periodic_props(2) == PERIODIC){
+            ijk(2) = 0;
         }
 
         tmp = 0;
@@ -142,68 +189,64 @@ void CartesianPeriodic::hiddenInit(Job* job){
     return;
 }
 
+
 /*----------------------------------------------------------------------------*/
 //
-std::string CartesianPeriodic::saveState(Job* job, Serializer* serializer, std::string filepath){
+std::string CartesianCustom::saveState(Job* job, Serializer* serializer, std::string filepath){
     return "err";
 }
 
-int CartesianPeriodic::loadState(Job* job, Serializer* serializer, std::string fullpath){
+int CartesianCustom::loadState(Job* job, Serializer* serializer, std::string fullpath){
     return 0;
 }
 
+
 /*----------------------------------------------------------------------------*/
 //
-void CartesianPeriodic::fixPosition(Job* job, KinematicVector& xIN){
+void CartesianCustom::fixPosition(Job* job, KinematicVector& xIN){
     //wrap position vector around relevant axes
 
     //int tmp = floor(xIN[1]/hx[1]); //element i,j,k
     //double rem = xIN[1] - tmp*hx[1]; //position relative to element
     //int true_elem = tmp%Nx[1]; //adjusted element
     //double true_pos = true_elem*hx[1] + rem; //adjusted position
-
-
     int tmp;
-    if (job->DIM >= 2){
-        tmp = std::floor(xIN[0]/hx[0]);
-        xIN[0] += (tmp%Nx[0] * hx[0]) - tmp*hx[0];
-        if (xIN[0] < 0){
-            xIN[0] += Lx[0];
-        }
-    }
-    if (job->DIM == 3){
-        tmp = std::floor(xIN[1]/hx[1]);
-        xIN[1] += (tmp%Nx[1] * hx[1]) - tmp*hx[1];
-        if (xIN[1] < 0){
-            xIN[1] += Lx[1];
+    for (size_t pos=0; pos<periodic_props.size(); pos++) {
+        if (periodic_props(pos) == PERIODIC) {
+            tmp = std::floor(xIN[pos] / hx[pos]);
+            xIN[pos] += (tmp % Nx[pos] * hx[pos]) - tmp * hx[pos];
+            if (xIN[pos] < 0) {
+                xIN[pos] += Lx[pos];
+            }
         }
     }
     return;
 }
 
-int CartesianPeriodic::whichElement(Job* job, KinematicVector& xIN){
-    //fix position first, then adjust
-    KinematicVector tmp = xIN;
-    fixPosition(job, tmp);
-    return CartesianLinear::cartesianWhichElement(job, tmp, Lx, hx, Nx);
+int CartesianCustom::whichElement(Job* job, KinematicVector& xIN){
+    KinematicVector tmpX = xIN;
+    fixPosition(job, tmpX);
+    //return standard cartesian which element
+    return CartesianLinear::cartesianWhichElement(job, tmpX, Lx, hx, Nx);
 }
 
-bool CartesianPeriodic::inDomain(Job* job, KinematicVector& xIN){
+bool CartesianCustom::inDomain(Job* job, KinematicVector& xIN){
     //adjust xIN
-    KinematicVector tmp = xIN;
-    fixPosition(job,tmp);
+    KinematicVector tmpX = xIN;
+    fixPosition(job,tmpX);
 
-    for (int i=0;i<tmp.DIM;i++){
-        if (!(tmp[i] <= Lx[i] && tmp[i] >= 0)) { //if xIn is outside domain, return -1
+    for (size_t i=0;i<tmpX.DIM;i++){
+        if (!(tmpX[i] <= Lx[i] && tmpX[i] >= 0)) { //if xIn is outside domain, return -1
             return false;
         }
     }
     return true;
 }
 
+
 /*----------------------------------------------------------------------------*/
 //
-void CartesianPeriodic::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL){
+void CartesianCustom::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL){
     //adjust xIN
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "evaluateShapeFnValue failed");
     KinematicVector tmpVec = xIN;
@@ -232,7 +275,7 @@ void CartesianPeriodic::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std
     return;
 }
 
-void CartesianPeriodic::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD){
+void CartesianCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && nGRAD.VECTOR_TYPE == Lx.VECTOR_TYPE && "evaluateShapeFnGradient failed");
     KinematicVector tmpX = xIN;
     fixPosition(job, tmpX);

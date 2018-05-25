@@ -77,6 +77,9 @@ Registry<Grid>::Registry() {
     object["CartesianLinear"] = &createInstance<Grid,CartesianLinear>;
     object["CartesianCubic"] = &createInstance<Grid,CartesianCubic>;
     object["CartesianPeriodic"] = &createInstance<Grid,CartesianPeriodic>;
+    object["CartesianCustom"] = &createInstance<Grid,CartesianCustom>;
+    object["CartesianCubicCustom"] = &createInstance<Grid,CartesianCubicCustom>;
+    object["TriangularGridLinear"] = &createInstance<Grid,TriangularGridLinear>;
 }
 
 
@@ -101,6 +104,7 @@ Registry<Nodes>::Registry() {
 template<>
 Registry<Material>::Registry() {
     object["IsotropicLinearElasticity"] = &createInstance<Material,IsotropicLinearElasticity>;
+    object["Sand_SachithLocal"] = &createInstance<Material,Sand_SachithLocal>;
 }
 
 

@@ -55,7 +55,7 @@ public:
         std::vector<std::string> svec;
         svec = Parser::splitString(program,'/');
         std::string filepath = "";
-        for (size_t i=0; i<(svec.size()-1);i++){
+        for (int i=0; i<(svec.size()-1);i++){
             filepath += svec[i];
             filepath += "/";
         }
@@ -223,8 +223,8 @@ public:
 //responsible for the definition of background grid
 class Grid : public MPMObject{
 public:
-    size_t node_count;      //number of nodes which define grid
-    size_t element_count;   //number of elements in grid
+    int node_count;      //number of nodes which define grid
+    int element_count;   //number of elements in grid
 
     virtual void init(Job*) = 0; //initialize from Job
 

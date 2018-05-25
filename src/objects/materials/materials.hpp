@@ -63,4 +63,38 @@ public:
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
 };
 
+
+/*----------------------------------------------------------------------------*/
+//
+class Sand_SachithLocal : public Material {
+public:
+    Sand_SachithLocal(){
+        object_name = "Sand_SachithLocal";
+    }
+
+    //material properties
+    double E, nu, G, K, lambda;
+    double grains_d;
+    Eigen::VectorXd gammap, gammap_dot;
+
+    double MU_S = 0.280;
+    double GRAINS_RHO = 2500;
+    double RHO_CRITICAL = (GRAINS_RHO*0.6);
+    double MU_2 = MU_S;
+    double DELTA_MU = (MU_2 - MU_S);
+    double I_0 = 0.278;
+
+    void quadratic_roots(double *x1, double *x2, double a, double b, double c);
+    double negative_root(double a, double b, double c);
+
+    void init(Job* job, Body* body);
+    void calculateStress(Job* job, Body* body, int SPEC);
+    void assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC);
+    void assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
 #endif //MPM_V3_MATERIALS_HPP

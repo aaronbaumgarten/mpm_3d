@@ -29,8 +29,8 @@
 /*
  * class Grid : public MPMObject{
 public:
-    size_t node_count;      //number of nodes which define grid
-    size_t element_count;   //number of elements in grid
+    int node_count;      //number of nodes which define grid
+    int element_count;   //number of elements in grid
 
     virtual void init(Job*) = 0; //initialize from Job
 
@@ -61,7 +61,7 @@ public:
     KinematicVectorArray x_n;
     Eigen::MatrixXi nodeIDs; //element to node map
     Eigen::MatrixXi A; //0,1 for directions
-    size_t npe; //nodes per element
+    int npe; //nodes per element
     Eigen::VectorXd v_n; //nodal volume
     double v_e; //element volume
 
@@ -112,6 +112,34 @@ public:
 
 /*----------------------------------------------------------------------------*/
 
+class CartesianCustom : public CartesianLinear{
+public:
+    CartesianCustom(){
+        object_name = "CartesianCustom";
+    }
+
+    static const int WALL = 0; //for periodic props definition
+    static const int PERIODIC = 1; //for periodic definition
+
+    Eigen::VectorXi nntoni; //node number to node id
+    Eigen::VectorXi periodic_props; //boundary props
+
+    void init(Job* job);
+    void hiddenInit(Job* job);
+
+    std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    void fixPosition(Job* job, KinematicVector& xIN);
+    int whichElement(Job* job, KinematicVector& xIN);
+    bool inDomain(Job* job, KinematicVector& xIN);
+
+    void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL);
+    void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD);
+};
+
+/*----------------------------------------------------------------------------*/
+
 class CartesianCubic : public Grid{
 public:
     CartesianCubic(){
@@ -123,12 +151,91 @@ public:
     KinematicVectorArray x_n, edge_n;
     Eigen::MatrixXi nodeIDs; //element to node map
     Eigen::MatrixXi A; //0,1 for directions
-    size_t npe; //nodes per element
+    int npe; //nodes per element
     Eigen::VectorXd v_n; //nodal volume
     double v_e; //element volume
 
-    double s(double, double);
-    double g(double, double);
+    static double s(double, double);
+    static double g(double, double);
+
+    virtual void init(Job* job);
+    virtual void hiddenInit(Job* job);
+
+    virtual void writeFrame(Job* job, Serializer* serializer);
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    virtual void writeHeader(Job* job, Body* body, Serializer* serializer, std::ofstream& nfile, int SPEC); //write cell types
+
+    virtual int whichElement(Job* job, KinematicVector& xIN);
+    virtual bool inDomain(Job* job, KinematicVector& xIN);
+    virtual KinematicVector nodeIDToPosition(Job* job, int idIN);
+
+    virtual void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL);
+    virtual void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD);
+    virtual double nodeVolume(Job* job, int idIN);
+    virtual double elementVolume(Job* job, int idIN);
+    virtual int nodeTag(Job* job, int idIN);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class CartesianCubicCustom : public CartesianCubic{
+public:
+    CartesianCubicCustom(){
+        object_name = "CartesianCubicCustom";
+    }
+
+    static const int WALL = 0; //for periodic props definition
+    static const int PERIODIC = 1; //for periodic definition
+
+    Eigen::VectorXi periodic_props; //boundary props
+    Eigen::VectorXi nntoni; //node number to node id
+
+    void init(Job* job);
+    void hiddenInit(Job* job);
+
+    std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    void fixPosition(Job* job, KinematicVector& xIN);
+    int whichElement(Job* job, KinematicVector& xIN);
+    bool inDomain(Job* job, KinematicVector& xIN);
+
+    void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL);
+    void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class TriangularGridLinear : public Grid{
+public:
+    TriangularGridLinear(){
+        object_name = "TriangularGridLinear";
+    }
+
+    double lc;
+    std::string msh_filename;
+    KinematicVector Lx, hx;
+    Eigen::VectorXi Nx;
+    Eigen::MatrixXi nodeIDs; //element to node map
+
+    int npe = 3;
+    KinematicVectorArray x_n;
+    KinematicTensorArray A, Ainv; //map xi to x and x to xi
+
+    Eigen::VectorXd v_n, v_e; //nodal/element volumes
+
+    std::vector<int> search_cells; //search grid (cell to element map)
+    std::vector<int> search_offsets; //search offsets
+
+    int ijk_to_n(Job* job, const KinematicVector& ijk);
+    KinematicVector n_to_ijk(Job* job, int n);
+
+    bool line_segment_intersect(const KinematicVector& s0_p0, const KinematicVector& s0_p1, const KinematicVector& s1_p0, const KinematicVector& s1_p1);
+
+    int whichSearchCell(const KinematicVector& xIN);
+    bool inElement(Job* job, const KinematicVector& xIN, int idIN);
 
     void init(Job* job);
     void hiddenInit(Job* job);

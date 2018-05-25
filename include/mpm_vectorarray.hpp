@@ -22,7 +22,7 @@ public:
 
     /*------------------------------------------------------------------------*/
     //access j(th) component of i(th) vector
-    virtual double& operator() (int i, int j) = 0;
+    virtual double& operator() (int i, int j)  = 0;
 
     //resize data to size of i tensors
     void resize(int i){ buffer.resize(MPMVector::VECTOR_MAX_DIM * i); return; }

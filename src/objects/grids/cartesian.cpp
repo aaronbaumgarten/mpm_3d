@@ -208,7 +208,7 @@ int CartesianLinear::cartesianWhichElement(Job* job, KinematicVector& xIN, Kinem
 //
 bool CartesianLinear::inDomain(Job* job, KinematicVector& xIN){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "inDomain failed");
-    for (int i=0;i<xIN.size();i++){
+    for (int i=0;i<xIN.DIM;i++){
         if (!(xIN[i] <= Lx[i] && xIN[i] >= 0)) { //if xIn is outside domain, return -1
             return false;
         }
@@ -321,6 +321,11 @@ int CartesianLinear::nodeTag(Job* job, int idIN){
 /*----------------------------------------------------------------------------*/
 //
 void CartesianLinear::writeHeader(Job *job, Body *body, Serializer *serializer, std::ofstream &nfile, int SPEC) {
+    if (SPEC != Serializer::VTK){
+        std::cerr << "ERROR: Unknown file SPEC in writeHeader: " << SPEC  << "! Exiting." << std::endl;
+        exit(0);
+    }
+
     int nlen = body->nodes->x.size();
 
     nfile << "ASCII\n";
