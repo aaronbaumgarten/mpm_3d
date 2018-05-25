@@ -63,9 +63,8 @@ public:
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
 };
 
-
 /*----------------------------------------------------------------------------*/
-//
+
 class Sand_SachithLocal : public Material {
 public:
     Sand_SachithLocal(){
@@ -96,5 +95,101 @@ public:
     std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
 };
+
+/*----------------------------------------------------------------------------*/
+
+class SlurryGranularPhase : public Material{
+public:
+    SlurryGranularPhase(){
+        object_name = "SlurryGranularPhase";
+    }
+
+    //residual tolerance
+    double ABS_TOL = 1e-3;
+    double REL_TOL = 1e-6;
+    double h = 1e-5;
+
+    //material properties
+    double E, nu, G, K, lambda;
+
+    //mu(Im)
+    double mu_1, mu_2, K_3, K_4, K_5, phi_m, grains_rho, eta_0, grains_d, fluid_rho;
+    double a, I_0;
+
+    Eigen::VectorXd gammap, gammap_dot, I_v, I, I_m, phi, eta;
+    int fluid_body_id = -1;
+
+    double getBeta(double phi, double phi_eq);
+    void calcState(double &gdp, double &p, double &eta_in, double &phi_in, double &I_out, double &Iv_out, double &Im_out, double &mu_out, double &phi_eq, double &beta_out);
+    double getStep(double val, double ub, double lb);
+
+    void init(Job* job, Body* body);
+    void calculateStress(Job* job, Body* body, int SPEC);
+    void assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC);
+    void assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class BarotropicViscousFluid : public Material {
+public:
+    BarotropicViscousFluid(){
+        object_name = "BarotropicViscousFluid";
+    }
+
+    double alpha = 0.0;
+    double eta, K;
+
+    KinematicVector Lx;
+    double h;
+    Eigen::VectorXd e;
+    KinematicVectorArray grad_e, del_pos;
+    Eigen::VectorXd V_i, v_i;
+
+    void init(Job* job, Body* body);
+    void calculateStress(Job* job, Body* body, int SPEC);
+    void assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC);
+    void assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class SlurryFluidPhase : public Material {
+public:
+    SlurryFluidPhase(){
+        object_name = "SlurryFluidPhase";
+    }
+
+    double alpha = 0.0;
+    double eta_0, K;
+    double solid_rho;
+    int solid_body_id = -1;
+
+    Eigen::VectorXd J, n_p;
+
+    KinematicVector Lx;
+    double h;
+    Eigen::VectorXd e;
+    KinematicVectorArray grad_e, del_pos;
+    Eigen::VectorXd V_i, v_i;
+
+    void init(Job* job, Body* body);
+    void calculateStress(Job* job, Body* body, int SPEC);
+    void assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC);
+    void assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
 
 #endif //MPM_V3_MATERIALS_HPP

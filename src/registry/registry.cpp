@@ -105,6 +105,9 @@ template<>
 Registry<Material>::Registry() {
     object["IsotropicLinearElasticity"] = &createInstance<Material,IsotropicLinearElasticity>;
     object["Sand_SachithLocal"] = &createInstance<Material,Sand_SachithLocal>;
+    object["SlurryGranularPhase"] = &createInstance<Material,SlurryGranularPhase>;
+    object["SlurryFluidPhase"] = &createInstance<Material,SlurryFluidPhase>;
+    object["BarotropicViscousFluid"] = &createInstance<Material,BarotropicViscousFluid>;
 }
 
 

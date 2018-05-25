@@ -2,5 +2,8 @@ set(SOURCE_FILES
         ${SOURCE_FILES}
         ${CMAKE_CURRENT_SOURCE_DIR}/isolin.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/g_local_mu2.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/slurry_mu_im.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/viscousfluid.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/slurry_viscousfluid.cpp
         PARENT_SCOPE
         )

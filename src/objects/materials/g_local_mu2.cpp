@@ -165,7 +165,7 @@ void Sand_SachithLocal::calculateStress(Job* job, Body* body, int SPEC){
 
         //trial stress
         s_tr = T + job->dt * tmpMat;
-        p_tr = -s_tr.trace()/s_tr.rows();
+        p_tr = -s_tr.trace()/3.0;
 
         //trial deviator
         t0_tr = s_tr + p_tr * MaterialTensor::Identity();
@@ -233,7 +233,7 @@ void Sand_SachithLocal::assignPressure(Job* job, Body* body, double pressureIN, 
     tmpMat = body->points->T(idIN);
 
     trT = tmpMat.trace();
-    tmpMat = tmpMat - (trT/tmpMat.rows() + pressureIN) * MaterialTensor::Identity();
+    tmpMat = tmpMat - (trT/3.0 + pressureIN) * MaterialTensor::Identity();
     body->points->T(idIN) = tmpMat;
     return;
 }
