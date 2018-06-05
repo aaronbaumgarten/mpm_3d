@@ -28,7 +28,7 @@
 //job, serializer, driver, solver, body, grid all need to be initialized
 void DefaultNodes::init(Job* job, Body* body) {
     //assume that grid object has been created first
-    size_t len = job->grid->node_count;
+    int len = job->grid->node_count;
 
     //initialize vectors to length of grid object
     if (x.size() != len) {
@@ -51,7 +51,7 @@ void DefaultNodes::init(Job* job, Body* body) {
     mx_t.setZero();
     f.setZero();
 
-    for (size_t i = 0; i < len; i++) {
+    for (int i = 0; i < len; i++) {
         x(i) = job->grid->nodeIDToPosition(job, i);
     }
 

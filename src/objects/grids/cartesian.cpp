@@ -42,11 +42,11 @@ void CartesianLinear::init(Job* job){
 
         //print grid properties
         std::cout << "Grid properties (Lx = { ";
-        for (size_t i=0;i<Lx.size();i++){
+        for (int i=0;i<Lx.size();i++){
             std::cout << Lx(i) << " ";
         }
         std::cout << "}, Nx = { ";
-        for (size_t i=0;i<Nx.size();i++){
+        for (int i=0;i<Nx.size();i++){
             std::cout << Nx(i) << " ";
         }
         std::cout << "})." << std::endl;
@@ -71,14 +71,14 @@ void CartesianLinear::hiddenInit(Job* job){
     node_count = 1;
     element_count = 1;
     npe = 1;
-    for (size_t i=0;i<Nx.rows();i++){
+    for (int i=0;i<Nx.rows();i++){
         node_count *= (Nx(i)+1);
         element_count *= Nx(i);
         npe *= 2;
     }
 
     x_n = KinematicVectorArray(node_count,job->JOB_TYPE);
-    for (size_t i=0;i<x_n.size();i++){
+    for (int i=0;i<x_n.size();i++){
         x_n(i) = nodeIDToPosition(job,i);
     }
 
@@ -91,11 +91,11 @@ void CartesianLinear::hiddenInit(Job* job){
     Eigen::VectorXi onoff(job->DIM);
     A = Eigen::MatrixXi(npe,job->DIM);
     onoff.setZero();
-    for (size_t n=0; n<npe;n++){
-        for (size_t i=0;i<onoff.rows();i++){
+    for (int n=0; n<npe;n++){
+        for (int i=0;i<onoff.rows();i++){
             A(n,i) = onoff(i);
         }
-        for (size_t i=0;i<onoff.rows();i++) {
+        for (int i=0;i<onoff.rows();i++) {
             if (onoff(i) == 0){
                 onoff(i) = 1;
                 break;
@@ -110,17 +110,17 @@ void CartesianLinear::hiddenInit(Job* job){
     int tmp;
     nodeIDs.resize(element_count,npe);
     nodeIDs.setZero();
-    for (size_t e=0;e<nodeIDs.rows();e++){
+    for (int e=0;e<nodeIDs.rows();e++){
         tmp = e;
         //find i,j,k count for element position
-        for (size_t i=0;i<ijk.rows();i++){
+        for (int i=0;i<ijk.rows();i++){
             ijk(i) = tmp % Nx(i);
             tmp = tmp / Nx(i);
         }
 
         //find node ids for element
-        for (size_t n=0;n<nodeIDs.cols();n++){
-            for (size_t i=0;i<ijk.rows();i++) {
+        for (int n=0;n<nodeIDs.cols();n++){
+            for (int i=0;i<ijk.rows();i++) {
                 //n = i + j*imax + k*imax*jmax
                 //hardcode
                 if (i==0) {
@@ -136,15 +136,15 @@ void CartesianLinear::hiddenInit(Job* job){
 
     //element volume
     v_e = 1;
-    for (size_t pos=0;pos<hx.rows();pos++){
+    for (int pos=0;pos<hx.rows();pos++){
         v_e *= hx(pos);
     }
 
     //nodal volume
     v_n.resize(x_n.size());
     v_n.setZero();
-    for (size_t e=0;e<nodeIDs.rows();e++){
-        for (size_t c=0;c<nodeIDs.cols();c++) {
+    for (int e=0;e<nodeIDs.rows();e++){
+        for (int c=0;c<nodeIDs.cols();c++) {
             v_n(nodeIDs(e, c)) += v_e / nodeIDs.cols();
         }
     }
@@ -246,7 +246,7 @@ void CartesianLinear::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::
     if (elementID < 0){
         return;
     }
-    for (size_t n=0;n<nodeIDs.cols();n++){
+    for (int n=0;n<nodeIDs.cols();n++){
         //find local coordinates relative to nodal position
         for (int i=0;i<xIN.DIM;i++){
             //r = (x_p - x_n)/hx
@@ -274,7 +274,7 @@ void CartesianLinear::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
     if (elementID < 0){
         return;
     }
-    for (size_t n=0;n<nodeIDs.cols();n++){
+    for (int n=0;n<nodeIDs.cols();n++){
         //find local coordinates relative to nodal position
         for (int i=0;i<xIN.DIM;i++){
             //r = (x_p - x_n)/hx
@@ -284,7 +284,7 @@ void CartesianLinear::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
             //evaluate at point
             tmp *= (1 - std::abs(rst(i)));
         }
-        for (size_t i=0;i<xIN.rows();i++){
+        for (int i=0;i<xIN.rows();i++){
             //replace i-direction contribution with sign function
             tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
         }

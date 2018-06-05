@@ -75,6 +75,7 @@ void Sand_SachithLocal::init(Job* job, Body* body){
 
         MU_2 = MU_S;
         DELTA_MU = MU_2 - MU_S;
+        I_0 = 1;
 
         printf("Material properties (E = %g, nu = %g, G = %g, K = %g, grain diameter = %g, mu_s = %g, grains_rho = %g, rho_critical = %g).\n",
                E, nu, G, K, grains_d, MU_S, GRAINS_RHO, RHO_CRITICAL);
@@ -148,7 +149,7 @@ void Sand_SachithLocal::calculateStress(Job* job, Body* body, int SPEC){
 
     MaterialTensor tmpMat;
 
-    for (size_t i=0;i<body->points->x.size();i++){
+    for (int i=0;i<body->points->x.size();i++){
         if (body->points->active[i] == 0){
             continue;
         }
@@ -217,7 +218,7 @@ void Sand_SachithLocal::calculateStress(Job* job, Body* body, int SPEC){
 /*----------------------------------------------------------------------------*/
 
 void Sand_SachithLocal::assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC){
-    for (size_t pos=0;pos<stressIN.size();pos++){
+    for (int pos=0;pos<stressIN.size();pos++){
         body->points->T(idIN,pos) = stressIN(pos);
     }
     return;

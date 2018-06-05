@@ -131,4 +131,36 @@ public:
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
 };
 
+/*----------------------------------------------------------------------------*/
+
+class Regular2DTaylorCouetteCustom : public Boundary{
+public:
+    Regular2DTaylorCouetteCustom(){
+        object_name = "Regular2DTaylorCouetteCustom";
+        inner_fp64_prop = 0;
+        outer_fp64_prop = 0;
+    }
+
+    static const int NO_SLIP_WALL       = 0;
+    static const int FRICTION_LESS_WALL = 1;
+    static const int FRICTIONAL_WALL    = 2;
+    static const int DRIVEN_VELOCITY    = 3;
+
+    int inner_int_prop, outer_int_prop;
+    double inner_fp64_prop, outer_fp64_prop;
+    Eigen::VectorXi bcNodalMask;
+    KinematicVectorArray bcNodalForce, bcReactionForce;
+    MaterialTensorArray tmp;
+    MaterialVectorArray nvec;
+    KinematicVectorArray pvec;
+
+    void init(Job* job, Body* body);
+    void generateRules(Job* job, Body* body);
+    void applyRules(Job* job, Body* body);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
 #endif //MPM_V3_BOUNDARIES_HPP

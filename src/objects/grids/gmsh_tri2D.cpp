@@ -24,10 +24,9 @@
 
 /*----------------------------------------------------------------------------*/
 //
-int TriangularGridLinear::ijk_to_n(Job* job, const KinematicVector& ijk){
-    assert(ijk.VECTOR_TYPE == job->JOB_TYPE && "ijk_to_n failed");
+int TriangularGridLinear::ijk_to_n(Job* job, const Eigen::VectorXi& ijk){
     int idOUT = 0;
-    for (size_t pos=0;pos<ijk.DIM;pos++){
+    for (int pos=0;pos<ijk.size();pos++){
         if (pos == 2){
             idOUT += ijk(pos) * Nx(pos-1) * Nx(pos-2);
         } else if (pos == 1){
@@ -39,11 +38,11 @@ int TriangularGridLinear::ijk_to_n(Job* job, const KinematicVector& ijk){
     return idOUT;
 }
 
-KinematicVector TriangularGridLinear::n_to_ijk(Job* job, int n) {
-    KinematicVector ijk = KinematicVector(job->JOB_TYPE);
+Eigen::VectorXi TriangularGridLinear::n_to_ijk(Job* job, int n) {
+    Eigen::VectorXi ijk = Eigen::VectorXi(job->DIM);
     int tmp = n;
     //find i,j,k representation of node id
-    for (size_t i = 0; i < ijk.rows(); i++) {
+    for (int i = 0; i < ijk.rows(); i++) {
         ijk(i) = tmp % (Nx(i));
         tmp = tmp / (Nx(i));
     }
@@ -53,12 +52,7 @@ KinematicVector TriangularGridLinear::n_to_ijk(Job* job, int n) {
 
 /*----------------------------------------------------------------------------*/
 //
-bool TriangularGridLinear::line_segment_intersect(const KinematicVector &s0_p0, const KinematicVector &s0_p1, const KinematicVector& s1_p0, const KinematicVector& s1_p1){
-    assert(s0_p0.VECTOR_TYPE == KinematicVector::VECTOR_2D
-           && s0_p1.VECTOR_TYPE == KinematicVector::VECTOR_2D
-           && s1_p0.VECTOR_TYPE == KinematicVector::VECTOR_2D
-           && s1_p0.VECTOR_TYPE == KinematicVector::VECTOR_2D
-           && "line_segment_intersect failed");
+bool TriangularGridLinear::line_segment_intersect(Eigen::VectorXd s0_p0, Eigen::VectorXd s0_p1, Eigen::VectorXd s1_p0, Eigen::VectorXd s1_p1){
     //return true if line segments intersect (in 2-space)
 
     //solve for ax + by = c
@@ -117,7 +111,7 @@ int TriangularGridLinear::whichSearchCell(const KinematicVector &xIN){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "whichSearchCell failed");
     bool inDomain;
     int elementID = floor(xIN[0] / hx[0]); //id in x-dimension
-    for (size_t i = 0; i < xIN.DIM; i++) {
+    for (int i = 0; i < xIN.DIM; i++) {
         inDomain = (xIN[i] < Lx[i] && xIN[i] >= 0);
         if (!inDomain) { //if xIn is outside domain, return -1
             return -1;
@@ -137,10 +131,8 @@ bool TriangularGridLinear::inElement(Job* job, const KinematicVector& xIN, int i
     KinematicVector xi = KinematicVector(job->JOB_TYPE);
     KinematicTensor tmpMat = KinematicTensor(job->JOB_TYPE);
 
-    tmpMat = Ainv(idIN);
-
     //xi = Ainv * (x - x0)
-    xi = tmpMat*(xIN - x_n(nodeIDs(idIN,0)));
+    xi = Ainv(idIN)*(xIN - x_n(nodeIDs(idIN,0)));
 
     return (xi(0) >= 0 && xi(1) >= 0 && (xi(0) + xi(1)) <= 1);
 }
@@ -188,7 +180,7 @@ void TriangularGridLinear::init(Job* job){
                     node_count = len;
 
                     //loop to read in all nodes
-                    for (size_t i=0;i<len;i++){
+                    for (int i=0;i<len;i++){
                         std::getline(fin,line);
                         lvec = Parser::splitString(line,' ');
                         //lvec[0] gives gmsh id (1-indexed)
@@ -205,7 +197,7 @@ void TriangularGridLinear::init(Job* job){
                         nodeIDs.resize(len, npe); //element to node map
                         v_e.resize(len); //element volume
 
-                        size_t i = -1;
+                        int i = -1;
                         while (std::getline(fin, line)) {
                             if (line.compare("$EndElements") == 0) {
                                 break;
@@ -255,7 +247,7 @@ void TriangularGridLinear::hiddenInit(Job* job){
     //element volume
     //herons formula
     double a, b, c, s;
-    for (size_t e=0; e<nodeIDs.rows(); e++){
+    for (int e=0; e<nodeIDs.rows(); e++){
         a = (x_n(nodeIDs(e,0)) - x_n(nodeIDs(e,1))).norm();
         b = (x_n(nodeIDs(e,1)) - x_n(nodeIDs(e,2))).norm();
         c = (x_n(nodeIDs(e,2)) - x_n(nodeIDs(e,0))).norm();
@@ -264,7 +256,7 @@ void TriangularGridLinear::hiddenInit(Job* job){
         v_e(e) = std::sqrt(s*(s-a)*(s-b)*(s-c));
 
         //nodal volume
-        for (size_t c=0;c<nodeIDs.cols();c++) {
+        for (int c=0;c<nodeIDs.cols();c++) {
             v_n(nodeIDs(e, c)) += v_e(e) / nodeIDs.cols();
         }
     }
@@ -274,31 +266,41 @@ void TriangularGridLinear::hiddenInit(Job* job){
     Ainv = KinematicTensorArray(nodeIDs.rows(), job->JOB_TYPE);
 
 
-    for (size_t e=0;e<nodeIDs.rows();e++){
+    for (int e=0;e<nodeIDs.rows();e++){
         //A = [-x0+x1, -x0+x2; -y0+y1, -y0+y2]
-        A(e,0) = -x_n(nodeIDs(e,0),0) + x_n(nodeIDs(e,1),0);
-        A(e,1) = -x_n(nodeIDs(e,0),0) + x_n(nodeIDs(e,2),0);
-        A(e,2) = -x_n(nodeIDs(e,0),1) + x_n(nodeIDs(e,1),1);
-        A(e,3) = -x_n(nodeIDs(e,0),1) + x_n(nodeIDs(e,2),1);
+        A(e,0,0) = -x_n(nodeIDs(e,0),0) + x_n(nodeIDs(e,1),0);
+        A(e,0,1) = -x_n(nodeIDs(e,0),0) + x_n(nodeIDs(e,2),0);
+        A(e,1,0) = -x_n(nodeIDs(e,0),1) + x_n(nodeIDs(e,1),1);
+        A(e,1,1) = -x_n(nodeIDs(e,0),1) + x_n(nodeIDs(e,2),1);
 
         //Ainv = 1 / (ad - bc) [d, -b; -c, a]
-        s = 1 / (A(e,0)*A(e,3) - A(e,1)*A(e,2));
-        Ainv(e,0) = s*A(e,3);
-        Ainv(e,1) = -s*A(e,1);
-        Ainv(e,2) = -s*A(e,2);
-        Ainv(e,3) = s*A(e,0);
+        s = 1 / (A(e,0,0)*A(e,1,1) - A(e,0,1)*A(e,1,0));
+        Ainv(e,0,0) = s*A(e,1,1);
+        Ainv(e,0,1) = -s*A(e,0,1);
+        Ainv(e,1,0) = -s*A(e,1,0);
+        Ainv(e,1,1) = s*A(e,0,0);
     }
 
 
     //setup search grid
     //store length, number of linear nodes, and deltas
     Lx = KinematicVector(job->JOB_TYPE);
-    Nx = Eigen::VectorXi(job->DIM);
-    hx = KinematicVector(job->JOB_TYPE);
+    Lx.setZero();
+    for (int i=0;i<x_n.size();i++){
+        for (int pos=0;pos<x_n.DIM;pos++){
+            if (x_n(i,pos) > Lx(pos)){
+                Lx(pos) = x_n(i,pos);
+            }
+        }
+    }
 
+    Nx = Eigen::VectorXi(job->DIM);;
+    for (size_t pos=0;pos<Nx.rows();pos++){
+        Nx(pos) = std::floor(Lx(pos)/lc);
+    }
+
+    hx = KinematicVector(job->JOB_TYPE);
     for (int pos=0;pos<hx.size();pos++){
-        Lx(pos) = fp64_props[pos];
-        Nx(pos) = int_props[pos];
         hx(pos) = Lx(pos) / Nx(pos);
     }
 
@@ -307,45 +309,41 @@ void TriangularGridLinear::hiddenInit(Job* job){
         len *= Nx(pos);
     }
 
-    KinematicVector ijk;
-    KinematicVector s1_p0, s1_p1;
-    KinematicVectorArray list_p0, list_p1;
+    Eigen::VectorXd ijk;
+    Eigen::Vector2d s1_p0, s1_p1;
+    std::vector<Eigen::Vector2d,Eigen::aligned_allocator<Eigen::Vector2d>> list_p0;
+    std::vector<Eigen::Vector2d,Eigen::aligned_allocator<Eigen::Vector2d>> list_p1;
+    Eigen::VectorXd xe0, xe1, xe2;
 
-
-    s1_p0 = KinematicVector(job->JOB_TYPE);
-    s1_p1 = KinematicVector(job->JOB_TYPE);
-
-    s1_p0(0) = 0; s1_p0(1) = 0; s1_p1(0) = 1; s1_p1(1) = 0;
-    //s1_p0 << 0,0; s1_p1 << 1,0;
+    s1_p0 << 0,0; s1_p1 << 1,0;
     list_p0.push_back(s1_p0);
     list_p1.push_back(s1_p1);
 
-    s1_p0(0) = 1; s1_p0(1) = 0; s1_p1(0) = 1; s1_p1(1) = 1;
-    //s1_p0 << 1,0; s1_p1 << 1,1;
+    s1_p0 << 1,0; s1_p1 << 1,1;
     list_p0.push_back(s1_p0);
     list_p1.push_back(s1_p1);
 
-    s1_p0(0) = 1; s1_p0(1) = 1; s1_p1(0) = 0; s1_p1(1) = 1;
-    //s1_p0 << 1,1; s1_p1 << 0,1;
+    s1_p0 << 1,1; s1_p1 << 0,1;
     list_p0.push_back(s1_p0);
     list_p1.push_back(s1_p1);
 
-    s1_p0(0) = 0; s1_p0(1) = 1; s1_p1(0) = 0; s1_p1(1) = 0;
-    //s1_p0 << 0,1; s1_p1 << 0,0;
+    s1_p0 << 0,1; s1_p1 << 0,0;
     list_p0.push_back(s1_p0);
     list_p1.push_back(s1_p1);
 
-    for (size_t i=0;i<len;i++){
+    for (int i=0;i<len;i++){
         search_offsets.push_back(search_cells.size());
         //fill search_cells
         //check every side for intersect with every edge
-        ijk = n_to_ijk(job,i);
-        for (size_t side = 0; side < 4; side++){
-            s1_p0 = (ijk + list_p0[side]);
-            s1_p1 = (ijk + list_p1[side]);
-            for (int pos = 0; pos < s1_p0.DIM; pos++){
-                s1_p0[pos] /= hx[pos];
-                s1_p1[pos] /= hx[pos];
+        ijk = (n_to_ijk(job,i)).cast<double>();
+        for (int side = 0; side < 4; side++){
+            s1_p0(0) = (ijk(0) + list_p0[side](0));
+            s1_p0(1) = (ijk(1) + list_p0[side](1));
+            s1_p1(0) = (ijk(0) + list_p1[side](0));
+            s1_p1(1) = (ijk(1) + list_p1[side](1));
+            for (int pos = 0; pos < s1_p0.size(); pos++){
+                s1_p0[pos] *= hx[pos];
+                s1_p1[pos] *= hx[pos];
             }
 
             for (int e = 0; e<element_count; e++){
@@ -362,13 +360,18 @@ void TriangularGridLinear::hiddenInit(Job* job){
                 }
 
                 //check 3-edges for intersect
-                if (line_segment_intersect(x_n(nodeIDs(e,0)), x_n(nodeIDs(e,1)), s1_p0, s1_p1)){
+                xe0 = EIGEN_MAP_OF_KINEMATIC_VECTOR(x_n(nodeIDs(e,0)));
+                xe1 = EIGEN_MAP_OF_KINEMATIC_VECTOR(x_n(nodeIDs(e,1)));
+                xe2 = EIGEN_MAP_OF_KINEMATIC_VECTOR(x_n(nodeIDs(e,2)));
+
+
+                if (line_segment_intersect(xe0, xe1, s1_p0, s1_p1)){
                     search_cells.push_back(e);
                     continue;
-                } else if (line_segment_intersect(x_n(nodeIDs(e,1)), x_n(nodeIDs(e,2)), s1_p0, s1_p1)){
+                } else if (line_segment_intersect(xe1, xe2, s1_p0, s1_p1)){
                     search_cells.push_back(e);
                     continue;
-                } else if (line_segment_intersect(x_n(nodeIDs(e,2)), x_n(nodeIDs(e,0)), s1_p0, s1_p1)){
+                } else if (line_segment_intersect(xe2, xe0, s1_p0, s1_p1)){
                     search_cells.push_back(e);
                     continue;
                 }
@@ -424,17 +427,17 @@ void TriangularGridLinear::writeHeader(Job* job, Body* body, Serializer* seriali
     }
 
     nfile << "POINTS " << node_count << " double\n";
-    for (size_t i=0;i<node_count;i++){
+    for (int i=0;i<node_count;i++){
         //vtk requires 3D position
         nfile << x_n(i,0) << " " << x_n(i,1) << " " << 0 << "\n";
     }
     nfile << "CELLS " << element_count << " " << 4*element_count << "\n";
-    for (size_t e=0;e<element_count;e++){
+    for (int e=0;e<element_count;e++){
         nfile << "3 " << nodeIDs(e,0) << " " << nodeIDs(e,1) << " " << nodeIDs(e,2) << "\n";
     }
 
     nfile << "CELL_TYPES " << element_count << "\n";
-    for (size_t e=0;e<element_count;e++){
+    for (int e=0;e<element_count;e++){
         nfile << "5\n";
     }
     nfile << "POINT_DATA " << nlen << "\n";

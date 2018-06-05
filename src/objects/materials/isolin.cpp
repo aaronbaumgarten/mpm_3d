@@ -54,7 +54,7 @@ void IsotropicLinearElasticity::calculateStress(Job* job, Body* body, int SPEC){
     //double for trace of D
     double trD;
 
-    for (size_t i=0;i<body->points->x.size();i++){
+    for (int i=0;i<body->points->x.size();i++){
         if (body->points->active[i] == 0){
             continue;
         }

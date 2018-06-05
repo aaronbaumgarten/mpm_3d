@@ -236,7 +236,7 @@ void ExplicitUSL::movePoints(Job* job){
     Body* body;
     Points* points;
     Nodes* nodes;
-    for (size_t b=0;b<job->bodies.size();b++){
+    for (int b=0;b<job->bodies.size();b++){
         if (job->activeBodies[b] == 0){
             continue;
         }
@@ -252,7 +252,7 @@ void ExplicitUSL::movePoints(Job* job){
         points->x_t += body->S.operate(nodes->diff_x_t, MPMSparseMatrixBase::TRANSPOSED);
 
         //calculate momentum
-        for (size_t i=0;i<points->mx_t.size();i++){
+        for (int i=0;i<points->mx_t.size();i++){
             points->mx_t(i) = points->m(i) * points->x_t(i);
         }
     }
@@ -263,7 +263,7 @@ void ExplicitUSL::calculateStrainRate(Job* job){
     Body* body;
     Points* points;
     Nodes* nodes;
-    for (size_t b=0;b<job->bodies.size();b++){
+    for (int b=0;b<job->bodies.size();b++){
         if (job->activeBodies[b] == 0){
             continue;
         }
@@ -279,11 +279,11 @@ void ExplicitUSL::calculateStrainRate(Job* job){
 }
 
 void ExplicitUSL::updateDensity(Job* job){
-    for (size_t b=0;b<job->bodies.size();b++){
+    for (int b=0;b<job->bodies.size();b++){
         if (job->activeBodies[b] == 0){
             continue;
         }
-        for (size_t i=0;i<job->bodies[b]->points->v.rows();i++) {
+        for (int i=0;i<job->bodies[b]->points->v.rows();i++) {
             job->bodies[b]->points->v(i) *= std::exp(job->dt * job->bodies[b]->points->L(i).trace());
         }
     }
@@ -291,7 +291,7 @@ void ExplicitUSL::updateDensity(Job* job){
 }
 
 void ExplicitUSL::updateStress(Job* job){
-    for (size_t b=0;b<job->bodies.size();b++){
+    for (int b=0;b<job->bodies.size();b++){
         if (job->activeBodies[b] == 0 || job->bodies[b]->activeMaterial == 0){
             continue;
         }

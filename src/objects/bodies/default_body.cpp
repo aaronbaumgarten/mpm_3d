@@ -132,14 +132,14 @@ void DefaultBody::generateMap(Job* job, int SPEC) {
         } else if (ith_cpdi == DefaultBody::CPDI_ON) {
             nvec.resize(0);
             valvec.resize(0);
-            for (size_t c = 0; c < A.rows(); c++) {
+            for (int c = 0; c < A.rows(); c++) {
                 //spread influence
                 for (int pos = 0; pos < tmpVec.DIM; pos++){
                     tmpVec[pos] = x_i[pos] + 0.5*points->extent(i)*A(c,pos);
                 }
                 job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
             }
-            for (size_t j = 0; j < nvec.size(); j++) {
+            for (int j = 0; j < nvec.size(); j++) {
                 S.push_back(nvec[j], i, valvec[j] / A.rows()); //node, point, value
             }
 
@@ -147,7 +147,7 @@ void DefaultBody::generateMap(Job* job, int SPEC) {
             nvec.resize(0);
             valvec.resize(0);
             gradvec.resize(0);
-            for (size_t c = 0; c < A.rows(); c++) {
+            for (int c = 0; c < A.rows(); c++) {
                 //find shape function value at offset point location
                 //add node ids to nodevec
                 //add values to valvec
@@ -159,7 +159,7 @@ void DefaultBody::generateMap(Job* job, int SPEC) {
 
                 job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
 
-                for (size_t v = 0; v < valvec.size(); v++) {
+                for (int v = 0; v < valvec.size(); v++) {
                     //gradient contribution from corner
                     //G(x) = (S(x+a) - S(x-a))/(2a)
                     for (int pos = 0; pos < tmpGrad.DIM; pos++){
@@ -168,7 +168,7 @@ void DefaultBody::generateMap(Job* job, int SPEC) {
                     gradvec.push_back(tmpGrad);
                 }
             }
-            for (size_t j = 0; j < nvec.size(); j++) {
+            for (int j = 0; j < nvec.size(); j++) {
                 gradS.push_back(nvec[j], i, gradvec[j]); //node, point, value
             }
         } else {

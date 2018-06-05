@@ -30,7 +30,7 @@ public:
         std::vector<std::string> svec;
         svec = Parser::splitString(program,'/');
         std::string filepath = "";
-        for (size_t i=0; i<(svec.size()-1);i++){
+        for (int i=0; i<(svec.size()-1);i++){
             filepath += svec[i];
             filepath += "/";
         }
@@ -66,7 +66,7 @@ public:
     std::string frameDirectory, outputDirectory, outputName;
 
     //job writing and sampling
-    size_t sampledFrames;
+    int sampledFrames;
     double sampleRate, t_last_frame;
 
     //frame writing variables

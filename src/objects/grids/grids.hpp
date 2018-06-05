@@ -229,16 +229,76 @@ public:
     std::vector<int> search_cells; //search grid (cell to element map)
     std::vector<int> search_offsets; //search offsets
 
-    int ijk_to_n(Job* job, const KinematicVector& ijk);
-    KinematicVector n_to_ijk(Job* job, int n);
+    int ijk_to_n(Job* job, const Eigen::VectorXi& ijk);
+    Eigen::VectorXi n_to_ijk(Job* job, int n);
 
-    bool line_segment_intersect(const KinematicVector& s0_p0, const KinematicVector& s0_p1, const KinematicVector& s1_p0, const KinematicVector& s1_p1);
-
+    bool line_segment_intersect(Eigen::VectorXd s0_p0, Eigen::VectorXd s0_p1, Eigen::VectorXd s1_p0, Eigen::VectorXd s1_p1);
     int whichSearchCell(const KinematicVector& xIN);
     bool inElement(Job* job, const KinematicVector& xIN, int idIN);
 
     void init(Job* job);
     void hiddenInit(Job* job);
+
+    void writeFrame(Job* job, Serializer* serializer);
+    std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    void writeHeader(Job* job, Body* body, Serializer* serializer, std::ofstream& nfile, int SPEC); //write cell types
+
+    int whichElement(Job* job, KinematicVector& xIN);
+    bool inDomain(Job* job, KinematicVector& xIN);
+    KinematicVector nodeIDToPosition(Job* job, int idIN);
+
+    void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL);
+    void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD);
+    double nodeVolume(Job* job, int idIN);
+    double elementVolume(Job* job, int idIN);
+    int nodeTag(Job* job, int idIN);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class Regular2DTaylorCouetteCell : public Grid{
+public:
+    Regular2DTaylorCouetteCell(){
+        object_name = "Regular2DTaylorCouetteCell";
+    }
+
+    const static int CONSTANT = 0;  //not implemented
+    const static int LINEAR = 1;
+    const static int QUADRATIC = 2; //not implemented
+    const static int CUBIC = 3;
+
+    static constexpr double pi = M_PI;
+
+    int order = 1; //first, second, third
+    double Ri, Ro; //inner and outer radii
+    KinematicVector Lx, hx; //0 - radius, 1 - theta
+    Eigen::VectorXi Nx; //number of elements in theta and r directions
+
+    Eigen::VectorXi node_tag;
+
+    KinematicVectorArray x_n, edge_n;
+    Eigen::MatrixXi nodeIDs; //element to node map
+    Eigen::MatrixXi A; //0,1 for directions
+    int npe; //nodes per element
+    Eigen::VectorXd v_n; //nodal volume
+    Eigen::VectorXd v_e; //element volume
+
+    static double s_linear(double x, double h);
+    static double g_linear(double x, double h);
+
+    static double s_cubic(double x, double h);
+    static double g_cubic(double x, double h);
+
+    static KinematicVector cPoint_to_rPoint(const KinematicVector &xyz);    //map x,y position to r,theta
+    static KinematicVector rPoint_to_cPoint(const KinematicVector &rtz);    //map r,theta position to x,y
+    static KinematicVector cVector_to_rVector(const KinematicVector &vec, const KinematicVector &xyz);  //map vector at given x,y position to vector in radial space
+    static KinematicVector rVector_to_cVector(const KinematicVector &vec, const KinematicVector &rtz);  //map vector at given r,theta position to vector in cartesian space
+
+    void init(Job* job);
+    void linearInit(Job* job);
+    void cubicInit(Job* job);
 
     void writeFrame(Job* job, Serializer* serializer);
     std::string saveState(Job* job, Serializer* serializer, std::string filepath);

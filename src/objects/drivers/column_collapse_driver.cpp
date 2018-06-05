@@ -49,7 +49,7 @@ void ColumnCollapseDriver::setPressure(Job *job) {
         }
 
         // or set body ids by int
-        for (size_t i = 0; i < bodyIDs.size(); i++) {
+        for (int i = 0; i < bodyIDs.size(); i++) {
             if (bodyIDs[i] < 0) {
                 if (int_props.size() == 2) {
                     bodyIDs = int_props;
@@ -126,8 +126,8 @@ void ColumnCollapseDriver::init(Job* job){
 /*----------------------------------------------------------------------------*/
 
 void ColumnCollapseDriver::run(Job* job) {
-    size_t stepCount = 0;
-    size_t frameCount = 0;
+    int stepCount = 0;
+    int frameCount = 0;
 
     struct timespec timeStart, timeFrame, timeFinish;
     clock_gettime(CLOCK_MONOTONIC, &timeStart);
@@ -145,7 +145,7 @@ void ColumnCollapseDriver::run(Job* job) {
     setPressure(job);
 
     //run simulation until stop_time
-    while (job->t < stop_time){
+    while (job->t <= stop_time){
         //run solver
         job->solver->step(job);
         //std::cout << "Step Completed [" << ++stepCount << "]." << std::flush;
@@ -190,11 +190,11 @@ void ColumnCollapseDriver::generateGravity(Job* job) {
 /*----------------------------------------------------------------------------*/
 
 void ColumnCollapseDriver::applyGravity(Job* job){
-    for (size_t b=0;b<job->bodies.size();b++){
+    for (int b=0;b<job->bodies.size();b++){
         if (job->activeBodies[b] == 0){
             continue;
         }
-        for (size_t i=0;i<job->bodies[b]->points->b.size();i++){
+        for (int i=0;i<job->bodies[b]->points->b.size();i++){
             job->bodies[b]->points->b(i) = gravity;
         }
     }

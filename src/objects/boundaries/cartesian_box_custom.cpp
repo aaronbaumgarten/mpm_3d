@@ -44,10 +44,12 @@ void CartesianBoxCustom::init(Job* job, Body* body){
     } else {
         //define limit props
         limit_props = Eigen::VectorXi(2*job->DIM);
+        for (int i=0;i<limit_props.size();i++){
+            limit_props[i] = int_props[i];
+        }
 
         std::cout << "Boundary properties (";
         for (int i=0;i<limit_props.size();i++){
-            limit_props[i] = int_props[i];
             std::cout << " " << limit_props[i];
 
             if (limit_props[i] == FRICTIONAL_WALL){
@@ -64,17 +66,17 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                 }
             } else if (limit_props[i] == PERIODIC){
                 //check periodic and make sure that both walls are periodic
-                if (i == 0 || i == 1 && (limit_props[0] != PERIODIC || limit_props[1] != PERIODIC)){
+                if ((i == 0 || i == 1) && (limit_props[0] != PERIODIC || limit_props[1] != PERIODIC)){
                     //this is fatal
-                    std::cerr << "ERROR: CartesianBoxCustom given mismatched limits: " << limit_props << std::endl;
+                    std::cerr << "ERROR: CartesianBoxCustom given mismatched limits: " << limit_props[0] << " " << limit_props[1] << std::endl;
                     exit(0);
-                } else if (i == 2 || i == 3 && (limit_props[2] != PERIODIC || limit_props[3] != PERIODIC)){
+                } else if ((i == 2 || i == 3) && (limit_props[2] != PERIODIC || limit_props[3] != PERIODIC)){
                     //this is fatal
-                    std::cerr << "ERROR: CartesianBoxCustom given mismatched limits: " << limit_props << std::endl;
+                    std::cerr << "ERROR: CartesianBoxCustom given mismatched limits: " << limit_props[2] << " " << limit_props[3] << std::endl;
                     exit(0);
-                } else if (i == 4 || i == 5 && (limit_props[4] != PERIODIC || limit_props[5] != PERIODIC)){
+                } else if ((i == 4 || i == 5) && (limit_props[4] != PERIODIC || limit_props[5] != PERIODIC)){
                     //this is fatal
-                    std::cerr << "ERROR: CartesianBoxCustom given mismatched limits: " << limit_props << std::endl;
+                    std::cerr << "ERROR: CartesianBoxCustom given mismatched limits: " << limit_props[4] << " " << limit_props[5] << std::endl;
                     exit(0);
                 } else {
                     //wooh! you did it right!

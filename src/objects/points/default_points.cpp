@@ -37,15 +37,15 @@ void DefaultPoints::init(Job* job, Body* body){
 
     //extent initialization
     if(job->DIM == 1){
-        for (size_t i=0;i<v.rows();i++){
+        for (int i=0;i<v.rows();i++){
             extent[i] = 0.5 * v[i];
         }
     } else if (job->DIM == 2){
-        for (size_t i=0;i<v.rows();i++){
+        for (int i=0;i<v.rows();i++){
             extent[i] = 0.5 * std::sqrt(v[i]);
         }
     } else if (job->DIM == 3){
-        for (size_t i = 0; i < v.rows(); i++) {
+        for (int i = 0; i < v.rows(); i++) {
             extent[i] = 0.5 * std::cbrt(v[i]);
         }
     }
@@ -69,7 +69,7 @@ void DefaultPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
 
     if (fin.is_open()) {
         std::getline(fin, line);
-        size_t len = std::stoi(line);
+        int len = std::stoi(line);
 
         //size KinematicVectors
         x = KinematicVectorArray(len, job->JOB_TYPE);
@@ -103,7 +103,7 @@ void DefaultPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
         active.setZero();
         extent.setZero();
 
-        for (size_t i = 0; i < len; i++) {
+        for (int i = 0; i < len; i++) {
             std::getline(fin, line);
             s_vec = Parser::splitString(line, ' ');
             if (s_vec.size() < (1 + 1 + job->DIM + job->DIM + 1)){

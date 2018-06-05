@@ -55,9 +55,9 @@ void DefaultVTK::writeDefaultPointHeader(Job *job, Body *body, std::ofstream &pf
     pfile << "DATASET UNSTRUCTURED_GRID\n";
 
     pfile << "POINTS " << plen << " double\n";
-    for (size_t i=0;i<plen;i++){
+    for (int i=0;i<plen;i++){
         //vtk files require x,y,z
-        for (size_t pos = 0; pos < 3; pos++){
+        for (int pos = 0; pos < 3; pos++){
             if (pos < body->points->x.DIM && (body->points->active(i) != 0) && std::isfinite(body->points->x(i,pos))){
                 pfile << body->points->x(i,pos) << " ";
             } else {
@@ -68,12 +68,12 @@ void DefaultVTK::writeDefaultPointHeader(Job *job, Body *body, std::ofstream &pf
     }
 
     pfile << "CELLS " << plen << " " << 2*plen << "\n";
-    for (size_t i=0;i<plen;i++){
+    for (int i=0;i<plen;i++){
         pfile << "1 " << i << "\n";
     }
 
     pfile << "CELL_TYPES " << plen << "\n";
-    for (size_t i=0;i<plen;i++){
+    for (int i=0;i<plen;i++){
         pfile << "1\n";
     }
 
@@ -89,9 +89,9 @@ void DefaultVTK::writeDefaultNodeHeader(Job *job, Body *body, std::ofstream &nfi
     nfile << "DATASET UNSTRUCTURED_GRID\n";
 
     nfile << "POINTS " << nlen << " double\n";
-    for (size_t i=0;i<nlen;i++){
+    for (int i=0;i<nlen;i++){
         //vtk files require x,y,z
-        for (size_t pos = 0; pos < 3; pos++){
+        for (int pos = 0; pos < 3; pos++){
             if (pos < body->nodes->x.DIM && (body->nodes->active(i) != 0) && std::isfinite(body->nodes->x(i,pos))){
                 nfile << body->nodes->x(i,pos) << " ";
             } else {
@@ -102,12 +102,12 @@ void DefaultVTK::writeDefaultNodeHeader(Job *job, Body *body, std::ofstream &nfi
     }
 
     nfile << "CELLS " << nlen << " " << 2*nlen << "\n";
-    for (size_t i=0;i<nlen;i++){
+    for (int i=0;i<nlen;i++){
         nfile << "1 " << i << "\n";
     }
 
     nfile << "CELL_TYPES " << nlen << "\n";
-    for (size_t i=0;i<nlen;i++){
+    for (int i=0;i<nlen;i++){
         nfile << "1\n";
     }
 
@@ -119,7 +119,7 @@ int DefaultVTK::writeFrame(Job* job){
         t_last_frame = sampledFrames/sampleRate;
         sampledFrames += 1;
         //write frame for each body
-        for (size_t b=0;b<job->bodies.size();b++) {
+        for (int b=0;b<job->bodies.size();b++) {
             currentBody = job->bodies[b].get();
 
             //open point file
@@ -170,7 +170,7 @@ int DefaultVTK::writeFrame(Job* job){
                 job->bodies[b]->boundary->writeFrame(job, job->bodies[b].get(), job->serializer.get());
                 job->grid->writeFrame(job, job->serializer.get());
             }
-            for (size_t c=0;c<job->contacts.size();c++) {
+            for (int c=0;c<job->contacts.size();c++) {
                 job->contacts[c]->writeFrame(job, job->serializer.get());
             }
 
@@ -193,7 +193,7 @@ void DefaultVTK::writeScalarArray(Eigen::VectorXd& scalarArray, std::string name
         //write to point file
         pfile << "SCALARS " << name << " double 1\n";
         pfile << "LOOKUP_TABLE default\n";
-        for (size_t i = 0; i < plen; i++){
+        for (int i = 0; i < plen; i++){
             if (currentBody->points->active(i) == 1 && std::isfinite(scalarArray(i))) {
                 pfile << scalarArray(i) << "\n";
             } else {
@@ -206,7 +206,7 @@ void DefaultVTK::writeScalarArray(Eigen::VectorXd& scalarArray, std::string name
         //write to point file
         nfile << "SCALARS " << name << " double 1\n";
         nfile << "LOOKUP_TABLE default\n";
-        for (size_t i = 0; i < nlen; i++){
+        for (int i = 0; i < nlen; i++){
             if (currentBody->nodes->active(i) == 1 && std::isfinite(scalarArray(i))) {
                 nfile << scalarArray(i) << "\n";
             } else {
@@ -224,9 +224,9 @@ void DefaultVTK::writeVectorArray(MPMVectorArray& vectorArray, std::string name)
     if (pfile.is_open() && vectorArray.size() == plen){
         //write to point file
         pfile << "VECTORS " << name << " double\n";
-        for (size_t i = 0; i < plen; i++){
+        for (int i = 0; i < plen; i++){
             //vtk format requires x,y,z
-            for (size_t pos = 0; pos < 3; pos++){
+            for (int pos = 0; pos < 3; pos++){
                 if ((currentBody->points->active(i) == 1) && std::isfinite(vectorArray(i,pos))){
                     pfile << vectorArray(i,pos) << " ";
                 } else {
@@ -240,9 +240,9 @@ void DefaultVTK::writeVectorArray(MPMVectorArray& vectorArray, std::string name)
     if (nfile.is_open() && vectorArray.size() == nlen){
         //write to point file
         nfile << "VECTORS " << name << " double\n";
-        for (size_t i = 0; i < nlen; i++){
+        for (int i = 0; i < nlen; i++){
             //vtk format requires x,y,z
-            for (size_t pos = 0; pos < 3; pos++){
+            for (int pos = 0; pos < 3; pos++){
                 if ((currentBody->nodes->active(i) == 1) && std::isfinite(vectorArray(i,pos))){
                     nfile << vectorArray(i,pos) << " ";
                 } else {
@@ -262,11 +262,11 @@ void DefaultVTK::writeTensorArray(MPMTensorArray& tensorArray, std::string name)
     if (pfile.is_open() && tensorArray.size() == plen){
         //write to point file
         pfile << "TENSORS " << name << " double\n";
-        for (size_t i = 0; i < plen; i++){
+        for (int i = 0; i < plen; i++){
             //vtk format requires x,y,z
             //brute force this one
             bool finite = true;
-            for (size_t pos=0;pos<9;pos++){
+            for (int pos=0;pos<9;pos++){
                 if (!std::isfinite(tensorArray(i,pos))){
                     finite = false;
                     break;
@@ -289,12 +289,12 @@ void DefaultVTK::writeTensorArray(MPMTensorArray& tensorArray, std::string name)
     if (nfile.is_open() && tensorArray.size() == nlen){
         //write to point file
         nfile << "TENSORS " << name << " double\n";
-        for (size_t i = 0; i < nlen; i++){
+        for (int i = 0; i < nlen; i++){
             //vtk format requires x,y,z
-            for (size_t pos = 0; pos < 3; pos++){
+            for (int pos = 0; pos < 3; pos++){
                 //brute force this one
                 bool finite = true;
-                for (size_t pos=0;pos<9;pos++){
+                for (int pos=0;pos<9;pos++){
                     if (!std::isfinite(tensorArray(i,pos))){
                         finite = false;
                         break;

@@ -75,10 +75,10 @@ int main(int argc, char *argv[]) {
     }
 
     //print job info
-    size_t num_points = 0;
+    int num_points = 0;
     std::cout << "\n";
     std::cout << "  Bodies: " << job->bodies.size() << std::endl;
-    for (size_t b=0;b<job->bodies.size();b++){
+    for (int b=0;b<job->bodies.size();b++){
         num_points += job->bodies[b]->points->x.size();
     }
     std::cout << "  Points: " << num_points << std::endl;

@@ -23,7 +23,7 @@
 /*----------------------------------------------------------------------------*/
 
 void BarotropicViscousFluid::init(Job* job, Body* body){
-    if (fp64_props.size() < 3){
+    if (fp64_props.size() < 2){
         std::cout << fp64_props.size() << "\n";
         fprintf(stderr,
                 "%s:%s: Need at least 2 properties defined (K, eta).\n",
@@ -41,6 +41,8 @@ void BarotropicViscousFluid::init(Job* job, Body* body){
         alpha = fp64_props[3];
         std::cout << "[" << h << ", " << alpha << "]." << std::endl;
     } else {
+        h = 0;
+        alpha = 0;
         std::cout << std::endl;
     }
 
@@ -51,7 +53,7 @@ void BarotropicViscousFluid::init(Job* job, Body* body){
     del_pos = KinematicVectorArray(body->points->x.size(),job->JOB_TYPE);
     del_pos.setZero();
 
-    for (size_t i=0; i<job->grid->node_count;i++){
+    for (int i=0; i<job->grid->node_count;i++){
         V_i(i) = job->grid->nodeVolume(job,i);
     }
 
@@ -86,7 +88,7 @@ void BarotropicViscousFluid::calculateStress(Job* job, Body* body, int SPEC){
 
     //calculate nodal volume integral
     v_i = body->S * body->points->v;
-    for (size_t i=0; i<V_i.rows(); i++){
+    for (int i=0; i<V_i.rows(); i++){
         tmpNum = (v_i(i) - V_i(i))/V_i(i);
         e(i) = std::max(0.0,tmpNum);
     }
@@ -100,7 +102,7 @@ void BarotropicViscousFluid::calculateStress(Job* job, Body* body, int SPEC){
         J(i) = body->points->v(i) / body->points->v0(i);
     }
 
-    for (size_t i=0;i<body->points->x.size();i++){
+    for (int i=0;i<body->points->x.size();i++){
         if (body->points->active[i] == 0){
             continue;
         }
@@ -116,9 +118,10 @@ void BarotropicViscousFluid::calculateStress(Job* job, Body* body, int SPEC){
 
             delta = -alpha * job->dt * (L - (trD / 3.0) * MaterialTensor::Identity()).norm() * grad_e(i) * h * h;
 
-            for (size_t pos = 0; pos < delta.rows(); pos++) {
-                if (((body->points->x(i, pos) + delta(pos)) >= Lx(pos)) ||
-                    ((body->points->x(i, pos) + delta(pos)) <= 0)) {
+            for (int pos = 0; pos < delta.rows(); pos++) {
+                if (//((body->points->x(i, pos) + delta(pos)) >= Lx(pos)) ||
+                    //((body->points->x(i, pos) + delta(pos)) <= 0) ||
+                    !std::isfinite(delta(pos))) {
                     delta(pos) = 0;
                 }
             }
@@ -168,15 +171,17 @@ void BarotropicViscousFluid::assignPressure(Job* job, Body* body, double pressur
 /*----------------------------------------------------------------------------*/
 
 void BarotropicViscousFluid::writeFrame(Job* job, Body* body, Serializer* serializer){
-    serializer->writeVectorArray(grad_e,"grad_delV");
+    serializer->writeVectorArray(grad_e,"grad_err");
     serializer->writeVectorArray(del_pos,"del_pos");
+    serializer->writeScalarArray(V_i, "grid_volume");
+    serializer->writeScalarArray(e, "err");
 
     Eigen::VectorXd nvec(body->nodes->x.size());
     Eigen::VectorXd pvec(body->points->x.size());
     Eigen::VectorXd tmpVec;
     MaterialTensor T;
 
-    for (size_t i=0;i<body->points->x.size();i++) {
+    for (int i=0;i<body->points->x.size();i++) {
         if (body->points->active[i] == 0) {
             pvec(i) = 0;
             continue;

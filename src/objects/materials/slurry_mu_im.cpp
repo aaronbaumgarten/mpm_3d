@@ -50,7 +50,7 @@ void SlurryGranularPhase::init(Job* job, Body* body){
 
         //set body id by name
         if (str_props.size() >= 1){
-            for (size_t b = 0; b < job->bodies.size(); b++) {
+            for (int b = 0; b < job->bodies.size(); b++) {
                 if (str_props[0].compare(job->bodies[b]->name) == 0){
                     fluid_body_id = b;
                     break;
@@ -202,7 +202,7 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
             Eigen::VectorXd pvec = job->bodies[fluid_body_id]->points->m * eta_0;
             Eigen::VectorXd nvec(job->bodies[fluid_body_id]->nodes->m.rows());
             nvec = job->bodies[fluid_body_id]->S * pvec;
-            for (size_t i = 0; i < nvec.rows(); i++) {
+            for (int i = 0; i < nvec.rows(); i++) {
                 if (job->bodies[fluid_body_id]->nodes->m(i) > 0) {
                     nvec(i) = nvec(i) / job->bodies[fluid_body_id]->nodes->m(i);
                 } else {
@@ -220,7 +220,7 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
     }
 
     //calculate stress state
-    for (size_t i=0;i<body->points->x.size();i++) {
+    for (int i=0;i<body->points->x.size();i++) {
         if (body->points->active[i] == 0) {
             continue;
         }

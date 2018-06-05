@@ -36,7 +36,7 @@ void SlurryFluidPhase::init(Job* job, Body* body){
 
         //set body ids by name
         if (str_props.size() == 1){
-            for (size_t b = 0; b < job->bodies.size(); b++) {
+            for (int b = 0; b < job->bodies.size(); b++) {
                 if (str_props[0].compare(job->bodies[b]->name) == 0){
                     solid_body_id = b;
                     break;
@@ -65,6 +65,8 @@ void SlurryFluidPhase::init(Job* job, Body* body){
         h = fp64_props[3];
         alpha = fp64_props[4];std::cout << "[" << h << ", " << alpha << "]." << std::endl;
     } else {
+        h = 0;
+        alpha = 0;
         std::cout << std::endl;
     }
 
@@ -80,7 +82,7 @@ void SlurryFluidPhase::init(Job* job, Body* body){
     del_pos = KinematicVectorArray(body->points->x.size(),job->JOB_TYPE);
     del_pos.setZero();
 
-    for (size_t i=0; i<job->grid->node_count;i++){
+    for (int i=0; i<job->grid->node_count;i++){
         V_i(i) = job->grid->nodeVolume(job,i);
     }
 
@@ -120,7 +122,7 @@ void SlurryFluidPhase::calculateStress(Job* job, Body* body, int SPEC){
 
     //calculate nodal volume integral
     v_i = body->S * body->points->v;
-    for (size_t i=0; i<V_i.rows(); i++){
+    for (int i=0; i<V_i.rows(); i++){
         tmpNum = (v_i(i) - V_i(i))/(V_i(i));
         e(i) = std::max(0.0,tmpNum);
     }
@@ -131,7 +133,7 @@ void SlurryFluidPhase::calculateStress(Job* job, Body* body, int SPEC){
     Eigen::VectorXd J_tr = J;
 
     /*----------------------------------------------------------------------------*/
-    for (size_t i=0;i<n.rows();i++){
+    for (int i=0;i<n.rows();i++){
 
         m1 = job->bodies[solid_body_id]->nodes->m[i];
         m2 = body->nodes->m[i];
@@ -167,7 +169,7 @@ void SlurryFluidPhase::calculateStress(Job* job, Body* body, int SPEC){
     MaterialTensor tmpMat;
     double eta; //fluid viscosity change w/ phi
 
-    for (size_t i=0;i<body->points->x.size();i++){
+    for (int i=0;i<body->points->x.size();i++){
         if (body->points->active[i] == 0){
             continue;
         }
@@ -197,8 +199,10 @@ void SlurryFluidPhase::calculateStress(Job* job, Body* body, int SPEC){
             delta = -alpha * job->dt * (L - (trD / 3.0) * MaterialTensor::Identity()).norm() *
                     grad_e(i) * h * h;
 
-            for (size_t pos = 0; pos < delta.rows(); pos++) {
-                if (((body->points->x(i, pos) + delta(pos)) >= Lx(pos)) || ((body->points->x(i, pos) + delta(pos)) <= 0)) {
+            for (int pos = 0; pos < delta.rows(); pos++) {
+                if (//((body->points->x(i, pos) + delta(pos)) >= Lx(pos)) ||
+                    //((body->points->x(i, pos) + delta(pos)) <= 0) ||
+                    !std::isfinite(delta(pos))) {
                     delta(pos) = 0;
                 }
             }
@@ -247,13 +251,15 @@ void SlurryFluidPhase::writeFrame(Job* job, Body* body, Serializer* serializer){
     serializer->writeScalarArray(n_p,"porosity");
     serializer->writeVectorArray(grad_e,"grad_err");
     serializer->writeVectorArray(del_pos,"del_pos");
+    serializer->writeScalarArray(V_i, "grid_volume");
+    serializer->writeScalarArray(e, "err");
 
 
     Eigen::VectorXd nvec(body->nodes->x.size());
     Eigen::VectorXd pvec(body->points->x.size());
     MaterialTensor T;
 
-    for (size_t i=0;i<body->points->x.size();i++) {
+    for (int i=0;i<body->points->x.size();i++) {
         if (body->points->active[i] == 0) {
             pvec(i) = 0;
             continue;

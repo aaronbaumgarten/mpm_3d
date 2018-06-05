@@ -36,8 +36,8 @@ void ContactHuang::init(Job* job){
 
         //set body ids by name
         if (str_props.size() == 2){
-            for (size_t i=0;i<bodyIDs.size();i++) {
-                for (size_t b = 0; b < job->bodies.size(); b++) {
+            for (int i=0;i<bodyIDs.size();i++) {
+                for (int b = 0; b < job->bodies.size(); b++) {
                     if (str_props[i].compare(job->bodies[b]->name) == 0){
                         bodyIDs[i] = b;
                         break;
@@ -47,7 +47,7 @@ void ContactHuang::init(Job* job){
         }
 
         // or set body ids by int
-        for (size_t i=0;i<bodyIDs.size();i++) {
+        for (int i=0;i<bodyIDs.size();i++) {
             if (bodyIDs[i] < 0){
                 if (int_props.size() == 2) {
                     bodyIDs = int_props;
@@ -80,7 +80,7 @@ void ContactHuang::generateRules(Job* job){
     //set normal for problem
     //use normal from body 1
     contact_normal = job->bodies[bodyIDs[0]]->gradS * job->bodies[bodyIDs[0]]->points->m;
-    for (size_t i=0;i<contact_normal.size();i++){
+    for (int i=0;i<contact_normal.size();i++){
         //normalize
         contact_normal(i) /= contact_normal(i).norm();
     }
@@ -103,11 +103,11 @@ void ContactHuang::applyRules(Job* job, int SPEC){
 
     KinematicVector tmpVec(job->JOB_TYPE);
 
-    size_t b1 = bodyIDs[0];
-    size_t b2 = bodyIDs[1];
+    int b1 = bodyIDs[0];
+    int b2 = bodyIDs[1];
 
     //look for contacts if there are two bodies
-    for (size_t i = 0; i < contact_normal.size(); i++) {
+    for (int i = 0; i < contact_normal.size(); i++) {
         //test every node for contact
         if (job->bodies[b1]->nodes->m[i] > 0 && job->bodies[b2]->nodes->m[i] > 0) {
 

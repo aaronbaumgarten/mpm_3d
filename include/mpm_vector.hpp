@@ -137,7 +137,7 @@ public:
 
     /*------------------------------------------------------------------------*/
     //define operators
-    operator EIGEN_MAP_OF_MATERIAL_VECTOR () {return EIGEN_MAP_OF_MATERIAL_VECTOR(data_ptr);}
+    operator EIGEN_MAP_OF_MATERIAL_VECTOR () const {return EIGEN_MAP_OF_MATERIAL_VECTOR(data_ptr);}
     MaterialVector operator-();
     inline MaterialVector& operator+= (const MaterialVector &rhs);
     inline MaterialVector& operator-= (const MaterialVector &rhs);
@@ -155,19 +155,19 @@ public:
 
     /*------------------------------------------------------------------------*/
     //vector contractions
-    double dot(const MaterialVector &rhs);
-    double dot(const KinematicVector &rhs);
+    double dot(const MaterialVector &rhs) const;
+    double dot(const KinematicVector &rhs) const;
 
     //vector cross product
-    MaterialVector cross(const MaterialVector &rhs);
-    MaterialVector cross(const KinematicVector &rhs);
+    MaterialVector cross(const MaterialVector &rhs) const;
+    MaterialVector cross(const KinematicVector &rhs) const;
 
     //vector tensor product
-    MaterialTensor tensor(const MaterialVector& rhs);
-    MaterialTensor tensor(const KinematicVector& rhs);
+    MaterialTensor tensor(const MaterialVector& rhs) const;
+    MaterialTensor tensor(const KinematicVector& rhs) const;
 
     //vector 2-norm
-    double norm();
+    double norm() const;
 };
 
 
@@ -256,7 +256,7 @@ public:
 
     /*------------------------------------------------------------------------*/
     //define operators
-    operator EIGEN_MAP_OF_KINEMATIC_VECTOR () {return EIGEN_MAP_OF_KINEMATIC_VECTOR(data_ptr,DIM);}
+    operator EIGEN_MAP_OF_KINEMATIC_VECTOR () const {return EIGEN_MAP_OF_KINEMATIC_VECTOR(data_ptr,DIM);}
     inline KinematicVector operator-();
     inline KinematicVector& operator+= (const KinematicVector &rhs);
     inline KinematicVector& operator-= (const KinematicVector &rhs);
@@ -272,19 +272,19 @@ public:
 
     /*------------------------------------------------------------------------*/
     //vector contractions
-    double dot(const MaterialVector &rhs);
-    double dot(const KinematicVector &rhs);
+    double dot(const MaterialVector &rhs) const;
+    double dot(const KinematicVector &rhs) const;
 
     //vector cross product
-    MaterialVector cross(const MaterialVector &rhs);
-    MaterialVector cross(const KinematicVector &rhs);
+    MaterialVector cross(const MaterialVector &rhs) const;
+    MaterialVector cross(const KinematicVector &rhs) const;
 
     //vector tensor product
-    MaterialTensor tensor(const MaterialVector& rhs);
-    KinematicTensor tensor(const KinematicVector& rhs);
+    MaterialTensor tensor(const MaterialVector& rhs) const;
+    KinematicTensor tensor(const KinematicVector& rhs) const;
 
     //vector 2-norm
-    double norm();
+    double norm() const;
 };
 
 
@@ -449,7 +449,7 @@ inline void MaterialVector::setOnes(){
 
 /*----------------------------------------------------------------------------*/
 //vector inner product
-inline double MaterialVector::dot(const MaterialVector &rhs){
+inline double MaterialVector::dot(const MaterialVector &rhs) const{
     double tmp = 0;
     for(int i=0;i<VECTOR_MAX_DIM;i++){
         tmp += data_ptr[i]*rhs[i];
@@ -457,7 +457,7 @@ inline double MaterialVector::dot(const MaterialVector &rhs){
     return tmp;
 }
 
-inline double MaterialVector::dot(const KinematicVector &rhs){
+inline double MaterialVector::dot(const KinematicVector &rhs) const{
     double tmp = 0;
     for(int i=0;i<rhs.DIM;i++){
         tmp += data_ptr[i]*rhs[i];
@@ -466,7 +466,7 @@ inline double MaterialVector::dot(const KinematicVector &rhs){
 }
 
 //vector cross product
-inline MaterialVector MaterialVector::cross(const MaterialVector &rhs){
+inline MaterialVector MaterialVector::cross(const MaterialVector &rhs) const{
     std::array<double, VECTOR_MAX_DIM> tmp;
     tmp[X] = data_ptr[Y]*rhs[Z] - data_ptr[Z]*rhs[Y];
     tmp[Y] = data_ptr[Z]*rhs[X] - data_ptr[X]*rhs[Z];
@@ -474,7 +474,7 @@ inline MaterialVector MaterialVector::cross(const MaterialVector &rhs){
     return MaterialVector(tmp.data());
 }
 
-inline MaterialVector MaterialVector::cross(const KinematicVector &rhs){
+inline MaterialVector MaterialVector::cross(const KinematicVector &rhs) const{
     std::array<double, VECTOR_MAX_DIM> tmp;
     tmp[X] = data_ptr[Y]*rhs[Z] - data_ptr[Z]*rhs[Y];
     tmp[Y] = data_ptr[Z]*rhs[X] - data_ptr[X]*rhs[Z];
@@ -483,7 +483,7 @@ inline MaterialVector MaterialVector::cross(const KinematicVector &rhs){
 }
 
 //vector tensor product
-inline MaterialTensor MaterialVector::tensor(const MaterialVector& rhs){
+inline MaterialTensor MaterialVector::tensor(const MaterialVector& rhs) const{
     std::array<double,MPMTensor::TENSOR_MAX_LENGTH> tmp;
     for(int i=0;i<VECTOR_MAX_DIM;i++){
         for(int j=0;j<VECTOR_MAX_DIM;j++){
@@ -492,7 +492,7 @@ inline MaterialTensor MaterialVector::tensor(const MaterialVector& rhs){
     }
     return MaterialTensor(tmp.data());
 }
-inline MaterialTensor MaterialVector::tensor(const KinematicVector& rhs){
+inline MaterialTensor MaterialVector::tensor(const KinematicVector& rhs) const{
     std::array<double,MPMTensor::TENSOR_MAX_LENGTH> tmp;
     for(int i=0;i<VECTOR_MAX_DIM;i++){
         for(int j=0;j<rhs.DIM;j++){
@@ -506,7 +506,7 @@ inline MaterialTensor MaterialVector::tensor(const KinematicVector& rhs){
 }
 
 //2-norm of MaterialVector
-inline double MaterialVector::norm(){
+inline double MaterialVector::norm() const{
     double tmp = 0;
     for(int i=0;i<VECTOR_MAX_DIM;i++){
         tmp += data_ptr[i]*data_ptr[i];
@@ -619,7 +619,7 @@ inline void KinematicVector::setOnes(){
 
 /*----------------------------------------------------------------------------*/
 //vector contraction
-inline double KinematicVector::dot(const MaterialVector &rhs){
+inline double KinematicVector::dot(const MaterialVector &rhs) const{
     double tmp = 0;
     for(int i=0;i<DIM;i++){
         tmp += data_ptr[i]*rhs[i];
@@ -627,7 +627,7 @@ inline double KinematicVector::dot(const MaterialVector &rhs){
     return tmp;
 }
 
-inline double KinematicVector::dot(const KinematicVector &rhs){
+inline double KinematicVector::dot(const KinematicVector &rhs) const{
     double tmp = 0;
     for(int i=0;i<DIM;i++){
         tmp += data_ptr[i]*rhs[i];
@@ -636,7 +636,7 @@ inline double KinematicVector::dot(const KinematicVector &rhs){
 }
 
 //vector cross product (always return MaterialVector)
-inline MaterialVector KinematicVector::cross(const MaterialVector &rhs){
+inline MaterialVector KinematicVector::cross(const MaterialVector &rhs) const{
     std::array<double, VECTOR_MAX_DIM> tmp;
     tmp[X] = data_ptr[Y]*rhs[Z] - data_ptr[Z]*rhs[Y];
     tmp[Y] = data_ptr[Z]*rhs[X] - data_ptr[X]*rhs[Z];
@@ -644,7 +644,7 @@ inline MaterialVector KinematicVector::cross(const MaterialVector &rhs){
     return MaterialVector(tmp.data());
 }
 
-inline MaterialVector KinematicVector::cross(const KinematicVector &rhs){
+inline MaterialVector KinematicVector::cross(const KinematicVector &rhs) const{
     std::array<double, VECTOR_MAX_DIM> tmp;
     tmp[X] = data_ptr[Y]*rhs[Z] - data_ptr[Z]*rhs[Y];
     tmp[Y] = data_ptr[Z]*rhs[X] - data_ptr[X]*rhs[Z];
@@ -653,7 +653,7 @@ inline MaterialVector KinematicVector::cross(const KinematicVector &rhs){
 }
 
 //vector tensor product
-inline MaterialTensor KinematicVector::tensor(const MaterialVector& rhs){
+inline MaterialTensor KinematicVector::tensor(const MaterialVector& rhs) const{
     std::array<double,MPMTensor::TENSOR_MAX_LENGTH> tmp;
     for(int i=0;i<DIM;i++){
         for(int j=0;j<VECTOR_MAX_DIM;j++){
@@ -668,7 +668,7 @@ inline MaterialTensor KinematicVector::tensor(const MaterialVector& rhs){
     return MaterialTensor(tmp.data());
 }
 
-inline KinematicTensor KinematicVector::tensor(const KinematicVector& rhs){
+inline KinematicTensor KinematicVector::tensor(const KinematicVector& rhs) const{
     assert(VECTOR_TYPE == rhs.VECTOR_TYPE && "Tensor product failed.");
     std::array<double,MPMTensor::TENSOR_MAX_LENGTH> tmp;
     for(int i=0;i<DIM;i++){
@@ -688,7 +688,7 @@ inline KinematicTensor KinematicVector::tensor(const KinematicVector& rhs){
 }
 
 //vector 2-norm
-inline double KinematicVector::norm(){
+inline double KinematicVector::norm() const{
     double tmp = 0;
     for(int i=0;i<DIM;i++){
         tmp += data_ptr[i]*data_ptr[i];

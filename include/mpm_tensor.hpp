@@ -151,7 +151,7 @@ public:
 
     /*------------------------------------------------------------------------*/
     //define operators
-    operator EIGEN_MAP_OF_MATERIAL_TENSOR () {return EIGEN_MAP_OF_MATERIAL_TENSOR(data_ptr);}
+    operator EIGEN_MAP_OF_MATERIAL_TENSOR () const {return EIGEN_MAP_OF_MATERIAL_TENSOR(data_ptr);}
     MaterialTensor operator-();
     inline MaterialTensor& operator+= (const MaterialTensor &rhs);
     inline MaterialTensor& operator+= (const KinematicTensor &rhs);
@@ -170,31 +170,31 @@ public:
 
     /*------------------------------------------------------------------------*/
     //tensor contractions
-    double dot(const MaterialTensor &rhs);
-    double dot(const KinematicTensor &rhs);
+    double dot(const MaterialTensor &rhs) const;
+    double dot(const KinematicTensor &rhs) const;
 
     //tensor trace
-    double trace();
+    double trace() const;
 
     //tensor frobenius norm
-    double norm();
+    double norm() const;
 
     //tensor determinant
-    double det();
+    double det() const;
 
     /*------------------------------------------------------------------------*/
     //inverse
-    MaterialTensor inverse();
+    MaterialTensor inverse() const;
 
     //deviator
-    MaterialTensor deviator();
+    MaterialTensor deviator() const;
 
     //transpose
-    MaterialTensor transpose();
+    MaterialTensor transpose() const;
 
     //symetric and skew decomposition
-    MaterialTensor sym();
-    MaterialTensor skw();
+    MaterialTensor sym() const;
+    MaterialTensor skw() const;
 };
 
 /*----------------------------------------------------------------------------*/
@@ -289,7 +289,7 @@ public:
 
     /*------------------------------------------------------------------------*/
     //define operators
-    operator EIGEN_MAP_OF_KINEMATIC_TENSOR () {return EIGEN_MAP_OF_KINEMATIC_TENSOR(data_ptr,DIM,DIM);}
+    operator EIGEN_MAP_OF_KINEMATIC_TENSOR () const {return EIGEN_MAP_OF_KINEMATIC_TENSOR(data_ptr,DIM,DIM);}
     KinematicTensor operator-();
     inline KinematicTensor& operator+= (const KinematicTensor &rhs);
     inline KinematicTensor& operator-= (const KinematicTensor &rhs);
@@ -306,31 +306,31 @@ public:
 
     /*------------------------------------------------------------------------*/
     //tensor contractions
-    double dot(const MaterialTensor &rhs);
-    double dot(const KinematicTensor &rhs);
+    double dot(const MaterialTensor &rhs) const;
+    double dot(const KinematicTensor &rhs) const;
 
     //tensor trace
-    double trace();
+    double trace() const;
 
     //tensor frobenius norm
-    double norm();
+    double norm() const;
 
     //tensor determinant
-    double det();
+    double det() const;
 
     /*------------------------------------------------------------------------*/
     //inverse
-    KinematicTensor inverse();
+    KinematicTensor inverse() const;
 
     //deviator
-    MaterialTensor deviator();
+    MaterialTensor deviator() const;
 
     //transpose
-    KinematicTensor transpose();
+    KinematicTensor transpose() const;
 
     //symetric and skew decomposition
-    KinematicTensor sym();
-    KinematicTensor skw();
+    KinematicTensor sym() const;
+    KinematicTensor skw() const;
 };
 
 /*----------------------------------------------------------------------------*/
@@ -527,7 +527,7 @@ inline MaterialTensor MaterialTensor::Identity() {
 
 /*------------------------------------------------------------------------*/
 //tensor inner products
-inline double MaterialTensor::dot(const MaterialTensor &rhs){
+inline double MaterialTensor::dot(const MaterialTensor &rhs) const{
     double tmp=0;
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
         tmp += data_ptr[i]*rhs[i];
@@ -535,7 +535,7 @@ inline double MaterialTensor::dot(const MaterialTensor &rhs){
     return tmp;
 }
 
-inline double MaterialTensor::dot(const KinematicTensor &rhs){
+inline double MaterialTensor::dot(const KinematicTensor &rhs) const{
     double tmp=0;
     for(int i=0;i<rhs.DIM;i++){
         for(int j=0;j<rhs.DIM;j++) {
@@ -546,12 +546,12 @@ inline double MaterialTensor::dot(const KinematicTensor &rhs){
 }
 
 //trace of MaterialTensor
-inline double MaterialTensor::trace(){
+inline double MaterialTensor::trace() const{
     return data_ptr[XX]+data_ptr[YY]+data_ptr[ZZ];
 }
 
 //tensor norm given by sqrt(A:A)
-inline double MaterialTensor::norm(){
+inline double MaterialTensor::norm() const{
     double tmp = 0;
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
         tmp += data_ptr[i]*data_ptr[i];
@@ -560,7 +560,7 @@ inline double MaterialTensor::norm(){
 }
 
 //determinant of MaterialTensor
-inline double MaterialTensor::det(){
+inline double MaterialTensor::det() const{
     double a = data_ptr[XX]*(data_ptr[YY]*data_ptr[ZZ] - data_ptr[ZY]*data_ptr[YZ]);
     double b = data_ptr[XY]*(data_ptr[YX]*data_ptr[ZZ] - data_ptr[ZX]*data_ptr[YZ]);
     double c = data_ptr[XZ]*(data_ptr[YX]*data_ptr[ZY] - data_ptr[ZX]*data_ptr[YY]);
@@ -569,7 +569,7 @@ inline double MaterialTensor::det(){
 
 /*------------------------------------------------------------------------*/
 //tensor inverse of MaterialTensor (not safe)
-inline MaterialTensor MaterialTensor::inverse(){
+inline MaterialTensor MaterialTensor::inverse() const{
     std::array<double,TENSOR_MAX_LENGTH> tmp;
     double detA = det();
     tmp[XX] = 1/detA * (data_ptr[YY]*data_ptr[ZZ] - data_ptr[ZY]*data_ptr[YZ]);
@@ -590,7 +590,7 @@ inline MaterialTensor MaterialTensor::inverse(){
 }
 
 //tensor deviator (A_0 = A - 1/3 tr(A) I)
-inline MaterialTensor MaterialTensor::deviator(){
+inline MaterialTensor MaterialTensor::deviator() const{
     std::array<double,TENSOR_MAX_LENGTH> tmp;
     double trA = trace();
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
@@ -601,7 +601,7 @@ inline MaterialTensor MaterialTensor::deviator(){
 }
 
 //transpose (A^T)
-inline MaterialTensor MaterialTensor::transpose(){
+inline MaterialTensor MaterialTensor::transpose() const{
     std::array<double,9> tmp;
     tmp[XX] = data_ptr[XX]; tmp[XY] = data_ptr[YX]; tmp[XZ] = data_ptr[ZX];
     tmp[YX] = data_ptr[XY]; tmp[YY] = data_ptr[YY]; tmp[YZ] = data_ptr[ZY];
@@ -610,11 +610,11 @@ inline MaterialTensor MaterialTensor::transpose(){
 }
 
 //symmetric and skew decompositions of A
-inline MaterialTensor MaterialTensor::sym(){
+inline MaterialTensor MaterialTensor::sym() const{
     MaterialTensor tmp(this->data());
     return 0.5*(tmp + tmp.transpose());
 }
-inline MaterialTensor MaterialTensor::skw(){
+inline MaterialTensor MaterialTensor::skw() const{
     MaterialTensor tmp(this->data());
     return 0.5*(tmp - tmp.transpose());
 }
@@ -801,7 +801,7 @@ inline KinematicTensor KinematicTensor::Identity(int input) {
 
 /*------------------------------------------------------------------------*/
 //tensor inner products
-inline double KinematicTensor::dot(const MaterialTensor &rhs){
+inline double KinematicTensor::dot(const MaterialTensor &rhs) const{
     double tmp=0;
     for(int i=0;i<DIM;i++){
         for(int j=0;j<DIM;j++) {
@@ -811,7 +811,7 @@ inline double KinematicTensor::dot(const MaterialTensor &rhs){
     return tmp;
 }
 
-inline double KinematicTensor::dot(const KinematicTensor &rhs){
+inline double KinematicTensor::dot(const KinematicTensor &rhs) const{
     double tmp=0;
     for(int i=0;i<DIM;i++){
         for(int j=0;j<DIM;j++) {
@@ -822,12 +822,12 @@ inline double KinematicTensor::dot(const KinematicTensor &rhs){
 }
 
 //trace of KinematicTensor
-inline double KinematicTensor::trace(){
+inline double KinematicTensor::trace() const{
     return data_ptr[XX]+data_ptr[YY]+data_ptr[ZZ];
 }
 
 //tensor norm given by sqrt(A:A)
-inline double KinematicTensor::norm(){
+inline double KinematicTensor::norm() const{
     double tmp = 0;
     for(int i=0;i<DIM;i++){
         for(int j=0;j<DIM;j++) {
@@ -838,7 +838,7 @@ inline double KinematicTensor::norm(){
 }
 
 //determinant of KinematicTensor
-inline double KinematicTensor::det(){
+inline double KinematicTensor::det() const{
     if (DIM == 1){
         return data_ptr[XX];
     } else if (DIM == 2){
@@ -853,7 +853,7 @@ inline double KinematicTensor::det(){
 
 /*------------------------------------------------------------------------*/
 //tensor inverse of KinematicTensor (not safe)
-inline KinematicTensor KinematicTensor::inverse(){
+inline KinematicTensor KinematicTensor::inverse() const{
     std::array<double,TENSOR_MAX_LENGTH> tmp;
     double detA = det();
     if (DIM==1){
@@ -885,7 +885,7 @@ inline KinematicTensor KinematicTensor::inverse(){
 }
 
 //tensor deviator (A_0 = A - 1/3 tr(A) I)
-inline MaterialTensor KinematicTensor::deviator(){
+inline MaterialTensor KinematicTensor::deviator() const{
     std::array<double,TENSOR_MAX_LENGTH> tmp;
     double trA = trace();
     for(int i=0;i<TENSOR_MAX_LENGTH;i++){
@@ -896,7 +896,7 @@ inline MaterialTensor KinematicTensor::deviator(){
 }
 
 //transpose (A^T)
-inline KinematicTensor KinematicTensor::transpose(){
+inline KinematicTensor KinematicTensor::transpose() const{
     std::array<double,9> tmp;
     if (DIM == 1){
         return KinematicTensor(data_ptr,TENSOR_TYPE);
@@ -912,11 +912,11 @@ inline KinematicTensor KinematicTensor::transpose(){
 }
 
 //symmetric and skew decompositions of A
-inline KinematicTensor KinematicTensor::sym(){
+inline KinematicTensor KinematicTensor::sym() const{
     KinematicTensor tmp(this->data(),this->TENSOR_TYPE);
     return 0.5*(tmp + tmp.transpose());
 }
-inline KinematicTensor KinematicTensor::skw(){
+inline KinematicTensor KinematicTensor::skw() const{
     KinematicTensor tmp(this->data(),this->TENSOR_TYPE);
     return 0.5*(tmp - tmp.transpose());
 }

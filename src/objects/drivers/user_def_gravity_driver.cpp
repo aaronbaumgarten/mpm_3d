@@ -32,7 +32,7 @@ void UserDefinedGravityDriver::init(Job* job){
         //store stop_time
         stop_time = fp64_props[0];
         gravity = KinematicVector(job->JOB_TYPE);
-        for (size_t pos=0;pos<job->DIM;pos++){
+        for (int pos=0;pos<job->DIM;pos++){
             gravity(pos) = fp64_props[1+pos];
         }
 
@@ -47,8 +47,8 @@ void UserDefinedGravityDriver::init(Job* job){
 /*----------------------------------------------------------------------------*/
 
 void UserDefinedGravityDriver::run(Job* job) {
-    size_t stepCount = 0;
-    size_t frameCount = 0;
+    int stepCount = 0;
+    int frameCount = 0;
 
     struct timespec timeStart, timeFrame, timeFinish;
     clock_gettime(CLOCK_MONOTONIC, &timeStart);
@@ -63,7 +63,7 @@ void UserDefinedGravityDriver::run(Job* job) {
     applyGravity(job);
 
     //run simulation until stop_time
-    while (job->t < stop_time){
+    while (job->t <= stop_time){
         //run solver
         job->solver->step(job);
         //std::cout << "Step Completed [" << ++stepCount << "]." << std::flush;
@@ -91,28 +91,18 @@ void UserDefinedGravityDriver::run(Job* job) {
 /*----------------------------------------------------------------------------*/
 
 void UserDefinedGravityDriver::generateGravity(Job* job) {
-    double g = -9.81;
-    gravity.setZero();
-    if (job->JOB_TYPE == Job::JOB_1D){
-        gravity(0) = g;
-    } else if (job->JOB_TYPE == Job::JOB_2D){
-        gravity(1) = g;
-    } else if (job->JOB_TYPE == Job::JOB_3D){
-        gravity(2) = g;
-    } else if (job->JOB_TYPE == Job::JOB_AXISYM){
-        gravity(1) = g;
-    }
+    //do nothing (already set)
     return;
 }
 
 /*----------------------------------------------------------------------------*/
 
 void UserDefinedGravityDriver::applyGravity(Job* job){
-    for (size_t b=0;b<job->bodies.size();b++){
+    for (int b=0;b<job->bodies.size();b++){
         if (job->activeBodies[b] == 0){
             continue;
         }
-        for (size_t i=0;i<job->bodies[b]->points->b.size();i++){
+        for (int i=0;i<job->bodies[b]->points->b.size();i++){
             job->bodies[b]->points->b(i) = gravity;
         }
     }

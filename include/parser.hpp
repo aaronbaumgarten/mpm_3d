@@ -51,7 +51,7 @@ public:
         std::stringstream ss;
         //std::cout << s << std::endl;
         svec = splitString(s,'{');
-        for(size_t i=0;i<svec.size();i++){
+        for(int i=0;i<svec.size();i++){
             ss << svec[i];
         }
         //std::cout << ss.str() << std::endl;
@@ -59,7 +59,7 @@ public:
         ss.str("");
         ss.clear();
         //std::cout << ss.str() << std::endl;
-        for(size_t i=0;i<svec.size();i++){
+        for(int i=0;i<svec.size();i++){
             ss << svec[i];
         }
         //std::cout << ss.str() << std::endl;
@@ -68,7 +68,7 @@ public:
 
     //find id of string from list
     static int findStringID(std::vector<std::string> svec, std::string s){
-        for (size_t i=0;i<svec.size();i++){
+        for (int i=0;i<svec.size();i++){
             if(svec[i].compare(s) == 0){
                 return i;
             }
@@ -82,7 +82,7 @@ public:
         std::stringstream ss;
         //std::cout << s << std::endl;
         svec = splitString(s,'\'');
-        for(size_t i=0;i<svec.size();i++){
+        for(int i=0;i<svec.size();i++){
             ss << svec[i];
         }
         //std::cout << ss.str() << std::endl;
@@ -90,7 +90,7 @@ public:
         ss.str("");
         ss.clear();
         //std::cout << ss.str() << std::endl;
-        for(size_t i=0;i<svec.size();i++){
+        for(int i=0;i<svec.size();i++){
             ss << svec[i];
         }
         //std::cout << ss.str() << std::endl;

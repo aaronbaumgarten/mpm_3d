@@ -29,14 +29,14 @@ void CartesianPeriodic::hiddenInit(Job* job){
     node_count = 1;
     element_count = 1;
     npe = 1;
-    for (size_t i=0;i<Nx.rows();i++){
+    for (int i=0;i<Nx.rows();i++){
         node_count *= (Nx(i)+1);
         element_count *= Nx(i);
         npe *= 2;
     }
 
     x_n = KinematicVectorArray(node_count,job->JOB_TYPE);
-    for (size_t i=0;i<x_n.size();i++){
+    for (int i=0;i<x_n.size();i++){
         x_n(i) = nodeIDToPosition(job,i);
     }
 
@@ -244,7 +244,7 @@ void CartesianPeriodic::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, 
     if (elementID < 0){
         return;
     }
-    for (size_t n=0;n<nodeIDs.cols();n++){
+    for (int n=0;n<nodeIDs.cols();n++){
         //find local coordinates relative to nodal position
         for (int i=0;i<tmpX.DIM;i++){
             //r = (x_p - x_n)/hx
@@ -254,7 +254,7 @@ void CartesianPeriodic::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, 
             //evaluate at point
             tmp *= (1 - std::abs(rst(i)));
         }
-        for (size_t i=0;i<tmpX.rows();i++){
+        for (int i=0;i<tmpX.rows();i++){
             //replace i-direction contribution with sign function
             tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
         }

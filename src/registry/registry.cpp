@@ -80,6 +80,7 @@ Registry<Grid>::Registry() {
     object["CartesianCustom"] = &createInstance<Grid,CartesianCustom>;
     object["CartesianCubicCustom"] = &createInstance<Grid,CartesianCubicCustom>;
     object["TriangularGridLinear"] = &createInstance<Grid,TriangularGridLinear>;
+    object["Regular2DTaylorCouetteCell"] = &createInstance<Grid,Regular2DTaylorCouetteCell>;
 }
 
 
@@ -119,4 +120,5 @@ Registry<Boundary>::Registry() {
     object["CartesianSmoothBox"] = &createInstance<Boundary,CartesianSmoothBox>;
     object["CartesianFrictionalBox"] = &createInstance<Boundary,CartesianFrictionalBox>;
     object["CartesianBoxCustom"] = &createInstance<Boundary,CartesianBoxCustom>;
+    object["Regular2DTaylorCouetteCustom"] = &createInstance<Boundary,Regular2DTaylorCouetteCustom>;
 }

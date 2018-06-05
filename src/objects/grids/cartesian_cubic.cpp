@@ -78,11 +78,11 @@ void CartesianCubic::init(Job* job){
 
         //print grid properties
         std::cout << "Grid properties (Lx = { ";
-        for (size_t i=0;i<Lx.rows();i++){
+        for (int i=0;i<Lx.rows();i++){
             std::cout << Lx(i) << " ";
         }
         std::cout << "}, Nx = { ";
-        for (size_t i=0;i<Nx.rows();i++){
+        for (int i=0;i<Nx.rows();i++){
             std::cout << Nx(i) << " ";
         }
         std::cout << "})." << std::endl;
@@ -106,14 +106,14 @@ void CartesianCubic::hiddenInit(Job* job){//called from loading or initializing 
     node_count = 1;
     element_count = 1;
     npe = 1;
-    for (size_t i=0;i<Nx.rows();i++){
+    for (int i=0;i<Nx.rows();i++){
         node_count *= (Nx(i)+1);
         element_count *= Nx(i);
         npe *= 4; //4 linear node contributions per element
     }
 
     x_n = KinematicVectorArray(node_count,job->JOB_TYPE);
-    for (size_t i=0;i<x_n.size();i++){
+    for (int i=0;i<x_n.size();i++){
         x_n(i) = nodeIDToPosition(job,i);
     }
 
@@ -127,11 +127,11 @@ void CartesianCubic::hiddenInit(Job* job){//called from loading or initializing 
     A = Eigen::MatrixXi(npe,job->DIM);
     i_rel.setOnes();
     i_rel = -1*i_rel;
-    for (size_t n=0; n<npe;n++){
-        for (size_t i=0;i<i_rel.rows();i++){
+    for (int n=0; n<npe;n++){
+        for (int i=0;i<i_rel.rows();i++){
             A(n,i) = i_rel(i);
         }
-        for (size_t i=0;i<i_rel.rows();i++) {
+        for (int i=0;i<i_rel.rows();i++) {
             if (i_rel(i) < 2){
                 i_rel(i) += 1;
                 break;
@@ -146,17 +146,17 @@ void CartesianCubic::hiddenInit(Job* job){//called from loading or initializing 
     int tmp;
     nodeIDs.resize(element_count,npe);
     nodeIDs.setZero();
-    for (size_t e=0;e<nodeIDs.rows();e++){
+    for (int e=0;e<nodeIDs.rows();e++){
         tmp = e;
         //find i,j,k count for element position
-        for (size_t i=0;i<ijk.rows();i++){
+        for (int i=0;i<ijk.rows();i++){
             ijk(i) = tmp % Nx(i);
             tmp = tmp / Nx(i);
         }
 
         //find node ids for element
-        for (size_t n=0;n<nodeIDs.cols();n++){
-            for (size_t i=0;i<ijk.rows();i++) {
+        for (int n=0;n<nodeIDs.cols();n++){
+            for (int i=0;i<ijk.rows();i++) {
                 //n = i + j*imax + k*imax*jmax
                 //hardcode
                 if ((ijk(i) + A(n,i) < 0) || (ijk(i) + A(n,i) > Nx(i))) {
@@ -177,7 +177,7 @@ void CartesianCubic::hiddenInit(Job* job){//called from loading or initializing 
 
     //element volume
     v_e = 1;
-    for (size_t pos=0;pos<hx.rows();pos++){
+    for (int pos=0;pos<hx.rows();pos++){
         v_e *= hx(pos);
     }
 
@@ -185,10 +185,10 @@ void CartesianCubic::hiddenInit(Job* job){//called from loading or initializing 
     edge_n = KinematicVectorArray(x_n.size(), job->JOB_TYPE);
     v_n.resize(x_n.size());
     v_n.setZero();
-    for (size_t n=0;n<x_n.size();n++){
+    for (int n=0;n<x_n.size();n++){
         tmp = n;
         v_n(n) = 1;
-        for (size_t i=0;i<ijk.rows();i++){
+        for (int i=0;i<ijk.rows();i++){
             ijk(i) = tmp % (Nx(i)+1);
             tmp = tmp / (Nx(i)+1);
 
@@ -287,7 +287,7 @@ void CartesianCubic::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::v
     }
 
     //double test_sum = 0;
-    for (size_t n=0;n<nodeIDs.cols();n++){
+    for (int n=0;n<nodeIDs.cols();n++){
         if (nodeIDs(elementID,n) == -1){
             continue; //break out if node id is -1;
         }
@@ -296,7 +296,7 @@ void CartesianCubic::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::v
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)/hx
         rst = xIN - x_n(nodeIDs(elementID,n));
-        for (size_t i=0;i<xIN.rows();i++){
+        for (int i=0;i<xIN.rows();i++){
             //check proximity to edge
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmp *= s(rst(i), hx(i));
@@ -308,11 +308,6 @@ void CartesianCubic::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::v
                 tmp *= (s(rst(i), hx(i)) + 2.0*s(std::abs(rst(i))+hx(i), hx(i)));
             }
         }
-        //if (tmp < 1e-10){
-        //std::cout << "VERY SMALL!!! " << tmp << std::endl;
-        //avoid small numbers for numerical stability
-        //continue;
-        //}
 
         //test_sum += tmp;
         nID.push_back(nodeIDs(elementID,n));
@@ -336,7 +331,7 @@ void CartesianCubic::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std
     }
 
     //Eigen::VectorXd test_grad = job->jobVector<double>(Job::ZERO);
-    for (size_t n=0;n<nodeIDs.cols();n++){
+    for (int n=0;n<nodeIDs.cols();n++){
         if (nodeIDs(elementID,n) == -1){
             continue; //break out if node id is -1;
         }
@@ -344,7 +339,7 @@ void CartesianCubic::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)
         rst = xIN - x_n(nodeIDs(elementID,n));
-        for (size_t i=0;i<xIN.rows();i++){
+        for (int i=0;i<xIN.rows();i++){
             //check proximity to edge
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmpVec(i) = g(rst(i), hx(i));
@@ -361,7 +356,7 @@ void CartesianCubic::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std
             }
         }
 
-        for (size_t i=0;i<xIN.rows();i++){
+        for (int i=0;i<xIN.rows();i++){
             //check proximity to edge
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmpVec *= s(rst(i), hx(i));
@@ -439,7 +434,7 @@ void CartesianCubic::writeHeader(Job *job, Body *body, Serializer *serializer, s
         //use lines
         nfile << "CELLS " << element_count << " " << 3 * element_count << "\n";
         for (int e = 0; e < element_count; e++) {
-            nfile << "2 " << nodeIDs(e,0) << " " << nodeIDs(e,1) << "\n";
+            nfile << "2 " << nodeIDs(e,1) << " " << nodeIDs(e,2) << "\n";
         }
 
         nfile << "CELL_TYPES " << element_count << "\n";
@@ -449,7 +444,7 @@ void CartesianCubic::writeHeader(Job *job, Body *body, Serializer *serializer, s
     } else if (job->DIM == 2){
         nfile << "CELLS " << element_count << " " << 5 * element_count << "\n";
         for (int e = 0; e < element_count; e++){
-            nfile << "4 " << nodeIDs(e,0) << " " << nodeIDs(e,1) << " " << nodeIDs(e,2) << " " << nodeIDs(e,3) << "\n";
+            nfile << "4 " << nodeIDs(e,5) << " " << nodeIDs(e,6) << " " << nodeIDs(e,9) << " " << nodeIDs(e,10) << "\n";
         }
 
         nfile << "CELL_TYPES " << element_count << "\n";
@@ -460,10 +455,10 @@ void CartesianCubic::writeHeader(Job *job, Body *body, Serializer *serializer, s
         nfile << "CELLS " << element_count << " " << 9 * element_count << "\n";
         for (int e = 0; e < element_count; e++){
             nfile << "8 ";
-            nfile << nodeIDs(e, 0) << " " << nodeIDs(e, 1) << " ";
-            nfile << nodeIDs(e, 2) << " " << nodeIDs(e, 3) << " ";
-            nfile << nodeIDs(e, 4) << " " << nodeIDs(e, 5) << " ";
-            nfile << nodeIDs(e, 6) << " " << nodeIDs(e, 7) << "\n";
+            nfile << nodeIDs(e, 21) << " " << nodeIDs(e, 22) << " ";
+            nfile << nodeIDs(e, 25) << " " << nodeIDs(e, 26) << " ";
+            nfile << nodeIDs(e, 37) << " " << nodeIDs(e, 38) << " ";
+            nfile << nodeIDs(e, 41) << " " << nodeIDs(e, 42) << "\n";
         }
 
         nfile << "CELL_TYPES " << element_count << "\n";

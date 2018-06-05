@@ -63,7 +63,7 @@ void Configurator::setMainPath(std::string program){
 void Configurator::checkConfigFile(std::string filename) {
     std::vector<std::string> headers = {"job","serializer","driver","solver","grid","body","contact"};
     std::vector<int> check = {0,0,0,0,0,0,0};
-    size_t id;
+    int id;
     std::string line;
     std::ifstream fin(filename);
     if (fin.is_open()){

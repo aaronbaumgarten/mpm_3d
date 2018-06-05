@@ -42,16 +42,16 @@ void CartesianCubicCustom::init(Job* job){
         }
 
         periodic_props = Eigen::VectorXi(job->DIM);
-        for (size_t pos=0;pos<job->DIM;pos++){
+        for (int pos=0;pos<job->DIM;pos++){
             periodic_props(pos) = int_props[job->DIM + pos];
         }
         //print grid properties
         std::cout << "Grid properties (Lx = { ";
-        for (size_t i=0;i<Lx.rows();i++){
+        for (int i=0;i<Lx.rows();i++){
             std::cout << Lx(i) << " ";
         }
         std::cout << "}, Nx = { ";
-        for (size_t i=0;i<Nx.rows();i++){
+        for (int i=0;i<Nx.rows();i++){
             std::cout << Nx(i) << " ";
         }
         std::cout << "})." << std::endl;
@@ -243,7 +243,7 @@ int CartesianCubicCustom::loadState(Job* job, Serializer* serializer, std::strin
 void CartesianCubicCustom::fixPosition(Job* job, KinematicVector& xIN){
     //wrap position vector around relevant axes
     int tmp;
-    for (size_t pos=0; pos<periodic_props.size(); pos++) {
+    for (int pos=0; pos<periodic_props.size(); pos++) {
         if (periodic_props(pos) == PERIODIC) {
             tmp = floor(xIN[pos] / hx[pos]);
             xIN[pos] += (tmp % Nx[pos] * hx[pos]) - tmp * hx[pos];
@@ -267,7 +267,7 @@ bool CartesianCubicCustom::inDomain(Job* job, KinematicVector& xIN){
     KinematicVector tmpX = xIN;
     fixPosition(job,tmpX);
 
-    for (size_t i=0;i<tmpX.DIM;i++){
+    for (int i=0;i<tmpX.DIM;i++){
         if (!(tmpX[i] <= Lx[i] && tmpX[i] >= 0)) { //if xIn is outside domain, return -1
             return false;
         }
@@ -290,7 +290,7 @@ void CartesianCubicCustom::evaluateBasisFnValue(Job* job, KinematicVector& xIN, 
     }
 
     //double test_sum = 0;
-    for (size_t n=0;n<nodeIDs.cols();n++){
+    for (int n=0;n<nodeIDs.cols();n++){
         if (nodeIDs(elementID,n) == -1){
             continue; //break out if node id is -1;
         }
@@ -299,7 +299,7 @@ void CartesianCubicCustom::evaluateBasisFnValue(Job* job, KinematicVector& xIN, 
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)/hx
         rst = tmpX - x_n(nodeIDs(elementID,n));
-        for (size_t i=0;i<tmpX.rows();i++){
+        for (int i=0;i<tmpX.rows();i++){
             //check proximity to edge
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmp *= s(rst(i), hx(i));
@@ -344,7 +344,7 @@ void CartesianCubicCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xI
     }
 
     //Eigen::VectorXd test_grad = job->jobVector<double>(Job::ZERO);
-    for (size_t n=0;n<nodeIDs.cols();n++){
+    for (int n=0;n<nodeIDs.cols();n++){
         if (nodeIDs(elementID,n) == -1){
             continue; //break out if node id is -1;
         }
@@ -352,7 +352,7 @@ void CartesianCubicCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xI
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)
         rst = tmpX - x_n(nodeIDs(elementID,n));
-        for (size_t i=0;i<tmpX.rows();i++){
+        for (int i=0;i<tmpX.rows();i++){
             //check proximity to edge
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmpVec(i) = g(rst(i), hx(i));
@@ -373,7 +373,7 @@ void CartesianCubicCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xI
             }
         }
 
-        for (size_t i=0;i<tmpX.rows();i++){
+        for (int i=0;i<tmpX.rows();i++){
             //check proximity to edge
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmpVec *= s(rst(i), hx(i));

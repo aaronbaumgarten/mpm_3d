@@ -41,17 +41,17 @@ void CartesianCustom::init(Job* job){
         }
 
         periodic_props = Eigen::VectorXi(job->DIM);
-        for (size_t pos=0;pos<job->DIM;pos++){
+        for (int pos=0;pos<job->DIM;pos++){
             periodic_props(pos) = int_props[job->DIM + pos];
         }
 
         //print grid properties
         std::cout << "Grid properties (Lx = { ";
-        for (size_t i=0;i<Lx.rows();i++){
+        for (int i=0;i<Lx.rows();i++){
             std::cout << Lx(i) << " ";
         }
         std::cout << "}, Nx = { ";
-        for (size_t i=0;i<Nx.rows();i++){
+        for (int i=0;i<Nx.rows();i++){
             std::cout << Nx(i) << " ";
         }
         std::cout << "})." << std::endl;
@@ -211,7 +211,7 @@ void CartesianCustom::fixPosition(Job* job, KinematicVector& xIN){
     //int true_elem = tmp%Nx[1]; //adjusted element
     //double true_pos = true_elem*hx[1] + rem; //adjusted position
     int tmp;
-    for (size_t pos=0; pos<periodic_props.size(); pos++) {
+    for (int pos=0; pos<periodic_props.size(); pos++) {
         if (periodic_props(pos) == PERIODIC) {
             tmp = std::floor(xIN[pos] / hx[pos]);
             xIN[pos] += (tmp % Nx[pos] * hx[pos]) - tmp * hx[pos];
@@ -235,7 +235,7 @@ bool CartesianCustom::inDomain(Job* job, KinematicVector& xIN){
     KinematicVector tmpX = xIN;
     fixPosition(job,tmpX);
 
-    for (size_t i=0;i<tmpX.DIM;i++){
+    for (int i=0;i<tmpX.DIM;i++){
         if (!(tmpX[i] <= Lx[i] && tmpX[i] >= 0)) { //if xIn is outside domain, return -1
             return false;
         }
@@ -287,7 +287,7 @@ void CartesianCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
     if (elementID < 0){
         return;
     }
-    for (size_t n=0;n<nodeIDs.cols();n++){
+    for (int n=0;n<nodeIDs.cols();n++){
         //find local coordinates relative to nodal position
         for (int i=0;i<tmpX.DIM;i++){
             //r = (x_p - x_n)/hx
@@ -297,7 +297,7 @@ void CartesianCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
             //evaluate at point
             tmp *= (1 - std::abs(rst(i)));
         }
-        for (size_t i=0;i<tmpX.rows();i++){
+        for (int i=0;i<tmpX.rows();i++){
             //replace i-direction contribution with sign function
             tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
         }
