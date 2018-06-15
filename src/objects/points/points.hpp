@@ -44,6 +44,8 @@ public:
 
     virtual void init(Job*, Body*) = 0;                         //initialize from Job and Body
     virtual void readFromFile(Job*, Body*, std::string) = 0;    //construct points from given file
+    virtual void generateMap(Job*, Body*, int) = 0;             //generate S and gradS
+    virtual void updateIntegrators(Job*, Body*) = 0;            //update integrators (extent, etc.)
 
     virtual void writeHeader(Job*, Body*, Serializer*, std::ofstream&, int) = 0;
     virtual void writeFrame(Job*, Body*, Serializer*) = 0;                      //send frame data to Serializer
@@ -58,8 +60,13 @@ public:
         object_name = "DefaultPoints";
     }
 
+    Eigen::VectorXd extent;
+    Eigen::MatrixXi A; //for mapping corners to position
+
     void init(Job* job, Body* body);
     void readFromFile(Job* job, Body* body, std::string fileIN);
+    void generateMap(Job* job, Body* body, int SPEC);             //generate S and gradS
+    void updateIntegrators(Job* job, Body* body);                 //update integrators (extent, etc.)
 
     void writeHeader(Job* job, Body* body, Serializer* serializer, std::ofstream& pfile, int SPEC);
     void writeFrame(Job* job, Body* body, Serializer* serializer);

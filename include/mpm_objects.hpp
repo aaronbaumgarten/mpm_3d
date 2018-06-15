@@ -138,11 +138,13 @@ public:
     KinematicVectorArray x, u, x_t, mx_t, b;    //state vectors
     KinematicTensorArray L;                     //velocity gradient
     MaterialTensorArray T;                      //cauchy stress
-    Eigen::VectorXd m, v, v0, extent;           //weight measures
+    Eigen::VectorXd m, v, v0;                   //weight measures
     Eigen::VectorXi active;                     //active?
 
     virtual void init(Job*, Body*) = 0;                         //initialize from Job and Body
     virtual void readFromFile(Job*, Body*, std::string) = 0;    //construct points from given file
+    virtual void generateMap(Job*, Body*, int) = 0;             //generate S and gradS
+    virtual void updateIntegrators(Job*, Body*) = 0;            //update integrators (extent, etc.)
 
     virtual void writeHeader(Job*, Body*, Serializer*, std::ofstream&, int) = 0;
     virtual void writeFrame(Job*, Body*, Serializer*) = 0;                      //send frame data to Serializer

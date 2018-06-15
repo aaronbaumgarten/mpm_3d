@@ -60,8 +60,6 @@ public:
     static const int CPDI_ON = 1;
     static const int CPDI_OFF = 0;
 
-    Eigen::MatrixXi A; //for mapping corners to position
-
     void init(Job* job);
     std::string saveState(Job* job, Serializer* serializer, std::string filepath);
     int loadState(Job* job, Serializer* serializer, std::string fullpath);

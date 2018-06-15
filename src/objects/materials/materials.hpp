@@ -119,18 +119,18 @@ public:
     Eigen::VectorXd gammap, gammap_dot, I_v, I, I_m, phi, eta;
     int fluid_body_id = -1;
 
-    double getBeta(double phi, double phi_eq);
-    void calcState(double &gdp, double &p, double &eta_in, double &phi_in, double &I_out, double &Iv_out, double &Im_out, double &mu_out, double &phi_eq, double &beta_out);
-    double getStep(double val, double ub, double lb);
+    virtual double getBeta(double phi, double phi_eq);
+    virtual void calcState(double &gdp, double &p, double &eta_in, double &phi_in, double &I_out, double &Iv_out, double &Im_out, double &mu_out, double &phi_eq, double &beta_out);
+    virtual double getStep(double val, double ub, double lb);
 
-    void init(Job* job, Body* body);
-    void calculateStress(Job* job, Body* body, int SPEC);
-    void assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC);
-    void assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
+    virtual void init(Job* job, Body* body);
+    virtual void calculateStress(Job* job, Body* body, int SPEC);
+    virtual void assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC);
+    virtual void assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
 
-    void writeFrame(Job* job, Body* body, Serializer* serializer);
-    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
-    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+    virtual void writeFrame(Job* job, Body* body, Serializer* serializer);
+    virtual std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
 };
 
 /*----------------------------------------------------------------------------*/
@@ -189,6 +189,33 @@ public:
     void writeFrame(Job* job, Body* body, Serializer* serializer);
     std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class Cornstarch : public SlurryGranularPhase{
+public:
+    Cornstarch(){
+        object_name = "Cornstarch";
+    }
+
+    //residual tolerance
+    double ABS_TOL = 1e-3;
+    double REL_TOL = 1e-6;
+    double h = 1e-5;
+
+    //new variable
+    double phi_j_0, phi_j_inf, phi_j_mu, F_0;
+    double mu_phi;
+
+    Eigen::VectorXd phi_m_vec;
+
+    double getPhiM(double tau);
+
+    void init(Job* job, Body* body);
+    void calculateStress(Job* job, Body* body, int SPEC);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
 };
 
 

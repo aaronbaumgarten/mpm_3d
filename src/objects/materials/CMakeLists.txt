@@ -5,5 +5,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/slurry_mu_im.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/viscousfluid.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/slurry_viscousfluid.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cornstarch.cpp
         PARENT_SCOPE
         )

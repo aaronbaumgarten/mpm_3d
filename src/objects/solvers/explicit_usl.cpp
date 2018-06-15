@@ -286,6 +286,9 @@ void ExplicitUSL::updateDensity(Job* job){
         for (int i=0;i<job->bodies[b]->points->v.rows();i++) {
             job->bodies[b]->points->v(i) *= std::exp(job->dt * job->bodies[b]->points->L(i).trace());
         }
+
+        //this is new, but maybe useful
+        job->bodies[b]->points->updateIntegrators(job,job->bodies[b].get());
     }
     return;
 }
