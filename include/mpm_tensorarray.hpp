@@ -7,6 +7,7 @@
 #define MPM_V3_MPMTENSORARRAY_HPP
 
 #include <stdlib.h>
+#include <vector>
 #include "mpm_tensor.hpp"
 
 /*----------------------------------------------------------------------------*/

@@ -199,11 +199,6 @@ public:
         object_name = "Cornstarch";
     }
 
-    //residual tolerance
-    double ABS_TOL = 1e-3;
-    double REL_TOL = 1e-6;
-    double h = 1e-5;
-
     //new variable
     double phi_j_0, phi_j_inf, phi_j_mu, F_0;
     double mu_phi;
@@ -211,6 +206,28 @@ public:
     Eigen::VectorXd phi_m_vec;
 
     double getPhiM(double tau);
+
+    void init(Job* job, Body* body);
+    void calculateStress(Job* job, Body* body, int SPEC);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class CustomDSTModel : public SlurryGranularPhase{
+public:
+    CustomDSTModel(){
+        object_name = "CustomDSTModel";
+    }
+
+    //boltzman constant
+    double k_B = 1.38064852e-23; //m^2 * kg /(s^2 * K)
+
+    //new variable
+    double phi_c, phi_j, K_6, K_7, K_8, theta, alpha;
+
+    Eigen::VectorXd c, phi_m_vec;
 
     void init(Job* job, Body* body);
     void calculateStress(Job* job, Body* body, int SPEC);
