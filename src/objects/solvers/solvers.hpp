@@ -62,6 +62,8 @@ public:
     void calculateStrainRate(Job* job);
     void updateDensity(Job* job);
     void updateStress(Job* job);
+    void generateLoads(Job* job);
+    void applyLoads(Job* job);
 };
 
 #endif //MPM_V3_SOLVERS_HPP

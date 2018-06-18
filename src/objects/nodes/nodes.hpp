@@ -55,6 +55,9 @@ public:
     void writeFrame(Job* job, Body* body, Serializer* serializer);
     std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+
+    void generateLoads(Job* job, Body* body);   //arbitrary loading during simulation
+    void applyLoads(Job* job, Body* body);
 };
 
 #endif //MPM_V3_NODES_HPP

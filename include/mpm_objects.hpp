@@ -125,6 +125,9 @@ public:
     virtual std::string saveState(Job*, Serializer*, std::string) = 0;  //save to file (in given directory)
     virtual int loadState(Job*, Serializer*, std::string) = 0;          //load data from full path
     virtual void generateMap(Job*, int) = 0;                            //generate S and gradS
+
+    virtual void generateLoads(Job*) = 0;   //arbitrary loading during simulation
+    virtual void applyLoads(Job*) = 0;
 };
 
 
@@ -150,6 +153,9 @@ public:
     virtual void writeFrame(Job*, Body*, Serializer*) = 0;                      //send frame data to Serializer
     virtual std::string saveState(Job*, Body*, Serializer*, std::string) = 0;   //save to file (in given directory)
     virtual int loadState(Job*, Body*, Serializer*, std::string) = 0;           //load data from full path
+
+    virtual void generateLoads(Job*, Body*) = 0;   //arbitrary loading during simulation
+    virtual void applyLoads(Job*, Body*) = 0;
 };
 
 /*----------------------------------------------------------------------------*/
@@ -165,6 +171,9 @@ public:
     virtual void writeFrame(Job*, Body*, Serializer*) = 0;                      //send frame data to Serializer
     virtual std::string saveState(Job*, Body*, Serializer*, std::string) = 0;   //save to file (in given directory)
     virtual int loadState(Job*, Body*, Serializer*, std::string) = 0;           //load from full path
+
+    virtual void generateLoads(Job*, Body*) = 0;   //arbitrary loading during simulation
+    virtual void applyLoads(Job*, Body*) = 0;
 };
 
 /*----------------------------------------------------------------------------*/

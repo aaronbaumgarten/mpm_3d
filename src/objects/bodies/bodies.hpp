@@ -46,6 +46,9 @@ public:
     virtual std::string saveState(Job*, Serializer*, std::string) = 0;  //save to file (in given directory)
     virtual int loadState(Job*, Serializer*, std::string) = 0;          //load data from full path
     virtual void generateMap(Job*, int) = 0;                            //generate S and gradS
+
+    virtual void generateLoads(Job*) = 0;
+    virtual void applyLoads(Job*) = 0;
 };
  */
 
@@ -60,10 +63,43 @@ public:
     static const int CPDI_ON = 1;
     static const int CPDI_OFF = 0;
 
+    virtual void init(Job* job);
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
+    virtual void generateMap(Job* job, int SPEC);
+
+    virtual void generateLoads(Job* job);
+    virtual void applyLoads(Job* job);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class WheelBody : public DefaultBody{
+public:
+    WheelBody(){
+        object_name = "WheelBody";
+    }
+
+    double omega, t_start, m_cp;
+    MaterialVector a, b, c;
+    KinematicVector r, mv_cp, v_cp, mx_cp, x_cp, dv_cp, v_n, v_t;
+
     void init(Job* job);
-    std::string saveState(Job* job, Serializer* serializer, std::string filepath);
-    int loadState(Job* job, Serializer* serializer, std::string fullpath);
-    void generateMap(Job* job, int SPEC);
+
+    void generateLoads(Job* job);
+    void applyLoads(Job* job);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class HydrostaticBody : public DefaultBody{
+public:
+    HydrostaticBody(){
+        object_name = "HydrostaticBody";
+    }
+
+    double g, effective_density;
+    void init(Job* job);
 };
 
 #endif //MPM_V3_BODIES_HPP

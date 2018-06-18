@@ -52,6 +52,10 @@ void ExplicitUSL::step(Job* job){
     //map particles to grid
     mapPointsToNodes(job);
 
+    //add arbitrary loading conditions
+    generateLoads(job);
+    applyLoads(job);
+
     //add contact forces
     generateContacts(job);
     addContacts(job);
@@ -299,6 +303,26 @@ void ExplicitUSL::updateStress(Job* job){
             continue;
         }
         job->bodies[b]->material->calculateStress(job, job->bodies[b].get(), Material::UPDATE);
+    }
+    return;
+}
+
+void ExplicitUSL::generateLoads(Job* job){
+    for (int b=0;b<job->bodies.size();b++){
+        if (job->activeBodies[b] == 0){
+            continue;
+        }
+        job->bodies[b]->generateLoads(job);
+    }
+    return;
+}
+
+void ExplicitUSL::applyLoads(Job* job){
+    for (int b=0;b<job->bodies.size();b++){
+        if (job->activeBodies[b] == 0){
+            continue;
+        }
+        job->bodies[b]->applyLoads(job);
     }
     return;
 }

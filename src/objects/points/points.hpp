@@ -51,6 +51,9 @@ public:
     virtual void writeFrame(Job*, Body*, Serializer*) = 0;                      //send frame data to Serializer
     virtual std::string saveState(Job*, Body*, Serializer*, std::string) = 0;   //save to file (in given directory)
     virtual int loadState(Job*, Body*, Serializer*, std::string) = 0;           //load data from full path
+
+    virtual void generateLoads(Job*, Body*) = 0;   //arbitrary loading during simulation
+    virtual void applyLoads(Job*, Body*) = 0;
 };
  */
 
@@ -72,6 +75,9 @@ public:
     void writeFrame(Job* job, Body* body, Serializer* serializer);
     std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+
+    void generateLoads(Job* job, Body* body);   //arbitrary loading during simulation
+    void applyLoads(Job* job, Body* body);
 };
 
 #endif //MPM_V3_POINTS_HPP

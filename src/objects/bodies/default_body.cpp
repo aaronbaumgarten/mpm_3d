@@ -57,3 +57,18 @@ void DefaultBody::generateMap(Job *job, int SPEC) {
     gradS.clear();
     points->generateMap(job, this, SPEC);
 }
+
+
+/*----------------------------------------------------------------------------*/
+//
+void DefaultBody::generateLoads(Job* job){
+    points->generateLoads(job, this);
+    nodes->generateLoads(job, this);
+    return;
+}
+
+void DefaultBody::applyLoads(Job* job){
+    points->applyLoads(job, this);
+    nodes->applyLoads(job, this);
+    return;
+}

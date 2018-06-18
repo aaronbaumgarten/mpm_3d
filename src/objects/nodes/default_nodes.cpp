@@ -91,3 +91,16 @@ std::string DefaultNodes::saveState(Job* job, Body* body, Serializer* serializer
 int DefaultNodes::loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath){
     return 0;
 }
+
+
+/*----------------------------------------------------------------------------*/
+//
+void DefaultNodes::generateLoads(Job* job, Body* body){
+    //do nothing
+    return;
+}
+
+void DefaultNodes::applyLoads(Job* job, Body* body){
+    //do nothing
+    return;
+}

@@ -314,3 +314,15 @@ std::string DefaultPoints::saveState(Job* job, Body* body, Serializer* serialize
 int DefaultPoints::loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath){
     return 0;
 }
+
+/*----------------------------------------------------------------------------*/
+//
+void DefaultPoints::generateLoads(Job* job, Body* body){
+    //do nothing
+    return;
+}
+
+void DefaultPoints::applyLoads(Job* job, Body* body){
+    //do nothing
+    return;
+}

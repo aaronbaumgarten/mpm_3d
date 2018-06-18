@@ -58,6 +58,8 @@ Registry<Solver>::Registry() {
 template<>
 Registry<Body>::Registry() {
     object["DefaultBody"] = &createInstance<Body,DefaultBody>;
+    object["WheelBody"] = &createInstance<Body,WheelBody>;
+    object["HydrostaticBody"] = &createInstance<Body,HydrostaticBody>;
 }
 
 
