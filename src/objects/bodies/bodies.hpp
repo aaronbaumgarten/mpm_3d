@@ -80,8 +80,8 @@ public:
         object_name = "WheelBody";
     }
 
-    double omega, t_start, m_cp;
-    MaterialVector a, b, c;
+    double omega, t_start, m_cp, I_cp;
+    MaterialVector a, b, c, L_cp, d_omega;
     KinematicVector r, mv_cp, v_cp, mx_cp, x_cp, dv_cp, v_n, v_t;
 
     void init(Job* job);

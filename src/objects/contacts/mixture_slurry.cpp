@@ -36,6 +36,12 @@ void SlurryMixture::init(Job* job) {
         eta_0 = fp64_props[3];
         fluid_rho = fp64_props[4];
 
+        if (int_props.size() == 1){
+            spec_override = int_props[0];
+        } else if (int_props.size() == 3){
+            spec_override = int_props[2];
+        }
+
         //set body ids by name
         if (str_props.size() == 2) {
             for (int i = 0; i < bodyIDs.size(); i++) {
@@ -99,6 +105,11 @@ void SlurryMixture::generateRules(Job* job){
 }
 
 void SlurryMixture::applyRules(Job* job, int SPEC){
+    //check for override
+    if (spec_override != -1){
+        SPEC = spec_override;
+    }
+
     double m1, m2;
     KinematicVector fsfi = KinematicVector(job->JOB_TYPE);
     KinematicVector mv1i = KinematicVector(job->JOB_TYPE);

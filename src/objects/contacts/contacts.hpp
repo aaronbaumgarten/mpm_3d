@@ -53,7 +53,7 @@ public:
 
     double mu_f = 0.4;
     std::vector<int> bodyIDs = {-1,-1};
-    KinematicVectorArray contact_normal;
+    KinematicVectorArray contact_normal, contact_force;
 
     void init(Job* job);
     void generateRules(Job* job);
@@ -80,6 +80,7 @@ public:
     std::vector<int> bodyIDs = {-1,-1};
     int solid_body_id = -1;
     int fluid_body_id = -1;
+    int spec_override = -1;
 
     Eigen::VectorXd n, V;
     KinematicVectorArray divT;

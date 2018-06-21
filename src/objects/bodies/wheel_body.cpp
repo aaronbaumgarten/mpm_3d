@@ -51,6 +51,15 @@ void WheelBody::init(Job* job){
         }
     }
 
+    r = KinematicVector(job->JOB_TYPE);
+    mv_cp = KinematicVector(job->JOB_TYPE);
+    v_cp = KinematicVector(job->JOB_TYPE);
+    mx_cp = KinematicVector(job->JOB_TYPE);
+    x_cp = KinematicVector(job->JOB_TYPE);
+    dv_cp = KinematicVector(job->JOB_TYPE);
+    v_n = KinematicVector(job->JOB_TYPE);
+    v_t = KinematicVector(job->JOB_TYPE);
+
     points->init(job,this);
     nodes->init(job,this);
     material->init(job,this);
@@ -62,18 +71,18 @@ void WheelBody::init(Job* job){
     gradS = KinematicVectorSparseMatrix(nodes->x.size(), points->x.size(), job->JOB_TYPE);
 
 
-    printf("Body properties (omega = %g, t_start = %g, <axle_vector> = <%g,%g,%g>" ,omega, t_start, a[0], a[1], a[2]);
+    printf("Body properties (omega = %g, t_start = %g, <axle_vector> = <%g,%g,%g>)\n" ,omega, t_start, a[0], a[1], a[2]);
     std::cout << "Body Initialized: [" << name << "]." << std::endl;
     return;
 }
 
 /*----------------------------------------------------------------------------*/
 //
+/*
 void WheelBody::generateLoads(Job* job){
     points->generateLoads(job, this);
     nodes->generateLoads(job, this);
 
-    double tmp;
     if (job->t >= t_start){
         //determine properties of wheel
         m_cp = 0;
@@ -83,16 +92,29 @@ void WheelBody::generateLoads(Job* job){
             if (nodes->m[i] > 0) {
                 m_cp += nodes->m[i];
                 mx_cp += nodes->m[i] * nodes->x[i];
-                mv_cp += nodes->mx_t[i] + nodes->f[i] * job->dt;
+                //mv_cp += nodes->mx_t[i] + nodes->f[i] * job->dt;
+                mv_cp += nodes->mx_t[i];
             }
         }
         x_cp = mx_cp/m_cp;
         v_cp = mv_cp/m_cp;
+    }
 
+    return;
+}
+
+void WheelBody::applyLoads(Job* job){
+    points->applyLoads(job, this);
+    nodes->applyLoads(job, this);
+
+    double tmp;
+    KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
+    tmpVec.setZero();
+    if (job->t >= t_start){
         for (int i=0; i < nodes->x.size(); i++){
             if (nodes->m[i] > 0) {
                 //relative position
-                b = nodes->x[i] - x_cp + (nodes->f[i] * job->dt)/nodes->m[i];
+                b = nodes->x[i] - x_cp;
 
                 //radius from axle
                 tmp = a.norm();
@@ -102,19 +124,63 @@ void WheelBody::generateLoads(Job* job){
                 c = a.cross(r) / (tmp * r.norm());
 
                 //relative velocity
+                //dv_cp = nodes->x_t[i] + nodes->f[i]/(nodes->m[i]) * job->dt - v_cp;
                 dv_cp = nodes->x_t[i] - v_cp;
 
                 //normal velocity
                 tmp = r.norm();
-                v_n = dv_cp.dot(r) / (tmp * tmp);
+                v_n = dv_cp.dot(r) * r / (tmp * tmp);
 
                 //theta velocity
                 v_t = omega * tmp * KinematicVector(c, job->JOB_TYPE);
 
                 //update forces on nodes
                 nodes->f[i] += 1.0/job->dt * (nodes->m[i]*(v_cp + v_n + v_t) - nodes->mx_t[i]);
+                tmpVec += 1.0/job->dt * (nodes->m[i]*(v_cp + v_n + v_t) - nodes->mx_t[i]);
             }
         }
+
+        std::cout << tmpVec.norm() << " ?= 0" << std::endl;
+
+    }
+
+    return;
+}
+*/
+
+void WheelBody::generateLoads(Job* job){
+    points->generateLoads(job, this);
+    nodes->generateLoads(job, this);
+
+    if (job->t >= t_start){
+        //determine properties of wheel
+        m_cp = 0;
+        mx_cp.setZero();
+        mv_cp.setZero();
+        for (int i=0; i<points->x.size(); i++){
+            if (points->active[i] != 0) {
+                m_cp += points->m[i];
+                mx_cp += points->m[i] * points->x[i];
+                //mv_cp += nodes->mx_t[i] + nodes->f[i] * job->dt;
+                mv_cp += points->mx_t[i];
+            }
+        }
+        x_cp = mx_cp/m_cp;
+        v_cp = mv_cp/m_cp;
+
+        I_cp = 0;
+        L_cp.setZero();
+        for (int i=0; i<points->x.size(); i++){
+            if (points->active[i] != 0) {
+                //calculate moment of interia
+                I_cp += points->m[i] * (points->x[i] - x_cp).dot(points->x[i] - x_cp);
+                //calculate angular momentum
+                L_cp += points->m[i] * (points->x[i] - x_cp).cross(points->x_t[i]);
+            }
+        }
+
+        //calculate required delta omega (vector)
+        d_omega = omega*a/a.norm() - L_cp/I_cp;
     }
 
     return;
@@ -123,5 +189,47 @@ void WheelBody::generateLoads(Job* job){
 void WheelBody::applyLoads(Job* job){
     points->applyLoads(job, this);
     nodes->applyLoads(job, this);
+
+    double tmp;
+    KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
+    tmpVec.setZero();
+    if (job->t >= t_start){
+        for (int i=0; i < points->x.size(); i++){
+            if (points->active[i] != 0) {
+                //relative position
+                b = points->x[i] - x_cp;
+
+                //radius from d_omega
+                tmp = d_omega.norm();
+                r = KinematicVector(b - (d_omega * (d_omega.dot(b)) / (tmp * tmp)), job->JOB_TYPE);
+
+                //direction of rotation
+                c = d_omega.cross(r) / (tmp * r.norm());
+
+                //relative velocity
+                //dv_cp = nodes->x_t[i] + nodes->f[i]/(nodes->m[i]) * job->dt - v_cp;
+                dv_cp = points->x_t[i] - v_cp;
+
+                //normal velocity
+                //tmp = r.norm();
+                //v_n = dv_cp.dot(r) * r / (tmp * tmp);
+                //v_n.setZero();
+
+                //theta velocity
+                v_t = d_omega.norm() * r.norm() * KinematicVector(c, job->JOB_TYPE);
+
+                //update forces on nodes
+                points->x_t[i] += v_t;
+                points->mx_t[i] = points->m[i] * points->x_t[i];
+                //tmpVec += points->m[i] * (v_t);
+
+                //tmpVec += points->m[i]*(v_n + v_t);
+            }
+        }
+
+        //std::cout << tmpVec.norm()/m_cp << " ?= 0" << std::endl;
+
+    }
+
     return;
 }

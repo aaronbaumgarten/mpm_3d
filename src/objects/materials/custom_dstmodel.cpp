@@ -183,7 +183,12 @@ void CustomDSTModel::calculateStress(Job* job, Body* body, int SPEC){
 
         /*************************************************/
         //assign phi_m based off of clumpiness
-        phi_m = phi_j + (phi(i) - phi_j)*c(i);
+        if (phi(i) > phi_c && phi(i) < phi_j) {
+            phi_m = phi_j + (phi(i) - phi_j) * c(i);
+        } else {
+            phi_m = phi_j;
+        }
+        //phi_m = phi_j + (phi_c - phi_j)*c(i);
         /*************************************************/
 
         L = body->points->L(i);
@@ -611,12 +616,13 @@ void CustomDSTModel::calculateStress(Job* job, Body* body, int SPEC){
             phi_m_vec(i) = phi_m;
 
             if (phi(i) > phi_c) {
-                H = K_7 * (phi(i) - phi_c) / (phi_j - phi(i));
+                H = K_7 * (phi(i) - phi_c)*(phi(i) - phi_c) / ((phi_j - phi(i))*(phi_j - phi(i)));
             } else {
                 H = 0;
             }
             //for now, alpha = 0.5
-            S = K_6 * ( std::sqrt(K_8 * tau_bar * grains_d * grains_d * grains_d / (k_B * theta)) + 1 );
+            //S = K_6 * ( std::sqrt(K_8 * tau_bar * grains_d * grains_d * grains_d / (k_B * theta)) + 1 );
+            S = K_6 * ( std::pow(K_8 * tau_bar * grains_d * grains_d * grains_d / (k_B * theta), alpha) + 1 );
             t_k = 3 * M_PI * eta_0 * grains_d * grains_d * grains_d / (k_B * theta) * (1 - phi(i))*(1-phi(i)) / (10 * phi(i));
 
             if (phi(i) > phi_j){

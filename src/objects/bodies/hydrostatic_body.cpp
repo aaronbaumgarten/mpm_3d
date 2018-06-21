@@ -57,7 +57,7 @@ void HydrostaticBody::init(Job* job){
     gradS = KinematicVectorSparseMatrix(nodes->x.size(), points->x.size(), job->JOB_TYPE);
 
 
-    printf("Body properties (g = %g, effective_density = %g" ,g, effective_density);
+    printf("Body properties (g = %g, effective_density = %g)\n" ,g, effective_density);
     std::cout << "Body Initialized: [" << name << "]." << std::endl;
     return;
 }

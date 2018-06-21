@@ -63,6 +63,7 @@ void ContactHuang::init(Job* job){
         }
 
         contact_normal = KinematicVectorArray(job->bodies[bodyIDs[0]]->nodes->x.size(),job->JOB_TYPE);
+        contact_force = KinematicVectorArray(job->bodies[bodyIDs[0]]->nodes->x.size(),job->JOB_TYPE);
 
         printf("Contact properties (mu_f = %g, {%i, %i}).\n",
                mu_f, bodyIDs[0], bodyIDs[1]);
@@ -171,6 +172,10 @@ void ContactHuang::applyRules(Job* job, int SPEC){
                 std::cerr << "ERROR: Unknown SPEC in contact_huang.so: " << SPEC << "!" << std::endl;
                 return;
             }
+            contact_force[i] = fcti;
+        } else {
+            //zero reported force
+            contact_force[i].setZero();
         }
     }
 
@@ -182,6 +187,7 @@ void ContactHuang::applyRules(Job* job, int SPEC){
 //write to serializer and save/load
 void ContactHuang::writeFrame(Job* job, Serializer* serializer){
     serializer->writeVectorArray(contact_normal,("contact_normal_" + job->bodies[bodyIDs[0]]->name + "_" + job->bodies[bodyIDs[1]]->name));
+    serializer->writeVectorArray(contact_force,("contact_force_by_" + job->bodies[bodyIDs[1]]->name + "_on_" + job->bodies[bodyIDs[0]]->name));
     return;
 }
 
