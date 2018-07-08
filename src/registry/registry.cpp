@@ -60,6 +60,7 @@ Registry<Body>::Registry() {
     object["DefaultBody"] = &createInstance<Body,DefaultBody>;
     object["WheelBody"] = &createInstance<Body,WheelBody>;
     object["HydrostaticBody"] = &createInstance<Body,HydrostaticBody>;
+    object["LaunchedBody"] = &createInstance<Body,LaunchedBody>;
 }
 
 
@@ -69,6 +70,8 @@ template<>
 Registry<Contact>::Registry() {
     object["ContactHuang"] = &createInstance<Contact,ContactHuang>;
     object["SlurryMixture"] = &createInstance<Contact,SlurryMixture>;
+    object["SlurryContact"] = &createInstance<Contact,SlurryContact>;
+    object["SlurryContact_ReflectedBoundary"] = &createInstance<Contact,SlurryContact_ReflectedBoundary>;
 }
 
 

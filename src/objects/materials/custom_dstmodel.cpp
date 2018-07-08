@@ -182,9 +182,15 @@ void CustomDSTModel::calculateStress(Job* job, Body* body, int SPEC){
         }
 
         /*************************************************/
+        //fix nan clumpiness
+        if (!std::isfinite(c(i))){
+            c(i) = 0;
+        }
         //assign phi_m based off of clumpiness
         if (phi(i) > phi_c && phi(i) < phi_j) {
             phi_m = phi_j + (phi(i) - phi_j) * c(i);
+        } else if (phi(i) < phi_c){
+            phi_m = phi_j + (phi_c - phi_j) * c(i);
         } else {
             phi_m = phi_j;
         }
@@ -286,8 +292,8 @@ void CustomDSTModel::calculateStress(Job* job, Body* body, int SPEC){
 
                 } while(std::abs(r_p_tr) >= std::abs(r_p) && lambda_tmp > REL_TOL);
 
-                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_p_tr << std::endl;
+                if (k > 5 && std::abs(p_k - p_kplus) < ABS_TOL){
+                    //std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_p_tr << std::endl;
                     p_k = p_kplus;
                     r_p = r_p_tr;
                     break;
@@ -382,8 +388,8 @@ void CustomDSTModel::calculateStress(Job* job, Body* body, int SPEC){
 
                 //std::cout << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << r_tr.norm() << std::endl;
 
-                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_tr.norm() << std::endl;
+                if (k > 5 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
+                    //std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_tr.norm() << std::endl;
                     p_k = p_kplus;
                     tau_bar_k = tau_bar_kplus;
                     r = r_tr;
@@ -464,8 +470,8 @@ void CustomDSTModel::calculateStress(Job* job, Body* body, int SPEC){
 
                 } while(std::abs(r_p_tr) >= std::abs(r_p) && lambda_tmp > REL_TOL);
 
-                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_p_tr << std::endl;
+                if (k > 5 && std::abs(p_k - p_kplus) < ABS_TOL){
+                    //std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_p_tr << std::endl;
                     p_k = p_kplus;
                     r_p = r_p_tr;
                     break;
@@ -571,8 +577,8 @@ void CustomDSTModel::calculateStress(Job* job, Body* body, int SPEC){
                     lambda_tmp *= 0.5;
                 } while (r_tr.norm() >= r.norm() && lambda_tmp > REL_TOL);
 
-                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_tr.norm() << std::endl;
+                if (k > 5 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
+                    //std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_tr.norm() << std::endl;
                     p_k = p_kplus;
                     tau_bar_k = tau_bar_kplus;
                     r = r_tr;
@@ -591,9 +597,9 @@ void CustomDSTModel::calculateStress(Job* job, Body* body, int SPEC){
             is_solved = true;
         }
 
-        if (!std::isfinite(p) || !std::isfinite(tau_bar)){
+        /*if (!std::isfinite(p) || !std::isfinite(tau_bar)){
             std::cout << "u";
-        }
+        }*/
 
         //update stress
         if (p > 0 && tau_bar > 0) {

@@ -33,8 +33,8 @@ void SlurryMixture::init(Job* job) {
         //set coeff of friction
         grains_rho = fp64_props[0];
         grains_d = fp64_props[1];
-        eta_0 = fp64_props[3];
-        fluid_rho = fp64_props[4];
+        eta_0 = fp64_props[2];
+        fluid_rho = fp64_props[3];
 
         if (int_props.size() == 1){
             spec_override = int_props[0];
@@ -133,8 +133,8 @@ void SlurryMixture::applyRules(Job* job, int SPEC){
         //test every node for contact
         if (job->bodies[solid_body_id]->nodes->m[i] > 0 && job->bodies[fluid_body_id]->nodes->m[i] > 0) {
             //distribute solid stess
-            job->bodies[solid_body_id]->nodes->f(i) -= (1-n(i))*divT(i);
-            job->bodies[fluid_body_id]->nodes->f(i) += (1-n(i))*divT(i);
+            job->bodies[solid_body_id]->nodes->f(i) += (1-n(i))*divT(i);
+            job->bodies[fluid_body_id]->nodes->f(i) -= (1-n(i))*divT(i);
 
             //determine 'center of mass' velocity
             m1 = job->bodies[solid_body_id]->nodes->m[i];

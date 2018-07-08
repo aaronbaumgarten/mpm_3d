@@ -94,4 +94,40 @@ public:
     int loadState(Job* job, Serializer* serializer, std::string fullpath);
 };
 
+/*----------------------------------------------------------------------------*/
+
+class SlurryContact : public Contact{
+public:
+    SlurryContact(){
+        object_name = "SlurryContact";
+    }
+
+    double mu_f = 0.4;
+    std::vector<int> bodyIDs = {-1,-1,-1};
+    KinematicVectorArray contact_normal, contact_force;
+
+    virtual void init(Job* job);
+    virtual void generateRules(Job* job);
+    virtual void applyRules(Job* job, int SPEC);
+
+    virtual void writeFrame(Job* job, Serializer* serializer);
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class SlurryContact_ReflectedBoundary : public SlurryContact{
+public:
+    SlurryContact_ReflectedBoundary(){
+        object_name = "SlurryContact_ReflectedNormal";
+    }
+
+    KinematicVector Lx;
+
+    void init(Job* job);
+    void generateRules(Job* job);
+};
+
+
 #endif //MPM_V3_CONTACTS_HPP

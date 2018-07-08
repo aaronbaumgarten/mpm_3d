@@ -65,6 +65,29 @@ void WheelBody::init(Job* job){
     material->init(job,this);
     boundary->init(job,this);
 
+    adjusted_x = KinematicVectorArray(points->x.size(), job->JOB_TYPE);
+
+    //find bounds of box
+    Lx = KinematicVector(job->JOB_TYPE);
+    Lx.setZero();
+    for (int i=0; i < nodes->x.size(); i++){
+        for (int pos=0; pos < nodes->x.DIM; pos++){
+            if (nodes->x(i,pos) > Lx(pos)){
+                Lx(pos) = nodes->x(i,pos);
+            }
+        }
+    }
+
+    //determine initial center of mass
+    m_cp = 0;
+    mx_cp.setZero();
+    for (int i=0; i<points->x.size(); i++){
+        if (points->active[i] != 0) {
+            m_cp += points->m[i];
+            mx_cp += points->m[i] * points->x[i];
+        }
+    }
+    x_cp = mx_cp/m_cp;
 
     //assign vector type
     S = MPMScalarSparseMatrix(nodes->x.size(), points->x.size());
@@ -153,6 +176,32 @@ void WheelBody::generateLoads(Job* job){
     nodes->generateLoads(job, this);
 
     if (job->t >= t_start){
+        //fix old x_cp
+        for (int pos=0; pos<job->DIM; pos++){
+            if (x_cp(pos) > Lx(pos)){
+                //center wrapped around axis
+                x_cp(pos) -= Lx(pos);
+            } else if (x_cp(pos) < 0){
+                //center wrapped around axis
+                x_cp(pos) += Lx(pos);
+            }
+        }
+
+        //find 'adjusted' point positions
+        for (int i=0; i<points->x.size(); i++){
+            for (int pos=0; pos<job->DIM; pos++){
+                if (points->x(i,pos) - x_cp(pos) > Lx(pos)/2.0){
+                    //point wrapped around axis
+                    adjusted_x(i,pos) = points->x(i,pos) - Lx(pos);
+                } else if (x_cp(pos) - points->x(i,pos) > Lx(pos)/2.0){
+                    //point wrapped around axis
+                    adjusted_x(i,pos) = points->x(i,pos) + Lx(pos);
+                } else {
+                    adjusted_x(i,pos) = points->x(i,pos);
+                }
+            }
+        }
+
         //determine properties of wheel
         m_cp = 0;
         mx_cp.setZero();
@@ -160,8 +209,8 @@ void WheelBody::generateLoads(Job* job){
         for (int i=0; i<points->x.size(); i++){
             if (points->active[i] != 0) {
                 m_cp += points->m[i];
-                mx_cp += points->m[i] * points->x[i];
-                //mv_cp += nodes->mx_t[i] + nodes->f[i] * job->dt;
+                //mx_cp += points->m[i] * points->x[i];
+                mx_cp += points->m[i] * adjusted_x[i];
                 mv_cp += points->mx_t[i];
             }
         }
@@ -173,9 +222,11 @@ void WheelBody::generateLoads(Job* job){
         for (int i=0; i<points->x.size(); i++){
             if (points->active[i] != 0) {
                 //calculate moment of interia
-                I_cp += points->m[i] * (points->x[i] - x_cp).dot(points->x[i] - x_cp);
+                //I_cp += points->m[i] * (points->x[i] - x_cp).dot(points->x[i] - x_cp);
+                I_cp += points->m[i] * (adjusted_x[i] - x_cp).dot(adjusted_x[i] - x_cp);
                 //calculate angular momentum
-                L_cp += points->m[i] * (points->x[i] - x_cp).cross(points->x_t[i]);
+                //L_cp += points->m[i] * (points->x[i] - x_cp).cross(points->x_t[i]);
+                L_cp += points->m[i] * (adjusted_x[i] - x_cp).cross(points->x_t[i]);
             }
         }
 
@@ -197,7 +248,8 @@ void WheelBody::applyLoads(Job* job){
         for (int i=0; i < points->x.size(); i++){
             if (points->active[i] != 0) {
                 //relative position
-                b = points->x[i] - x_cp;
+                //b = points->x[i] - x_cp;
+                b = adjusted_x[i] - x_cp;
 
                 //radius from d_omega
                 tmp = d_omega.norm();

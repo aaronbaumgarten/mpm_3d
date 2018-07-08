@@ -20,10 +20,10 @@ Lx = 2.0
 Ly = 1.0
 Lz = 1.0
 #Ne = 40
-Nx = 100
-Ny = 50
+Nx = 150
+Ny = 75
 Nz = 1
-lmpp = 3
+lmpp = 2
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
 print "grid created"
 
@@ -31,17 +31,17 @@ print "grid created"
 g = -9.81
 
 # free block properties
-block_properties = { 'rho': 2000.0 }
-block_width = 0.2#*Lx
-block_height = 0.2
-block_depth = 0.2#*Ly
-spike_height = 0.15
-wheel_frac = 0.5
+block_properties = { 'rho': 3000.0 }
+block_width = 0.1#*Lx
+block_height = 0.1
+block_depth = 0.1#*Ly
+spike_height = 0.1
+wheel_frac = 0.25
 nspike = 4
 
 block_primitive = Primitives3d.WheelOne(
-                        Primitives3d.Point(Lx*(1.0-2.0/Nx) - 3*block_width, 0.3 + block_height/2 + spike_height, 0.0), 
-                        Primitives3d.Point(Lx*(1.0-2.0/Nx) - 3*block_width, 0.3 + block_height/2 + spike_height, 1.0),
+                        Primitives3d.Point(Lx*(1.0-2.0/Nx) - 3*block_width, 0.5 + block_height/2 + spike_height, 0.0), 
+                        Primitives3d.Point(Lx*(1.0-2.0/Nx) - 3*block_width, 0.5 + block_height/2 + spike_height, 1.0),
                         block_width/2,
                         spike_height,
                         wheel_frac,

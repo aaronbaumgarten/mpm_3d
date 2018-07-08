@@ -80,6 +80,9 @@ public:
         object_name = "WheelBody";
     }
 
+    KinematicVector Lx; //for periodic BCs
+    KinematicVectorArray adjusted_x; //for periodic BCs
+
     double omega, t_start, m_cp, I_cp;
     MaterialVector a, b, c, L_cp, d_omega;
     KinematicVector r, mv_cp, v_cp, mx_cp, x_cp, dv_cp, v_n, v_t;
@@ -99,6 +102,18 @@ public:
     }
 
     double g, effective_density;
+    void init(Job* job);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class LaunchedBody : public DefaultBody{
+public:
+    LaunchedBody(){
+        object_name = "LaunchedBody";
+    }
+
+    double launch_speed, launch_angle;
     void init(Job* job);
 };
 
