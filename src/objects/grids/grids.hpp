@@ -49,6 +49,7 @@ public:
     virtual double nodeVolume(Job*, int) = 0;                                                                   //return node volume of id
     virtual double elementVolume(Job*, int) = 0;                                                                //return element volume of id
     virtual int nodeTag(Job*, int) = 0;                                                                         //return 'tag' of node id
+    virtual double nodeSurfaceArea(Job*, int) = 0;                                                          //return node surface volume
 };
  */
 
@@ -66,6 +67,7 @@ public:
     int npe; //nodes per element
     Eigen::VectorXd v_n; //nodal volume
     double v_e; //element volume
+    Eigen::VectorXd s_n; //surface integral
 
     static int cartesianWhichElement(Job* job, KinematicVector& xIN, KinematicVector& LxIN, KinematicVector& hxIN, Eigen::VectorXi& NxIN, int GRID_DIM_IN = -1);
 
@@ -87,6 +89,7 @@ public:
     virtual double nodeVolume(Job* job, int idIN);
     virtual double elementVolume(Job* job, int idIN);
     virtual int nodeTag(Job* job, int idIN);
+    virtual double nodeSurfaceArea(Job* job, int idIN);
 };
 
 /*----------------------------------------------------------------------------*/
@@ -156,6 +159,7 @@ public:
     int npe; //nodes per element
     Eigen::VectorXd v_n; //nodal volume
     double v_e; //element volume
+    Eigen::VectorXd s_n; //surface integral
 
     MPMScalarSparseMatrix S_grid = MPMScalarSparseMatrix(0,0); //node value to function value map
 
@@ -180,6 +184,7 @@ public:
     virtual double nodeVolume(Job* job, int idIN);
     virtual double elementVolume(Job* job, int idIN);
     virtual int nodeTag(Job* job, int idIN);
+    virtual double nodeSurfaceArea(Job* job, int idIN);
 };
 
 /*----------------------------------------------------------------------------*/
@@ -229,6 +234,7 @@ public:
     KinematicTensorArray A, Ainv; //map xi to x and x to xi
 
     Eigen::VectorXd v_n, v_e; //nodal/element volumes
+    Eigen::VectorXd s_n; //surface integral
 
     std::vector<int> search_cells; //search grid (cell to element map)
     std::vector<int> search_offsets; //search offsets
@@ -258,6 +264,7 @@ public:
     double nodeVolume(Job* job, int idIN);
     double elementVolume(Job* job, int idIN);
     int nodeTag(Job* job, int idIN);
+    virtual double nodeSurfaceArea(Job* job, int idIN);
 };
 
 /*----------------------------------------------------------------------------*/
@@ -288,6 +295,7 @@ public:
     int npe; //nodes per element
     Eigen::VectorXd v_n; //nodal volume
     Eigen::VectorXd v_e; //element volume
+    Eigen::VectorXd s_n; //surface integral
 
     static double s_linear(double x, double h);
     static double g_linear(double x, double h);
@@ -319,6 +327,7 @@ public:
     double nodeVolume(Job* job, int idIN);
     double elementVolume(Job* job, int idIN);
     int nodeTag(Job* job, int idIN);
+    virtual double nodeSurfaceArea(Job* job, int idIN);
 };
 
 #endif //MPM_V3_GRIDS_HPP

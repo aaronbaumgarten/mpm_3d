@@ -34,6 +34,9 @@ void CartesianBoxCustom::init(Job* job, Body* body){
         std::cout << "\"CartesianBoxCustom\" boundary expects \"CartesianCustom\" grid NOT \"" << job->grid->object_name << "\"!\n" << std::endl;
     }
 
+    //initialize velocity term
+    v_set = KinematicVectorArray(2*job->grid->GRID_DIM, job->JOB_TYPE); //one vector for each face
+
     //check that boundary properties are set
     if ((int_props.size() < 2*job->grid->GRID_DIM)){
         //need 2 coefficients for direction
@@ -49,22 +52,41 @@ void CartesianBoxCustom::init(Job* job, Body* body){
             limit_props[i] = int_props[i];
         }
 
+        std::vector<int> PROPS_REF_LIST;
+        PROPS_REF_LIST.push_back(0); //first position points to start of extra fields
+        int tmpINT;
+        for (int i=0;i<limit_props.size();i++){
+            tmpINT = 0;
+            if (limit_props[i] == FRICTIONAL_WALL){
+                tmpINT = 1;
+            } else if (limit_props[i] == DRIVEN_VELOCITY){
+                tmpINT = 3;
+            } else if (limit_props[i] == DRIVEN_TRACTION){
+                tmpINT = 3;
+            }
+            tmpINT = PROPS_REF_LIST[i] + tmpINT;
+            PROPS_REF_LIST.push_back(tmpINT);
+        }
+
+        //store last value:
+        tmpINT = PROPS_REF_LIST[PROPS_REF_LIST.size() - 1];
+
+        if ((fp64_props.size() < tmpINT)) {
+            std::cout << fp64_props.size() << "\n";
+            fprintf(stderr,
+                    "%s:%s: Need at least %i properties defined ({limit_props <- OK},{other_props).\n",
+                    __FILE__, __func__, tmpINT);
+            exit(0);
+        }
+
         std::cout << "Boundary properties (";
         for (int i=0;i<limit_props.size();i++){
             std::cout << " " << limit_props[i];
 
             if (limit_props[i] == FRICTIONAL_WALL){
                 //check for friction and assign coefficient
-                if (fp64_props.size() < 1){
-                    std::cout << fp64_props.size() << "\n";
-                    fprintf(stderr,
-                            "%s:%s: Need at least 1 more property defined ({limit_props}, mu_f).\n",
-                            __FILE__, __func__);
-                    exit(0);
-                } else {
-                    mu_f = fp64_props[0];
-                    std::cout << "[" << mu_f << "]";
-                }
+                mu_f = fp64_props[PROPS_REF_LIST[i]];
+                std::cout << "[" << mu_f << "]";
             } else if (limit_props[i] == PERIODIC){
                 //check periodic and make sure that both walls are periodic
                 if ((i == 0 || i == 1) && (limit_props[0] != PERIODIC || limit_props[1] != PERIODIC)){
@@ -83,17 +105,19 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                     //wooh! you did it right!
                 }
             } else if (limit_props[i] == DRIVEN_VELOCITY){
-                //check for velocity and assign value (only one right now :{
-                if (fp64_props.size() < 1){
-                    std::cout << fp64_props.size() << "\n";
-                    fprintf(stderr,
-                            "%s:%s: Need at least 1 more property defined ({limit_props}, v_set).\n",
-                            __FILE__, __func__);
-                    exit(0);
-                } else {
-                    v_set = fp64_props[0];
-                    std::cout << "[" << v_set << "]";
+                std::cout << "[";
+                for (int pos = 0; pos < v_set.DIM; pos++){
+                    v_set(i,pos) = fp64_props[PROPS_REF_LIST[i]+pos];
+                    std::cout << " " << v_set(i,pos);
                 }
+                std::cout << " ]";
+            } else if (limit_props[i] == DRIVEN_TRACTION){
+                std::cout << "[";
+                for (int pos = 0; pos < v_set.DIM; pos++){
+                    v_set(i,pos) = fp64_props[PROPS_REF_LIST[i]+pos];
+                    std::cout << " " << v_set(i,pos);
+                }
+                std::cout << " ]";
             }
         }
 
@@ -132,7 +156,11 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                 } else if (limit_props(2*pos) == FRICTIONAL_WALL){
                     bcNodalMask(i,pos) = -2;
                 } else if (limit_props(2*pos) == DRIVEN_VELOCITY && bcNodalMask(i,pos) != 1){
-                    bcNodalMask(i,pos) = 4;
+                    bcNodalMask(i).setOnes();
+                    bcNodalMask(i,pos) = -4;
+                } else if (limit_props(2*pos) == DRIVEN_TRACTION && bcNodalMask(i,pos) != 1){
+                    bcNodalMask(i).setOnes();
+                    bcNodalMask(i,pos) = -5;
                 }
                 is_edge = true;
             } else if (body->nodes->x(i,pos) == Lx(pos)) {
@@ -145,6 +173,9 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                 } else if (limit_props(2*pos + 1) == DRIVEN_VELOCITY && bcNodalMask(i,pos) != 1){
                     bcNodalMask(i).setOnes();
                     bcNodalMask(i,pos) = 4;
+                } else if (limit_props(2*pos + 1) == DRIVEN_TRACTION && bcNodalMask(i,pos) != 1){
+                    bcNodalMask(i).setOnes();
+                    bcNodalMask(i,pos) = 5;
                 }
                 is_edge = true;
             }
@@ -152,7 +183,10 @@ void CartesianBoxCustom::init(Job* job, Body* body){
 
         //assign frictional edge
         for (int pos=0;pos<body->nodes->x.DIM;pos++){
-            if (is_edge && bcNodalMask(i,pos) != 1 && bcNodalMask(i,pos) != 2 && bcNodalMask(i,pos) != -2 && bcNodalMask(i,pos) != 4){
+            if (is_edge && bcNodalMask(i,pos) != 1 &&
+                    bcNodalMask(i,pos) != 2 && bcNodalMask(i,pos) != -2 &&
+                    bcNodalMask(i,pos) != 4 && bcNodalMask(i,pos) != -4 &&
+                    bcNodalMask(i,pos) != 5 && bcNodalMask(i,pos) != -5){
                 bcNodalMask(i,pos) = 3;
             }
         }
@@ -169,6 +203,9 @@ void CartesianBoxCustom::generateRules(Job* job, Body* body){
     for (int i=0;i<tmp.size();i++){
         tmp(i) *= body->points->v(i);
     }
+
+    //setup traction
+    v_n = body->S * body->points->v;
 
     //wrap particles about appropriate axes for periodic BCs
     for (int i=0;i<body->points->x.size();i++){
@@ -221,16 +258,35 @@ void CartesianBoxCustom::applyRules(Job* job, Body* body){
                 body->nodes->x_t(i,pos) = 0;
                 body->nodes->mx_t(i,pos) = 0;
                 body->nodes->f(i,pos) = 0;
+            } else if (bcNodalMask(i,pos) == -4){
+                //zero out velocity closing velocity
+                //do not add friction
+                delta_momentum(pos) = 0; //-std::max(0.0, body->nodes->mx_t(i,pos) + job->dt * bcNodalForce(i,pos));
+                body->nodes->f(i) = (body->nodes->m(i) * v_set(2*pos) - body->nodes->mx_t(i)) / job->dt;
+                body->nodes->x_t(i,pos) = 0;
+                body->nodes->mx_t(i,pos) = 0;
+                body->nodes->f(i,pos) = 0;
+                break;
             } else if (bcNodalMask(i,pos) == 4){
                 //zero out velocity closing velocity
                 //do not add friction
                 delta_momentum(pos) = 0; //-std::max(0.0, body->nodes->mx_t(i,pos) + job->dt * bcNodalForce(i,pos));
-                for (int j=0; j<job->DIM; j++){
-                    body->nodes->f(i,j) = (body->nodes->m(i) * v_set - body->nodes->mx_t(i,j)) / job->dt;
-                }
+                body->nodes->f(i) = (body->nodes->m(i) * v_set(2*pos + 1) - body->nodes->mx_t(i)) / job->dt;
                 body->nodes->x_t(i,pos) = 0;
                 body->nodes->mx_t(i,pos) = 0;
                 body->nodes->f(i,pos) = 0;
+                break;
+            } else if (bcNodalMask(i,pos) == -5){
+                //zero out velocity closing velocity
+                //do not add friction
+                delta_momentum(pos) = 0; //-std::max(0.0, body->nodes->mx_t(i,pos) + job->dt * bcNodalForce(i,pos));
+                body->nodes->f(i) = v_set(2*pos)*job->grid->nodeSurfaceArea(job,i)*v_n(i)/job->grid->nodeVolume(job,i);
+                break;
+            } else if (bcNodalMask(i,pos) == 5){
+                //zero out velocity closing velocity
+                //do not add friction
+                delta_momentum(pos) = 0; //-std::max(0.0, body->nodes->mx_t(i,pos) + job->dt * bcNodalForce(i,pos));
+                body->nodes->f(i) = v_set(2*pos + 1)*job->grid->nodeSurfaceArea(job,i)*v_n(i)/job->grid->nodeVolume(job,i);
                 break;
             } else {
                 delta_momentum(pos) = 0;

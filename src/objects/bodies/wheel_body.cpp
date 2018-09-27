@@ -32,13 +32,13 @@ void WheelBody::init(Job* job){
         omega = fp64_props[0];
         t_start = fp64_props[1];
 
-        if (job->DIM == 1){
+        if (job->grid->GRID_DIM == 1){
             std::cerr << "CANNOT RUN WHEELS IN 1D! Exiting." << std::endl;
             exit(0);
-        } else if (job->DIM == 2){
+        } else if (job->grid->GRID_DIM == 2){
             a.setZero();
             a[2] = 1; //positive z
-        } else if (job->DIM == 3 && fp64_props.size() < 5){
+        } else if (job->grid->GRID_DIM == 3 && fp64_props.size() < 5){
             std::cout << fp64_props.size() << "\n";
             fprintf(stderr,
                     "%s:%s: Need at least 5 properties defined ({omega, t_start, <axle_vector>}).\n",
@@ -76,7 +76,7 @@ void WheelBody::init(Job* job){
     Lx = KinematicVector(job->JOB_TYPE);
     Lx.setZero();
     for (int i=0; i < nodes->x.size(); i++){
-        for (int pos=0; pos < nodes->x.DIM; pos++){
+        for (int pos=0; pos < job->grid->GRID_DIM; pos++){
             if (nodes->x(i,pos) > Lx(pos)){
                 Lx(pos) = nodes->x(i,pos);
             }
@@ -182,7 +182,7 @@ void WheelBody::generateLoads(Job* job){
 
     if (job->t >= t_start){
         //fix old x_cp
-        for (int pos=0; pos<job->DIM; pos++){
+        for (int pos=0; pos<job->grid->GRID_DIM; pos++){
             if (x_cp(pos) > Lx(pos)){
                 //center wrapped around axis
                 x_cp(pos) -= Lx(pos);
@@ -194,7 +194,7 @@ void WheelBody::generateLoads(Job* job){
 
         //find 'adjusted' point positions
         for (int i=0; i<points->x.size(); i++){
-            for (int pos=0; pos<job->DIM; pos++){
+            for (int pos=0; pos<job->grid->GRID_DIM; pos++){
                 if (points->x(i,pos) - x_cp(pos) > Lx(pos)/2.0){
                     //point wrapped around axis
                     adjusted_x(i,pos) = points->x(i,pos) - Lx(pos);

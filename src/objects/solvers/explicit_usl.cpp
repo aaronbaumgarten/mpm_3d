@@ -252,6 +252,15 @@ void ExplicitUSL::movePoints(Job* job){
         points->x += body->S.operate(nodes->u, MPMSparseMatrixBase::TRANSPOSED);
         points->u += body->S.operate(nodes->u, MPMSparseMatrixBase::TRANSPOSED);
 
+        //fix position for out of plane dimension
+        if (job->grid->GRID_DIM < job->DIM){
+            for (int i=0; i<points->x.size(); i++){
+                for (int pos=job->grid->GRID_DIM; pos<job->DIM; pos++){
+                    points->x(i,pos) = 0;
+                }
+            }
+        }
+
         //map nodal velocity diff to points
         points->x_t += body->S.operate(nodes->diff_x_t, MPMSparseMatrixBase::TRANSPOSED);
 

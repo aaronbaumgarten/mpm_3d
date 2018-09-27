@@ -563,3 +563,8 @@ double TriangularGridLinear::elementVolume(Job* job, int idIN){
 int TriangularGridLinear::nodeTag(Job* job, int idIN){
     return -1;
 }
+
+double TriangularGridLinear::nodeSurfaceArea(Job *job, int idIN) {
+    //need to implement this at some point
+    return 0;
+}

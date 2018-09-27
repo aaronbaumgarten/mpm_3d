@@ -254,6 +254,7 @@ public:
     virtual double nodeVolume(Job*, int) = 0;                                                                   //return node volume of id
     virtual double elementVolume(Job*, int) = 0;                                                                //return element volume of id
     virtual int nodeTag(Job*, int) = 0;                                                                         //return 'tag' of node id
+    virtual double nodeSurfaceArea(Job*, int) = 0;                                                          //return node surface volume
 };
 
 

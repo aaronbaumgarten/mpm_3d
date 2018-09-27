@@ -20,10 +20,10 @@ Lx = 1.0
 Ly = 1.0
 Lz = 1.0
 #Ne = 40
-Nx = 50
-Ny = 50
+Nx = 10
+Ny = 10
 Nz = 1
-lmpp = 1
+lmpp = 2
 Lz = 1.0*lmpp
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
 print "grid created"

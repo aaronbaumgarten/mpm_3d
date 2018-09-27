@@ -243,6 +243,25 @@ void CartesianCubic::hiddenInit(Job* job){//called from loading or initializing 
         }
     }
 
+    //nodal surface integral
+    s_n.resize(x_n.size());
+    s_n.setZero();
+    for (int n=0;n<x_n.size();n++){
+        tmp = n;
+        for (int i=0;i<ijk.rows();i++){
+            ijk(i) = tmp % (Nx(i)+1);
+            tmp = tmp/(Nx(i)+1);
+
+            if (ijk(i) == 0 || ijk(i) == Nx(i)){
+                s_n(n) = 1;
+                for (int pos=0;pos<(GRID_DIM-1);pos++){
+                    s_n(n) *= hx(pos);
+                }
+                break;
+            }
+        }
+    }
+
     return;
 }
 
@@ -443,6 +462,12 @@ double CartesianCubic::elementVolume(Job* job, int idIN){
 //
 int CartesianCubic::nodeTag(Job* job, int idIN){
     return -1;
+}
+
+/*----------------------------------------------------------------------------*/
+//
+double CartesianCubic::nodeSurfaceArea(Job *job, int idIN) {
+    return s_n(idIN);
 }
 
 /*----------------------------------------------------------------------------*/

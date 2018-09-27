@@ -305,6 +305,10 @@ void Regular2DTaylorCouetteCell::linearInit(Job *job){
     //each integral will be repeated twice
     v_n *= hx(1)/2.0;
 
+    //nodal surface integral
+    s_n.resize(x_n.size());
+    s_n.setZero();
+
     //edges
     node_tag = Eigen::VectorXi(x_n.size());
     node_tag.setZero();
@@ -319,8 +323,10 @@ void Regular2DTaylorCouetteCell::linearInit(Job *job){
             } else {
                 if (ijk(i) == 0){
                     node_tag(n) = -1;
+                    s_n(n) = Ri*hx(1);
                 } else {
                     node_tag(n) = 1; //boundary
+                    s_n(n) = Ro*hx(1);
                 }
             }
         }
@@ -829,4 +835,8 @@ double Regular2DTaylorCouetteCell::elementVolume(Job* job, int idIN){
 
 int Regular2DTaylorCouetteCell::nodeTag(Job* job, int idIN){
     return node_tag(idIN);
+}
+
+double Regular2DTaylorCouetteCell::nodeSurfaceArea(Job *job, int idIN) {
+    return s_n(idIN);
 }

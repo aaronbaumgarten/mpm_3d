@@ -46,13 +46,13 @@ void HydrostaticBody::init(Job* job){
         double height = 0;
         double pressure;
         for (int i=0; i < points->x.size(); i++){
-            if (points->x(i,job->DIM - 1) > height){
-                height = points->x(i,job->DIM - 1);
+            if (points->x(i,job->grid->GRID_DIM - 1) > height){
+                height = points->x(i,job->grid->GRID_DIM - 1);
             }
         }
 
         for (int i = 0; i < points->x.size(); i++) {
-            pressure = (height - points->x(i, job->DIM - 1)) * effective_density * g;
+            pressure = (height - points->x(i, job->grid->GRID_DIM - 1)) * effective_density * g;
             material->assignPressure(job, this, pressure, i, Material::UPDATE);
         }
     }

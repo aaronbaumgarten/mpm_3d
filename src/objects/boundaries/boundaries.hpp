@@ -114,15 +114,17 @@ public:
     static const int FRICTIONAL_WALL    = 2;
     static const int PERIODIC           = 3;
     static const int DRIVEN_VELOCITY    = 4;
+    static const int DRIVEN_TRACTION    = 5;
 
     double mu_f;
-    double v_set;
+    KinematicVectorArray v_set;
     KinematicVector Lx;
     Eigen::VectorXi limit_props;
     KinematicVectorArray bcNodalMask, bcNodalForce;
     MaterialTensorArray tmp;
     MaterialVectorArray nvec;
     KinematicVectorArray pvec;
+    Eigen::VectorXd v_n;
 
     void init(Job* job, Body* body);
     void generateRules(Job* job, Body* body);
