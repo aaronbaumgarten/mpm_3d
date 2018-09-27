@@ -29,7 +29,7 @@ void CartesianPeriodic::hiddenInit(Job* job){
     node_count = 1;
     element_count = 1;
     npe = 1;
-    for (int i=0;i<Nx.rows();i++){
+    for (int i=0;i<GRID_DIM;i++){
         node_count *= (Nx(i)+1);
         element_count *= Nx(i);
         npe *= 2;
@@ -46,8 +46,8 @@ void CartesianPeriodic::hiddenInit(Job* job){
     //1 -> +1,+0,+0
     //...
     //8 -> +1,+1,+1
-    Eigen::VectorXi onoff = Eigen::VectorXi(job->DIM);
-    A = Eigen::MatrixXi(npe,job->DIM);
+    Eigen::VectorXi onoff = Eigen::VectorXi(GRID_DIM);
+    A = Eigen::MatrixXi(npe,GRID_DIM);
     onoff.setZero();
     for (int n=0; n<npe;n++){
         for (int i=0;i<onoff.rows();i++){
@@ -64,7 +64,7 @@ void CartesianPeriodic::hiddenInit(Job* job){
     }
 
     //setup node number to node id map
-    Eigen::VectorXi ijk = Eigen::VectorXi(job->DIM);
+    Eigen::VectorXi ijk = Eigen::VectorXi(GRID_DIM);
     int tmp;
     nntoni.resize(node_count);
     for (int i=0; i<node_count; i++){
@@ -76,10 +76,10 @@ void CartesianPeriodic::hiddenInit(Job* job){
         }
 
         //wrap x for 2D sim, x and y for 3D sim
-        if (job->DIM >= 2 && ijk(0) == Nx(0)){
+        if (GRID_DIM >= 2 && ijk(0) == Nx(0)){
             ijk(0) = 0;
         }
-        if (job->DIM == 3 && ijk(1) == Nx(1)){
+        if (GRID_DIM == 3 && ijk(1) == Nx(1)){
             ijk(1) = 0;
         }
 
@@ -126,7 +126,7 @@ void CartesianPeriodic::hiddenInit(Job* job){
 
     //element volume
     v_e = 1;
-    for (int pos=0;pos<hx.rows();pos++){
+    for (int pos=0;pos<GRID_DIM;pos++){
         v_e *= hx(pos);
     }
 
@@ -164,14 +164,14 @@ void CartesianPeriodic::fixPosition(Job* job, KinematicVector& xIN){
 
 
     int tmp;
-    if (job->DIM >= 2){
+    if (GRID_DIM >= 2){
         tmp = std::floor(xIN[0]/hx[0]);
         xIN[0] += (tmp%Nx[0] * hx[0]) - tmp*hx[0];
         if (xIN[0] < 0){
             xIN[0] += Lx[0];
         }
     }
-    if (job->DIM == 3){
+    if (GRID_DIM == 3){
         tmp = std::floor(xIN[1]/hx[1]);
         xIN[1] += (tmp%Nx[1] * hx[1]) - tmp*hx[1];
         if (xIN[1] < 0){
@@ -185,7 +185,7 @@ int CartesianPeriodic::whichElement(Job* job, KinematicVector& xIN){
     //fix position first, then adjust
     KinematicVector tmp = xIN;
     fixPosition(job, tmp);
-    return CartesianLinear::cartesianWhichElement(job, tmp, Lx, hx, Nx);
+    return CartesianLinear::cartesianWhichElement(job, tmp, Lx, hx, Nx, GRID_DIM);
 }
 
 bool CartesianPeriodic::inDomain(Job* job, KinematicVector& xIN){
@@ -193,7 +193,7 @@ bool CartesianPeriodic::inDomain(Job* job, KinematicVector& xIN){
     KinematicVector tmp = xIN;
     fixPosition(job,tmp);
 
-    for (int i=0;i<tmp.DIM;i++){
+    for (int i=0;i<GRID_DIM;i++){
         if (!(tmp[i] <= Lx[i] && tmp[i] >= 0)) { //if xIn is outside domain, return -1
             return false;
         }
@@ -219,7 +219,7 @@ void CartesianPeriodic::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)/hx
         rst = tmpVec - x_n(nodeIDs(elementID,n));
-        for (int i=0;i<tmpVec.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             //adjust rst length measures
             rst[i] /= hx[i];
             //standard linear hat function
@@ -246,7 +246,7 @@ void CartesianPeriodic::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, 
     }
     for (int n=0;n<nodeIDs.cols();n++){
         //find local coordinates relative to nodal position
-        for (int i=0;i<tmpX.DIM;i++){
+        for (int i=0;i<GRID_DIM;i++){
             //r = (x_p - x_n)/hx
             rst[i] = (tmpX[i] - x_n(nodeIDs(elementID,n),i)) / hx(i);
 
@@ -254,9 +254,12 @@ void CartesianPeriodic::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, 
             //evaluate at point
             tmp *= (1 - std::abs(rst(i)));
         }
-        for (int i=0;i<tmpX.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             //replace i-direction contribution with sign function
             tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
+        }
+        for (int i=GRID_DIM;i<tmpX.DIM;i++){
+            tmpVec(i) = 0;
         }
         nID.push_back(nodeIDs(elementID,n));
         nGRAD.push_back(tmpVec);

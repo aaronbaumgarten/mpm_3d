@@ -22,11 +22,11 @@
 /*----------------------------------------------------------------------------*/
 //initialize grid assuming that job is set up
 void CartesianLinear::init(Job* job){
-    if (fp64_props.size() < job->DIM || int_props.size() < job->DIM){
+    if (fp64_props.size() < GRID_DIM || int_props.size() < GRID_DIM){
         std::cout << fp64_props.size() << "\n";
         fprintf(stderr,
                 "%s:%s: Need at least %i dimensions defined.\n",
-                __FILE__, __func__, job->DIM);
+                __FILE__, __func__, GRID_DIM);
         exit(0);
     } else {
         //store length, number of linear nodes, and deltas
@@ -34,10 +34,16 @@ void CartesianLinear::init(Job* job){
         Nx = Eigen::VectorXi(job->DIM);
         hx = KinematicVector(job->JOB_TYPE);
 
-        for (int pos=0;pos<hx.size();pos++){
+        for (int pos=0;pos<GRID_DIM;pos++){
             Lx(pos) = fp64_props[pos];
             Nx(pos) = int_props[pos];
             hx(pos) = Lx(pos) / Nx(pos);
+        }
+
+        for (int pos=GRID_DIM;pos<hx.size();pos++){
+            Lx(pos) = 0;
+            Nx(pos) = 0;
+            hx(pos) = 0;
         }
 
         //print grid properties
@@ -71,7 +77,7 @@ void CartesianLinear::hiddenInit(Job* job){
     node_count = 1;
     element_count = 1;
     npe = 1;
-    for (int i=0;i<Nx.rows();i++){
+    for (int i=0;i<GRID_DIM;i++){
         node_count *= (Nx(i)+1);
         element_count *= Nx(i);
         npe *= 2;
@@ -88,8 +94,8 @@ void CartesianLinear::hiddenInit(Job* job){
     //1 -> +1,+0,+0
     //...
     //8 -> +1,+1,+1
-    Eigen::VectorXi onoff(job->DIM);
-    A = Eigen::MatrixXi(npe,job->DIM);
+    Eigen::VectorXi onoff(GRID_DIM);
+    A = Eigen::MatrixXi(npe,GRID_DIM);
     onoff.setZero();
     for (int n=0; n<npe;n++){
         for (int i=0;i<onoff.rows();i++){
@@ -106,7 +112,7 @@ void CartesianLinear::hiddenInit(Job* job){
     }
 
     //setup element to node map
-    Eigen::VectorXi ijk(job->DIM);
+    Eigen::VectorXi ijk(GRID_DIM);
     int tmp;
     nodeIDs.resize(element_count,npe);
     nodeIDs.setZero();
@@ -120,7 +126,7 @@ void CartesianLinear::hiddenInit(Job* job){
 
         //find node ids for element
         for (int n=0;n<nodeIDs.cols();n++){
-            for (int i=0;i<ijk.rows();i++) {
+            for (int i=0;i<GRID_DIM;i++) {
                 //n = i + j*imax + k*imax*jmax
                 //hardcode
                 if (i==0) {
@@ -136,7 +142,7 @@ void CartesianLinear::hiddenInit(Job* job){
 
     //element volume
     v_e = 1;
-    for (int pos=0;pos<hx.rows();pos++){
+    for (int pos=0;pos<GRID_DIM;pos++){
         v_e *= hx(pos);
     }
 
@@ -180,15 +186,19 @@ int CartesianLinear::loadState(Job* job, Serializer* serializer, std::string ful
 /*----------------------------------------------------------------------------*/
 //
 int CartesianLinear::whichElement(Job* job, KinematicVector& xIN){
-    return cartesianWhichElement(job, xIN, Lx, hx, Nx);
+    return cartesianWhichElement(job, xIN, Lx, hx, Nx, GRID_DIM);
 }
 
 //standard function that other cartesian grids may use
-int CartesianLinear::cartesianWhichElement(Job* job, KinematicVector& xIN, KinematicVector& LxIN, KinematicVector& hxIN, Eigen::VectorXi& NxIN){
+int CartesianLinear::cartesianWhichElement(Job* job, KinematicVector& xIN, KinematicVector& LxIN, KinematicVector& hxIN, Eigen::VectorXi& NxIN, int GRID_DIM_IN){
     assert(xIN.VECTOR_TYPE == LxIN.VECTOR_TYPE && xIN.VECTOR_TYPE == hxIN.VECTOR_TYPE && "cartesianWhichElement failed");
+    if (GRID_DIM_IN == -1){
+        GRID_DIM_IN = xIN.DIM;
+    }
+
     bool inDomain;
     int elementID = floor(xIN[0] / hxIN[0]); //id in x-dimension
-    for (int i = 0; i < xIN.DIM; i++) {
+    for (int i = 0; i < GRID_DIM_IN; i++) {
         inDomain = (xIN[i] < LxIN[i] && xIN[i] >= 0);
         if (!inDomain) { //if xIn is outside domain, return -1
             return -1;
@@ -208,7 +218,7 @@ int CartesianLinear::cartesianWhichElement(Job* job, KinematicVector& xIN, Kinem
 //
 bool CartesianLinear::inDomain(Job* job, KinematicVector& xIN){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "inDomain failed");
-    for (int i=0;i<xIN.DIM;i++){
+    for (int i=0;i<GRID_DIM;i++){
         if (!(xIN[i] <= Lx[i] && xIN[i] >= 0)) { //if xIn is outside domain, return -1
             return false;
         }
@@ -220,7 +230,7 @@ bool CartesianLinear::inDomain(Job* job, KinematicVector& xIN){
 /*----------------------------------------------------------------------------*/
 //
 KinematicVector CartesianLinear::nodeIDToPosition(Job* job, int idIN){
-    Eigen::VectorXi ijk(job->DIM);
+    Eigen::VectorXi ijk(GRID_DIM);
     KinematicVector tmpVec(job->JOB_TYPE);
     int tmp = idIN;
     //find i,j,k representation of node id
@@ -228,8 +238,11 @@ KinematicVector CartesianLinear::nodeIDToPosition(Job* job, int idIN){
         ijk(i) = tmp % (Nx(i)+1);
         tmp = tmp/(Nx(i)+1);
     }
-    for (int i=0;i<tmpVec.DIM;i++){
+    for (int i=0;i<GRID_DIM;i++){
         tmpVec[i] = hx(i)*ijk(i);
+    }
+    for (int i=GRID_DIM; i<hx.size(); i++){
+        tmpVec[i] = 0;
     }
     return tmpVec;
 }
@@ -248,7 +261,7 @@ void CartesianLinear::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::
     }
     for (int n=0;n<nodeIDs.cols();n++){
         //find local coordinates relative to nodal position
-        for (int i=0;i<xIN.DIM;i++){
+        for (int i=0;i<GRID_DIM;i++){
             //r = (x_p - x_n)/hx
             rst[i] = (xIN[i] - x_n(nodeIDs(elementID,n),i)) / hx(i);
 
@@ -276,7 +289,7 @@ void CartesianLinear::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
     }
     for (int n=0;n<nodeIDs.cols();n++){
         //find local coordinates relative to nodal position
-        for (int i=0;i<xIN.DIM;i++){
+        for (int i=0;i<GRID_DIM;i++){
             //r = (x_p - x_n)/hx
             rst[i] = (xIN[i] - x_n(nodeIDs(elementID,n),i)) / hx(i);
 
@@ -284,10 +297,14 @@ void CartesianLinear::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
             //evaluate at point
             tmp *= (1 - std::abs(rst(i)));
         }
-        for (int i=0;i<xIN.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             //replace i-direction contribution with sign function
             tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
         }
+        for (int i=GRID_DIM;i<xIN.DIM;i++){
+            tmpVec(i) = 0;
+        }
+
         nID.push_back(nodeIDs(elementID,n));
         nGRAD.push_back(tmpVec);
         tmp = 1.0;
@@ -344,7 +361,7 @@ void CartesianLinear::writeHeader(Job *job, Body *body, Serializer *serializer, 
         nfile << "\n";
     }
 
-    if (job->DIM == 1) {
+    if (GRID_DIM == 1) {
         //use lines
         nfile << "CELLS " << element_count << " " << 3 * element_count << "\n";
         for (int e = 0; e < element_count; e++) {
@@ -355,7 +372,7 @@ void CartesianLinear::writeHeader(Job *job, Body *body, Serializer *serializer, 
         for (int e = 0; e < element_count; e++) {
             nfile << "3\n";
         }
-    } else if (job->DIM == 2){
+    } else if (GRID_DIM == 2){
         nfile << "CELLS " << element_count << " " << 5 * element_count << "\n";
         for (int e = 0; e < element_count; e++){
             nfile << "4 " << nodeIDs(e,0) << " " << nodeIDs(e,1) << " " << nodeIDs(e,2) << " " << nodeIDs(e,3) << "\n";
@@ -365,7 +382,7 @@ void CartesianLinear::writeHeader(Job *job, Body *body, Serializer *serializer, 
         for (int e=0; e<element_count; e++){
             nfile << "8\n";
         }
-    } else if (job->DIM == 3){
+    } else if (GRID_DIM == 3){
         nfile << "CELLS " << element_count << " " << 9 * element_count << "\n";
         for (int e = 0; e < element_count; e++){
             nfile << "8 ";

@@ -3,5 +3,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/default_driver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/column_collapse_driver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/user_def_gravity_driver.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cavity_flow_driver.cpp
         PARENT_SCOPE
         )

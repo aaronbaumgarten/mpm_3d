@@ -191,6 +191,7 @@ public:
     static const int VECTOR_2D = KinematicTensor::TENSOR_2D;
     static const int VECTOR_3D = KinematicTensor::TENSOR_3D;
     static const int VECTOR_AXISYM = KinematicTensor::TENSOR_AXISYM;
+    static const int VECTOR_2D_OOP = KinematicTensor::TENSOR_2D_OOP;
 
     //default dimension and type
     int DIM = VECTOR_MAX_DIM;
@@ -203,6 +204,8 @@ public:
         } else if (VECTOR_TYPE == VECTOR_2D){
             DIM = 2;
         } else if (VECTOR_TYPE == VECTOR_3D){
+            DIM = 3;
+        } else if (VECTOR_TYPE == VECTOR_2D_OOP){
             DIM = 3;
         } else {
             std::cerr << "KinematicVector doesn't have defined type for input " << VECTOR_TYPE << "." << std::endl;

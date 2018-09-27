@@ -62,8 +62,13 @@ void WheelBody::init(Job* job){
 
     points->init(job,this);
     nodes->init(job,this);
-    material->init(job,this);
-    boundary->init(job,this);
+
+    if (activeMaterial != 0) {
+        material->init(job, this);
+    }
+    if (activeBoundary != 0) {
+        boundary->init(job, this);
+    }
 
     adjusted_x = KinematicVectorArray(points->x.size(), job->JOB_TYPE);
 

@@ -166,8 +166,14 @@ int DefaultVTK::writeFrame(Job* job){
             if (job->activeBodies[b] != 0) {
                 job->bodies[b]->points->writeFrame(job, job->bodies[b].get(), job->serializer.get());
                 job->bodies[b]->nodes->writeFrame(job, job->bodies[b].get(), job->serializer.get());
-                job->bodies[b]->material->writeFrame(job, job->bodies[b].get(), job->serializer.get());
-                job->bodies[b]->boundary->writeFrame(job, job->bodies[b].get(), job->serializer.get());
+
+                if (job->bodies[b]->activeMaterial != 0){
+                    job->bodies[b]->material->writeFrame(job, job->bodies[b].get(), job->serializer.get());
+                }
+                if (job->bodies[b]->activeBoundary != 0) {
+                    job->bodies[b]->boundary->writeFrame(job, job->bodies[b].get(), job->serializer.get());
+                }
+                
                 job->grid->writeFrame(job, job->serializer.get());
             }
             for (int c=0;c<job->contacts.size();c++) {

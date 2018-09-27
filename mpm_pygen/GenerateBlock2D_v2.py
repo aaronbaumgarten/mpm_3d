@@ -20,10 +20,10 @@ Lx = 1.0
 Ly = 1.0
 Lz = 1.0
 #Ne = 40
-Nx = 40
-Ny = 40
+Nx = 50
+Ny = 50
 Nz = 1
-lmpp = 2
+lmpp = 1
 Lz = 1.0*lmpp
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
 print "grid created"
@@ -37,8 +37,8 @@ block_width = 1.0
 block_height = 0.5
 block_depth = 1.0
 hx = Lx/Nx
-block_primitive = Primitives3d.Box(0.3, 0.7,
-                                 0.2, 0.6,
+block_primitive = Primitives3d.Box(0, Lx,
+                                 0, Ly,
                                  0, 1.0,
                                  )
 block_body = CSGTree3d.Node(block_primitive)

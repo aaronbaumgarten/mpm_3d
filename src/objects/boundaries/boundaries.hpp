@@ -113,8 +113,10 @@ public:
     static const int FRICTION_LESS_WALL = 1;
     static const int FRICTIONAL_WALL    = 2;
     static const int PERIODIC           = 3;
+    static const int DRIVEN_VELOCITY    = 4;
 
     double mu_f;
+    double v_set;
     KinematicVector Lx;
     Eigen::VectorXi limit_props;
     KinematicVectorArray bcNodalMask, bcNodalForce;

@@ -30,11 +30,14 @@ void CartesianBox::init(Job* job, Body* body){
     KinematicVector Lx = KinematicVector(job->JOB_TYPE);
     Lx.setZero();
     for (int i=0; i < body->nodes->x.size(); i++){
-        for (int pos=0; pos < body->nodes->x.DIM; pos++){
+        for (int pos=0; pos < job->grid->GRID_DIM; pos++){
             if (body->nodes->x(i,pos) > Lx(pos)){
                 Lx(pos) = body->nodes->x(i,pos);
             }
         }
+    }
+    for (int i=job->grid->GRID_DIM; i<Lx.DIM; i++){
+        Lx(i) = 0;
     }
 
     //set bounding mask
@@ -43,7 +46,7 @@ void CartesianBox::init(Job* job, Body* body){
     bcNodalMask.setZero();
 
     for (int i=0;i<len;i++){
-        for (int pos=0;pos<body->nodes->x.DIM;pos++){
+        for (int pos=0;pos<job->grid->GRID_DIM;pos++){
             if (body->nodes->x(i,pos) == 0 || body->nodes->x(i,pos) == Lx(pos)) {
                 bcNodalMask(i).setOnes();
                 break;

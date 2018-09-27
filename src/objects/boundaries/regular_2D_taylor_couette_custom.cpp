@@ -19,7 +19,7 @@
 #include "boundaries.hpp"
 #include "objects/grids/grids.hpp"
 
-/* input to this file denotes the type of boundary for each domain face (-x, +x, -y, +y, -z, +z)
+/*
  * DO NOT USE WITH AXISYMMETRIC JOBS!
  * 0 -- NO-SLIP
  * 1 -- FRICTION-LESS

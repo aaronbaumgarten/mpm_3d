@@ -1,6 +1,6 @@
 //
-// Created by aaron on 5/10/18.
-// default_driver.cpp
+// Created by aaron on 7/9/18.
+// cavity_flow_driver.cpp
 //
 
 #include <iostream>
@@ -21,20 +21,25 @@
 
 /*----------------------------------------------------------------------------*/
 
-void DefaultDriver::init(Job* job){
-    if (fp64_props.size() < 1) {
+void CavityFlowDriver::init(Job* job){
+    if (job->DIM != 2){
+        std::cerr << "ERROR: CavityFlowDriver requires job->DIM = 2, got " << job->DIM << ". Exiting." << std::endl;
+        exit(0);
+    }
+
+    if (fp64_props.size() < 2) {
         std::cout << fp64_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 1 property defined (stop_time).\n",
+                "%s:%s: Need at least 2 properties defined (stop_time, v_set).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
         //store stop_time
         stop_time = fp64_props[0];
-        gravity = KinematicVector(job->JOB_TYPE);
+        v_set = fp64_props[1];
 
         //print grid properties
-        std::cout << "Driver properties (stop_time = " << stop_time << ")." << std::endl;
+        std::cout << "Driver properties (stop_time = " << stop_time << ", v_set = " << v_set << ")." << std::endl;
     }
 
     std::cout << "Driver Initialized." << std::endl;
@@ -43,7 +48,7 @@ void DefaultDriver::init(Job* job){
 
 /*----------------------------------------------------------------------------*/
 
-void DefaultDriver::run(Job* job) {
+void CavityFlowDriver::run(Job* job) {
     int stepCount = 0;
     int frameCount = 0;
 
@@ -55,12 +60,32 @@ void DefaultDriver::run(Job* job) {
     double tSim = 0;
     double tFrame = 0;
 
-    //initialize gravity
-    generateGravity(job);
-    applyGravity(job);
+    //initialize flow parameters (all points in top element have set velocity)
+    Ly = 0;
+    hy = -1;
+    for (int i=0; i<job->bodies[0]->nodes->x.size(); i++){
+        if (job->bodies[0]->nodes->x(i,1) > Ly){
+            if (hy == -1 || hy > (job->bodies[0]->nodes->x(i,1)-Ly)){
+                hy = job->bodies[0]->nodes->x(i,1)-Ly;
+            }
+            Ly = job->bodies[0]->nodes->x(i,1);
+        }
+    }
 
     //run simulation until stop_time
     while (job->t <= stop_time){
+        //set point velocities:
+        for (int b=0; b<job->bodies.size(); b++){
+            if (job->activeBodies[b] == 1){
+                for (int i=0; i<job->bodies[b]->points->x.size(); i++){
+                    if (job->bodies[b]->points->x(i,1) > (Ly - hy)){
+                        job->bodies[b]->points->x_t(i,0) = v_set;
+                        job->bodies[b]->points->mx_t(i,0) = v_set * job->bodies[b]->points->m(i);
+                    }
+                }
+            }
+        }
+
         //run solver
         job->solver->step(job);
         //std::cout << "Step Completed [" << ++stepCount << "]." << std::flush;
@@ -87,45 +112,24 @@ void DefaultDriver::run(Job* job) {
 
 /*----------------------------------------------------------------------------*/
 
-void DefaultDriver::generateGravity(Job* job) {
-    double g = -9.81;
-    gravity.setZero();
-    if (job->JOB_TYPE == Job::JOB_1D){
-        gravity(0) = g;
-    } else if (job->JOB_TYPE == Job::JOB_2D){
-        gravity(1) = g;
-    } else if (job->JOB_TYPE == Job::JOB_3D){
-        gravity(2) = g;
-    } else if (job->JOB_TYPE == Job::JOB_AXISYM){
-        gravity(1) = g;
-    } else if (job->JOB_TYPE == Job::JOB_2D_OOP){
-        gravity(1) = g;
-    }
+void CavityFlowDriver::generateGravity(Job* job) {
     return;
 }
 
 /*----------------------------------------------------------------------------*/
 
-void DefaultDriver::applyGravity(Job* job){
-    for (int b=0;b<job->bodies.size();b++){
-        if (job->activeBodies[b] == 0){
-            continue;
-        }
-        for (int i=0;i<job->bodies[b]->points->b.size();i++){
-            job->bodies[b]->points->b(i) = gravity;
-        }
-    }
+void CavityFlowDriver::applyGravity(Job* job){
     return;
 }
 
 /*----------------------------------------------------------------------------*/
 
-std::string DefaultDriver::saveState(Job* job, Serializer* serializer, std::string filepath){
+std::string CavityFlowDriver::saveState(Job* job, Serializer* serializer, std::string filepath){
     return "error";
 }
 
 /*----------------------------------------------------------------------------*/
 
-int DefaultDriver::loadState(Job* job, Serializer* serializer, std::string fullpath){
+int CavityFlowDriver::loadState(Job* job, Serializer* serializer, std::string fullpath){
     return 0;
 }

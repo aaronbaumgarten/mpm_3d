@@ -24,9 +24,13 @@
 void DefaultBody::init(Job* job){
     points->init(job,this);
     nodes->init(job,this);
-    material->init(job,this);
-    boundary->init(job,this);
 
+    if (activeMaterial != 0) {
+        material->init(job, this);
+    }
+    if (activeBoundary != 0) {
+        boundary->init(job, this);
+    }
 
     //assign vector type
     S = MPMScalarSparseMatrix(nodes->x.size(), points->x.size());

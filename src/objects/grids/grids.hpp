@@ -32,6 +32,8 @@ public:
     int node_count;      //number of nodes which define grid
     int element_count;   //number of elements in grid
 
+    int GRID_DIM;
+
     virtual void init(Job*) = 0; //initialize from Job
 
     virtual void writeFrame(Job*, Serializer*) = 0;                     //send frame data to Serializer
@@ -65,7 +67,7 @@ public:
     Eigen::VectorXd v_n; //nodal volume
     double v_e; //element volume
 
-    static int cartesianWhichElement(Job* job, KinematicVector& xIN, KinematicVector& LxIN, KinematicVector& hxIN, Eigen::VectorXi& NxIN);
+    static int cartesianWhichElement(Job* job, KinematicVector& xIN, KinematicVector& LxIN, KinematicVector& hxIN, Eigen::VectorXi& NxIN, int GRID_DIM_IN = -1);
 
     virtual void init(Job* job);
     virtual void hiddenInit(Job* job);
@@ -154,6 +156,8 @@ public:
     int npe; //nodes per element
     Eigen::VectorXd v_n; //nodal volume
     double v_e; //element volume
+
+    MPMScalarSparseMatrix S_grid = MPMScalarSparseMatrix(0,0); //node value to function value map
 
     static double s(double, double);
     static double g(double, double);

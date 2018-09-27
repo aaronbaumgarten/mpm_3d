@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <Eigen/Core>
+#include <math.h>
 
 #include "mpm_objects.hpp"
 #include "mpm_vector.hpp"
@@ -39,7 +40,7 @@ int TriangularGridLinear::ijk_to_n(Job* job, const Eigen::VectorXi& ijk){
 }
 
 Eigen::VectorXi TriangularGridLinear::n_to_ijk(Job* job, int n) {
-    Eigen::VectorXi ijk = Eigen::VectorXi(job->DIM);
+    Eigen::VectorXi ijk = Eigen::VectorXi(GRID_DIM);//Eigen::VectorXi(job->DIM);
     int tmp = n;
     //find i,j,k representation of node id
     for (int i = 0; i < ijk.rows(); i++) {
@@ -96,12 +97,16 @@ bool TriangularGridLinear::line_segment_intersect(Eigen::VectorXd s0_p0, Eigen::
 
     //check that x,y within bounds
     double xx00, xx01, xx10, xx11;
-    xx00 = (xy_vec - s0_p0).norm();
-    xx01 = (xy_vec - s0_p1).norm();
-    xx10 = (xy_vec - s1_p0).norm();
-    xx11 = (xy_vec - s1_p1).norm();
+    xx00 = std::sqrt((xy_vec(0) - s0_p0(0))*(xy_vec(0) - s0_p0(0)) + (xy_vec(1) - s0_p0(1))*(xy_vec(1) - s0_p0(1))); //(xy_vec - s0_p0).norm();
+    xx01 = std::sqrt((xy_vec(0) - s0_p1(0))*(xy_vec(0) - s0_p1(0)) + (xy_vec(1) - s0_p1(1))*(xy_vec(1) - s0_p1(1))); //(xy_vec - s0_p1).norm();
+    xx10 = std::sqrt((xy_vec(0) - s1_p0(0))*(xy_vec(0) - s1_p0(0)) + (xy_vec(1) - s1_p0(1))*(xy_vec(1) - s1_p0(1))); //(xy_vec - s1_p0).norm();
+    xx11 = std::sqrt((xy_vec(0) - s1_p1(0))*(xy_vec(0) - s1_p1(0)) + (xy_vec(1) - s1_p1(1))*(xy_vec(1) - s1_p1(1))); //(xy_vec - s1_p1).norm();
 
-    return ( (std::max(xx00,xx01) <= (s0_p1 - s0_p0).norm()) && (std::max(xx10,xx11) <= (s1_p1 - s1_p0).norm()) );
+    double sl0, sl1;
+    sl0 = std::sqrt((s0_p1(0) - s0_p0(0))*(s0_p1(0) - s0_p0(0)) + (s0_p1(1) - s0_p0(1))*(s0_p1(1) - s0_p0(1)));
+    sl1 = std::sqrt((s1_p1(0) - s1_p0(0))*(s1_p1(0) - s1_p0(0)) + (s1_p1(1) - s1_p0(1))*(s1_p1(1) - s1_p0(1)));
+
+    return ( (std::max(xx00,xx01) <= sl0) && (std::max(xx10,xx11) <= sl1) );
 }
 
 
@@ -111,7 +116,7 @@ int TriangularGridLinear::whichSearchCell(const KinematicVector &xIN){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "whichSearchCell failed");
     bool inDomain;
     int elementID = floor(xIN[0] / hx[0]); //id in x-dimension
-    for (int i = 0; i < xIN.DIM; i++) {
+    for (int i = 0; i < GRID_DIM; i++) {
         inDomain = (xIN[i] < Lx[i] && xIN[i] >= 0);
         if (!inDomain) { //if xIn is outside domain, return -1
             return -1;
@@ -141,8 +146,8 @@ bool TriangularGridLinear::inElement(Job* job, const KinematicVector& xIN, int i
 /*----------------------------------------------------------------------------*/
 //
 void TriangularGridLinear::init(Job* job){
-    if (job->DIM != 2){
-        std::cerr << "TriangularGridLinear requires DIM = 2, got: " << job->DIM << std::endl;
+    if (GRID_DIM != 2){
+        std::cerr << "TriangularGridLinear requires GRID_DIM = 2, got: " << GRID_DIM << std::endl;
         exit(0);
     }
 
@@ -287,25 +292,30 @@ void TriangularGridLinear::hiddenInit(Job* job){
     Lx = KinematicVector(job->JOB_TYPE);
     Lx.setZero();
     for (int i=0;i<x_n.size();i++){
-        for (int pos=0;pos<x_n.DIM;pos++){
+        for (int pos=0;pos<GRID_DIM;pos++){
             if (x_n(i,pos) > Lx(pos)){
                 Lx(pos) = x_n(i,pos);
             }
         }
     }
-
     Nx = Eigen::VectorXi(job->DIM);;
-    for (size_t pos=0;pos<Nx.rows();pos++){
+    for (size_t pos=0;pos<GRID_DIM;pos++){
         Nx(pos) = std::floor(Lx(pos)/lc);
     }
 
     hx = KinematicVector(job->JOB_TYPE);
-    for (int pos=0;pos<hx.size();pos++){
+    for (int pos=0;pos<GRID_DIM;pos++){
         hx(pos) = Lx(pos) / Nx(pos);
     }
 
+    for (int pos=GRID_DIM;pos<hx.size();pos++){
+        Lx(pos) = 0;
+        Nx(pos) = 0;
+        hx(pos) = 0;
+    }
+
     int len = 1; //number of cells in search grid
-    for (int pos=0;pos<Nx.rows();pos++){
+    for (int pos=0;pos<GRID_DIM;pos++){
         len *= Nx(pos);
     }
 
@@ -417,7 +427,7 @@ void TriangularGridLinear::writeHeader(Job* job, Body* body, Serializer* seriali
     for (int i=0;i<nlen;i++){
         //vtk files require x,y,z
         for (int pos = 0; pos < 3; pos++){
-            if (pos < body->nodes->x.DIM && (body->nodes->active(i) != 0) && std::isfinite(body->nodes->x(i,pos))){
+            if (pos < GRID_DIM && (body->nodes->active(i) != 0) && std::isfinite(body->nodes->x(i,pos))){
                 nfile << body->nodes->x(i,pos) << " ";
             } else {
                 nfile << "0 ";

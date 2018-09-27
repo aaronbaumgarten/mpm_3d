@@ -22,11 +22,11 @@
 /*----------------------------------------------------------------------------*/
 //
 void CartesianCubicCustom::init(Job* job){
-    if (fp64_props.size() < job->DIM || int_props.size() < 2*job->DIM){
+    if (fp64_props.size() < GRID_DIM || int_props.size() < 2*GRID_DIM){
         std::cout << fp64_props.size() << "\n";
         fprintf(stderr,
                 "%s:%s: Need at least %i dimensions and %i properties defined.\n",
-                __FILE__, __func__, job->DIM, job->DIM);
+                __FILE__, __func__, GRID_DIM, GRID_DIM);
         exit(0);
     } else {
         //store length, number of linear nodes, and deltas
@@ -35,23 +35,29 @@ void CartesianCubicCustom::init(Job* job){
         Nx = Eigen::VectorXi(job->DIM);
         hx = KinematicVector(job->JOB_TYPE);
 
-        for (int pos=0;pos<hx.size();pos++){
+        for (int pos=0;pos<GRID_DIM;pos++){
             Lx(pos) = fp64_props[pos];
             Nx(pos) = int_props[pos];
             hx(pos) = Lx(pos) / Nx(pos);
         }
 
-        periodic_props = Eigen::VectorXi(job->DIM);
-        for (int pos=0;pos<job->DIM;pos++){
-            periodic_props(pos) = int_props[job->DIM + pos];
+        for (int pos=GRID_DIM;pos<hx.size();pos++){
+            Lx(pos) = 0;
+            Nx(pos) = 0;
+            hx(pos) = 0;
+        }
+
+        periodic_props = Eigen::VectorXi(GRID_DIM);
+        for (int pos=0;pos<GRID_DIM;pos++){
+            periodic_props(pos) = int_props[GRID_DIM + pos];
         }
         //print grid properties
         std::cout << "Grid properties (Lx = { ";
-        for (int i=0;i<Lx.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             std::cout << Lx(i) << " ";
         }
         std::cout << "}, Nx = { ";
-        for (int i=0;i<Nx.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             std::cout << Nx(i) << " ";
         }
         std::cout << "})." << std::endl;
@@ -73,7 +79,7 @@ void CartesianCubicCustom::hiddenInit(Job* job){
     node_count = 1;
     element_count = 1;
     npe = 1;
-    for (int i=0;i<Nx.rows();i++){
+    for (int i=0;i<GRID_DIM;i++){
         node_count *= (Nx(i)+1);
         element_count *= Nx(i);
         npe *= 4; //4 linear node contributions per element
@@ -90,8 +96,8 @@ void CartesianCubicCustom::hiddenInit(Job* job){
     //1 -> +0,-1,-1
     //...
     //64 -> +2,+2,+2
-    Eigen::VectorXi i_rel = Eigen::VectorXi(job->DIM);
-    A = Eigen::MatrixXi(npe,job->DIM);
+    Eigen::VectorXi i_rel = Eigen::VectorXi(GRID_DIM);
+    A = Eigen::MatrixXi(npe,GRID_DIM);
     i_rel.setOnes();
     i_rel = -1*i_rel;
     for (int n=0; n<npe;n++){
@@ -109,7 +115,7 @@ void CartesianCubicCustom::hiddenInit(Job* job){
     }
 
     //setup element to node map
-    Eigen::VectorXi ijk = Eigen::VectorXi(job->DIM);
+    Eigen::VectorXi ijk = Eigen::VectorXi(GRID_DIM);
     int tmp;
     nodeIDs.resize(element_count,npe);
     nodeIDs.setZero();
@@ -159,13 +165,13 @@ void CartesianCubicCustom::hiddenInit(Job* job){
             tmp = tmp / (Nx(i)+1);
         }
 
-        if (job->DIM >= 1 && ijk(0) == Nx(0) && periodic_props(0) == 1){
+        if (GRID_DIM >= 1 && ijk(0) == Nx(0) && periodic_props(0) == 1){
             ijk(0) = 0;
         }
-        if (job->DIM >= 2 && ijk(1) == Nx(1) && periodic_props(1) == 1){
+        if (GRID_DIM >= 2 && ijk(1) == Nx(1) && periodic_props(1) == 1){
             ijk(1) = 0;
         }
-        if (job->DIM == 3 && ijk(2) == Nx(2) && periodic_props(2) == 1){
+        if (GRID_DIM == 3 && ijk(2) == Nx(2) && periodic_props(2) == 1){
             ijk(2) = 0;
         }
 
@@ -185,7 +191,7 @@ void CartesianCubicCustom::hiddenInit(Job* job){
 
     //element volume
     v_e = 1;
-    for (int pos=0;pos<hx.rows();pos++){
+    for (int pos=0;pos<GRID_DIM;pos++){
         v_e *= hx(pos);
     }
 
@@ -220,6 +226,9 @@ void CartesianCubicCustom::hiddenInit(Job* job){
                 v_n(n) *= hx(i)*7.0/12.0;
                 edge_n(n,i) = 0; //boundary
             }
+        }
+        for (int i=GRID_DIM;i<hx.size();i++){
+            edge_n(n,i) = 2; //interior, but doesn't matter
         }
     }
 
@@ -259,7 +268,7 @@ int CartesianCubicCustom::whichElement(Job* job, KinematicVector& xIN){
     KinematicVector tmpX = xIN;
     fixPosition(job, tmpX);
     //return standard cartesian which element
-    return CartesianLinear::cartesianWhichElement(job, tmpX, Lx, hx, Nx);
+    return CartesianLinear::cartesianWhichElement(job, tmpX, Lx, hx, Nx, GRID_DIM);
 }
 
 bool CartesianCubicCustom::inDomain(Job* job, KinematicVector& xIN){
@@ -267,7 +276,7 @@ bool CartesianCubicCustom::inDomain(Job* job, KinematicVector& xIN){
     KinematicVector tmpX = xIN;
     fixPosition(job,tmpX);
 
-    for (int i=0;i<tmpX.DIM;i++){
+    for (int i=0;i<GRID_DIM;i++){
         if (!(tmpX[i] <= Lx[i] && tmpX[i] >= 0)) { //if xIn is outside domain, return -1
             return false;
         }
@@ -299,7 +308,7 @@ void CartesianCubicCustom::evaluateBasisFnValue(Job* job, KinematicVector& xIN, 
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)/hx
         rst = tmpX - x_n(nodeIDs(elementID,n));
-        for (int i=0;i<tmpX.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             //check proximity to edge
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmp *= s(rst(i), hx(i));
@@ -352,7 +361,7 @@ void CartesianCubicCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xI
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)
         rst = tmpX - x_n(nodeIDs(elementID,n));
-        for (int i=0;i<tmpX.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             //check proximity to edge
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmpVec(i) = g(rst(i), hx(i));
@@ -373,7 +382,7 @@ void CartesianCubicCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xI
             }
         }
 
-        for (int i=0;i<tmpX.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             //check proximity to edge
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmpVec *= s(rst(i), hx(i));
@@ -394,6 +403,10 @@ void CartesianCubicCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xI
                 tmpVec *= (s(rst(i), hx(i)) + s(rst(i) + Lx(i), hx(i))); //sum of two
                 tmpVec(i) /= (s(rst(i), hx(i)) + s(rst(i) + Lx(i), hx(i))); //sum of two
             }
+        }
+
+        for (int i=GRID_DIM; i<tmpVec.size(); i++){
+            tmpVec(i) = 0;
         }
 
         //test_grad = test_grad + tmpVec;

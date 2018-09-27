@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 #include <Eigen/Core>
+#include <iomanip>
+#include <fstream>
 
 #include "mpm_objects.hpp"
 #include "mpm_vector.hpp"
@@ -58,11 +60,11 @@ double CartesianCubic::g(double x, double h){
 /*----------------------------------------------------------------------------*/
 //initialize grid assuming that job is set up
 void CartesianCubic::init(Job* job){
-    if (fp64_props.size() < job->DIM || int_props.size() < job->DIM){
+    if (fp64_props.size() < GRID_DIM || int_props.size() < GRID_DIM){
         std::cout << fp64_props.size() << "\n";
         fprintf(stderr,
                 "%s:%s: Need at least %i dimensions defined.\n",
-                __FILE__, __func__, job->DIM);
+                __FILE__, __func__, GRID_DIM);
         exit(0);
     } else {
         //store length, number of linear nodes, and deltas
@@ -70,19 +72,25 @@ void CartesianCubic::init(Job* job){
         Nx = Eigen::VectorXi(job->DIM);
         hx = KinematicVector(job->JOB_TYPE);
 
-        for (int pos=0;pos<hx.size();pos++){
+        for (int pos=0;pos<GRID_DIM;pos++){
             Lx(pos) = fp64_props[pos];
             Nx(pos) = int_props[pos];
             hx(pos) = Lx(pos) / Nx(pos);
         }
 
+        for (int pos=GRID_DIM;pos<hx.size();pos++){
+            Lx(pos) = 0;
+            Nx(pos) = 0;
+            hx(pos) = 0;
+        }
+
         //print grid properties
         std::cout << "Grid properties (Lx = { ";
-        for (int i=0;i<Lx.rows();i++){
+        for (int i=0;i<Lx.size();i++){
             std::cout << Lx(i) << " ";
         }
         std::cout << "}, Nx = { ";
-        for (int i=0;i<Nx.rows();i++){
+        for (int i=0;i<Nx.size();i++){
             std::cout << Nx(i) << " ";
         }
         std::cout << "})." << std::endl;
@@ -106,7 +114,7 @@ void CartesianCubic::hiddenInit(Job* job){//called from loading or initializing 
     node_count = 1;
     element_count = 1;
     npe = 1;
-    for (int i=0;i<Nx.rows();i++){
+    for (int i=0;i<GRID_DIM;i++){
         node_count *= (Nx(i)+1);
         element_count *= Nx(i);
         npe *= 4; //4 linear node contributions per element
@@ -123,8 +131,8 @@ void CartesianCubic::hiddenInit(Job* job){//called from loading or initializing 
     //1 -> +0,-1,-1
     //...
     //64 -> +2,+2,+2
-    Eigen::VectorXi i_rel = Eigen::VectorXi(job->DIM);
-    A = Eigen::MatrixXi(npe,job->DIM);
+    Eigen::VectorXi i_rel = Eigen::VectorXi(GRID_DIM);
+    A = Eigen::MatrixXi(npe,GRID_DIM);
     i_rel.setOnes();
     i_rel = -1*i_rel;
     for (int n=0; n<npe;n++){
@@ -142,7 +150,7 @@ void CartesianCubic::hiddenInit(Job* job){//called from loading or initializing 
     }
 
     //setup element to node map
-    Eigen::VectorXi ijk = Eigen::VectorXi(job->DIM);
+    Eigen::VectorXi ijk = Eigen::VectorXi(GRID_DIM);
     int tmp;
     nodeIDs.resize(element_count,npe);
     nodeIDs.setZero();
@@ -177,7 +185,7 @@ void CartesianCubic::hiddenInit(Job* job){//called from loading or initializing 
 
     //element volume
     v_e = 1;
-    for (int pos=0;pos<hx.rows();pos++){
+    for (int pos=0;pos<GRID_DIM;pos++){
         v_e *= hx(pos);
     }
 
@@ -206,6 +214,32 @@ void CartesianCubic::hiddenInit(Job* job){//called from loading or initializing 
                 v_n(n) *= hx(i)*7.0/12.0;
                 edge_n(n,i) = 0; //boundary
             }
+        }
+
+        for (int i=ijk.rows(); i<edge_n.DIM; i++){
+            edge_n(n,i) = 2; //interior (but not really important)
+        }
+    }
+
+    //node mapping matrix
+    S_grid = MPMScalarSparseMatrix(node_count, node_count);
+    std::vector<int> nvec(0);
+    std::vector<double> valvec(0);
+    for (int i=0; i<node_count; i++) {
+
+        KinematicVector x_i = x_n(i);
+        for (int pos = 0; pos < GRID_DIM; pos++){
+            if (x_i(pos) == Lx(pos)){
+                //adjust point just a little bit for post-processing
+                x_i(pos) = Lx(pos) - hx(pos)/100.0;
+            }
+        }
+
+        nvec.resize(0);
+        valvec.resize(0);
+        evaluateBasisFnValue(job, x_i, nvec, valvec);
+        for (int j = 0; j < nvec.size(); j++) {
+            S_grid.push_back(nvec[j], i, valvec[j]); //node, point, value
         }
     }
 
@@ -240,14 +274,14 @@ int CartesianCubic::loadState(Job* job, Serializer* serializer, std::string full
 /*----------------------------------------------------------------------------*/
 //
 int CartesianCubic::whichElement(Job* job, KinematicVector& xIN){
-    return CartesianLinear::cartesianWhichElement(job, xIN, Lx, hx, Nx);
+    return CartesianLinear::cartesianWhichElement(job, xIN, Lx, hx, Nx, GRID_DIM);
 }
 
 /*----------------------------------------------------------------------------*/
 //
 bool CartesianCubic::inDomain(Job* job, KinematicVector& xIN){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "inDomain failed");
-    for (int i=0;i<xIN.DIM;i++){
+    for (int i=0;i<GRID_DIM;i++){
         if (!(xIN[i] <= Lx[i] && xIN[i] >= 0)) { //if xIn is outside domain, return -1
             return false;
         }
@@ -259,7 +293,7 @@ bool CartesianCubic::inDomain(Job* job, KinematicVector& xIN){
 /*----------------------------------------------------------------------------*/
 //
 KinematicVector CartesianCubic::nodeIDToPosition(Job* job, int idIN){
-    Eigen::VectorXi ijk(job->DIM);
+    Eigen::VectorXi ijk(GRID_DIM);
     KinematicVector tmpVec(job->JOB_TYPE);
     int tmp = idIN;
     //find i,j,k representation of node id
@@ -267,8 +301,11 @@ KinematicVector CartesianCubic::nodeIDToPosition(Job* job, int idIN){
         ijk(i) = tmp % (Nx(i)+1);
         tmp = tmp/(Nx(i)+1);
     }
-    for (int i=0;i<tmpVec.DIM;i++){
+    for (int i=0;i<GRID_DIM;i++){
         tmpVec[i] = hx(i)*ijk(i);
+    }
+    for (int i=GRID_DIM;i<hx.size();i++){
+        tmpVec[i] = 0;
     }
     return tmpVec;
 }
@@ -296,7 +333,7 @@ void CartesianCubic::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::v
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)/hx
         rst = xIN - x_n(nodeIDs(elementID,n));
-        for (int i=0;i<xIN.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             //check proximity to edge
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmp *= s(rst(i), hx(i));
@@ -339,7 +376,7 @@ void CartesianCubic::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)
         rst = xIN - x_n(nodeIDs(elementID,n));
-        for (int i=0;i<xIN.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             //check proximity to edge
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmpVec(i) = g(rst(i), hx(i));
@@ -356,7 +393,7 @@ void CartesianCubic::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std
             }
         }
 
-        for (int i=0;i<xIN.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             //check proximity to edge
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmpVec *= s(rst(i), hx(i));
@@ -371,6 +408,10 @@ void CartesianCubic::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std
                 tmpVec *= (s(rst(i), hx(i)) + 2.0*s(std::abs(rst(i))+hx(i), hx(i)));
                 tmpVec(i) *= 1.0/(s(rst(i), hx(i)) + 2.0*s(std::abs(rst(i))+hx(i), hx(i)));
             }
+        }
+
+        for (int i=GRID_DIM;i<tmpVec.size();i++){
+            tmpVec(i) = 0;
         }
 
         //test_grad = test_grad + tmpVec;
@@ -407,6 +448,9 @@ int CartesianCubic::nodeTag(Job* job, int idIN){
 /*----------------------------------------------------------------------------*/
 //
 void CartesianCubic::writeHeader(Job *job, Body *body, Serializer *serializer, std::ofstream &nfile, int SPEC) {
+    //filter the velocity field only for now
+    KinematicVectorArray grid_velocity = S_grid.operate(body->nodes->x_t, MPMSparseMatrixBase::TRANSPOSED);
+
     if (SPEC != Serializer::VTK){
         std::cerr << "ERROR: Unknown file SPEC in writeHeader: " << SPEC  << "! Exiting." << std::endl;
         exit(0);
@@ -430,7 +474,7 @@ void CartesianCubic::writeHeader(Job *job, Body *body, Serializer *serializer, s
         nfile << "\n";
     }
 
-    if (job->DIM == 1) {
+    if (GRID_DIM == 1) {
         //use lines
         nfile << "CELLS " << element_count << " " << 3 * element_count << "\n";
         for (int e = 0; e < element_count; e++) {
@@ -441,7 +485,7 @@ void CartesianCubic::writeHeader(Job *job, Body *body, Serializer *serializer, s
         for (int e = 0; e < element_count; e++) {
             nfile << "3\n";
         }
-    } else if (job->DIM == 2){
+    } else if (GRID_DIM == 2){
         nfile << "CELLS " << element_count << " " << 5 * element_count << "\n";
         for (int e = 0; e < element_count; e++){
             nfile << "4 " << nodeIDs(e,5) << " " << nodeIDs(e,6) << " " << nodeIDs(e,9) << " " << nodeIDs(e,10) << "\n";
@@ -451,7 +495,7 @@ void CartesianCubic::writeHeader(Job *job, Body *body, Serializer *serializer, s
         for (int e=0; e<element_count; e++){
             nfile << "8\n";
         }
-    } else if (job->DIM == 3){
+    } else if (GRID_DIM == 3){
         nfile << "CELLS " << element_count << " " << 9 * element_count << "\n";
         for (int e = 0; e < element_count; e++){
             nfile << "8 ";
@@ -468,4 +512,18 @@ void CartesianCubic::writeHeader(Job *job, Body *body, Serializer *serializer, s
     }
 
     nfile << "POINT_DATA " << nlen << "\n";
+
+    //write out grid_velocity data
+    nfile << "VECTORS grid_velocity double\n";
+    for (int i = 0; i < nlen; i++){
+        //vtk format requires x,y,z
+        for (int pos = 0; pos < 3; pos++){
+            if ((body->nodes->active(i) == 1) && std::isfinite(grid_velocity(i,pos))){
+                nfile << grid_velocity(i,pos) << " ";
+            } else {
+                nfile << "0 ";
+            }
+        }
+        nfile << "\n";
+    }
 }

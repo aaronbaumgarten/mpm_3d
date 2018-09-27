@@ -34,24 +34,30 @@ void CartesianCustom::init(Job* job){
         Nx = Eigen::VectorXi(job->DIM);
         hx = KinematicVector(job->JOB_TYPE);
 
-        for (int pos=0;pos<hx.size();pos++){
+        for (int pos=0;pos<GRID_DIM;pos++){
             Lx(pos) = fp64_props[pos];
             Nx(pos) = int_props[pos];
             hx(pos) = Lx(pos) / Nx(pos);
         }
 
-        periodic_props = Eigen::VectorXi(job->DIM);
+        for (int pos=GRID_DIM;pos<hx.size();pos++){
+            Lx(pos) = 0;
+            Nx(pos) = 0;
+            hx(pos) = 0;
+        }
+
+        periodic_props = Eigen::VectorXi(GRID_DIM);
         for (int pos=0;pos<job->DIM;pos++){
-            periodic_props(pos) = int_props[job->DIM + pos];
+            periodic_props(pos) = int_props[GRID_DIM + pos];
         }
 
         //print grid properties
         std::cout << "Grid properties (Lx = { ";
-        for (int i=0;i<Lx.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             std::cout << Lx(i) << " ";
         }
         std::cout << "}, Nx = { ";
-        for (int i=0;i<Nx.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             std::cout << Nx(i) << " ";
         }
         std::cout << "})." << std::endl;
@@ -73,7 +79,7 @@ void CartesianCustom::hiddenInit(Job* job){
     node_count = 1;
     element_count = 1;
     npe = 1;
-    for (int i=0;i<Nx.rows();i++){
+    for (int i=0;i<GRID_DIM;i++){
         node_count *= (Nx(i)+1);
         element_count *= Nx(i);
         npe *= 2;
@@ -90,8 +96,8 @@ void CartesianCustom::hiddenInit(Job* job){
     //1 -> +1,+0,+0
     //...
     //8 -> +1,+1,+1
-    Eigen::VectorXi onoff = Eigen::VectorXi(job->DIM);
-    A = Eigen::MatrixXi(npe,job->DIM);
+    Eigen::VectorXi onoff = Eigen::VectorXi(GRID_DIM);
+    A = Eigen::MatrixXi(npe,GRID_DIM);
     onoff.setZero();
     for (int n=0; n<npe;n++){
         for (int i=0;i<onoff.rows();i++){
@@ -108,7 +114,7 @@ void CartesianCustom::hiddenInit(Job* job){
     }
 
     //setup node number to node id map
-    Eigen::VectorXi ijk = Eigen::VectorXi(job->DIM);
+    Eigen::VectorXi ijk = Eigen::VectorXi(GRID_DIM);
     int tmp;
     nntoni.resize(node_count);
     for (int i=0; i<node_count; i++){
@@ -120,13 +126,13 @@ void CartesianCustom::hiddenInit(Job* job){
         }
 
         //wrap x for 2D sim, x and y for 3D sim
-        if (job->DIM >= 1 && ijk(0) == Nx(0) && periodic_props(0) == PERIODIC){
+        if (GRID_DIM >= 1 && ijk(0) == Nx(0) && periodic_props(0) == PERIODIC){
             ijk(0) = 0;
         }
-        if (job->DIM >= 2 && ijk(1) == Nx(1) && periodic_props(1) == PERIODIC){
+        if (GRID_DIM >= 2 && ijk(1) == Nx(1) && periodic_props(1) == PERIODIC){
             ijk(1) = 0;
         }
-        if (job->DIM == 3 && ijk(2) == Nx(2) && periodic_props(2) == PERIODIC){
+        if (GRID_DIM == 3 && ijk(2) == Nx(2) && periodic_props(2) == PERIODIC){
             ijk(2) = 0;
         }
 
@@ -173,7 +179,7 @@ void CartesianCustom::hiddenInit(Job* job){
 
     //element volume
     v_e = 1;
-    for (int pos=0;pos<hx.rows();pos++){
+    for (int pos=0;pos<GRID_DIM;pos++){
         v_e *= hx(pos);
     }
 
@@ -227,7 +233,7 @@ int CartesianCustom::whichElement(Job* job, KinematicVector& xIN){
     KinematicVector tmpX = xIN;
     fixPosition(job, tmpX);
     //return standard cartesian which element
-    return CartesianLinear::cartesianWhichElement(job, tmpX, Lx, hx, Nx);
+    return CartesianLinear::cartesianWhichElement(job, tmpX, Lx, hx, Nx, GRID_DIM);
 }
 
 bool CartesianCustom::inDomain(Job* job, KinematicVector& xIN){
@@ -235,7 +241,7 @@ bool CartesianCustom::inDomain(Job* job, KinematicVector& xIN){
     KinematicVector tmpX = xIN;
     fixPosition(job,tmpX);
 
-    for (int i=0;i<tmpX.DIM;i++){
+    for (int i=0;i<GRID_DIM;i++){
         if (!(tmpX[i] <= Lx[i] && tmpX[i] >= 0)) { //if xIn is outside domain, return -1
             return false;
         }
@@ -262,7 +268,7 @@ void CartesianCustom::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::
         //find local coordinates relative to nodal position
         //r = (x_p - x_n)/hx
         rst = tmpVec - x_n(nodeIDs(elementID,n));
-        for (int i=0;i<tmpVec.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             //adjust rst length measures
             rst[i] /= hx[i];
             //standard linear hat function
@@ -289,7 +295,7 @@ void CartesianCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
     }
     for (int n=0;n<nodeIDs.cols();n++){
         //find local coordinates relative to nodal position
-        for (int i=0;i<tmpX.DIM;i++){
+        for (int i=0;i<GRID_DIM;i++){
             //r = (x_p - x_n)/hx
             rst[i] = (tmpX[i] - x_n(nodeIDs(elementID,n),i)) / hx(i);
 
@@ -297,9 +303,12 @@ void CartesianCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
             //evaluate at point
             tmp *= (1 - std::abs(rst(i)));
         }
-        for (int i=0;i<tmpX.rows();i++){
+        for (int i=0;i<GRID_DIM;i++){
             //replace i-direction contribution with sign function
             tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
+        }
+        for (int i=GRID_DIM;i<tmpVec.size();i++){
+            tmpVec(i) = 0;
         }
         nID.push_back(nodeIDs(elementID,n));
         nGRAD.push_back(tmpVec);

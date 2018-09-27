@@ -53,6 +53,7 @@ void CustomDSTModel::init(Job* job, Body* body){
 
         phi_c = fp64_props[12];
         phi_j = fp64_props[13];
+        phi_m = phi_j;
         theta = fp64_props[14];
         alpha = fp64_props[15];
 

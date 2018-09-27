@@ -131,9 +131,15 @@ void Regular2DTaylorCouetteCell::init(Job* job){
         Lx(0) = Ro - Ri;    //radial dimension
         Lx(1) = 2*pi;       //theta dimension
 
-        for (int pos=0;pos<hx.size();pos++){
+        for (int pos=0;pos<GRID_DIM;pos++){
             Nx(pos) = int_props[pos];
             hx(pos) = Lx(pos) / Nx(pos);
+        }
+
+        for (int pos=GRID_DIM;pos<hx.size();pos++){
+            Nx(pos) = 1;
+            hx(pos) = 1;
+            Lx(pos) = 0;
         }
 
         if (int_props.size() >= 3){
@@ -209,7 +215,7 @@ void Regular2DTaylorCouetteCell::linearInit(Job *job){
      * theta - direction
      * /- 0 --- 1 --- 2 --- ... N-1 --- N -/
      */
-    Eigen::VectorXi ijk(job->DIM);
+    Eigen::VectorXi ijk(GRID_DIM);
     int tmp;
     nodeIDs.resize(element_count,npe);
     nodeIDs.setZero();
@@ -343,8 +349,8 @@ void Regular2DTaylorCouetteCell::cubicInit(Job *job) {//called from loading or i
     //1 -> +0,-1,-1
     //...
     //64 -> +2,+2,+2
-    Eigen::VectorXi i_rel = Eigen::VectorXi(job->DIM);
-    A = Eigen::MatrixXi(npe,job->DIM);
+    Eigen::VectorXi i_rel = Eigen::VectorXi(GRID_DIM);
+    A = Eigen::MatrixXi(npe,GRID_DIM);
     i_rel.setOnes();
     i_rel = -1*i_rel;
     for (int n=0; n<npe;n++){
@@ -362,7 +368,7 @@ void Regular2DTaylorCouetteCell::cubicInit(Job *job) {//called from loading or i
     }
 
     //setup element to node map
-    Eigen::VectorXi ijk = Eigen::VectorXi(job->DIM);
+    Eigen::VectorXi ijk = Eigen::VectorXi(GRID_DIM);
     int tmp;
     nodeIDs.resize(element_count,npe);
     nodeIDs.setZero();
@@ -634,7 +640,7 @@ bool Regular2DTaylorCouetteCell::inDomain(Job* job, KinematicVector& xIN){
 }
 
 KinematicVector Regular2DTaylorCouetteCell::nodeIDToPosition(Job* job, int idIN){
-    Eigen::VectorXi ijk(job->DIM);
+    Eigen::VectorXi ijk(GRID_DIM);
     KinematicVector tmpVec(job->JOB_TYPE);
     int tmp = idIN;
     //find i,j,k representation of node id
@@ -642,8 +648,11 @@ KinematicVector Regular2DTaylorCouetteCell::nodeIDToPosition(Job* job, int idIN)
         ijk(i) = tmp % (Nx(i)+1);
         tmp = tmp/(Nx(i)+1);
     }
-    for (int i=0;i<tmpVec.DIM;i++){
+    for (int i=0;i<GRID_DIM;i++){
         tmpVec[i] = hx(i)*ijk(i);
+    }
+    for (int i=GRID_DIM;i<tmpVec.DIM;i++){
+        tmpVec[i] = 0;
     }
 
     tmpVec[0] += Ri;
@@ -680,7 +689,7 @@ void Regular2DTaylorCouetteCell::evaluateBasisFnValue(Job* job, KinematicVector&
 
 
         if (order == LINEAR) {
-            for (int i = 0; i < rtz.DIM; i++) {
+            for (int i = 0; i < GRID_DIM; i++) {
                 //r = (x_p - x_n)/hx
                 rst[i] = (diff_rtz[i]) / hx(i);
 
@@ -688,7 +697,7 @@ void Regular2DTaylorCouetteCell::evaluateBasisFnValue(Job* job, KinematicVector&
                 tmp *= (1 - std::abs(rst[i]));
             }
         } else if (order == CUBIC){
-            for (int i = 0; i < rtz.DIM; i++) {
+            for (int i = 0; i < GRID_DIM; i++) {
                 //r = (x_p - x_n)/hx
                 rst[i] = (diff_rtz[i]); //is scaled when input to s_cubic
 
@@ -738,7 +747,7 @@ void Regular2DTaylorCouetteCell::evaluateBasisFnGradient(Job* job, KinematicVect
         }
 
         if (order == LINEAR) {
-            for (int i = 0; i < rtz.DIM; i++) {
+            for (int i = 0; i < GRID_DIM; i++) {
                 //r = (x_p - x_n)/hx
                 rst[i] = (diff_rtz[i]) / hx(i);
 
@@ -746,15 +755,18 @@ void Regular2DTaylorCouetteCell::evaluateBasisFnGradient(Job* job, KinematicVect
                 //evaluate at point
                 tmp *= (1 - std::abs(rst(i)));
             }
-            for (int i = 0; i < rtz.rows(); i++) {
+            for (int i = 0; i < GRID_DIM; i++) {
                 //replace i-direction contribution with sign function
                 tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i) / std::abs(rst(i)) / hx(i);
+            }
+            for (int i = GRID_DIM; i < tmpVec.DIM; i++){
+                tmpVec(i) = 0;
             }
         } else if (order = CUBIC){
             //find local coordinates relative to nodal position
             //r = (x_p - x_n)
             rst = diff_rtz;
-            for (int i=0;i<xIN.rows();i++){
+            for (int i=0;i<GRID_DIM;i++){
                 //check proximity to edge
                 if (edge_n(nodeIDs(elementID,n),i) == 2) {
                     tmpVec(i) = g_cubic(rst(i), hx(i));
@@ -771,7 +783,7 @@ void Regular2DTaylorCouetteCell::evaluateBasisFnGradient(Job* job, KinematicVect
                 }
             }
 
-            for (int i=0;i<xIN.rows();i++){
+            for (int i=0;i<GRID_DIM;i++){
                 //check proximity to edge
                 if (edge_n(nodeIDs(elementID,n),i) == 2) {
                     tmpVec *= s_cubic(rst(i), hx(i));
@@ -786,6 +798,10 @@ void Regular2DTaylorCouetteCell::evaluateBasisFnGradient(Job* job, KinematicVect
                     tmpVec *= (s_cubic(rst(i), hx(i)) + 2.0*s_cubic(std::abs(rst(i))+hx(i), hx(i)));
                     tmpVec(i) *= 1.0/(s_cubic(rst(i), hx(i)) + 2.0*s_cubic(std::abs(rst(i))+hx(i), hx(i)));
                 }
+            }
+
+            for (int i=GRID_DIM; i < tmpVec.DIM; i++){
+                tmpVec(i) = 0;
             }
         }
 

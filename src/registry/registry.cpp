@@ -42,6 +42,7 @@ Registry<Driver>::Registry() {
     object["DefaultDriver"] = &createInstance<Driver,DefaultDriver>;
     object["ColumnCollapseDriver"] = &createInstance<Driver,ColumnCollapseDriver>;
     object["UserDefinedGravityDriver"] = &createInstance<Driver,UserDefinedGravityDriver>;
+    object["CavityFlowDriver"] = &createInstance<Driver,CavityFlowDriver>;
 }
 
 

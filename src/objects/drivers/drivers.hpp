@@ -87,7 +87,26 @@ public:
     double stop_time;
     KinematicVector gravity;
 
-    void setPressure(Job* job);
+    void init(Job* job);
+    std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    void run(Job* job);
+    void generateGravity(Job* job);
+    void applyGravity(Job* job);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class CavityFlowDriver : public Driver{
+public:
+    CavityFlowDriver(){
+        object_name = "CavityFlowDriver";
+    }
+
+    double stop_time;
+    double Ly, hy;
+    double v_set;
 
     void init(Job* job);
     std::string saveState(Job* job, Serializer* serializer, std::string filepath);

@@ -30,7 +30,7 @@ void CartesianSmoothBox::init(Job* job, Body* body){
     KinematicVector Lx = KinematicVector(job->JOB_TYPE);
     Lx.setZero();
     for (int i=0; i < body->nodes->x.size(); i++){
-        for (int pos=0; pos < body->nodes->x.DIM; pos++){
+        for (int pos=0; pos < job->grid->GRID_DIM; pos++){
             if (body->nodes->x(i,pos) > Lx(pos)){
                 Lx(pos) = body->nodes->x(i,pos);
             }
@@ -43,7 +43,7 @@ void CartesianSmoothBox::init(Job* job, Body* body){
     bcNodalMask.setZero();
 
     for (int i=0;i<len;i++){
-        for (int pos=0;pos<body->nodes->x.DIM;pos++){
+        for (int pos=0;pos<job->grid->GRID_DIM;pos++){
             if (body->nodes->x(i,pos) == 0 || body->nodes->x(i,pos) == Lx(pos)) {
                 bcNodalMask(i,pos) = 1; //only lock normal direction
             }

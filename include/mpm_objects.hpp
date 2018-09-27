@@ -237,6 +237,8 @@ public:
     int node_count;      //number of nodes which define grid
     int element_count;   //number of elements in grid
 
+    int GRID_DIM = -1; //dimension of grid (might be different than simulation dimension)
+
     virtual void init(Job*) = 0; //initialize from Job
 
     virtual void writeHeader(Job*, Body*, Serializer*, std::ofstream&, int) = 0; //write cell types

@@ -213,6 +213,7 @@ class KinematicTensor : public MPMTensor{
 public:
     //KinematicTensor types
     static const int TENSOR_1D = 1, TENSOR_2D = 2, TENSOR_3D = 3, TENSOR_AXISYM = 4;
+    static const int TENSOR_2D_OOP = 5;
 
     //default dimension
     int DIM = TENSOR_MAX_DIM;
@@ -225,6 +226,8 @@ public:
         } else if (TENSOR_TYPE == TENSOR_2D){
             DIM = 2;
         } else if (TENSOR_TYPE == TENSOR_3D){
+            DIM = 3;
+        } else if (TENSOR_TYPE == TENSOR_2D_OOP){
             DIM = 3;
         } else {
             std::cerr << "KinematicTensor doesn't have defined type for input " << TENSOR_TYPE << "." << std::endl;

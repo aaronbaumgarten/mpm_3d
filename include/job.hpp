@@ -31,6 +31,7 @@ public:
     static const int JOB_2D = KinematicTensor::TENSOR_2D;
     static const int JOB_3D = KinematicTensor::TENSOR_3D;
     static const int JOB_AXISYM = KinematicTensor::TENSOR_AXISYM;
+    static const int JOB_2D_OOP = KinematicTensor::TENSOR_2D_OOP;
 
     //time and job type
     double t, dt;
@@ -56,6 +57,8 @@ public:
         } else if (JOB_TYPE == JOB_2D){
             DIM = 2;
         } else if (JOB_TYPE == JOB_3D){
+            DIM = 3;
+        } else if (JOB_TYPE == JOB_2D_OOP){
             DIM = 3;
         } else {
             std::cerr << "Job doesn't have defined type for input " << JOB_TYPE << "." << std::endl;

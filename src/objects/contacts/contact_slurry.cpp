@@ -114,7 +114,7 @@ void SlurryContact::applyRules(Job* job, int SPEC){
 
     int b1 = bodyIDs[0];
     int b2 = bodyIDs[1];
-    int b3 = bodyIDs[3];
+    int b3 = bodyIDs[2];
 
     //look for contacts if there are two bodies
     for (int i = 0; i < contact_normal.size(); i++) {

@@ -36,16 +36,16 @@ void DefaultPoints::init(Job* job, Body* body){
     //v0 initialization
     v0 = v;
 
-    //extent initialization
-    if(job->DIM == 1){
+    //extent initialization (for grid integration)
+    if(job->grid->GRID_DIM == 1){
         for (int i=0;i<v.rows();i++){
             extent[i] = 0.5 * v[i];
         }
-    } else if (job->DIM == 2){
+    } else if (job->grid->GRID_DIM == 2){
         for (int i=0;i<v.rows();i++){
             extent[i] = 0.5 * std::sqrt(v[i]);
         }
-    } else if (job->DIM == 3){
+    } else if (job->grid->GRID_DIM == 3){
         for (int i = 0; i < v.rows(); i++) {
             extent[i] = 0.5 * std::cbrt(v[i]);
         }
@@ -53,7 +53,7 @@ void DefaultPoints::init(Job* job, Body* body){
 
     //A matrix initialization
     int cp = 1;
-    for (int i=0;i<job->DIM;i++){
+    for (int i=0;i<job->grid->GRID_DIM;i++){
         cp *= 2; //square or cube
     }
     //initialize A matrix
@@ -62,8 +62,8 @@ void DefaultPoints::init(Job* job, Body* body){
     //1 -> +1,-1,-1
     //...
     //8 -> +1,+1,+1
-    Eigen::VectorXi onoff = -1*Eigen::VectorXi::Ones(job->DIM);
-    A = Eigen::MatrixXi(cp, job->DIM);
+    Eigen::VectorXi onoff = -1*Eigen::VectorXi::Ones(job->grid->GRID_DIM);
+    A = Eigen::MatrixXi(cp, job->grid->GRID_DIM);
     for (int c=0; c<cp;c++){
         for (int i=0;i<onoff.rows();i++){
             A(c,i) = onoff(i);
@@ -134,20 +134,32 @@ void DefaultPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
         for (int i = 0; i < len; i++) {
             std::getline(fin, line);
             s_vec = Parser::splitString(line, ' ');
-            if (s_vec.size() < (1 + 1 + job->DIM + job->DIM + 1)){
+            if (s_vec.size() == (1 + 1 + job->DIM + job->DIM + 1)) {
+                m[i] = std::stod(s_vec[0]);                 //first column is mass
+                v[i] = std::stod(s_vec[1]);                 //second column is volume
+                for (int pos = 0; pos < job->DIM; pos++) {
+                    x(i, pos) = std::stod(s_vec[2 + pos]);    //following cols are position
+                }
+                for (int pos = 0; pos < job->DIM; pos++) {
+                    x_t(i, pos) = std::stod(s_vec[2 + job->DIM + pos]);     //following cols are velocity
+                }
+                active[i] = std::stod(s_vec[2 + 2 * job->DIM]);
+
+            } else if (s_vec.size() == (1 + 1 + job->grid->GRID_DIM + job->grid->GRID_DIM + 1)) {
+                m[i] = std::stod(s_vec[0]);                 //first column is mass
+                v[i] = std::stod(s_vec[1]);                 //second column is volume
+                for (int pos = 0; pos < job->grid->GRID_DIM; pos++) {
+                    x(i, pos) = std::stod(s_vec[2 + pos]);    //following cols are position
+                }
+                for (int pos = 0; pos < job->grid->GRID_DIM; pos++) {
+                    x_t(i, pos) = std::stod(s_vec[2 + job->grid->GRID_DIM + pos]);     //following cols are velocity
+                }
+                active[i] = std::stod(s_vec[2 + 2 * job->grid->GRID_DIM]);
+
+            } else {
                 std::cerr << "ERROR: Unable to read line: " << file << std::endl;
                 return;
             }
-
-            m[i] = std::stod(s_vec[0]);                 //first column is mass
-            v[i] = std::stod(s_vec[1]);                 //second column is volume
-            for (int pos = 0; pos < job->DIM; pos++){
-                x(i, pos) = std::stod(s_vec[2 + pos]);    //following cols are position
-            }
-            for (int pos = 0; pos < job->DIM; pos++){
-                x_t(i, pos) = std::stod(s_vec[2 + job->DIM + pos]);     //following cols are velocity
-            }
-            active[i] = std::stod(s_vec[2 + 2*job->DIM]);
         }
 
     } else {
@@ -186,8 +198,11 @@ void DefaultPoints::generateMap(Job* job, Body* body, int SPEC) {
         } else if (ith_cpdi == DefaultBody::CPDI_ON) {
             //check that corners are in domain
             for (int c = 0; c < A.rows(); c++) {
-                for (int pos = 0; pos < tmpVec.DIM; pos++){
+                for (int pos = 0; pos < job->grid->GRID_DIM; pos++){
                     tmpVec[pos] = x_i[pos] + 0.5*extent(i)*A(c,pos);
+                }
+                for (int pos = job->grid->GRID_DIM; pos < tmpVec.DIM; pos++){
+                    tmpVec(pos) = 0;
                 }
                 if (!job->grid->inDomain(job, tmpVec)) {
                     //corner out of domain
@@ -217,8 +232,11 @@ void DefaultPoints::generateMap(Job* job, Body* body, int SPEC) {
             valvec.resize(0);
             for (int c = 0; c < A.rows(); c++) {
                 //spread influence
-                for (int pos = 0; pos < tmpVec.DIM; pos++){
+                for (int pos = 0; pos < job->grid->GRID_DIM; pos++){
                     tmpVec[pos] = x_i[pos] + 0.5*extent(i)*A(c,pos);
+                }
+                for (int pos = job->grid->GRID_DIM; pos < tmpVec.DIM; pos++){
+                    tmpVec(pos) = 0;
                 }
                 job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
             }
@@ -236,8 +254,11 @@ void DefaultPoints::generateMap(Job* job, Body* body, int SPEC) {
                 //add values to valvec
                 valvec.resize(0);
 
-                for (int pos = 0; pos < tmpVec.DIM; pos++){
+                for (int pos = 0; pos < job->grid->GRID_DIM; pos++){
                     tmpVec[pos] = x_i[pos] + 0.5*extent(i)*A(c,pos);
+                }
+                for (int pos = job->grid->GRID_DIM; pos < tmpVec.DIM; pos++){
+                    tmpVec(pos) = 0;
                 }
 
                 job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
@@ -245,8 +266,11 @@ void DefaultPoints::generateMap(Job* job, Body* body, int SPEC) {
                 for (int v = 0; v < valvec.size(); v++) {
                     //gradient contribution from corner
                     //G(x) = (S(x+a) - S(x-a))/(2a)
-                    for (int pos = 0; pos < tmpGrad.DIM; pos++){
+                    for (int pos = 0; pos < job->grid->GRID_DIM; pos++){
                         tmpGrad[pos] = valvec[v] / (A.rows() * 0.5 * extent(i)) * A(c,pos);
+                    }
+                    for (int pos = job->grid->GRID_DIM; pos < tmpGrad.DIM; pos++){
+                        tmpGrad[pos] = 0;
                     }
                     gradvec.push_back(tmpGrad);
                 }

@@ -423,6 +423,20 @@ int Configurator::configureJob(Job* job){
                                 job->grid->fp64_props = tmp.fp64_props;
                                 job->grid->int_props = tmp.int_props;
                                 job->grid->str_props = tmp.str_props;
+
+                                //assign grid dimension from job type
+                                if (job->JOB_TYPE == job->JOB_1D){
+                                    job->grid->GRID_DIM = 1;
+                                } else if (job->JOB_TYPE == job->JOB_2D){
+                                    job->grid->GRID_DIM = 2;
+                                } else if (job->JOB_TYPE == job->JOB_3D){
+                                    job->grid->GRID_DIM = 3;
+                                } else if (job->JOB_TYPE == job->JOB_2D_OOP){
+                                    job->grid->GRID_DIM = 2; //this is important, job->DIM =/= job->grid->GRID_DIM
+                                } else {
+                                    std::cerr << "Job doesn't have defined type for input " << job->JOB_TYPE << "." << std::endl;
+                                }
+
                             } else {
                                 //if object is not created, this is fatal
                                 std::cerr << "ERROR: Grid object needs valid \'class\' defined. Exiting." << std::endl;
@@ -618,6 +632,10 @@ int Configurator::configureJob(Job* job){
                                         //setup job and points
                                         job->bodies[id]->points->readFromFile(job, job->bodies[id].get(), filename);
                                         job->activeBodies[id] = 1;
+
+                                        //initialize non-active material/boundary
+                                        job->bodies[id]->activeBoundary = 0;
+                                        job->bodies[id]->activeMaterial = 0;
                                     } else {
                                         //if object is not created, this is fatal
                                         std::cerr << "ERROR: Points object needs valid \'class\' defined. Exiting." << std::endl;

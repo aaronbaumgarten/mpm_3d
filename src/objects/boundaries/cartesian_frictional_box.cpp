@@ -41,11 +41,14 @@ void CartesianFrictionalBox::init(Job* job, Body* body){
     KinematicVector Lx = KinematicVector(job->JOB_TYPE);
     Lx.setZero();
     for (int i=0; i < body->nodes->x.size(); i++){
-        for (int pos=0; pos < body->nodes->x.DIM; pos++){
+        for (int pos=0; pos < job->grid->GRID_DIM; pos++){
             if (body->nodes->x(i,pos) > Lx(pos)){
                 Lx(pos) = body->nodes->x(i,pos);
             }
         }
+    }
+    for (int i=job->grid->GRID_DIM; i<job->DIM; i++){
+        Lx(i) = 0;
     }
 
     //set bounding mask
@@ -58,7 +61,7 @@ void CartesianFrictionalBox::init(Job* job, Body* body){
     bool is_edge = false;
     for (int i=0;i<len;i++){
         is_edge = false;
-        for (int pos=0;pos<body->nodes->x.DIM;pos++){
+        for (int pos=0;pos<job->grid->GRID_DIM;pos++){
             if (body->nodes->x(i,pos) == 0){
                 bcNodalMask(i,pos) = -1; //lower bound
                 is_edge = true;
