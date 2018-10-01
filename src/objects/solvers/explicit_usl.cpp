@@ -113,9 +113,13 @@ void ExplicitUSL::mapPointsToNodes(Job* job){
     Body *body;
     Points *points;
     Nodes *nodes;
+    Eigen::VectorXd pval;
+    Eigen::VectorXd nval;
     KinematicVectorArray pvec;
     MaterialVectorArray nvec;
     MaterialTensorArray tmpMat;
+    double tmpVAL;
+
     for (int b=0;b<job->bodies.size();b++){
         if (job->activeBodies[b] == 0){
             continue;
@@ -128,14 +132,14 @@ void ExplicitUSL::mapPointsToNodes(Job* job){
         nodes->m = body->S * points->m; //m_i = S_ip * m_p
 
         //map momentum
-        for (int i=0;i<points->mx_t.size();i++){
+        for (int i = 0; i < points->mx_t.size(); i++) {
             points->mx_t(i) = points->m(i) * points->x_t(i);
         }
         nodes->mx_t = body->S * points->mx_t;
 
         //calculate velocity
-        for (int i=0;i<nodes->x_t.size();i++){
-            if (nodes->m(i) > 0){
+        for (int i = 0; i < nodes->x_t.size(); i++) {
+            if (nodes->m(i) > 0) {
                 nodes->x_t(i) = nodes->mx_t(i) / nodes->m(i);
             } else {
                 nodes->x_t(i).setZero();
@@ -144,19 +148,61 @@ void ExplicitUSL::mapPointsToNodes(Job* job){
 
         //map body force
         pvec = KinematicVectorArray(points->b.size(), points->b.VECTOR_TYPE);
-        for (int i=0;i<points->b.size();i++){
+        for (int i = 0; i < points->b.size(); i++) {
             pvec(i) = points->m(i) * points->b(i);
         }
         nodes->f = body->S * pvec;
 
         //map divergence of stress
         tmpMat = points->T;
-        for (int i=0;i<tmpMat.size();i++){
+        for (int i = 0; i < tmpMat.size(); i++) {
             tmpMat[i] *= points->v[i];
         }
         nvec = body->gradS.left_multiply_by_tensor(tmpMat); //f_i = v_p T_p * gradS_ip
-        for (int i=0; i<nvec.size(); i++){
-            nodes->f[i] -= KinematicVector(nvec[i],nodes->f.VECTOR_TYPE);
+        for (int i = 0; i < nvec.size(); i++) {
+            nodes->f[i] -= KinematicVector(nvec[i], nodes->f.VECTOR_TYPE);
+        }
+
+        if (job->JOB_TYPE == job->JOB_AXISYM){
+            pval = Eigen::VectorXd(points->x.size());
+
+            //scale s_tt by r and add contribution to f_r
+            for (int i=0;i<pval.rows();i++){
+                pval(i) = tmpMat(i,2,2) / points->x(i,0);
+            }
+            nval = body->S * pval;
+            for (int i=0; i<nval.rows(); i++){
+                nodes->f(i,0) -= nval(i);
+            }
+
+            //scale s_rt by r and add contribution to f_t
+            for (int i=0; i<pval.rows(); i++){
+                pval(i) = tmpMat(i,0,2) / points->x(i,0);
+            }
+            nval = body->S * pval;
+            for (int i=0; i<nval.rows(); i++){
+                nodes->f(i,2) += nval(i);
+            }
+
+            //scale to equivalent 2D problem
+            //adjust integrators for corrected area integral
+            //map mass
+
+            pval = Eigen::VectorXd(points->x.size());
+            for (int i=0;i<points->x.size();i++){
+                pval(i) = points->m(i)/points->x(i,0); // A*rho = v/r * m/v
+            }
+            nval = body->S * pval; //equiv 2D mass
+
+            for (int i=0; i< nval.rows(); i++){
+                if (nval(i) > 0) {
+                    tmpVAL = nval(i) / nodes->m(i); //scaling rule for mass
+                    nodes->m(i) *= tmpVAL;
+                    nodes->f(i) *= tmpVAL;
+                    nodes->mx_t(i) *= tmpVAL;
+                }
+            }
+
         }
     }
     return;
@@ -276,6 +322,8 @@ void ExplicitUSL::calculateStrainRate(Job* job){
     Body* body;
     Points* points;
     Nodes* nodes;
+    KinematicVectorArray pvec;
+
     for (int b=0;b<job->bodies.size();b++){
         if (job->activeBodies[b] == 0){
             continue;
@@ -287,6 +335,15 @@ void ExplicitUSL::calculateStrainRate(Job* job){
         //calculate gradient of nodal velocity at points
         //body->bodyCalcPointGradient(job,points->L,nodes->x_t,Body::SET);
         points->L = body->gradS.tensor_product_transpose(nodes->x_t, MPMSparseMatrixBase::TRANSPOSED);
+
+        //correct L if axisymmetric
+        if (job->JOB_TYPE == job->JOB_AXISYM){
+            pvec = body->S.operate(nodes->x_t, MPMSparseMatrixBase::TRANSPOSED);
+            for (int i=0; i<points->L.size(); i++){
+                points->L(i,0,2) = -pvec(i,2) / points->x(i,0);
+                points->L(i,2,2) = pvec(i,0) / points->x(i,0);
+            }
+        }
     }
     return;
 }

@@ -316,10 +316,12 @@ void CartesianLinear::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
             //evaluate at point
             tmp *= (1 - std::abs(rst(i)));
         }
+
         for (int i=0;i<GRID_DIM;i++){
             //replace i-direction contribution with sign function
             tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
         }
+
         for (int i=GRID_DIM;i<xIN.DIM;i++){
             tmpVec(i) = 0;
         }

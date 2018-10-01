@@ -60,6 +60,8 @@ public:
             DIM = 3;
         } else if (JOB_TYPE == JOB_2D_OOP){
             DIM = 3;
+        } else if (JOB_TYPE == JOB_AXISYM){
+            DIM = 3;
         } else {
             std::cerr << "Job doesn't have defined type for input " << JOB_TYPE << "." << std::endl;
         }

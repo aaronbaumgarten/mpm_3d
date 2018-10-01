@@ -87,9 +87,20 @@ void BarotropicViscousFluid::calculateStress(Job* job, Body* body, int SPEC){
     KinematicVector delta = KinematicVector(job->JOB_TYPE);
 
     //calculate nodal volume integral
-    v_i = body->S * body->points->v;
+    if (job->JOB_TYPE == job->JOB_AXISYM){
+        //need to adjust point integration area
+        Eigen::VectorXd A_tmp = body->points->v;
+        for (int i=0; i<A_tmp.rows(); i++){
+            A_tmp(i) /= body->points->x(i,0);
+        }
+        v_i = body->S * A_tmp;
+    } else {
+        //otherwise integration area and volume are the same
+        v_i = body->S * body->points->v;
+    }
+
     for (int i=0; i<V_i.rows(); i++){
-        tmpNum = (v_i(i) - V_i(i))/V_i(i);
+        tmpNum = (v_i(i) - V_i(i))/(V_i(i));
         e(i) = std::max(0.0,tmpNum);
     }
 

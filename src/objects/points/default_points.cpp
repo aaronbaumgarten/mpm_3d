@@ -41,6 +41,10 @@ void DefaultPoints::init(Job* job, Body* body){
         for (int i=0;i<v.rows();i++){
             extent[i] = 0.5 * v[i];
         }
+    } else if (job->JOB_TYPE == job->JOB_AXISYM){
+        for (int i=0;i<v.rows();i++){
+            extent[i] = 0.5 * std::sqrt(v[i]/x(i,0));
+        }
     } else if (job->grid->GRID_DIM == 2){
         for (int i=0;i<v.rows();i++){
             extent[i] = 0.5 * std::sqrt(v[i]);
@@ -159,6 +163,12 @@ void DefaultPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
             } else {
                 std::cerr << "ERROR: Unable to read line: " << file << std::endl;
                 return;
+            }
+
+            //correct volume and mass for axisymmetric simulation
+            if (job->JOB_TYPE == job->JOB_AXISYM){
+                m[i] *= x(i,0);
+                v[i] *= x(i,0);
             }
         }
 

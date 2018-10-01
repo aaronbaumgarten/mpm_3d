@@ -229,6 +229,8 @@ public:
             DIM = 3;
         } else if (TENSOR_TYPE == TENSOR_2D_OOP){
             DIM = 3;
+        } else if (TENSOR_TYPE == TENSOR_AXISYM){
+            DIM = 3;
         } else {
             std::cerr << "KinematicTensor doesn't have defined type for input " << TENSOR_TYPE << "." << std::endl;
         }

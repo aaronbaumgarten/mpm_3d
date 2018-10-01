@@ -207,6 +207,8 @@ public:
             DIM = 3;
         } else if (VECTOR_TYPE == VECTOR_2D_OOP){
             DIM = 3;
+        } else if (VECTOR_TYPE == VECTOR_AXISYM){
+            DIM = 3;
         } else {
             std::cerr << "KinematicVector doesn't have defined type for input " << VECTOR_TYPE << "." << std::endl;
         }

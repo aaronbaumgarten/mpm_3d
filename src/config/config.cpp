@@ -433,6 +433,8 @@ int Configurator::configureJob(Job* job){
                                     job->grid->GRID_DIM = 3;
                                 } else if (job->JOB_TYPE == job->JOB_2D_OOP){
                                     job->grid->GRID_DIM = 2; //this is important, job->DIM =/= job->grid->GRID_DIM
+                                } else if (job->JOB_TYPE == job->JOB_AXISYM){
+                                    job->grid->GRID_DIM = 2; //this is important, job->DIM =/= job->grid->GRID_DIM
                                 } else {
                                     std::cerr << "Job doesn't have defined type for input " << job->JOB_TYPE << "." << std::endl;
                                 }

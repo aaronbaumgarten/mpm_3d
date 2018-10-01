@@ -205,7 +205,15 @@ void CartesianBoxCustom::generateRules(Job* job, Body* body){
     }
 
     //setup traction
-    v_n = body->S * body->points->v;
+    if (job->JOB_TYPE == job->JOB_AXISYM) {
+        Eigen::VectorXd A_tmp = Eigen::VectorXd(body->points->x.size());
+        for (int i = 0; i < body->points->x.size(); i++){
+            A_tmp(i) = body->points->v(i) / body->points->x(i,0); //in axisym simulations area of integration equals volume/r
+        }
+        v_n = body->S * A_tmp;
+    } else {
+        v_n = body->S * body->points->v;
+    }
 
     //wrap particles about appropriate axes for periodic BCs
     for (int i=0;i<body->points->x.size();i++){
