@@ -768,7 +768,7 @@ void Regular2DTaylorCouetteCell::evaluateBasisFnGradient(Job* job, KinematicVect
             for (int i = GRID_DIM; i < tmpVec.DIM; i++){
                 tmpVec(i) = 0;
             }
-        } else if (order = CUBIC){
+        } else if (order == CUBIC){
             //find local coordinates relative to nodal position
             //r = (x_p - x_n)
             rst = diff_rtz;

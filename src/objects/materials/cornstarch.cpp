@@ -105,7 +105,7 @@ void Cornstarch::init(Job* job, Body* body){
 
 /*----------------------------------------------------------------------------*/
 //
-inline double Cornstarch::getPhiM(double tau) {
+double Cornstarch::getPhiM(double tau) {
     if (tau > 0) {
         //std::cout << std::exp(-1.45 * 2.0 * F_0 / (3.0 * M_PI * grains_d * grains_d * tau)) << std::endl;
         return phi_j_0 + (phi_j_mu - phi_j_0) * std::exp(-1.45 * 2.0 * F_0 / (3.0 * M_PI * grains_d * grains_d * tau));

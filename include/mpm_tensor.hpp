@@ -10,6 +10,7 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Dense>
 #include <iostream>
+#include <array>
 
 /*----------------------------------------------------------------------------*/
 //Eigen::Map object which interfaces with KinematicTensor object.
@@ -49,6 +50,7 @@ public:
             buffer[i] = other.data_ptr[i];
         }
         data_ptr = buffer.data(); //make sure not to copy stale pointer
+        return *this;
     }
 
     MPMTensor& operator= (const MPMTensor&& other){
@@ -56,6 +58,7 @@ public:
             buffer[i] = other.data_ptr[i];
         }
         data_ptr = buffer.data(); //make sure not to copy stale pointer
+        return *this;
     }
 
     //set standard tensor length
