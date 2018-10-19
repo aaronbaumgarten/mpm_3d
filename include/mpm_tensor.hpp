@@ -7,8 +7,10 @@
 #define MPM_V2_TENSOR_HPP
 
 #include <stdlib.h>
-#include <eigen3/Eigen/Core>
-#include <eigen3/Eigen/Dense>
+//#include <eigen3/Eigen/Core>
+//#include <eigen3/Eigen/Dense>
+#include <Eigen/Core>
+#include <Eigen/Dense>
 #include <iostream>
 #include <array>
 

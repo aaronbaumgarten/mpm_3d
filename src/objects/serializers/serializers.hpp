@@ -75,16 +75,27 @@ public:
     int plen, nlen;
     Body* currentBody;
 
-    void init(Job* job);
-    std::string saveState(Job* job);
-    int loadState(Job* job, std::string fullpath);
-    int writeFrame(Job*);
+    virtual void init(Job* job);
+    virtual std::string saveState(Job* job);
+    virtual int loadState(Job* job, std::string fullpath);
+    virtual int writeFrame(Job*);
 
-    void writeDefaultPointHeader(Job* job, Body* body, std::ofstream& pfile, int SPEC);
-    void writeDefaultNodeHeader(Job* job, Body* body, std::ofstream& nfile, int SPEC);
-    void writeScalarArray(Eigen::VectorXd& scalarArray, std::string scalarName);
-    void writeVectorArray(MPMVectorArray& vectorArray, std::string vectorName);
-    void writeTensorArray(MPMTensorArray& tensorArray, std::string tensorName);
+    virtual void writeDefaultPointHeader(Job* job, Body* body, std::ofstream& pfile, int SPEC);
+    virtual void writeDefaultNodeHeader(Job* job, Body* body, std::ofstream& nfile, int SPEC);
+    virtual void writeScalarArray(Eigen::VectorXd& scalarArray, std::string scalarName);
+    virtual void writeVectorArray(MPMVectorArray& vectorArray, std::string vectorName);
+    virtual void writeTensorArray(MPMTensorArray& tensorArray, std::string tensorName);
+};
+
+class MinimalVTK : public DefaultVTK {
+public:
+    //default constructor
+    MinimalVTK(){
+        object_name = "MinimalVTK";
+        mainpath = "";
+    }
+
+    int writeFrame(Job*);
 };
 
 #endif //MPM_V3_SERIALIZERS_HPP

@@ -90,17 +90,46 @@ void SlurryMixture::init(Job* job) {
 
 void SlurryMixture::generateRules(Job* job){
     //set porosity from solid mass
-    for (int i=0;i<n.rows();i++){
-        //n = 1 - phi
-        n(i) = 1 - (job->bodies[solid_body_id]->nodes->m(i) / (job->grid->nodeVolume(job,i)*grains_rho));
+    if (job->JOB_TYPE == job->JOB_AXISYM){
+        Eigen::MatrixXd pval = Eigen::VectorXd(job->bodies[solid_body_id]->points->x.size());
+        Eigen::MatrixXd nval = Eigen::VectorXd(job->bodies[solid_body_id]->nodes->x.size());
 
-        if (n(i) < 0.2){
-            n(i) = 0.2; //keep packing from overestimates...
+        //adjust mass to 2D integral of density
+        for (int i=0;i<job->bodies[solid_body_id]->points->x.size();i++){
+            pval(i) = job->bodies[solid_body_id]->points->m(i)/job->bodies[solid_body_id]->points->x(i,0); // A*rho = v/r * m/v
         }
-    }
+        nval = job->bodies[solid_body_id]->S * pval;
 
-    //approximate V as integrated liquid volume
-    V = job->bodies[fluid_body_id]->S * job->bodies[fluid_body_id]->points->v;
+        for (int i = 0; i < n.rows(); i++) {
+            //n = 1 - phi
+            n(i) = 1 - (nval(i) / (job->grid->nodeVolume(job, i) * grains_rho));
+
+            if (n(i) < 0.2) {
+                n(i) = 0.2; //keep packing from overestimates...
+            }
+        }
+
+        //approximate volume as liquid volume
+        pval = Eigen::VectorXd(job->bodies[fluid_body_id]->points->x.size());
+        //adjust volume to 2D integral of area
+        for (int i=0;i<job->bodies[fluid_body_id]->points->x.size();i++){
+            pval(i) = job->bodies[fluid_body_id]->points->v(i)/job->bodies[fluid_body_id]->points->x(i,0); // A = v/r
+        }
+        V = job->bodies[fluid_body_id]->S * pval;
+
+    } else {
+        for (int i = 0; i < n.rows(); i++) {
+            //n = 1 - phi
+            n(i) = 1 - (job->bodies[solid_body_id]->nodes->m(i) / (job->grid->nodeVolume(job, i) * grains_rho));
+
+            if (n(i) < 0.2) {
+                n(i) = 0.2; //keep packing from overestimates...
+            }
+        }
+
+        //approximate V as integrated liquid volume
+        V = job->bodies[fluid_body_id]->S * job->bodies[fluid_body_id]->points->v;
+    }
     return;
 }
 

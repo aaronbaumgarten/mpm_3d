@@ -112,6 +112,7 @@ void SlurryFluidPhase::calculateStress(Job* job, Body* body, int SPEC){
 
     Eigen::VectorXd n(body->nodes->x.size());
     Eigen::VectorXd pvec(body->points->x.size());
+    Eigen::VectorXd m1_axi(job->bodies[solid_body_id]->nodes->x.size());
     //Eigen::VectorXd n_p(body->points.x.rows());
     KinematicVectorArray nMat = KinematicVectorArray(body->nodes->x.size(), job->JOB_TYPE);
 
@@ -124,10 +125,18 @@ void SlurryFluidPhase::calculateStress(Job* job, Body* body, int SPEC){
     if (job->JOB_TYPE == job->JOB_AXISYM){
         //need to adjust point integration area
         Eigen::VectorXd A_tmp = body->points->v;
+        Eigen::VectorXd B_tmp = job->bodies[solid_body_id]->points->m;
         for (int i=0; i<A_tmp.rows(); i++){
             A_tmp(i) /= body->points->x(i,0);
         }
         v_i = body->S * A_tmp;
+
+        //need to adjust 2D integral of mass
+        for (int i=0; i<B_tmp.rows(); i++){
+            B_tmp(i) /= job->bodies[solid_body_id]->points->x(i,0);
+        }
+        m1_axi = job->bodies[solid_body_id]->S * B_tmp;
+
     } else {
         //otherwise integration area and volume are the same
         v_i = body->S * body->points->v;
@@ -151,7 +160,11 @@ void SlurryFluidPhase::calculateStress(Job* job, Body* body, int SPEC){
 
         // set ((1-n)*vs + n*vw)
         if (m1 > 0 && m2 > 0) {
-            n(i) = 1 - (m1 / (job->grid->nodeVolume(job,i)*solid_rho));
+            if (job->JOB_TYPE == job->JOB_AXISYM){
+                n(i) = 1 - (m1_axi(i) / (job->grid->nodeVolume(job,i) * solid_rho));
+            } else {
+                n(i) = 1 - (m1 / (job->grid->nodeVolume(job,i)*solid_rho));
+            }
             mv1i = job->bodies[solid_body_id]->nodes->mx_t(i);
             mv2i = body->nodes->mx_t(i);
 
