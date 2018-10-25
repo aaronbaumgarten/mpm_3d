@@ -46,7 +46,7 @@ public:
             buffer[i] = other.data_ptr[i];
         }
         data_ptr = buffer.data(); //make sure not to copy stale pointer
-	return *this;
+        return *this;
     }
 
     MPMVector& operator= (const MPMVector&& other){
@@ -54,7 +54,7 @@ public:
             buffer[i] = other.data_ptr[i];
         }
         data_ptr = buffer.data(); //make sure not to copy stale pointer
-	return *this;
+        return *this;
     }
 
     //set standard vector length

@@ -32,6 +32,7 @@ Registry<Base>::Registry() {
 template<>
 Registry<Serializer>::Registry() {
     object["DefaultVTK"] = &createInstance<Serializer,DefaultVTK>;
+    object["MinimalVTK"] = &createInstance<Serializer,MinimalVTK>;
 }
 
 

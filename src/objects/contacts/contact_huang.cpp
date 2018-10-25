@@ -80,7 +80,16 @@ void ContactHuang::init(Job* job){
 void ContactHuang::generateRules(Job* job){
     //set normal for problem
     //use normal from body 1
-    contact_normal = job->bodies[bodyIDs[0]]->gradS * job->bodies[bodyIDs[0]]->points->m;
+    if (job->JOB_TYPE == job->JOB_AXISYM){
+        Eigen::VectorXd pval = Eigen::VectorXd(job->bodies[bodyIDs[0]]->points->x.size());
+        for (int i=0; i<pval.rows(); i++){
+            pval(i) = job->bodies[bodyIDs[0]]->points->m(i)/job->bodies[bodyIDs[0]]->points->x(i,0);
+        }
+        //calculate normal using 2D integral of density
+        contact_normal = job->bodies[bodyIDs[0]]->gradS * pval;
+    } else {
+        contact_normal = job->bodies[bodyIDs[0]]->gradS * job->bodies[bodyIDs[0]]->points->m;
+    }
     for (int i=0;i<contact_normal.size();i++){
         //normalize
         contact_normal(i) /= contact_normal(i).norm();

@@ -201,6 +201,30 @@ public:
     Eigen::VectorXi periodic_props; //boundary props
     Eigen::VectorXi nntoni; //node number to node id
 
+    virtual void init(Job* job);
+    virtual void hiddenInit(Job* job);
+
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    virtual void fixPosition(Job* job, KinematicVector& xIN);
+    virtual int whichElement(Job* job, KinematicVector& xIN);
+    virtual bool inDomain(Job* job, KinematicVector& xIN);
+
+    virtual void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL);
+    virtual void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class CartesianCubic_Offset : public CartesianCubic{
+public:
+    CartesianCubic_Offset(){
+        object_name = "CartesianCubic_Offset";
+    }
+
+    double x_offset; //this grid really should only be used for axisymmetric simulations
+
     void init(Job* job);
     void hiddenInit(Job* job);
 
@@ -210,6 +234,8 @@ public:
     void fixPosition(Job* job, KinematicVector& xIN);
     int whichElement(Job* job, KinematicVector& xIN);
     bool inDomain(Job* job, KinematicVector& xIN);
+
+    KinematicVector nodeIDToPosition(Job* job, int idIN);
 
     void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL);
     void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD);

@@ -184,6 +184,7 @@ void ExplicitUSL::mapPointsToNodes(Job* job){
                 nodes->f(i,2) += nval(i);
             }
 
+            /*
             //scale to equivalent 2D problem
             //adjust integrators for corrected area integral
             //map mass
@@ -202,6 +203,7 @@ void ExplicitUSL::mapPointsToNodes(Job* job){
                     nodes->mx_t(i) *= tmpVAL;
                 }
             }
+            */
 
         }
     }
