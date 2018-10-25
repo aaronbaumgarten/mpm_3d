@@ -94,7 +94,7 @@ void SlurryGranularPhase::init(Job* job, Body* body){
 
 /*----------------------------------------------------------------------------*/
 //
-inline double SlurryGranularPhase::getBeta(double phi, double phi_eq){
+double SlurryGranularPhase::getBeta(double phi, double phi_eq){
     if (phi > phi_m) {
         return (K_3 * (phi - phi_m) + K_4 * (phi - phi_eq));
     } else {
@@ -130,7 +130,7 @@ void SlurryGranularPhase::calcState(double &gdp, double &p, double &eta_in, doub
     return;
 }
 
-inline double SlurryGranularPhase::getStep(double val, double ub, double lb){
+double SlurryGranularPhase::getStep(double val, double ub, double lb){
     if (val == 0){
         return h;
     } if (val*(1+h) >= ub){
