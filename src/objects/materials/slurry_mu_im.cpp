@@ -20,6 +20,8 @@
 
 #include "materials.hpp"
 
+bool SLURRY_MU_IM_DEBUG = false;
+
 /*----------------------------------------------------------------------------*/
 //
 void SlurryGranularPhase::init(Job* job, Body* body){
@@ -134,7 +136,7 @@ double SlurryGranularPhase::getStep(double val, double ub, double lb){
     if (val == 0){
         return h;
     } if (val*(1+h) >= ub){
-        if (val*(1-h) <= lb){
+        if (val*(1-h) <= lb && SLURRY_MU_IM_DEBUG){
             std::cout << "getStep() OUT OF BOUNDS!" << std::endl;
         }
         return val*(1-h);
@@ -279,7 +281,7 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
             //newton method
             while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
                 k += 1;
-                if (k > 100){
+                if (k > 100 && SLURRY_MU_IM_DEBUG){
                     std::cout << "f1 weak: " << p_k << ", " << r_p << ", " << dr_dp << std::endl;
                 }
 
@@ -321,7 +323,11 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                 } while(std::abs(r_p_tr) >= std::abs(r_p) && lambda_tmp > REL_TOL);
 
                 if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_p_tr << std::endl;
+                    if (SLURRY_MU_IM_DEBUG) {
+                        std::cout
+                                << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. "
+                                << r_p_tr << std::endl;
+                    }
                     p_k = p_kplus;
                     r_p = r_p_tr;
                     break;
@@ -355,7 +361,7 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
             //newton method
             while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
                 k+=1;
-                if (k>100){
+                if (k>100 && SLURRY_MU_IM_DEBUG){
                     std::cout << "f1: " << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << dr.norm() << std::endl;
                 }
                 //calculate equiv shear rate
@@ -417,7 +423,11 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                 //std::cout << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << r_tr.norm() << std::endl;
 
                 if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_tr.norm() << std::endl;
+                    if (SLURRY_MU_IM_DEBUG) {
+                        std::cout
+                                << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. "
+                                << r_tr.norm() << std::endl;
+                    }
                     p_k = p_kplus;
                     tau_bar_k = tau_bar_kplus;
                     r = r_tr;
@@ -453,7 +463,7 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
             //newton method
             while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
                 k += 1;
-                if (k > 100){
+                if (k > 100 && SLURRY_MU_IM_DEBUG){
                     std::cout << "f1,f3 weak: " << p_k << ", " << r_p << ", " << dr_dp << std::endl;
                 }
 
@@ -498,8 +508,12 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
 
                 } while(std::abs(r_p_tr) >= std::abs(r_p) && lambda_tmp > REL_TOL);
 
-                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_p_tr << std::endl;
+                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL) {
+                    if (SLURRY_MU_IM_DEBUG) {
+                        std::cout
+                                << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. "
+                                << r_p_tr << std::endl;
+                    }
                     p_k = p_kplus;
                     r_p = r_p_tr;
                     break;
@@ -534,7 +548,7 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
             //newton method
             while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
                 k+=1;
-                if (k>100){
+                if (k>100 && SLURRY_MU_IM_DEBUG){
                     //std::cout << "f1,f3: " << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << dr.norm() << std::endl;
                     std::cout << "f1,f3: " << p_k << ", " << tau_bar_k << std::endl;
                     std::cout << "       " << r(0) << ", " << r(1) << std::endl;
@@ -606,7 +620,11 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                 } while (r_tr.norm() >= r.norm() && lambda_tmp > REL_TOL);
 
                 if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_tr.norm() << std::endl;
+                    if (SLURRY_MU_IM_DEBUG) {
+                        std::cout
+                                << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. "
+                                << r_tr.norm() << std::endl;
+                    }
                     p_k = p_kplus;
                     tau_bar_k = tau_bar_kplus;
                     r = r_tr;

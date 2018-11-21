@@ -35,7 +35,7 @@ void LaunchedBody::init(Job* job){
     if (fp64_props.size() < 2){
         std::cout << fp64_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 2 properties defined ({launch_speed, launch_velocity}).\n",
+                "%s:%s: Need at least 2 properties defined ({launch_speed, launch_angle}).\n",
                 __FILE__, __func__);
         exit(0);
     } else {

@@ -192,6 +192,32 @@ void CartesianCustom::hiddenInit(Job* job){
         }
     }
 
+    KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
+    //nodal surface integral
+    s_n.resize(x_n.size());
+    s_n.setZero();
+    for (int n=0;n<x_n.size();n++){
+        tmp = n;
+        for (int i=0;i<ijk.rows();i++){
+            ijk(i) = tmp % (Nx(i)+1);
+            tmp = tmp/(Nx(i)+1);
+
+            if (ijk(i) == 0 || ijk(i) == Nx(i)){
+                s_n(n) = 1;
+                for (int pos=0;pos<(GRID_DIM-1);pos++){
+                    s_n(n) *= hx(pos);
+                }
+
+                //approximate adjustment for axisymetric case
+                if (job->JOB_TYPE == job->JOB_AXISYM){
+                    tmpVec = nodeIDToPosition(job, n);
+                    s_n(n) *= tmpVec(0);
+                }
+                break;
+            }
+        }
+    }
+
     return;
 }
 

@@ -34,7 +34,7 @@ public:
     static const int JOB_2D_OOP = KinematicTensor::TENSOR_2D_OOP;
 
     //time and job type
-    double t, dt;
+    double t0, t, dt;
     int JOB_TYPE = JOB_3D;
     int DIM = 3;
 

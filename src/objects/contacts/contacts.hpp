@@ -129,5 +129,19 @@ public:
     void generateRules(Job* job);
 };
 
+/*----------------------------------------------------------------------------*/
+
+class ContactHuang_ReflectedBoundary : public ContactHuang{
+public:
+    ContactHuang_ReflectedBoundary(){
+        object_name = "ContactHuang_ReflectedNormal";
+    }
+
+    KinematicVector Lx;
+
+    void init(Job* job);
+    void generateRules(Job* job);
+};
+
 
 #endif //MPM_V3_CONTACTS_HPP

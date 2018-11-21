@@ -155,6 +155,7 @@ void CartesianLinear::hiddenInit(Job* job){
         }
     }
 
+    KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
     //nodal surface integral
     s_n.resize(x_n.size());
     s_n.setZero();
@@ -168,6 +169,12 @@ void CartesianLinear::hiddenInit(Job* job){
                 s_n(n) = 1;
                 for (int pos=0;pos<(GRID_DIM-1);pos++){
                     s_n(n) *= hx(pos);
+                }
+
+                //approximate adjustment for axisymetric case
+                if (job->JOB_TYPE == job->JOB_AXISYM){
+                    tmpVec = nodeIDToPosition(job, n);
+                    s_n(n) *= tmpVec(0);
                 }
                 break;
             }

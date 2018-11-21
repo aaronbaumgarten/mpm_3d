@@ -115,10 +115,11 @@ public:
     static const int PERIODIC           = 3;
     static const int DRIVEN_VELOCITY    = 4;
     static const int DRIVEN_TRACTION    = 5;
+    static const int DRIVEN_VELOCITY_BOUNDED_TRACTION = 6;
 
-    double mu_f;
+    double mu_f, tau_max;
     KinematicVectorArray v_set;
-    KinematicVector Lx;
+    KinematicVector Lx_min, Lx_max; //just for axisym...
     Eigen::VectorXi limit_props;
     KinematicVectorArray bcNodalMask, bcNodalForce;
     MaterialTensorArray tmp;

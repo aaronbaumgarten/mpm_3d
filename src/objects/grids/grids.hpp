@@ -231,14 +231,10 @@ public:
     std::string saveState(Job* job, Serializer* serializer, std::string filepath);
     int loadState(Job* job, Serializer* serializer, std::string fullpath);
 
-    void fixPosition(Job* job, KinematicVector& xIN);
     int whichElement(Job* job, KinematicVector& xIN);
     bool inDomain(Job* job, KinematicVector& xIN);
 
     KinematicVector nodeIDToPosition(Job* job, int idIN);
-
-    void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL);
-    void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD);
 };
 
 /*----------------------------------------------------------------------------*/

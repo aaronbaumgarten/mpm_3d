@@ -7,5 +7,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_cubic_custom.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/gmsh_tri2D.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/regular_2D_taylor_couette.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_cubic_offset.cpp
         PARENT_SCOPE
         )

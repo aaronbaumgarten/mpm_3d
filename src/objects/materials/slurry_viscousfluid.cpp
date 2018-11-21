@@ -190,6 +190,15 @@ void SlurryFluidPhase::calculateStress(Job* job, Body* body, int SPEC){
     //calculate divergence of ((1-n)*vs + n*vw)
     pvec = body->gradS.dot(nMat, MPMSparseMatrixBase::TRANSPOSED);
 
+    //adjust pvec for axisym case
+    if (job->JOB_TYPE == job->JOB_AXISYM){
+        KinematicVectorArray tmpVec(body->points->x.size(),body->points->x.VECTOR_TYPE);
+        tmpVec = body->S.operate(nMat, MPMSparseMatrixBase::TRANSPOSED);
+        for (int p=0; p<pvec.rows(); p++){
+            pvec(p) += tmpVec(p,0)/body->points->x(p,0);
+        }
+    }
+
     MaterialTensor tmpMat;
     double eta; //fluid viscosity change w/ phi
 
@@ -249,7 +258,7 @@ void SlurryFluidPhase::calculateStress(Job* job, Body* body, int SPEC){
 
 void SlurryFluidPhase::assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC){
     body->points->T(idIN) = stressIN;
-    J(idIN) = std::exp(-stressIN.trace()/(K*3.0)); //p = K*log(J)
+    J(idIN) = std::exp(stressIN.trace()/(K*3.0)); //p = -K*log(J)
     return;
 }
 

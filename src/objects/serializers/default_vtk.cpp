@@ -38,6 +38,10 @@ void DefaultVTK::init(Job* job){
         sampledFrames = 0;
         t_last_frame = 0;
 
+        //set buffer size to zero (see https://stackoverflow.com/questions/16605233/how-to-disable-buffering-on-a-stream)
+        //pfile.rdbuf()->pubsetbuf(0, 0);
+        //nfile.rdbuf()->pubsetbuf(0, 0);
+
         printf("Serializer properties (frameDirectory = %s, outputDirectory = %s, outputName = %s, sampleRate = %g).\n",
                frameDirectory.c_str(), outputDirectory.c_str(), outputName.c_str(), sampleRate);
     }
@@ -116,7 +120,7 @@ void DefaultVTK::writeDefaultNodeHeader(Job *job, Body *body, std::ofstream &nfi
 
 int DefaultVTK::writeFrame(Job* job){
     if ((job->t - t_last_frame) >= (1.0/sampleRate) || sampledFrames == 0){ //job->t >= sampledFrames/sampleRate){
-        t_last_frame = sampledFrames/sampleRate;
+        t_last_frame = job->t0 + sampledFrames/sampleRate;
         sampledFrames += 1;
         //write frame for each body
         for (int b=0;b<job->bodies.size();b++) {
@@ -126,7 +130,8 @@ int DefaultVTK::writeFrame(Job* job){
             std::stringstream ss;
             ss << "fpd." << job->bodies[b]->id << "." << job->bodies[b]->name << "." << std::setw(10) << std::setfill('0') << (sampledFrames-1) << ".vtk";
             pfilename = ss.str();
-            pfile = std::ofstream(frameDirectory+pfilename,std::ios::trunc);
+            //pfile = std::ofstream(frameDirectory+pfilename,std::ios::trunc);
+            pfile.open(frameDirectory+pfilename,std::ios::trunc);
 
             ss.str(std::string());
             ss.clear();
@@ -134,7 +139,8 @@ int DefaultVTK::writeFrame(Job* job){
             //open node file
             ss << "fnd." << job->bodies[b]->id << "." << job->bodies[b]->name << "." << std::setw(10) << std::setfill('0') << (sampledFrames-1) << ".vtk";
             nfilename = ss.str();
-            nfile = std::ofstream(frameDirectory+nfilename,std::ios::trunc);
+            //nfile = std::ofstream(frameDirectory+nfilename,std::ios::trunc);
+            nfile.open(frameDirectory+nfilename,std::ios::trunc);
 
             //set length of frame data
             plen = job->bodies[b]->points->x.size();
@@ -181,7 +187,9 @@ int DefaultVTK::writeFrame(Job* job){
             }
 
             pfile.close();
+            pfile.clear();
             nfile.close();
+            nfile.clear();
         }
 
         return 1;

@@ -117,4 +117,16 @@ public:
     void init(Job* job);
 };
 
+/*----------------------------------------------------------------------------*/
+
+class PrestressedBody : public DefaultBody{
+public:
+    PrestressedBody(){
+        object_name = "PrestressedBody";
+    }
+
+    MaterialTensor T;
+    void init(Job* job);
+};
+
 #endif //MPM_V3_BODIES_HPP
