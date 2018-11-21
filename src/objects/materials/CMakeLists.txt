@@ -6,6 +6,5 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/viscousfluid.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/slurry_viscousfluid.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/cornstarch.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/custom_dstmodel.cpp
         PARENT_SCOPE
         )
