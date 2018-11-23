@@ -1,4 +1,39 @@
-\BOOKMARK [0][-]{chapter.1}{Installation}{}% 1
-\BOOKMARK [1][-]{section.1.1}{Downloading the Code}{chapter.1}% 2
-\BOOKMARK [1][-]{section.1.2}{Dependencies}{chapter.1}% 3
-\BOOKMARK [1][-]{section.1.3}{Building the Code}{chapter.1}% 4
+\BOOKMARK [0][-]{chapter.1}{Overview}{}% 1
+\BOOKMARK [0][-]{chapter.2}{Installation}{}% 2
+\BOOKMARK [1][-]{section.2.1}{Downloading the Code}{chapter.2}% 3
+\BOOKMARK [1][-]{section.2.2}{Code Dependencies}{chapter.2}% 4
+\BOOKMARK [1][-]{section.2.3}{Building the Code}{chapter.2}% 5
+\BOOKMARK [0][-]{chapter.3}{Running Simulations}{}% 6
+\BOOKMARK [1][-]{section.3.1}{Problem Definition}{chapter.3}% 7
+\BOOKMARK [1][-]{section.3.2}{Points File}{chapter.3}% 8
+\BOOKMARK [1][-]{section.3.3}{Output Directory}{chapter.3}% 9
+\BOOKMARK [1][-]{section.3.4}{Configuration File}{chapter.3}% 10
+\BOOKMARK [1][-]{section.3.5}{Calling Program}{chapter.3}% 11
+\BOOKMARK [1][-]{section.3.6}{Visualizing Results}{chapter.3}% 12
+\BOOKMARK [0][-]{chapter.4}{Code Framework and Customization}{}% 13
+\BOOKMARK [1][-]{section.4.1}{General Problem Definition}{chapter.4}% 14
+\BOOKMARK [1][-]{section.4.2}{main Program}{chapter.4}% 15
+\BOOKMARK [1][-]{section.4.3}{Job Class}{chapter.4}% 16
+\BOOKMARK [1][-]{section.4.4}{Registry and Configurator Classes}{chapter.4}% 17
+\BOOKMARK [1][-]{section.4.5}{MPMObjects Class}{chapter.4}% 18
+\BOOKMARK [1][-]{section.4.6}{Serializer Class}{chapter.4}% 19
+\BOOKMARK [1][-]{section.4.7}{Driver Class}{chapter.4}% 20
+\BOOKMARK [1][-]{section.4.8}{Solver Class}{chapter.4}% 21
+\BOOKMARK [1][-]{section.4.9}{Grid Class}{chapter.4}% 22
+\BOOKMARK [1][-]{section.4.10}{Contact Class}{chapter.4}% 23
+\BOOKMARK [1][-]{section.4.11}{Body Class}{chapter.4}% 24
+\BOOKMARK [1][-]{section.4.12}{Points Class}{chapter.4}% 25
+\BOOKMARK [1][-]{section.4.13}{Nodes Class}{chapter.4}% 26
+\BOOKMARK [1][-]{section.4.14}{Material Class}{chapter.4}% 27
+\BOOKMARK [1][-]{section.4.15}{Boundary Class}{chapter.4}% 28
+\BOOKMARK [0][-]{chapter.5}{User-Defined Classes}{}% 29
+\BOOKMARK [1][-]{section.5.1}{Serializers}{chapter.5}% 30
+\BOOKMARK [1][-]{section.5.2}{Drivers}{chapter.5}% 31
+\BOOKMARK [1][-]{section.5.3}{Solvers}{chapter.5}% 32
+\BOOKMARK [1][-]{section.5.4}{Grids}{chapter.5}% 33
+\BOOKMARK [1][-]{section.5.5}{Contacts}{chapter.5}% 34
+\BOOKMARK [1][-]{section.5.6}{Bodies}{chapter.5}% 35
+\BOOKMARK [1][-]{section.5.7}{Points}{chapter.5}% 36
+\BOOKMARK [1][-]{section.5.8}{Nodes}{chapter.5}% 37
+\BOOKMARK [1][-]{section.5.9}{Materials}{chapter.5}% 38
+\BOOKMARK [1][-]{section.5.10}{Boundaries}{chapter.5}% 39
