@@ -189,7 +189,7 @@ The `\texttt{body}' objects represent continuum bodies within the simulated doma
 \begin{equation} \label{eq:stress_pde}
 \dot{\Tensor{\sigma}} = \hat{\dot{\Tensor{\sigma}}}(\Tensor{\varepsilon},\dot{\Tensor{\varepsilon}},\Tensor{w},\Tensor{\sigma},\xi)
 \end{equation}
-The `\texttt{boundary-class}', here set to `\texttt{CartesianBox}', defines the boundary conditions for the body.
+The `\texttt{boundary-class}', here set to `\texttt{CartesianBox}', defines the boundary conditions for the body. A full list of body, points, nodes, material, and boundary options can be found in section \ref{scn:udc}.
 
 The final objects defined in the configuration file are the `\texttt{contact}' objects,
 \begin{lstlisting}[language={}, escapeinside={(*}{*)}]
@@ -202,9 +202,17 @@ The final objects defined in the configuration file are the `\texttt{contact}' o
         str-properties = {"block_0","block_1"}
     }
 \end{lstlisting}
-The `\texttt{contact}' object, here set to `\texttt{ContactHuang}' defines the kinematic constraints on bodies due to their interactions with other bodies in the simulation. The `\texttt{ContactHuang}' contact class implements the constraints given in \cite{huang2011} and takes in a single floating point property and two string properties (the coefficient of friction between the two bodies and the `\texttt{name}' of the bodies). If more than one contact rule is given (required if there are more than two bodies in a simulation), then the constraints will be applied in the order they appear in the configuration file.
-If everything has been written correctly (including the points files), then the simulation is ready to run!
+The `\texttt{contact}' object, here set to `\texttt{ContactHuang}', defines the kinematic constraints on bodies due to their interactions with other bodies in the simulation. The `\texttt{ContactHuang}' contact class implements the constraints given in \cite{huang2011} and takes in a single floating point property and two string properties (the coefficient of friction between the two bodies and the `\texttt{name}' of the bodies). If more than one contact rule is given (required if there are more than two bodies in a simulation), then the constraints will be applied in the order they appear in the configuration file. A full list of contact options can be found in section \ref{scn:contacts}.
+
+If everything has been written correctly (including the points files), then the simulation should be ready to run!
 
 \section{Calling Program}
+To run the simulation, simply call \texttt{mpm\_v3} from the command line as follows,
+
+\texttt{\$ ./mpm\_v3 -c CONFIGURATION-FILE}
+
+The `\texttt{-c}' flag calls \texttt{mpm\_3d} to read the configuration file as input for the simulation. Other options may be implemented in the future.
+
 
 \section{Visualizing Results}
+The default output from \texttt{mpm\_3d} is a series of simulation snapshots in the form of `\texttt{.vtk}' files. There are several open-source software packages which can be used to view and interact with the data in these files including ParaView by Kitware and VisIt by Lawrence Livermore National Labs.

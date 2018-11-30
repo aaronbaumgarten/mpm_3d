@@ -4,6 +4,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_smooth_box.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_frictional_box.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_box_custom.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/regular_2D_taylor_couette_custom.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/assigned_velocity.cpp
         PARENT_SCOPE
         )

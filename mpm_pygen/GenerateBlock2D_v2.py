@@ -16,12 +16,12 @@ print "files named"
 
 #grid properties
 #Ly = Lx = Lz = 0.4
-Lx = 0.15
-Ly = 0.225
+Lx = 0.05
+Ly = 0.035
 Lz = 1.0
 #Ne = 40
-Nx = 150
-Ny = 225
+Nx = 50
+Ny = 35
 Nz = 1
 lmpp = 2
 Lz = 1.0*lmpp
@@ -32,13 +32,13 @@ print "grid created"
 g = -9.81
 
 # free block properties
-block_properties = { 'rho': 82202 }
+block_properties = { 'rho': 1e5 }
 block_width = 1.0
 block_height = 0.5
 block_depth = 1.0
 hx = Lx/Nx
-block_primitive = Primitives3d.Box(0, 0.0095,
-                                 0.207, 0.222,
+block_primitive = Primitives3d.Box(0, 0.003,
+                                 0.032, 0.035,
                                  0, 1.0,
                                  )
 block_body = CSGTree3d.Node(block_primitive)

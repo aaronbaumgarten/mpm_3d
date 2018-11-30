@@ -48,6 +48,12 @@ void Cornstarch::init(Job* job, Body* body){
         K_5 = fp64_props[7];
         K_6 = fp64_props[8];
 
+        if (fp64_props.size() > 18){
+            K_7 = fp64_props[18];
+        } else {
+            K_7 = 0;
+        }
+
         phi_j = fp64_props[9];
         phi_c = fp64_props[10];
         Delta = fp64_props[11];
@@ -668,11 +674,10 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
             //update history
             phi_m_vec(i) = phi_m;
 
+            //K_6 has units of (Pa s)^(-1)
             H = (tau_bar/tau_star) * std::sqrt(tau_bar/tau_star);
-            S = (K_5 * gammap_dot(i) + (1-Delta) * K_6 * std::pow(phi_j - phi(i), alpha) * tau_bar/eta_0);
+            S = (K_5 * gammap_dot(i) + (1-Delta) * K_6 * (std::pow(phi_j - phi(i), alpha) + K_7 * std::pow(phi_j - phi(i), 0.1)) * tau_bar); ///eta_0);
 
-            //H = K_5;
-            //S = K_5*(gammap_dot(i) + (1-Delta) * K_6 * std::pow(phi_j - phi(i), alpha) * tau_bar/eta_0)*(tau_star/tau_bar) * std::sqrt(tau_star/tau_bar);
 
             if (phi(i) > phi_j){
                 c(i) = 1;

@@ -138,26 +138,13 @@ public:
 
 /*----------------------------------------------------------------------------*/
 
-class Regular2DTaylorCouetteCustom : public Boundary{
+class AssignedVelocity : public Boundary{
 public:
-    Regular2DTaylorCouetteCustom(){
-        object_name = "Regular2DTaylorCouetteCustom";
-        inner_fp64_prop = 0;
-        outer_fp64_prop = 0;
+    AssignedVelocity(){
+        object_name = "AssignedVelocity";
     }
 
-    static const int NO_SLIP_WALL       = 0;
-    static const int FRICTION_LESS_WALL = 1;
-    static const int FRICTIONAL_WALL    = 2;
-    static const int DRIVEN_VELOCITY    = 3;
-
-    int inner_int_prop, outer_int_prop;
-    double inner_fp64_prop, outer_fp64_prop;
-    Eigen::VectorXi bcNodalMask;
-    KinematicVectorArray bcNodalForce, bcReactionForce;
-    MaterialTensorArray tmp;
-    MaterialVectorArray nvec;
-    KinematicVectorArray pvec;
+    KinematicVector v_set;
 
     void init(Job* job, Body* body);
     void generateRules(Job* job, Body* body);

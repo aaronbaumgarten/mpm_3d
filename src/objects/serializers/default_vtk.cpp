@@ -119,7 +119,7 @@ void DefaultVTK::writeDefaultNodeHeader(Job *job, Body *body, std::ofstream &nfi
 }
 
 int DefaultVTK::writeFrame(Job* job){
-    if ((job->t - t_last_frame) >= (1.0/sampleRate) || sampledFrames == 0){ //job->t >= sampledFrames/sampleRate){
+    if ((job->t - job->t0) >= (sampledFrames/sampleRate) || sampledFrames == 0){ //job->t >= sampledFrames/sampleRate){
         t_last_frame = job->t0 + sampledFrames/sampleRate;
         sampledFrames += 1;
         //write frame for each body

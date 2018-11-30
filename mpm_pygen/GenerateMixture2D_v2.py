@@ -16,11 +16,11 @@ print "files named"
 
 #grid properties
 #Ly = Lx = Lz = 0.4
-Lx = 0.036
-Ly = 0.03
+Lx = 0.05
+Ly = 0.035
 #Ne = 40
-Nx = 12
-Ny = 10
+Nx = 50
+Ny = 35
 Nz = 1
 lmpp = 2
 Lz = Nz*lmpp
@@ -30,7 +30,7 @@ print "grid created"
 
 # global properties
 g = -9.81
-phi = 0.45
+phi = 0.47
 
 # grain properties
 bulk_properties = { 'rho': 1620*phi }
@@ -54,7 +54,7 @@ bulk_point_array = grid.point_array
 
 
 # fluid properties
-fluid_properties = { 'rho': 1000.0 }
+fluid_properties = { 'rho': 1620.0 }
 fluid_width = Lx
 fluid_height = 0.08
 #fluid_depth = fluid_depth#Ly

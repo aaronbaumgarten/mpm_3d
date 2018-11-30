@@ -19,8 +19,8 @@ print "files named"
 Lx = 0.036
 Ly = 0.03
 #Ne = 40
-Nx = 24
-Ny = 20
+Nx = 144
+Ny = 120
 Nz = 1
 lmpp = 2
 Lz = Nz*lmpp
@@ -30,7 +30,7 @@ print "grid created"
 
 # global properties
 g = -9.81
-phi = 0.51
+phi = 0.45
 
 # grain properties
 bulk_properties = { 'rho': 1620*phi }
@@ -54,7 +54,7 @@ bulk_point_array = grid.point_array
 
 
 # fluid properties
-fluid_properties = { 'rho': 1000.0 }
+fluid_properties = { 'rho': 1620.0 }
 fluid_width = Lx
 fluid_height = 0.08
 #fluid_depth = fluid_depth#Ly
@@ -82,13 +82,13 @@ with open(bulk_filename, 'w') as b, open(fluid_filename, 'w') as f:
     b.write("%d\n" % nb1)
     f.write("%d\n" % nb2)
     for p in bulk_point_array:
-        b.write("%g %g %g %g %g %g %g %g %i\n" % (bulk_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, 0, 0, 0, ((Lx - p.x)*1.0), 1))
+        b.write("%g %g %g %g %g %g %g %g %i\n" % (bulk_properties['rho']*grid.material_point_volume, grid.material_point_volume, p.x, p.y, 0, 0, 0, ((Lx - p.x)*0.0), 1))
     for p in fluid_point_array:
         pointMass = fluid_properties['rho']*grid.material_point_volume
         pointVolume = grid.material_point_volume
         if bulk_primitive.encompasses(p):
             pointMass *= 1.0-phi
             #pointVolume *= 1.0-phi
-        f.write("%g %g %g %g %g %g %g %g %i\n" % (pointMass, pointVolume, p.x, p.y, 0, 0, 0, ((Lx - p.x)*1.0), 1))
+        f.write("%g %g %g %g %g %g %g %g %i\n" % (pointMass, pointVolume, p.x, p.y, 0, 0, 0, ((Lx - p.x)*0.0), 1))
 
 print "file written"

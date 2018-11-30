@@ -77,6 +77,7 @@ Registry<Contact>::Registry() {
     object["SlurryContact"] = &createInstance<Contact,SlurryContact>;
     object["SlurryContact_ReflectedBoundary"] = &createInstance<Contact,SlurryContact_ReflectedBoundary>;
     object["ContactHuang_ReflectedBoundary"] = &createInstance<Contact,ContactHuang_ReflectedBoundary>;
+    object["ContactRigid_ReflectedBoundary"] = &createInstance<Contact,ContactRigid_ReflectedBoundary>;
 }
 
 
@@ -90,8 +91,8 @@ Registry<Grid>::Registry() {
     object["CartesianCustom"] = &createInstance<Grid,CartesianCustom>;
     object["CartesianCubicCustom"] = &createInstance<Grid,CartesianCubicCustom>;
     object["TriangularGridLinear"] = &createInstance<Grid,TriangularGridLinear>;
-    object["Regular2DTaylorCouetteCell"] = &createInstance<Grid,Regular2DTaylorCouetteCell>;
     object["CartesianCubic_Offset"] = &createInstance<Grid,CartesianCubic_Offset>;
+    object["TetrahedralGridLinear"] = &createInstance<Grid,TetrahedralGridLinear>;
 }
 
 
@@ -132,5 +133,5 @@ Registry<Boundary>::Registry() {
     object["CartesianSmoothBox"] = &createInstance<Boundary,CartesianSmoothBox>;
     object["CartesianFrictionalBox"] = &createInstance<Boundary,CartesianFrictionalBox>;
     object["CartesianBoxCustom"] = &createInstance<Boundary,CartesianBoxCustom>;
-    object["Regular2DTaylorCouetteCustom"] = &createInstance<Boundary,Regular2DTaylorCouetteCustom>;
+    object["AssignedVelocity"] = &createInstance<Boundary,AssignedVelocity>;
 }

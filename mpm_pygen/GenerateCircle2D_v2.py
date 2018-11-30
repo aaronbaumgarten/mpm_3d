@@ -37,9 +37,9 @@ block_width = 0.4
 block_height = 0.4
 block_depth = 1.0
 hx = Lx/Nx
-block_primitive = Primitives3d.Cylinder(Primitives3d.Point(0.031, 0.025, 0.0),
-                                        Primitives3d.Point(0.031, 0.025, 1.0),
-                                        0.0025,
+block_primitive = Primitives3d.Cylinder(Primitives3d.Point(0.018, 0.022, 0.0),
+                                        Primitives3d.Point(0.018, 0.022, 1.0),
+                                        0.00125,
                                        )
 block_body = CSGTree3d.Node(block_primitive)
 print "body created"
