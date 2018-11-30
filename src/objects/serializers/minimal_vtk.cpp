@@ -21,8 +21,8 @@
 #include "mpm_vectorarray.hpp"
 
 int MinimalVTK::writeFrame(Job* job){
-    if ((job->t - t_last_frame) >= (1.0/sampleRate) || sampledFrames == 0){ //job->t >= sampledFrames/sampleRate){
-        t_last_frame = sampledFrames/sampleRate;
+    if ((job->t - job->t0) >= (sampledFrames/sampleRate) || sampledFrames == 0){ //job->t >= sampledFrames/sampleRate){
+        t_last_frame = job->t0 + sampledFrames/sampleRate;
         sampledFrames += 1;
         //write frame for each body
         for (int b=0;b<job->bodies.size();b++) {
@@ -32,7 +32,8 @@ int MinimalVTK::writeFrame(Job* job){
             std::stringstream ss;
             ss << "fpd." << job->bodies[b]->id << "." << job->bodies[b]->name << "." << std::setw(10) << std::setfill('0') << (sampledFrames-1) << ".vtk";
             pfilename = ss.str();
-            pfile = std::ofstream(frameDirectory+pfilename,std::ios::trunc);
+            //pfile = std::ofstream(frameDirectory+pfilename,std::ios::trunc);
+            pfile.open(frameDirectory+pfilename,std::ios::trunc);
 
             ss.str(std::string());
             ss.clear();
@@ -40,7 +41,8 @@ int MinimalVTK::writeFrame(Job* job){
             //open node file
             ss << "fnd." << job->bodies[b]->id << "." << job->bodies[b]->name << "." << std::setw(10) << std::setfill('0') << (sampledFrames-1) << ".vtk";
             nfilename = ss.str();
-            nfile = std::ofstream(frameDirectory+nfilename,std::ios::trunc);
+            //nfile = std::ofstream(frameDirectory+nfilename,std::ios::trunc);
+            nfile.open(frameDirectory+nfilename,std::ios::trunc);
 
             //set length of frame data
             plen = job->bodies[b]->points->x.size();
@@ -71,6 +73,8 @@ int MinimalVTK::writeFrame(Job* job){
             //write out only position, velocity, pressure, and density
             //velocity
             writeVectorArray(job->bodies[b]->points->x_t, "velocity");
+            //displacement
+            writeVectorArray(job->bodies[b]->points->u, "displacement");
             //pressure
             Eigen::VectorXd tmpVec = Eigen::VectorXd(job->bodies[b]->points->T.size());
             for(int i=0;i<job->bodies[b]->points->T.size();i++){
@@ -81,8 +85,13 @@ int MinimalVTK::writeFrame(Job* job){
             tmpVec = job->bodies[b]->points->m.array() / job->bodies[b]->points->v.array();
             writeScalarArray(tmpVec,"density");
 
+            //write nodal velocity and mass
+            writeVectorArray(job->bodies[b]->nodes->x_t, "velocity");
+
             pfile.close();
+            pfile.clear();
             nfile.close();
+            nfile.clear();
         }
 
         return 1;

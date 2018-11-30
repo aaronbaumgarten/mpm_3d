@@ -4,5 +4,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/wheel_body.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/hydrostatic_body.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/launched_body.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/prestressed_body.cpp
         PARENT_SCOPE
         )

@@ -212,6 +212,7 @@ void CartesianCubic_Offset::hiddenInit(Job* job){//called from loading or initia
         }
     }
 
+    KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
     //nodal surface integral
     s_n.resize(x_n.size());
     s_n.setZero();
@@ -226,6 +227,12 @@ void CartesianCubic_Offset::hiddenInit(Job* job){//called from loading or initia
                 for (int pos=0;pos<(GRID_DIM-1);pos++){
                     s_n(n) *= hx(pos);
                 }
+
+                //approximate adjustment for axisymetric case
+                if (job->JOB_TYPE == job->JOB_AXISYM){
+                    tmpVec = nodeIDToPosition(job, n);
+                    s_n(n) *= tmpVec(0);
+                }
                 break;
             }
         }
@@ -239,17 +246,24 @@ void CartesianCubic_Offset::hiddenInit(Job* job){//called from loading or initia
 //
 int CartesianCubic_Offset::whichElement(Job* job, KinematicVector& xIN){
     //adjust input position for regular cartesian mapping
-    xIN[0] -= x_offset;
+    //xIN[0] -= x_offset;
+    KinematicVector tmpVec = xIN;
+    tmpVec[0] -= x_offset;
     
-    return CartesianLinear::cartesianWhichElement(job, xIN, Lx, hx, Nx, GRID_DIM);
+    return CartesianLinear::cartesianWhichElement(job, tmpVec, Lx, hx, Nx, GRID_DIM);
 }
 
 /*----------------------------------------------------------------------------*/
 //
 bool CartesianCubic_Offset::inDomain(Job* job, KinematicVector& xIN){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "inDomain failed");
-    for (int i=0;i<GRID_DIM;i++){
-        if (!(xIN[i] <= Lx[i]+x_offset && xIN[i] >= x_offset)) { //if xIn is outside domain, return -1
+
+    if (!(xIN[0] <= Lx[0]+x_offset && xIN[0] >= x_offset)) { //if xIn is outside domain, return -1
+        return false;
+    }
+
+    for (int i=1;i<GRID_DIM;i++){
+        if (!(xIN[i] <= Lx[i] && xIN[i] >= 0)) { //if xIn is outside domain, return -1
             return false;
         }
     }
@@ -282,115 +296,15 @@ KinematicVector CartesianCubic_Offset::nodeIDToPosition(Job* job, int idIN){
 }
 
 
-
 /*----------------------------------------------------------------------------*/
 //
-void CartesianCubic_Offset::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL){
-    assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "evaluateShapeFnValue failed");
-    KinematicVector rst(job->JOB_TYPE);
-    double tmp = 1.0;
-    int elementID = whichElement(job,xIN);
-    if (elementID < 0){
-        return;
-    }
-
-    //double test_sum = 0;
-    for (int n=0;n<nodeIDs.cols();n++){
-        if (nodeIDs(elementID,n) == -1){
-            continue; //break out if node id is -1;
-        }
-        tmp = 1.0;
-
-        //find local coordinates relative to nodal position
-        //r = (x_p - x_n)/hx
-        rst = xIN - x_n(nodeIDs(elementID,n));
-        for (int i=0;i<GRID_DIM;i++){
-            //check proximity to edge
-            if (edge_n(nodeIDs(elementID,n),i) == 2) {
-                tmp *= s(rst(i), hx(i));
-            } else if (edge_n(nodeIDs(elementID,n),i) == 1) {
-                tmp *= (s(rst(i), hx(i)) - s(rst(i)+2*hx(i), hx(i)));
-            } else if (edge_n(nodeIDs(elementID,n),i) == -1) {
-                tmp *= (s(rst(i), hx(i)) - s(rst(i)-2*hx(i), hx(i)));
-            } else if (edge_n(nodeIDs(elementID,n),i) == 0) {
-                tmp *= (s(rst(i), hx(i)) + 2.0*s(std::abs(rst(i))+hx(i), hx(i)));
-            }
-        }
-
-        //test_sum += tmp;
-        nID.push_back(nodeIDs(elementID,n));
-        nVAL.push_back(tmp);
-    }
-    //std::cout << elementID << " : " << test_sum << std::endl;
-    return;
+std::string CartesianCubic_Offset::saveState(Job* job, Serializer* serializer, std::string filepath){
+    return "err";
 }
 
 
 /*----------------------------------------------------------------------------*/
 //
-void CartesianCubic_Offset::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD){
-    assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && nGRAD.VECTOR_TYPE == Lx.VECTOR_TYPE && "evaluateShapeFnGradient failed");
-    KinematicVector rst(job->JOB_TYPE);
-    KinematicVector tmpVec(job->JOB_TYPE);
-    double tmp = 1.0;
-    int elementID = whichElement(job,xIN);
-    if (elementID < 0){
-        return;
-    }
-
-    //Eigen::VectorXd test_grad = job->jobVector<double>(Job::ZERO);
-    for (int n=0;n<nodeIDs.cols();n++){
-        if (nodeIDs(elementID,n) == -1){
-            continue; //break out if node id is -1;
-        }
-
-        //find local coordinates relative to nodal position
-        //r = (x_p - x_n)
-        rst = xIN - x_n(nodeIDs(elementID,n));
-        for (int i=0;i<GRID_DIM;i++){
-            //check proximity to edge
-            if (edge_n(nodeIDs(elementID,n),i) == 2) {
-                tmpVec(i) = g(rst(i), hx(i));
-            } else if (edge_n(nodeIDs(elementID,n),i) == 1) {
-                tmpVec(i) = (g(rst(i), hx(i)) - g(rst(i)+2*hx(i), hx(i)));
-            } else if (edge_n(nodeIDs(elementID,n),i) == -1) {
-                tmpVec(i) = (g(rst(i), hx(i)) - g(rst(i)-2*hx(i), hx(i)));
-            } else if (edge_n(nodeIDs(elementID,n),i) == 0) {
-                if (rst(i) >= 0) {
-                    tmpVec(i) = (g(rst(i), hx(i)) + 2.0 * g(rst(i) + hx(i), hx(i)));
-                } else if (rst(i) < 0){
-                    tmpVec(i) = (g(rst(i), hx(i)) + 2.0 * g(rst(i) - hx(i), hx(i)));
-                }
-            }
-        }
-
-        for (int i=0;i<GRID_DIM;i++){
-            //check proximity to edge
-            if (edge_n(nodeIDs(elementID,n),i) == 2) {
-                tmpVec *= s(rst(i), hx(i));
-                tmpVec(i) *= 1.0/s(rst(i), hx(i));
-            } else if (edge_n(nodeIDs(elementID,n),i) == 1) {
-                tmpVec *= (s(rst(i), hx(i)) - s(rst(i)+2*hx(i), hx(i)));
-                tmpVec(i) *= 1.0/(s(rst(i), hx(i)) - s(rst(i)+2*hx(i), hx(i)));
-            } else if (edge_n(nodeIDs(elementID,n),i) == -1) {
-                tmpVec *= (s(rst(i), hx(i)) - s(rst(i)-2*hx(i), hx(i)));
-                tmpVec(i) *= 1.0/(s(rst(i), hx(i)) - s(rst(i)-2*hx(i), hx(i)));
-            } else if (edge_n(nodeIDs(elementID,n),i) == 0) {
-                tmpVec *= (s(rst(i), hx(i)) + 2.0*s(std::abs(rst(i))+hx(i), hx(i)));
-                tmpVec(i) *= 1.0/(s(rst(i), hx(i)) + 2.0*s(std::abs(rst(i))+hx(i), hx(i)));
-            }
-        }
-
-        for (int i=GRID_DIM;i<tmpVec.size();i++){
-            tmpVec(i) = 0;
-        }
-
-        //test_grad = test_grad + tmpVec;
-        nID.push_back(nodeIDs(elementID,n));
-        nGRAD.push_back(tmpVec);
-        tmpVec.setZero();
-    }
-
-    //std::cout << elementID << " : " << test_grad.transpose() << std::endl;
-    return;
+int CartesianCubic_Offset::loadState(Job* job, Serializer* serializer, std::string fullpath){
+    return 0;
 }

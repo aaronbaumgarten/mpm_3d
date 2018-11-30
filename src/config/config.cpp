@@ -152,6 +152,7 @@ int Configurator::configureJob(Job* job){
                                         case 1:
                                             //t
                                             job->t = std::stod(propValue);
+                                            job->t0 = job->t;
                                             break;
                                         case 2:
                                             //JOB_TYPE

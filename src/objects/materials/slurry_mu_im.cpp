@@ -20,13 +20,15 @@
 
 #include "materials.hpp"
 
+bool SLURRY_MU_IM_DEBUG = false;
+
 /*----------------------------------------------------------------------------*/
 //
 void SlurryGranularPhase::init(Job* job, Body* body){
-    if (fp64_props.size() < 14){
+    if (fp64_props.size() < 13){
         std::cout << fp64_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 14 properties defined ({E, nu, mu_1, mu_2, a, b, K_3, K_4, K_5, phi_m, grains_rho, eta_0, grains_d, fluid_rho}, {fluid_body}).\n",
+                "%s:%s: Need at least 13 properties defined ({E, nu, mu_1, mu_2, a, b, K_3, K_4, phi_m, grains_rho, eta_0, grains_d, fluid_rho}, {fluid_body}).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
@@ -41,12 +43,12 @@ void SlurryGranularPhase::init(Job* job, Body* body){
         I_0 = fp64_props[5];
         K_3 = fp64_props[6];
         K_4 = fp64_props[7];
-        K_5 = fp64_props[8];
-        phi_m = fp64_props[9];
-        grains_rho = fp64_props[10];
-        eta_0 = fp64_props[11];
-        grains_d = fp64_props[12];
-        fluid_rho = fp64_props[13];
+        //K_5 = fp64_props[8];
+        phi_m = fp64_props[8];
+        grains_rho = fp64_props[9];
+        eta_0 = fp64_props[10];
+        grains_d = fp64_props[11];
+        fluid_rho = fp64_props[12];
 
         //set body id by name
         if (str_props.size() >= 1){
@@ -62,14 +64,14 @@ void SlurryGranularPhase::init(Job* job, Body* body){
             std::cout << std::endl << "WARNING: No fluid body defined! Setting eta to 0!" << std::endl << std::endl;
         }
 
-        if (K_4 > mu_1 / phi_m){
+        if (K_3 > mu_1 / phi_m){
             std::cout << std::endl;
-            std::cout << "WARNING: K_4 = " << K_4 << " > mu_1/phi_m = " << mu_1 / phi_m << "! For dilute suspensions, this may result in negative strength!" << std::endl;
+            std::cout << "WARNING: K_3 = " << K_3 << " > mu_1/phi_m = " << mu_1 / phi_m << "! For dilute suspensions, this may result in negative strength!" << std::endl;
             std::cout << std::endl;
         }
 
-        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, mu_1 = %g, mu_2 = %g, a = %g, I_0 = %g K_3 = %g, K_4 = %g, K_5 = %g, phi_m = %g, grains_rho = %g, eta_0 = %g, grains_d = %g, fluid_rho = %g).\n",
-               E, nu, G, K, mu_1, mu_2, a, I_0, K_3, K_4, K_5, phi_m, grains_rho, eta_0, grains_d, fluid_rho);
+        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, mu_1 = %g, mu_2 = %g, a = %g, I_0 = %g K_3 = %g, K_4 = %g, phi_m = %g, grains_rho = %g, eta_0 = %g, grains_d = %g, fluid_rho = %g).\n",
+               E, nu, G, K, mu_1, mu_2, a, I_0, K_3, K_4, phi_m, grains_rho, eta_0, grains_d, fluid_rho);
     }
 
     gammap_dot.resize(body->points->x.size());
@@ -95,11 +97,12 @@ void SlurryGranularPhase::init(Job* job, Body* body){
 /*----------------------------------------------------------------------------*/
 //
 double SlurryGranularPhase::getBeta(double phi, double phi_eq){
-    if (phi > phi_m) {
+    /*if (phi > phi_m) {
         return (K_3 * (phi - phi_m) + K_4 * (phi - phi_eq));
     } else {
         return (K_4 * (phi - phi_eq));
-    }
+    }*/
+    return K_3 * (phi - phi_eq);
 }
 
 void SlurryGranularPhase::calcState(double &gdp, double &p, double &eta_in, double &phi_in, double &I_out, double &Iv_out, double &Im_out, double &mu_out, double &phi_eq, double &beta_out){
@@ -121,11 +124,13 @@ void SlurryGranularPhase::calcState(double &gdp, double &p, double &eta_in, doub
         phi_eq = phi_m / (1 + a * Im_out);
     }
 
-    if (phi_in > phi_m) {
+    /*if (phi_in > phi_m) {
         beta_out = (K_3 * (phi_in - phi_m) + K_4 * (phi_in - phi_eq));
     } else {
         beta_out = (K_4 * (phi_in - phi_eq));
-    }
+    }*/
+
+    beta_out = K_3 * (phi_in - phi_eq);
 
     return;
 }
@@ -134,7 +139,7 @@ double SlurryGranularPhase::getStep(double val, double ub, double lb){
     if (val == 0){
         return h;
     } if (val*(1+h) >= ub){
-        if (val*(1-h) <= lb){
+        if (val*(1-h) <= lb && SLURRY_MU_IM_DEBUG){
             std::cout << "getStep() OUT OF BOUNDS!" << std::endl;
         }
         return val*(1-h);
@@ -279,7 +284,7 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
             //newton method
             while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
                 k += 1;
-                if (k > 100){
+                if (k > 100 && SLURRY_MU_IM_DEBUG){
                     std::cout << "f1 weak: " << p_k << ", " << r_p << ", " << dr_dp << std::endl;
                 }
 
@@ -321,7 +326,11 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                 } while(std::abs(r_p_tr) >= std::abs(r_p) && lambda_tmp > REL_TOL);
 
                 if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_p_tr << std::endl;
+                    if (SLURRY_MU_IM_DEBUG) {
+                        std::cout
+                                << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. "
+                                << r_p_tr << std::endl;
+                    }
                     p_k = p_kplus;
                     r_p = r_p_tr;
                     break;
@@ -355,7 +364,7 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
             //newton method
             while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
                 k+=1;
-                if (k>100){
+                if (k>100 && SLURRY_MU_IM_DEBUG){
                     std::cout << "f1: " << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << dr.norm() << std::endl;
                 }
                 //calculate equiv shear rate
@@ -417,7 +426,11 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                 //std::cout << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << r_tr.norm() << std::endl;
 
                 if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_tr.norm() << std::endl;
+                    if (SLURRY_MU_IM_DEBUG) {
+                        std::cout
+                                << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. "
+                                << r_tr.norm() << std::endl;
+                    }
                     p_k = p_kplus;
                     tau_bar_k = tau_bar_kplus;
                     r = r_tr;
@@ -453,7 +466,7 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
             //newton method
             while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
                 k += 1;
-                if (k > 100){
+                if (k > 100 && SLURRY_MU_IM_DEBUG){
                     std::cout << "f1,f3 weak: " << p_k << ", " << r_p << ", " << dr_dp << std::endl;
                 }
 
@@ -467,14 +480,14 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                 xi_dot_2 = (p_k - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
 
                 //calculate residual
-                r_p = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
+                r_p = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
 
 
                 //approx gradients
                 p_tmp = getStep(p_k, NAN, 0.0);
                 calcState(gammap_dot_tr,p_tmp,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
                 xi_dot_2 = (p_tmp - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
-                dr_dp = (p_tmp - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2)) - r_p)/(p_tmp - p_k);
+                dr_dp = (p_tmp - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2)) - r_p)/(p_tmp - p_k);
 
                 //limit step length
                 lambda_tmp = 1.0;
@@ -491,15 +504,19 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                     calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
 
                     //test residual
-                    r_p_tr = p_kplus - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
+                    r_p_tr = p_kplus - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
 
                     //set new lambda
                     lambda_tmp *= 0.5;
 
                 } while(std::abs(r_p_tr) >= std::abs(r_p) && lambda_tmp > REL_TOL);
 
-                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_p_tr << std::endl;
+                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL) {
+                    if (SLURRY_MU_IM_DEBUG) {
+                        std::cout
+                                << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. "
+                                << r_p_tr << std::endl;
+                    }
                     p_k = p_kplus;
                     r_p = r_p_tr;
                     break;
@@ -534,7 +551,7 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
             //newton method
             while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
                 k+=1;
-                if (k>100){
+                if (k>100 && SLURRY_MU_IM_DEBUG){
                     //std::cout << "f1,f3: " << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << dr.norm() << std::endl;
                     std::cout << "f1,f3: " << p_k << ", " << tau_bar_k << std::endl;
                     std::cout << "       " << r(0) << ", " << r(1) << std::endl;
@@ -555,7 +572,7 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
 
                 //calculate residual
                 r(0) = tau_bar_k - (mu + beta)*p_k;
-                r(1) = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
+                r(1) = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
 
                 //approx gradients
                 tau_bar_tmp = getStep(tau_bar_k, tau_bar_tr, 0.0);
@@ -563,13 +580,13 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                 calcState(gammap_dot_tmp,p_k,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
                 xi_dot_2 = (p_k - p_tr)/(K*job->dt) - beta*gammap_dot_tmp;
                 dr1_dtau = (tau_bar_tmp - (mu + beta)*p_k - r(0))/(tau_bar_tmp - tau_bar_k);
-                dr2_dtau = (p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tmp - K_5*xi_dot_2)*(gammap_dot_tmp - K_5*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tmp - K_5*xi_dot_2)) - r(1))/(tau_bar_tmp - tau_bar_k);
+                dr2_dtau = (p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tmp - K_4*xi_dot_2)*(gammap_dot_tmp - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tmp - K_4*xi_dot_2)) - r(1))/(tau_bar_tmp - tau_bar_k);
 
                 p_tmp = getStep(p_k, NAN, 0.0);
                 calcState(gammap_dot_tr, p_tmp, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
                 xi_dot_2 = (p_tmp - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
                 dr1_dp = (tau_bar_k - (mu+beta)*p_tmp - r(0))/(p_tmp - p_k);
-                dr2_dp = (p_tmp - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2)) - r(1))/(p_tmp - p_k);
+                dr2_dp = (p_tmp - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2)) - r(1))/(p_tmp - p_k);
 
                 //form jacobian
                 dr(0,0) = dr1_dtau;
@@ -597,16 +614,21 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
 
                     //calculate state
                     calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+                    xi_dot_2 = (p_kplus - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
 
                     //calculate residual
                     r_tr(0) = tau_bar_kplus - (mu + beta)*p_kplus;
-                    r_tr(1) = p_kplus - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
+                    r_tr(1) = p_kplus - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
 
                     lambda_tmp *= 0.5;
                 } while (r_tr.norm() >= r.norm() && lambda_tmp > REL_TOL);
 
                 if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_tr.norm() << std::endl;
+                    if (SLURRY_MU_IM_DEBUG) {
+                        std::cout
+                                << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. "
+                                << r_tr.norm() << std::endl;
+                    }
                     p_k = p_kplus;
                     tau_bar_k = tau_bar_kplus;
                     r = r_tr;

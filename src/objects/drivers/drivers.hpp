@@ -45,13 +45,13 @@ public:
     double stop_time;
     KinematicVector gravity;
 
-    void init(Job* job);
-    std::string saveState(Job* job, Serializer* serializer, std::string filepath);
-    int loadState(Job* job, Serializer* serializer, std::string fullpath);
+    virtual void init(Job* job);
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
 
-    void run(Job* job);
-    void generateGravity(Job* job);
-    void applyGravity(Job* job);
+    virtual void run(Job* job);
+    virtual void generateGravity(Job* job);
+    virtual void applyGravity(Job* job);
 };
 
 /*----------------------------------------------------------------------------*/
@@ -115,6 +115,26 @@ public:
     void run(Job* job);
     void generateGravity(Job* job);
     void applyGravity(Job* job);
+};
+
+
+/*----------------------------------------------------------------------------*/
+//driver for ballistic impact problems
+//will launch ballistic object at specified velocity at t=0
+
+class BallisticDriver : public DefaultDriver{
+public:
+    BallisticDriver(){
+        object_name = "BallisticDriver"; //set object name here
+    }
+
+    int ballistic_id;
+    double stop_time;
+    KinematicVector gravity, velocity;
+
+    void init(Job* job);
+
+    void run(Job* job);
 };
 
 #endif //MPM_V3_DRIVERS_HPP

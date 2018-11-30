@@ -21,13 +21,15 @@
 
 #include "materials.hpp"
 
+bool CORNSTARCH_DEBUG = false;
+
 /*----------------------------------------------------------------------------*/
 //
 void Cornstarch::init(Job* job, Body* body){
-    if (fp64_props.size() < 17){
+    if (fp64_props.size() < 18){
         std::cout << fp64_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 17 properties defined ({E, nu, mu_1, mu_2, a, b, K_3, K_4, K_5, phi_j, phi_c, mu_phi, F_0, grains_rho, eta_0, grains_d, fluid_rho}, {fluid_body}).\n",
+                "%s:%s: Need at least 18 properties defined ({E, nu, mu_1, a_0, a_inf, K_3, K_4, K_5, K_6, phi_j, phi_c, Delta, tau_star, alpha, grains_rho, eta_0, grains_d, fluid_rho}, {fluid_body}).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
@@ -37,24 +39,34 @@ void Cornstarch::init(Job* job, Body* body){
         K = E / (3.0 * (1.0 - 2 * nu));
         lambda = K - 2.0 * G / 3.0;
         mu_1 = fp64_props[2];
-        mu_2 = fp64_props[3];
-        a = fp64_props[4];
-        I_0 = fp64_props[5];
-        K_3 = fp64_props[6];
-        K_4 = fp64_props[7];
-        K_5 = fp64_props[8];
+        mu_2 = mu_1;
+        I_0 = 0.0;
+        a_0 = fp64_props[3];
+        a_inf = fp64_props[4];
+        K_3 = fp64_props[5];
+        K_4 = fp64_props[6];
+        K_5 = fp64_props[7];
+        K_6 = fp64_props[8];
 
-        phi_m = fp64_props[9];
-        phi_j_0 = phi_m;
-        phi_j_inf = fp64_props[10];
-        mu_phi = fp64_props[11];
-        F_0 = fp64_props[12];
-        phi_j_mu = phi_j_0 + (phi_j_inf - phi_j_0)*std::exp(-mu_phi/mu_1);
+        if (fp64_props.size() > 18){
+            K_7 = fp64_props[18];
+        } else {
+            K_7 = 0;
+        }
 
-        grains_rho = fp64_props[13];
-        eta_0 = fp64_props[14];
-        grains_d = fp64_props[15];
-        fluid_rho = fp64_props[16];
+        phi_j = fp64_props[9];
+        phi_c = fp64_props[10];
+        Delta = fp64_props[11];
+        tau_star = fp64_props[12];
+
+        alpha = fp64_props[13];
+
+        phi_star = phi_j + (phi_c - phi_j)*Delta;
+
+        grains_rho = fp64_props[14];
+        eta_0 = fp64_props[15];
+        grains_d = fp64_props[16];
+        fluid_rho = fp64_props[17];
 
         //set body id by name
         if (str_props.size() >= 1){
@@ -70,14 +82,14 @@ void Cornstarch::init(Job* job, Body* body){
             std::cout << std::endl << "WARNING: No fluid body defined! Setting eta to 0!" << std::endl << std::endl;
         }
 
-        if (K_4 > mu_1 / phi_m){
+        if (K_3 > mu_1 / phi_m){
             std::cout << std::endl;
-            std::cout << "WARNING: K_4 = " << K_4 << " > mu_1/phi_m = " << mu_1 / phi_m << "! For dilute suspensions, this may result in negative strength!" << std::endl;
+            std::cout << "WARNING: K_3 = " << K_3 << " > mu_1/phi_m = " << mu_1 / phi_m << "! For dilute suspensions, this may result in negative strength!" << std::endl;
             std::cout << std::endl;
         }
 
-        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, mu_1 = %g, mu_2 = %g, a = %g, I_0 = %g K_3 = %g, K_4 = %g, K_5 = %g, phi_j_0 = %g, phi_j_inf = %g, mu_phi = %g, F_0 = %g, grains_rho = %g, eta_0 = %g, grains_d = %g, fluid_rho = %g).\n",
-               E, nu, G, K, mu_1, mu_2, a, I_0, K_3, K_4, K_5, phi_j_0, phi_j_inf, mu_phi, F_0, grains_rho, eta_0, grains_d, fluid_rho);
+        printf("Material properties (E = %g, nu = %g, G = %g, K = %g, mu_1 = %g, a_0 = %g, a_inf = %g, K_3 = %g, K_4 = %g, K_5 = %g, K_6 = %g, phi_j = %g, phi_c = %g, Delta = %g, tau_star = %g, alpha = %g, grains_rho = %g, eta_0 = %g, grains_d = %g, fluid_rho = %g).\n",
+               E, nu, G, K, mu_1, a_0, a_inf, K_3, K_4, K_5, K_6, phi_j, phi_c, Delta, tau_star, alpha, grains_rho, eta_0, grains_d, fluid_rho);
     }
 
     gammap_dot.resize(body->points->x.size());
@@ -97,6 +109,15 @@ void Cornstarch::init(Job* job, Body* body){
 
     phi_m_vec.resize(body->points->x.size());
     phi_m_vec.setZero();
+    c.resize(body->points->x.size());
+    c.setZero();
+
+    //if c0 given, then initialize c with value as assigned
+    if (fp64_props.size() > 18){
+        for (int i=0; i<c.rows(); i++){
+            c(i) = fp64_props[18];
+        }
+    }
 
     std::cout << "Material Initialized: [" << body->name << "]." << std::endl;
 
@@ -105,23 +126,44 @@ void Cornstarch::init(Job* job, Body* body){
 
 /*----------------------------------------------------------------------------*/
 //
-double Cornstarch::getPhiM(double tau) {
-    if (tau > 0) {
-        //std::cout << std::exp(-1.45 * 2.0 * F_0 / (3.0 * M_PI * grains_d * grains_d * tau)) << std::endl;
-        return phi_j_0 + (phi_j_mu - phi_j_0) * std::exp(-1.45 * 2.0 * F_0 / (3.0 * M_PI * grains_d * grains_d * tau));
-    } else {
-        return phi_j_0;
-    }
+void Cornstarch::writeFrame(Job* job, Body* body, Serializer* serializer){
+    SlurryGranularPhase::writeFrame(job,body,serializer);
+    serializer->writeScalarArray(phi_m_vec,"phi_m");
+    serializer->writeScalarArray(c,"c");
+    return;
 }
 
 /*----------------------------------------------------------------------------*/
 //
-void Cornstarch::writeFrame(Job* job, Body* body, Serializer* serializer){
-    SlurryGranularPhase::writeFrame(job,body,serializer);
-    serializer->writeScalarArray(phi_m_vec,"phi_m");
-    return;
+double Cornstarch::getBeta(double phi, double phi_eq){
+    return (K_3 * (phi - phi_eq));
 }
 
+/*----------------------------------------------------------------------------*/
+//
+void Cornstarch::calcState(double &gdp, double &p, double &eta_in, double &phi_in, double &I_out, double &Iv_out, double &Im_out, double &mu_out, double &phi_eq, double &beta_out){
+    I_out = gdp * grains_d * std::sqrt(grains_rho/p);
+    Iv_out = gdp * eta_in / p;
+    Im_out = std::sqrt(I_out*I_out + 2 * Iv_out);
+
+    if (Im_out == 0){
+        mu_out = mu_1;
+    } else if (p <= 0){
+        mu_out = mu_1;
+    } else {
+        mu_out = mu_1 + 2.5 * phi_in * Iv_out/(a*Im_out);
+    }
+
+    if (p <= 0){
+        phi_eq = 0;
+    } else {
+        phi_eq = phi_m / (1 + a * Im_out);
+    }
+
+    beta_out = (K_3 * (phi_in - phi_eq));
+
+    return;
+}
 
 /*----------------------------------------------------------------------------*/
 //
@@ -129,14 +171,14 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
     MaterialTensor T, T_tr, L, D, W;
     MaterialTensor tmpMat;
 
+    double H, S, t_k;
+
     double trD, tau_bar, tau_bar_tr, p, p_tr;
     double beta, mu, phi_eq, xi_dot_1, xi_dot_2;
     double tau_bar_k, p_k, tau_bar_kplus, p_kplus;
-    double I_v_tr, I_tr, I_m_tr, gammap_dot_tr;
+    double I_v_tr, I_tr, I_m_tr, gammap_dot_tr, xi_dot_2_tr;
     double tmpVal;
 
-    double dgamma_dtau, dI_dtau, dIv_dtau, dIm_dtau, dmu_dtau, dbeta_dtau, dxi_dtau;
-    double dI_dp, dIv_dp, dIm_dp, dmu_dp, dbeta_dp, dxi_dp;
     double dr1_dtau, dr2_dtau, dr1_dp, dr2_dp;
     double dr_dp, r_p, r_p_tr, b_p;
 
@@ -182,6 +224,24 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
             continue;
         }
 
+        /*************************************************/
+        //fix nan clumpiness
+        if (!std::isfinite(c(i))){
+            c(i) = 0;
+        }
+        //assign phi_m based off of clumpiness
+        if (phi(i) > phi_c && phi(i) < phi_star) {
+            phi_m = phi_j + (phi(i) - phi_j) * c(i);
+        } else if (phi(i) < phi_c){
+            phi_m = phi_j + (phi_c - phi_j) * c(i);
+        } else {
+            phi_m = phi_j + (phi_star - phi_j) * c(i);
+        }
+        //assign a based off of clumpiness
+        a = a_0 + (a_inf - a_0)*c(i);
+        //phi_m = phi_j + (phi_c - phi_j)*c(i);
+        /*************************************************/
+
         L = body->points->L(i);
         T = body->points->T(i);
 
@@ -200,7 +260,6 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
 
         //check admissibility ****************************************************************************************//
         if (!is_solved){
-            phi_m = getPhiM(tau_bar_tr);
             beta = getBeta(phi(i), phi_m); //zero plastic flow limit
 
             if ((p_tr >= 0) && (tau_bar_tr <= ((mu_1 + beta)*p_tr))){
@@ -225,7 +284,6 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
 
         //check zero strength limit on f1 only ***********************************************************************//
         if (!is_solved){
-            phi_m = getPhiM(0);
             beta = getBeta(phi(i), phi_m); //high pressure limit
 
             //setup newton method to find pressure
@@ -238,7 +296,7 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
             //newton method
             while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
                 k += 1;
-                if (k > 100){
+                if (k > 100 && CORNSTARCH_DEBUG){
                     std::cout << "f1 weak: " << p_k << ", " << r_p << ", " << dr_dp << std::endl;
                 }
 
@@ -279,8 +337,8 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
 
                 } while(std::abs(r_p_tr) >= std::abs(r_p) && lambda_tmp > REL_TOL);
 
-                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_p_tr << std::endl;
+                if (k > 5 && std::abs(p_k - p_kplus) < ABS_TOL){
+                    //std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_p_tr << std::endl;
                     p_k = p_kplus;
                     r_p = r_p_tr;
                     break;
@@ -292,7 +350,7 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
 
             //check that zero strength assumption is true and admissible
             gammap_dot_tr = tau_bar_tr / (G*job->dt);
-            phi_m = getPhiM(tau_bar_k);
+            xi_dot_2_tr = 0;
             if (((mu + beta) <= 0) and ((phi(i) >= phi_m) or (p_k <= (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*(gammap_dot_tr*gammap_dot_tr*grains_d*grains_d*grains_rho + 2.0*eta(i)*gammap_dot_tr) ))){
                 p = p_k;
                 tau_bar = tau_bar_k;
@@ -303,7 +361,6 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
         //check f1 yield surface *************************************************************************************//
         if (!is_solved){
             //setup initial conditions for newton solve
-            phi_m = getPhiM(0);
             beta = getBeta(phi(i),phi_m);
             tau_bar_k = 0;
             p_k = 0;
@@ -316,26 +373,13 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
             //newton method
             while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
                 k+=1;
-                if (k>100){
+                if (k>100 && CORNSTARCH_DEBUG){
                     std::cout << "f1: " << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << dr.norm() << std::endl;
-                    /*
-                    std::cout << r(0) << ", " << r(1) << std::endl;
-                    std::cout << dr << std::endl;
-                    std::cout << phi_m << ", " << phi(i) << std::endl;
-                    std::cout << i << std::endl << std::endl;
-                    */
-
-                    //try using only p to solve (avoids local minima)
-                    dr(0) = 0; dr(1) = 0;
-                    upd = dr.inverse()*r;
-                    tau_bar_k = tau_bar_k - lambda_tmp*upd(0);
-                    p_k = p_k - lambda_tmp*upd(1);
                 }
                 //calculate equiv shear rate
                 gammap_dot_tr = (tau_bar_tr - tau_bar_k)/(G*job->dt);
 
                 //calculate state
-                phi_m = getPhiM(tau_bar_k);
                 calcState(gammap_dot_tr, p_k, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
 
                 //calculate residual
@@ -345,13 +389,11 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
                 //approx gradients
                 tau_bar_tmp = getStep(tau_bar_k, tau_bar_tr, 0.0);
                 gammap_dot_tmp = (tau_bar_tr - tau_bar_tmp)/(G*job->dt);
-                phi_m = getPhiM(tau_bar_tmp);
                 calcState(gammap_dot_tmp,p_k,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
                 dr1_dtau = (tau_bar_tmp - (mu + beta)*p_k - r(0))/(tau_bar_tmp - tau_bar_k);
                 dr2_dtau = (p_k - p_tr - K*job->dt*beta*gammap_dot_tmp - r(1))/(tau_bar_tmp - tau_bar_k);
 
                 p_tmp = getStep(p_k, NAN, 0.0);
-                phi_m = getPhiM(tau_bar_k);
                 calcState(gammap_dot_tr, p_tmp, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
                 dr1_dp = (tau_bar_k - (mu+beta)*p_tmp - r(0))/(p_tmp - p_k);
                 dr2_dp = (p_tmp - p_tr - K*job->dt*beta*gammap_dot_tr - r(1))/(p_tmp - p_k);
@@ -382,7 +424,6 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
                     gammap_dot_tr = (tau_bar_tr - tau_bar_kplus)/(G*job->dt);
 
                     //calculate state
-                    phi_m = getPhiM(tau_bar_kplus);
                     calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
 
                     r_tr(0) = tau_bar_kplus - (mu+beta)*p_kplus;
@@ -393,8 +434,8 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
 
                 //std::cout << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << r_tr.norm() << std::endl;
 
-                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_tr.norm() << std::endl;
+                if (k > 5 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
+                    //std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_tr.norm() << std::endl;
                     p_k = p_kplus;
                     tau_bar_k = tau_bar_kplus;
                     r = r_tr;
@@ -410,7 +451,7 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
 
             //check that solution meets criteria for f1 yield ONLY
             gammap_dot_tr = (tau_bar_tr - tau_bar_k) / (G*job->dt);
-            phi_m = getPhiM(tau_bar_k);
+            xi_dot_2_tr = 0;
             if ((phi(i) >= phi_m) or (p_k <= (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*(gammap_dot_tr*gammap_dot_tr*grains_d*grains_d*grains_rho + 2.0*eta(i)*gammap_dot_tr) )){
                 p = p_k;
                 tau_bar = tau_bar_k;
@@ -422,7 +463,6 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
         //check zero strength f1,f3 yield condition ******************************************************************//
         if (!is_solved){
             //setup newton method to find pressure
-            phi_m = getPhiM(0);
             r_p = std::max(std::abs(p_tr),std::abs(p_tr + (K*tau_bar_tr/G)*beta));
             b_p = r_p;
             tau_bar_k = 0;
@@ -432,7 +472,7 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
             //newton method
             while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
                 k += 1;
-                if (k > 100){
+                if (k > 100 && CORNSTARCH_DEBUG){
                     std::cout << "f1,f3 weak: " << p_k << ", " << r_p << ", " << dr_dp << std::endl;
                 }
 
@@ -446,14 +486,14 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
                 xi_dot_2 = (p_k - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
 
                 //calculate residual
-                r_p = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
+                r_p = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
 
 
                 //approx gradients
                 p_tmp = getStep(p_k, NAN, 0.0);
                 calcState(gammap_dot_tr,p_tmp,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
                 xi_dot_2 = (p_tmp - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
-                dr_dp = (p_tmp - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2)) - r_p)/(p_tmp - p_k);
+                dr_dp = (p_tmp - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2)) - r_p)/(p_tmp - p_k);
 
                 //limit step length
                 lambda_tmp = 1.0;
@@ -470,15 +510,15 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
                     calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
 
                     //test residual
-                    r_p_tr = p_kplus - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
+                    r_p_tr = p_kplus - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
 
                     //set new lambda
                     lambda_tmp *= 0.5;
 
                 } while(std::abs(r_p_tr) >= std::abs(r_p) && lambda_tmp > REL_TOL);
 
-                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_p_tr << std::endl;
+                if (k > 5 && std::abs(p_k - p_kplus) < ABS_TOL){
+                    //std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_p_tr << std::endl;
                     p_k = p_kplus;
                     r_p = r_p_tr;
                     break;
@@ -490,6 +530,7 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
 
             //check that zero strength assumption is true
             gammap_dot_tr = tau_bar_tr / (G*job->dt);
+            xi_dot_2_tr = 0;
             if ((mu + beta) <= 0){
                 p = p_k;
                 tau_bar = tau_bar_k;
@@ -513,7 +554,7 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
             //newton method
             while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
                 k+=1;
-                if (k>100){
+                if (k>100 && CORNSTARCH_DEBUG){
                     //std::cout << "f1,f3: " << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << dr.norm() << std::endl;
                     std::cout << "f1,f3: " << p_k << ", " << tau_bar_k << std::endl;
                     std::cout << "       " << r(0) << ", " << r(1) << std::endl;
@@ -522,17 +563,11 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
                     std::cout << "       " << i << ", " << phi(i) << ", " << ", " << p_tr << ", " << tau_bar_tr << std::endl;
                     std::cout << "       " << lambda_tmp << ", " << upd(0) << ", " << upd(1) << std::endl << std::endl;
 
-                    //try using only p to solve (avoids local minima)
-                    dr(0) = 0; dr(1) = 0;
-                    upd = dr.inverse()*r;
-                    tau_bar_k = tau_bar_k - lambda_tmp*upd(0);
-                    p_k = p_k - lambda_tmp*upd(1);
                 }
                 //calculate equiv shear rate
                 gammap_dot_tr = (tau_bar_tr - tau_bar_k)/(G*job->dt);
 
                 //calculate state
-                phi_m = getPhiM(tau_bar_k);
                 calcState(gammap_dot_tr, p_k, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
 
                 //calculate xi_dot_2
@@ -540,23 +575,21 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
 
                 //calculate residual
                 r(0) = tau_bar_k - (mu + beta)*p_k;
-                r(1) = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
+                r(1) = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
 
                 //approx gradients
                 tau_bar_tmp = getStep(tau_bar_k, tau_bar_tr, 0.0);
                 gammap_dot_tmp = (tau_bar_tr - tau_bar_tmp)/(G*job->dt);
-                phi_m = getPhiM(tau_bar_tmp);
                 calcState(gammap_dot_tmp,p_k,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
                 xi_dot_2 = (p_k - p_tr)/(K*job->dt) - beta*gammap_dot_tmp;
                 dr1_dtau = (tau_bar_tmp - (mu + beta)*p_k - r(0))/(tau_bar_tmp - tau_bar_k);
-                dr2_dtau = (p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tmp - K_5*xi_dot_2)*(gammap_dot_tmp - K_5*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tmp - K_5*xi_dot_2)) - r(1))/(tau_bar_tmp - tau_bar_k);
+                dr2_dtau = (p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tmp - K_4*xi_dot_2)*(gammap_dot_tmp - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tmp - K_4*xi_dot_2)) - r(1))/(tau_bar_tmp - tau_bar_k);
 
                 p_tmp = getStep(p_k, NAN, 0.0);
-                phi_m = getPhiM(tau_bar_k);
                 calcState(gammap_dot_tr, p_tmp, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
                 xi_dot_2 = (p_tmp - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
                 dr1_dp = (tau_bar_k - (mu+beta)*p_tmp - r(0))/(p_tmp - p_k);
-                dr2_dp = (p_tmp - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2)) - r(1))/(p_tmp - p_k);
+                dr2_dp = (p_tmp - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2)) - r(1))/(p_tmp - p_k);
 
                 //form jacobian
                 dr(0,0) = dr1_dtau;
@@ -583,21 +616,24 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
                     gammap_dot_tr = (tau_bar_tr - tau_bar_kplus)/(G*job->dt);
 
                     //calculate state
-                    phi_m = getPhiM(tau_bar_kplus);
                     calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+                    xi_dot_2 = (p_kplus - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
 
                     //calculate residual
                     r_tr(0) = tau_bar_kplus - (mu + beta)*p_kplus;
-                    r_tr(1) = p_kplus - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_5*xi_dot_2)*(gammap_dot_tr - K_5*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_5*xi_dot_2));
+                    r_tr(1) = p_kplus - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
 
                     lambda_tmp *= 0.5;
                 } while (r_tr.norm() >= r.norm() && lambda_tmp > REL_TOL);
 
-                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
-                    std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_tr.norm() << std::endl;
+                if (k > 5 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
+                    //std::cout << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. " << r_tr.norm() << std::endl;
                     p_k = p_kplus;
                     tau_bar_k = tau_bar_kplus;
                     r = r_tr;
+                    //std::cout << "u, " << r.transpose() << std::endl;
+                    //std::cout << dr << std::endl;
+                    //std::cout << xi_dot_2 << std::endl;
                     break;
                 }
 
@@ -608,14 +644,15 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
 
             //this is the last possible case, if we got here then this is the answer
             gammap_dot_tr = (tau_bar_tr - tau_bar_k) / (G*job->dt);
+            xi_dot_2_tr = (p_k - p_tr)/(K*job->dt) - beta*gammap_dot_tmp;
             p = p_k;
             tau_bar = tau_bar_k;
             is_solved = true;
         }
 
-        if (!std::isfinite(p) || !std::isfinite(tau_bar)){
+        /*if (!std::isfinite(p) || !std::isfinite(tau_bar)){
             std::cout << "u";
-        }
+        }*/
 
         //update stress
         if (p > 0 && tau_bar > 0) {
@@ -633,7 +670,21 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
             I_v(i) = eta(i)*gammap_dot(i)/(-T.trace()/T.rows()); //undefined
             I(i) = gammap_dot(i)*grains_d*std::sqrt(grains_rho/(-T.trace()/T.rows()));
             I_m(i) = std::sqrt(I(i)*I(i) + 2*I_v(i));
+
+            //update history
             phi_m_vec(i) = phi_m;
+
+            //K_6 has units of (Pa s)^(-1)
+            H = (tau_bar/tau_star) * std::sqrt(tau_bar/tau_star);
+            S = (K_5 * gammap_dot(i) + (1-Delta) * K_6 * (std::pow(phi_j - phi(i), alpha) + K_7 * std::pow(phi_j - phi(i), 0.1)) * tau_bar); ///eta_0);
+
+
+            if (phi(i) > phi_j){
+                c(i) = 1;
+            } else {
+                //c(i) = (c(i) + H*gammap_dot(i)*job->dt)/(1 + H*gammap_dot(i)*job->dt + S*job->dt);
+                c(i) = (c(i) + H*(gammap_dot(i) - K_4*xi_dot_2_tr)*job->dt)/(1 + H*(gammap_dot(i) - K_4*xi_dot_2_tr)*job->dt + S*job->dt);
+            }
         }
 
     }

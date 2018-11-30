@@ -4,10 +4,11 @@
 //
 
 #include <iostream>
-#include <stdlib.h>
+#include <cstdlib>
 #include <string>
 #include <vector>
 #include <Eigen/Core>
+#include <cmath>
 
 #include "mpm_objects.hpp"
 #include "mpm_vector.hpp"
@@ -25,6 +26,8 @@
  * 2 -- FRICTIONAL (need mu_f defined)
  * 3 -- PERIODIC
  * 4 -- DRIVEN WALL (VELOCITY, need vel defined)
+ * 5 -- DRIVEN TRACTION (TRACTION, need traction defined)
+ * 6 -- DRIVEN VELOCITY BOUNDED TRACTION (VELOCITY AND UPPER BOUND TRACTION NEEDED)
  */
 
 
@@ -63,6 +66,8 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                 tmpINT = 3;
             } else if (limit_props[i] == DRIVEN_TRACTION){
                 tmpINT = 3;
+            } else if (limit_props[i] == DRIVEN_VELOCITY_BOUNDED_TRACTION){
+                tmpINT = 4;
             }
             tmpINT = PROPS_REF_LIST[i] + tmpINT;
             PROPS_REF_LIST.push_back(tmpINT);
@@ -118,6 +123,17 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                     std::cout << " " << v_set(i,pos);
                 }
                 std::cout << " ]";
+            } else if (limit_props[i] == DRIVEN_VELOCITY_BOUNDED_TRACTION){
+                std::cout << "[<";
+                for (int pos = 0; pos < v_set.DIM; pos++){
+                    v_set(i,pos) = fp64_props[PROPS_REF_LIST[i]+pos];
+                    std::cout << " " << v_set(i,pos);
+                }
+                std::cout << " >, ";
+
+                //check for tau_max and assign coefficient
+                tau_max = fp64_props[PROPS_REF_LIST[i] + v_set.DIM];
+                std::cout << "[" << tau_max << "]";
             }
         }
 
@@ -125,17 +141,22 @@ void CartesianBoxCustom::init(Job* job, Body* body){
     }
 
     //find bounds of box
-    Lx = KinematicVector(job->JOB_TYPE);
-    Lx.setZero();
+    Lx_max = KinematicVector(job->JOB_TYPE);
+    Lx_min = KinematicVector(job->JOB_TYPE);
+    Lx_max.setZero(); Lx_min.setZero();
     for (int i=0; i < body->nodes->x.size(); i++){
         for (int pos=0; pos < job->grid->GRID_DIM; pos++){
-            if (body->nodes->x(i,pos) > Lx(pos)){
-                Lx(pos) = body->nodes->x(i,pos);
+            if (body->nodes->x(i,pos) < Lx_min(pos) || i == 0){
+                Lx_min(pos) = body->nodes->x(i,pos);
+            }
+            if (body->nodes->x(i,pos) > Lx_max(pos)){
+                Lx_max(pos) = body->nodes->x(i,pos);
             }
         }
     }
     for (int i=job->grid->GRID_DIM; i<body->nodes->x.DIM; i++){
-        Lx(i) = 0;
+        Lx_max(i) = 0;
+        Lx_min(i) = 0;
     }
 
     //set bounding mask
@@ -148,7 +169,7 @@ void CartesianBoxCustom::init(Job* job, Body* body){
         is_edge = false;
         for (int pos=0;pos<job->grid->GRID_DIM;pos++){
             //check -x, -y, -z faces
-            if (body->nodes->x(i,pos) == 0) {
+            if (body->nodes->x(i,pos) == Lx_min(pos)){ //0) {
                 if (limit_props(2*pos) == FRICTION_LESS_WALL){
                     bcNodalMask(i,pos) = 1;
                 } else if (limit_props(2*pos) == NO_SLIP_WALL) {
@@ -161,9 +182,12 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                 } else if (limit_props(2*pos) == DRIVEN_TRACTION && bcNodalMask(i,pos) != 1){
                     bcNodalMask(i).setOnes();
                     bcNodalMask(i,pos) = -5;
+                } else if (limit_props(2*pos) == DRIVEN_VELOCITY_BOUNDED_TRACTION && bcNodalMask(i,pos) != 1){
+                    bcNodalMask(i).setOnes();
+                    bcNodalMask(i,pos) = -6;
                 }
                 is_edge = true;
-            } else if (body->nodes->x(i,pos) == Lx(pos)) {
+            } else if (body->nodes->x(i,pos) == Lx_max(pos)) {
                 if (limit_props(2*pos + 1) == FRICTION_LESS_WALL){
                     bcNodalMask(i,pos) = 1;
                 } else if (limit_props(2*pos + 1) == NO_SLIP_WALL) {
@@ -176,6 +200,9 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                 } else if (limit_props(2*pos + 1) == DRIVEN_TRACTION && bcNodalMask(i,pos) != 1){
                     bcNodalMask(i).setOnes();
                     bcNodalMask(i,pos) = 5;
+                } else if (limit_props(2*pos) == DRIVEN_VELOCITY_BOUNDED_TRACTION && bcNodalMask(i,pos) != 1){
+                    bcNodalMask(i).setOnes();
+                    bcNodalMask(i,pos) = 6;
                 }
                 is_edge = true;
             }
@@ -186,9 +213,17 @@ void CartesianBoxCustom::init(Job* job, Body* body){
             if (is_edge && bcNodalMask(i,pos) != 1 &&
                     bcNodalMask(i,pos) != 2 && bcNodalMask(i,pos) != -2 &&
                     bcNodalMask(i,pos) != 4 && bcNodalMask(i,pos) != -4 &&
-                    bcNodalMask(i,pos) != 5 && bcNodalMask(i,pos) != -5){
+                    bcNodalMask(i,pos) != 5 && bcNodalMask(i,pos) != -5 &&
+                    bcNodalMask(i,pos) != 6 && bcNodalMask(i,pos) != -6){
                 bcNodalMask(i,pos) = 3;
             }
+        }
+    }
+
+    int sum = 0;
+    for (int i=0; i<bcNodalMask.size(); i++){
+        if (bcNodalMask(i,0) == 1){
+            sum += 1;
         }
     }
 
@@ -218,10 +253,10 @@ void CartesianBoxCustom::generateRules(Job* job, Body* body){
     //wrap particles about appropriate axes for periodic BCs
     for (int i=0;i<body->points->x.size();i++){
         for (int pos=0;pos<job->grid->GRID_DIM;pos++){
-            if (limit_props(2*pos+1) == PERIODIC && body->points->x(i,pos) > Lx(pos)){
-                body->points->x(i,pos) -= Lx(pos);
-            } else if (limit_props(2*pos) == PERIODIC && body->points->x(i,pos) < 0){
-                body->points->x(i,pos) += Lx(pos);
+            if (limit_props(2*pos+1) == PERIODIC && body->points->x(i,pos) > Lx_max(pos)){
+                body->points->x(i,pos) -= (Lx_max(pos)-Lx_min(pos));
+            } else if (limit_props(2*pos) == PERIODIC && body->points->x(i,pos) < Lx_min(pos)){ //0){
+                body->points->x(i,pos) += (Lx_max(pos)-Lx_min(pos));
             }
         }
     }
@@ -229,8 +264,10 @@ void CartesianBoxCustom::generateRules(Job* job, Body* body){
 }
 
 void CartesianBoxCustom::applyRules(Job* job, Body* body){
-    double f_normal;
+    double f_normal, f_max;
+    int boundary_id;
     KinematicVector delta_momentum = KinematicVector(job->JOB_TYPE);
+    KinematicVector f_ext = KinematicVector(job->JOB_TYPE);
 
     //map body force to nodes (avoids possible contact forces)
     pvec = body->points->b;
@@ -288,13 +325,77 @@ void CartesianBoxCustom::applyRules(Job* job, Body* body){
                 //zero out velocity closing velocity
                 //do not add friction
                 delta_momentum(pos) = 0; //-std::max(0.0, body->nodes->mx_t(i,pos) + job->dt * bcNodalForce(i,pos));
-                body->nodes->f(i) = v_set(2*pos)*job->grid->nodeSurfaceArea(job,i)*v_n(i)/job->grid->nodeVolume(job,i);
+                body->nodes->f(i) += v_set(2*pos)*job->grid->nodeSurfaceArea(job,i)*v_n(i)/job->grid->nodeVolume(job,i);
+                body->nodes->x_t(i,pos) = 0;
+                body->nodes->mx_t(i,pos) = 0;
+                body->nodes->f(i,pos) = 0;
+
+                //for NaN entries, assume no-slip
+                for (int k=0; k<v_set.DIM; k++){
+                    if (!std::isfinite(v_set(2*pos,k))){
+                        body->nodes->f(i, k) = 0;
+                        body->nodes->x_t(i, k) = 0;
+                        body->nodes->mx_t(i, k) = 0;
+                    }
+                }
+
                 break;
             } else if (bcNodalMask(i,pos) == 5){
                 //zero out velocity closing velocity
                 //do not add friction
                 delta_momentum(pos) = 0; //-std::max(0.0, body->nodes->mx_t(i,pos) + job->dt * bcNodalForce(i,pos));
-                body->nodes->f(i) = v_set(2*pos + 1)*job->grid->nodeSurfaceArea(job,i)*v_n(i)/job->grid->nodeVolume(job,i);
+                body->nodes->f(i) += v_set(2*pos + 1)*job->grid->nodeSurfaceArea(job,i)*v_n(i)/job->grid->nodeVolume(job,i);
+                body->nodes->x_t(i,pos) = 0;
+                body->nodes->mx_t(i,pos) = 0;
+                body->nodes->f(i,pos) = 0;
+
+                //for NaN entries, assume no-slip
+                for (int k=0; k<v_set.DIM; k++){
+                    if (!std::isfinite(v_set(2*pos+1,k))){
+                        body->nodes->f(i, k) = 0;
+                        body->nodes->x_t(i, k) = 0;
+                        body->nodes->mx_t(i, k) = 0;
+                    }
+                }
+
+                break;
+            } else if (bcNodalMask(i,pos) == -6){
+                //zero out closing velocity
+                //assign necessary force for new velocity
+                delta_momentum(pos) = 0;
+                body->nodes->x_t(i,pos) = 0;
+                body->nodes->mx_t(i,pos) = 0;
+                body->nodes->f(i,pos) = 0;
+                f_ext = (body->nodes->m(i) * v_set(2*pos) - body->nodes->mx_t(i)) / job->dt - body->nodes->f(i);
+                //check that force is bounded, if not then fix
+                f_max = tau_max * job->grid->nodeSurfaceArea(job,i) * v_n(i) / job->grid->nodeVolume(job, i);
+
+                //std::cout << f_ext.norm() << " > " << f_max << std::endl;
+                //std::cout << job->grid->nodeSurfaceArea(job, i) << std::endl;
+                if (f_ext.norm() > f_max){
+                    f_ext *= f_max/f_ext.norm();
+                }
+
+                //add force to node
+                body->nodes->f(i) += f_ext;
+                break;
+            } else if (bcNodalMask(i,pos) == 6){
+                //zero out closing velocity
+                //assign necessary force for new velocity
+                delta_momentum(pos) = 0;
+                body->nodes->x_t(i,pos) = 0;
+                body->nodes->mx_t(i,pos) = 0;
+                body->nodes->f(i,pos) = 0;
+                f_ext = (body->nodes->m(i) * v_set(2*pos + 1) - body->nodes->mx_t(i)) / job->dt - body->nodes->f(i);
+
+                //check that force is bounded, if not then fix
+                f_max = tau_max * job->grid->nodeSurfaceArea(job,i) * v_n(i) / job->grid->nodeVolume(job, i);
+                if (f_ext.norm() > f_max){
+                    f_ext *= f_max/f_ext.norm();
+                }
+
+                //add force to node
+                body->nodes->f(i) += f_ext;
                 break;
             } else {
                 delta_momentum(pos) = 0;

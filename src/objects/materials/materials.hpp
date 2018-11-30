@@ -200,40 +200,17 @@ public:
     }
 
     //new variable
-    double phi_j_0, phi_j_inf, phi_j_mu, F_0;
-    double mu_phi;
-
-    Eigen::VectorXd phi_m_vec;
-
-    double getPhiM(double tau);
-
-    void init(Job* job, Body* body);
-    void calculateStress(Job* job, Body* body, int SPEC);
-
-    void writeFrame(Job* job, Body* body, Serializer* serializer);
-};
-
-/*----------------------------------------------------------------------------*/
-
-class CustomDSTModel : public SlurryGranularPhase{
-public:
-    CustomDSTModel(){
-        object_name = "CustomDSTModel";
-    }
-
-    //boltzman constant
-    double k_B = 1.38064852e-23; //m^2 * kg /(s^2 * K)
-
-    //new variable
-    double phi_c, phi_j, K_6, K_7, K_8, theta, alpha;
+    double a_0, a_inf, phi_j, phi_c, K_6, K_7, tau_star;
+    double Delta, alpha, phi_star;
 
     Eigen::VectorXd c, phi_m_vec;
 
+    void calcState(double &gdp, double &p, double &eta_in, double &phi_in, double &I_out, double &Iv_out, double &Im_out, double &mu_out, double &phi_eq, double &beta_out);
+    double getBeta(double phi, double phi_eq);
     void init(Job* job, Body* body);
     void calculateStress(Job* job, Body* body, int SPEC);
 
     void writeFrame(Job* job, Body* body, Serializer* serializer);
 };
-
 
 #endif //MPM_V3_MATERIALS_HPP

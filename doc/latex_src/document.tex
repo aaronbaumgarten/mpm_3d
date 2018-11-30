@@ -15,19 +15,60 @@
 \usepackage{cellspace}
 \usepackage{geometry}
 
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks,
+    %citecolor=black,
+    %filecolor=black,
+    %linkcolor=black,
+    %urlcolor=black
+}
+
+\DeclareMathOperator{\Grad}{Grad}
+\DeclareMathOperator{\grad}{grad}
+\DeclareMathOperator{\sym}{sym}
+\DeclareMathOperator{\skw}{skw}
+\DeclareMathOperator{\Skw}{Skw}
+\DeclareMathOperator{\Sym}{Sym}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\divr}{div}
+\DeclareMathOperator{\sgn}{sgn}
+\DeclareMathOperator{\Reyn}{Re}
+\DeclareMathOperator{\St}{St}
+
+\newcommand{\Vector}[1]{\boldsymbol{#1}}
+\newcommand{\Tensor}[1]{\boldsymbol{#1}}
 
 \begin{document}
 
 \title{\texttt{mpm\_3d} Documentation \\ \large Version 3.0}
 \author{Aaron S. Baumgarten}
-\date{June 2018}
+\date{November 2018}
 \maketitle
 
+\tableofcontents
+
+\chapter{Overview}
+In its default configuration, \texttt{mpm\_3d} is a program which solves time-dependent mechanics problems using the material point method. Additionally, \texttt{mpm\_3d} is built on a highly customizeable code framework and allows users to drastically change the default behavior of the program through user-defined classes.
+
+This document will cover the basics of installing the program and running simulations as well as introduce developers to the underlying code framework, including how to customize it.
+
+For questions or comments, please email \href{mailto: asbaum@mit.edu}{asbaum@mit.edu}.
+
+\pagebreak
+
 %users
-\include{installation}
+\input{installation}
+\input{running}
 
 %developers
+\input{framework}
+\input{user_def}
 
 %contact
+
+%references
+\bibliographystyle{plain}
+\bibliography{references.bib}
 
 \end{document}

@@ -141,8 +141,10 @@ void ContactHuang::applyRules(Job* job, int SPEC){
 
                     //determine shear force and shear vector
                     s1i = m1 / job->dt * (vCMi - mv1i / m1) - fn1i * normal;
-                    ft1i = sqrt(s1i.dot(s1i));
-                    s1i /= ft1i;
+                    ft1i = s1i.norm();
+                    if (ft1i != 0) {
+                        s1i /= ft1i;
+                    }
 
                     //add forces
                     fcti = std::min(0.0, fn1i) * normal + std::min(mu_f * std::abs(fn1i), std::abs(ft1i)) * s1i;
@@ -167,8 +169,10 @@ void ContactHuang::applyRules(Job* job, int SPEC){
 
                     //determine shear force and shear vector
                     s1i = m1 / job->dt * (vCMi - mv1i / m1) - fn1i * normal;
-                    ft1i = sqrt(s1i.dot(s1i));
-                    s1i /= ft1i;
+                    ft1i = s1i.norm();
+                    if (ft1i != 0) {
+                        s1i /= ft1i;
+                    }
 
                     //add forces
                     fcti = std::min(0.0, fn1i) * normal + std::min(mu_f * std::abs(fn1i), std::abs(ft1i)) * s1i;

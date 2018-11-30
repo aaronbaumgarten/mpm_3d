@@ -232,6 +232,54 @@ void CartesianCubicCustom::hiddenInit(Job* job){
         }
     }
 
+    //node mapping matrix
+    S_grid = MPMScalarSparseMatrix(node_count, node_count);
+    std::vector<int> nvec(0);
+    std::vector<double> valvec(0);
+    for (int i=0; i<node_count; i++) {
+
+        KinematicVector x_i = x_n(i);
+        for (int pos = 0; pos < GRID_DIM; pos++){
+            if (x_i(pos) == Lx(pos)){
+                //adjust point just a little bit for post-processing
+                x_i(pos) = Lx(pos) - hx(pos)/100.0;
+            }
+        }
+
+        nvec.resize(0);
+        valvec.resize(0);
+        evaluateBasisFnValue(job, x_i, nvec, valvec);
+        for (int j = 0; j < nvec.size(); j++) {
+            S_grid.push_back(nvec[j], i, valvec[j]); //node, point, value
+        }
+    }
+
+    KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
+    //nodal surface integral
+    s_n.resize(x_n.size());
+    s_n.setZero();
+    for (int n=0;n<x_n.size();n++){
+        tmp = n;
+        for (int i=0;i<ijk.rows();i++){
+            ijk(i) = tmp % (Nx(i)+1);
+            tmp = tmp/(Nx(i)+1);
+
+            if (ijk(i) == 0 || ijk(i) == Nx(i)){
+                s_n(n) = 1;
+                for (int pos=0;pos<(GRID_DIM-1);pos++){
+                    s_n(n) *= hx(pos);
+                }
+
+                //approximate adjustment for axisymetric case
+                if (job->JOB_TYPE == job->JOB_AXISYM){
+                    tmpVec = nodeIDToPosition(job, n);
+                    s_n(n) *= tmpVec(0);
+                }
+                break;
+            }
+        }
+    }
+
     return;
 }
 

@@ -44,6 +44,7 @@ Registry<Driver>::Registry() {
     object["ColumnCollapseDriver"] = &createInstance<Driver,ColumnCollapseDriver>;
     object["UserDefinedGravityDriver"] = &createInstance<Driver,UserDefinedGravityDriver>;
     object["CavityFlowDriver"] = &createInstance<Driver,CavityFlowDriver>;
+    object["BallisticDriver"] = &createInstance<Driver,BallisticDriver>;
 }
 
 
@@ -63,6 +64,7 @@ Registry<Body>::Registry() {
     object["WheelBody"] = &createInstance<Body,WheelBody>;
     object["HydrostaticBody"] = &createInstance<Body,HydrostaticBody>;
     object["LaunchedBody"] = &createInstance<Body,LaunchedBody>;
+    object["PrestressedBody"] = &createInstance<Body,PrestressedBody>;
 }
 
 
@@ -74,6 +76,8 @@ Registry<Contact>::Registry() {
     object["SlurryMixture"] = &createInstance<Contact,SlurryMixture>;
     object["SlurryContact"] = &createInstance<Contact,SlurryContact>;
     object["SlurryContact_ReflectedBoundary"] = &createInstance<Contact,SlurryContact_ReflectedBoundary>;
+    object["ContactHuang_ReflectedBoundary"] = &createInstance<Contact,ContactHuang_ReflectedBoundary>;
+    object["ContactRigid_ReflectedBoundary"] = &createInstance<Contact,ContactRigid_ReflectedBoundary>;
 }
 
 
@@ -87,7 +91,8 @@ Registry<Grid>::Registry() {
     object["CartesianCustom"] = &createInstance<Grid,CartesianCustom>;
     object["CartesianCubicCustom"] = &createInstance<Grid,CartesianCubicCustom>;
     object["TriangularGridLinear"] = &createInstance<Grid,TriangularGridLinear>;
-    object["Regular2DTaylorCouetteCell"] = &createInstance<Grid,Regular2DTaylorCouetteCell>;
+    object["CartesianCubic_Offset"] = &createInstance<Grid,CartesianCubic_Offset>;
+    object["TetrahedralGridLinear"] = &createInstance<Grid,TetrahedralGridLinear>;
 }
 
 
@@ -117,7 +122,6 @@ Registry<Material>::Registry() {
     object["SlurryFluidPhase"] = &createInstance<Material,SlurryFluidPhase>;
     object["BarotropicViscousFluid"] = &createInstance<Material,BarotropicViscousFluid>;
     object["Cornstarch"] = &createInstance<Material,Cornstarch>;
-    object["CustomDSTModel"] = &createInstance<Material,CustomDSTModel>;
 }
 
 
@@ -129,5 +133,5 @@ Registry<Boundary>::Registry() {
     object["CartesianSmoothBox"] = &createInstance<Boundary,CartesianSmoothBox>;
     object["CartesianFrictionalBox"] = &createInstance<Boundary,CartesianFrictionalBox>;
     object["CartesianBoxCustom"] = &createInstance<Boundary,CartesianBoxCustom>;
-    object["Regular2DTaylorCouetteCustom"] = &createInstance<Boundary,Regular2DTaylorCouetteCustom>;
+    object["AssignedVelocity"] = &createInstance<Boundary,AssignedVelocity>;
 }

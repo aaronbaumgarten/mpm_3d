@@ -566,5 +566,6 @@ int TriangularGridLinear::nodeTag(Job* job, int idIN){
 
 double TriangularGridLinear::nodeSurfaceArea(Job *job, int idIN) {
     //need to implement this at some point
+    std::cout << "WARNING: TriangularGridLinear::nodeSurfaceArea() isn't implemented!" << std::endl;
     return 0;
 }

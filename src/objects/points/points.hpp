@@ -66,18 +66,66 @@ public:
     Eigen::VectorXd extent;
     Eigen::MatrixXi A; //for mapping corners to position
 
+    virtual void init(Job* job, Body* body);
+    virtual void readFromFile(Job* job, Body* body, std::string fileIN);
+    virtual void generateMap(Job* job, Body* body, int SPEC);             //generate S and gradS
+    virtual void updateIntegrators(Job* job, Body* body);                 //update integrators (extent, etc.)
+
+    virtual void writeHeader(Job* job, Body* body, Serializer* serializer, std::ofstream& pfile, int SPEC);
+    virtual void writeFrame(Job* job, Body* body, Serializer* serializer);
+    virtual std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+
+    virtual void generateLoads(Job* job, Body* body);   //arbitrary loading during simulation
+    virtual void applyLoads(Job* job, Body* body);
+};
+
+/*----------------------------------------------------------------------------*/
+
+//general object for creating sets of points
+class Part{
+public:
+    virtual bool encompasses(KinematicVector&) = 0;
+};
+
+class Ball : public Part{
+public:
+    Ball(KinematicVector oIN, double rIN){
+        r = rIN;
+        o = oIN;
+    }
+
+    double r;           //radius
+    KinematicVector o;  //origin
+
+    bool encompasses(KinematicVector& xIN);
+};
+
+class Box : public Part{
+public:
+    Box(KinematicVector x_minIN, double x_maxIN){
+        x_min = x_minIN;
+        x_max = x_maxIN;
+    }
+
+    KinematicVector x_min, x_max;  //bounds
+
+    bool encompasses(KinematicVector& xIN);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class GmshPoints : public DefaultPoints{
+public:
+    GmshPoints(){
+        object_name = "GmshPoints";
+    }
+
+    //linear material points per cell and density of points
+    double lmpp, rho;
+
     void init(Job* job, Body* body);
     void readFromFile(Job* job, Body* body, std::string fileIN);
-    void generateMap(Job* job, Body* body, int SPEC);             //generate S and gradS
-    void updateIntegrators(Job* job, Body* body);                 //update integrators (extent, etc.)
-
-    void writeHeader(Job* job, Body* body, Serializer* serializer, std::ofstream& pfile, int SPEC);
-    void writeFrame(Job* job, Body* body, Serializer* serializer);
-    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
-    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
-
-    void generateLoads(Job* job, Body* body);   //arbitrary loading during simulation
-    void applyLoads(Job* job, Body* body);
 };
 
 #endif //MPM_V3_POINTS_HPP
