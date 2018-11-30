@@ -25,6 +25,7 @@ Nx = int(math.ceil(Lx / dx))
 Ny = int(math.ceil(Ly / dx))
 Nz = int(math.ceil(Lz / dx))
 lmpp = 2
+print(Nx, Ny, Nz)
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
 print "grid created"
 
