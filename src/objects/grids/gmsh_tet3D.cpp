@@ -33,17 +33,26 @@
 int TetrahedralGridLinear::whichSearchCell(const KinematicVector &xIN){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "whichSearchCell failed; invalid KinematicVector TYPE");
     bool inDomain;
-    int elementID = floor(xIN[0] / hx[0]); //id in x-dimension
+    KinematicVector xTMP = xIN;
+
+    //adjust bounding nodes to avoid overflow
+    for (int i=0; i<GRID_DIM; i++){
+        if (xIN[i] == Lx[i]){
+            xTMP[i] -= hx[i]/100.0;
+        }
+    }
+
+    int elementID = floor(xTMP[0] / hx[0]); //id in x-dimension
     for (int i = 0; i < GRID_DIM; i++) {
-        inDomain = (xIN[i] < Lx[i] && xIN[i] >= 0);
+        inDomain = (xTMP[i] < Lx[i] && xTMP[i] >= 0);
         if (!inDomain) { //if xIn is outside domain, return -1
             return -1;
         }
         if (i == 1) {
             //add number of elements in next layer of id in higher dimensions
-            elementID += floor(xIN[i] / hx[i]) * (Nx[i - 1]);
+            elementID += floor(xTMP[i] / hx[i]) * (Nx[i - 1]);
         } else if (i == 2) {
-            elementID += floor(xIN[i] / hx[i]) * (Nx[i - 1]) * (Nx[i - 2]);
+            elementID += floor(xTMP[i] / hx[i]) * (Nx[i - 1]) * (Nx[i - 2]);
         }
     }
     return elementID;
@@ -192,21 +201,20 @@ void TetrahedralGridLinear::hiddenInit(Job* job){
     for (int e=0;e<nodeIDs.rows();e++){
         //A
         A(e,0,0) = x_n(nodeIDs(e,1),0) - x_n(nodeIDs(e,0),0);
-        A(e,0,1) = x_n(nodeIDs(e,1),1) - x_n(nodeIDs(e,0),0);
-        A(e,0,2) = x_n(nodeIDs(e,1),2) - x_n(nodeIDs(e,0),0);
+        A(e,1,0) = x_n(nodeIDs(e,1),1) - x_n(nodeIDs(e,0),1);
+        A(e,2,0) = x_n(nodeIDs(e,1),2) - x_n(nodeIDs(e,0),2);
 
-        A(e,1,0) = x_n(nodeIDs(e,2),0) - x_n(nodeIDs(e,0),0);
-        A(e,1,1) = x_n(nodeIDs(e,2),1) - x_n(nodeIDs(e,0),0);
-        A(e,1,2) = x_n(nodeIDs(e,2),2) - x_n(nodeIDs(e,0),0);
+        A(e,0,1) = x_n(nodeIDs(e,2),0) - x_n(nodeIDs(e,0),0);
+        A(e,1,1) = x_n(nodeIDs(e,2),1) - x_n(nodeIDs(e,0),1);
+        A(e,2,1) = x_n(nodeIDs(e,2),2) - x_n(nodeIDs(e,0),2);
 
-        A(e,2,0) = x_n(nodeIDs(e,3),0) - x_n(nodeIDs(e,0),0);
-        A(e,2,1) = x_n(nodeIDs(e,3),1) - x_n(nodeIDs(e,0),0);
-        A(e,2,2) = x_n(nodeIDs(e,3),2) - x_n(nodeIDs(e,0),0);
+        A(e,0,2) = x_n(nodeIDs(e,3),0) - x_n(nodeIDs(e,0),0);
+        A(e,1,2) = x_n(nodeIDs(e,3),1) - x_n(nodeIDs(e,0),1);
+        A(e,2,2) = x_n(nodeIDs(e,3),2) - x_n(nodeIDs(e,0),2);
 
         //Ainv
         Ainv(e) = A(e).inverse();
     }
-
 
     //setup search grid
     //store length, number of linear nodes, and deltas
@@ -275,6 +283,7 @@ void TetrahedralGridLinear::hiddenInit(Job* job){
         }
     }
 
+    bool cell_in_range;
     //insert elements into search cell list
     for (int i=0;i<len;i++){
         search_offsets.push_back(search_cells.size());
@@ -282,12 +291,17 @@ void TetrahedralGridLinear::hiddenInit(Job* job){
         ijk = n_to_ijk(job, i);
         //fill cell
         for (int e = 0; e<element_count; e++){
+            cell_in_range = true;
             for (int pos = 0; pos < ijk.rows(); pos++){
                 //insert element if search cell is within min/max range
-                if (ijk(pos) >= element_min_max[6*e + pos] || ijk(pos) <= element_min_max[6*e + 3 + pos]){
-                    search_cells.push_back(e);
-                    continue;
+                if (ijk(pos) < element_min_max[6*e + pos] || ijk(pos) > element_min_max[6*e + 3 + pos]){
+                    cell_in_range = false;
+                    break;
                 }
+            }
+            //hasn't failed, therefore add to list
+            if (cell_in_range) {
+                search_cells.push_back(e);
             }
         }
         std::cout << "Initializing... " << i << "/" << len << "\r";
@@ -329,7 +343,7 @@ void TetrahedralGridLinear::writeHeader(Job* job, Body* body, Serializer* serial
         //vtk requires 3D position
         nfile << x_n(i,0) << " " << x_n(i,1) << " " << x_n(i,2) << "\n";
     }
-    nfile << "CELLS " << element_count << " " << 4*element_count << "\n";
+    nfile << "CELLS " << element_count << " " << 5*element_count << "\n";
     for (int e=0;e<element_count;e++){
         nfile << "4 " << nodeIDs(e,0) << " " << nodeIDs(e,1) << " " << nodeIDs(e,2) << " " << nodeIDs(e,3) << "\n";
     }
@@ -351,7 +365,6 @@ int TetrahedralGridLinear::whichElement(Job* job, KinematicVector& xIN) {
     if (searchID < 0) {
         return -1;
     }
-
     //search in that cell
     int elementID;
     for (int cellID = search_offsets[searchID]; cellID < search_offsets[searchID + 1]; cellID++) {
@@ -360,6 +373,7 @@ int TetrahedralGridLinear::whichElement(Job* job, KinematicVector& xIN) {
             return elementID;
         }
     }
+    //std::cout << "OUT OF DOMAIN!!!" << std::endl;
     return -1;
 }
 

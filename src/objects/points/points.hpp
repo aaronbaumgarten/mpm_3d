@@ -83,33 +83,33 @@ public:
 /*----------------------------------------------------------------------------*/
 
 //general object for creating sets of points
-class Part{
+class Part : public MPMObject{
 public:
     virtual bool encompasses(KinematicVector&) = 0;
 };
 
 class Ball : public Part{
 public:
-    Ball(KinematicVector oIN, double rIN){
-        r = rIN;
-        o = oIN;
+    Ball(){
+        object_name = "Ball";
     }
 
     double r;           //radius
     KinematicVector o;  //origin
 
+    void init();
     bool encompasses(KinematicVector& xIN);
 };
 
 class Box : public Part{
 public:
-    Box(KinematicVector x_minIN, double x_maxIN){
-        x_min = x_minIN;
-        x_max = x_maxIN;
+    Box(){
+        object_name = "Box";
     }
 
     KinematicVector x_min, x_max;  //bounds
 
+    void init();
     bool encompasses(KinematicVector& xIN);
 };
 
@@ -123,6 +123,12 @@ public:
 
     //linear material points per cell and density of points
     double lmpp, rho;
+
+    //part list
+    std::vector<Part> part_list;
+
+    //msh file
+    std::string msh_file, out_file;
 
     void init(Job* job, Body* body);
     void readFromFile(Job* job, Body* body, std::string fileIN);

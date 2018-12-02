@@ -589,7 +589,7 @@ inline MaterialTensor MaterialTensor::inverse() const{
     tmp[YY] = 1/detA * (data_ptr[XX]*data_ptr[ZZ] - data_ptr[ZX]*data_ptr[XZ]);
     tmp[YZ] = 1/detA * (data_ptr[XZ]*data_ptr[YX] - data_ptr[YZ]*data_ptr[XX]);
     tmp[ZX] = 1/detA * (data_ptr[YX]*data_ptr[ZY] - data_ptr[ZX]*data_ptr[YY]);
-    tmp[ZY] = 1/detA * (data_ptr[XY]*data_ptr[ZX] - data_ptr[ZY]*data_ptr[ZX]);
+    tmp[ZY] = 1/detA * (data_ptr[XY]*data_ptr[ZX] - data_ptr[ZY]*data_ptr[XX]);
     tmp[ZZ] = 1/detA * (data_ptr[XX]*data_ptr[YY] - data_ptr[YX]*data_ptr[XY]);
     for (int i=0;i<TENSOR_MAX_LENGTH;i++){
         if (!std::isfinite(tmp[i])){
@@ -883,7 +883,7 @@ inline KinematicTensor KinematicTensor::inverse() const{
         tmp[YY] = 1 / detA * (data_ptr[XX] * data_ptr[ZZ] - data_ptr[ZX] * data_ptr[XZ]);
         tmp[YZ] = 1 / detA * (data_ptr[XZ] * data_ptr[YX] - data_ptr[YZ] * data_ptr[XX]);
         tmp[ZX] = 1 / detA * (data_ptr[YX] * data_ptr[ZY] - data_ptr[ZX] * data_ptr[YY]);
-        tmp[ZY] = 1 / detA * (data_ptr[XY] * data_ptr[ZX] - data_ptr[ZY] * data_ptr[ZX]);
+        tmp[ZY] = 1 / detA * (data_ptr[XY] * data_ptr[ZX] - data_ptr[ZY] * data_ptr[XX]);
         tmp[ZZ] = 1 / detA * (data_ptr[XX] * data_ptr[YY] - data_ptr[YX] * data_ptr[XY]);
     }
     for (int i=0;i<TENSOR_MAX_LENGTH;i++){

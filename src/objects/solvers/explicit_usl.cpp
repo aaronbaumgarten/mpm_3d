@@ -183,28 +183,6 @@ void ExplicitUSL::mapPointsToNodes(Job* job){
             for (int i=0; i<nval.rows(); i++){
                 nodes->f(i,2) += nval(i);
             }
-
-            /*
-            //scale to equivalent 2D problem
-            //adjust integrators for corrected area integral
-            //map mass
-
-            pval = Eigen::VectorXd(points->x.size());
-            for (int i=0;i<points->x.size();i++){
-                pval(i) = points->m(i)/points->x(i,0); // A*rho = v/r * m/v
-            }
-            nval = body->S * pval; //equiv 2D mass
-
-            for (int i=0; i< nval.rows(); i++){
-                if (nval(i) > 0) {
-                    tmpVAL = nval(i) / nodes->m(i); //scaling rule for mass
-                    nodes->m(i) *= tmpVAL;
-                    nodes->f(i) *= tmpVAL;
-                    nodes->mx_t(i) *= tmpVAL;
-                }
-            }
-            */
-
         }
     }
     return;

@@ -34,6 +34,8 @@
 #include "points.hpp"
 #include "objects/bodies/bodies.hpp"
 
+#include "registry.hpp"
+
 /*----------------------------------------------------------------------------*/
 //initialize point state (assumes that readFromFile has been called)
 //no safety check on this, so be careful please
@@ -96,12 +98,144 @@ void GmshPoints::init(Job* job, Body* body){
 //read point data from file
 void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
     //for now, only implement 3D version
-    if (job->JOB_TYPE != 3){
+    if (job->JOB_TYPE != 3) {
         std::cerr << "ERROR: GmshPoints is only implemented for 3D!" << std::endl;
         exit(0);
     }
 
     file = fileIN;
+
+    //declare variables and strings and vectors
+    std::string line;
+    std::vector<std::string> lvec;
+    std::vector<std::string> params;
+    std::string propName;
+    std::string propValue;
+
+    //section headers
+    std::vector<std::string> headers = {"msh_file","out_file","part"};
+
+    //declare fstream from filename
+    std::ifstream fin(file);
+
+    //list size
+    int part_list_size = 0;
+    //part registry
+    Registry<Part> part_registry = Registry<Part>();
+
+    //read config file and configure
+    if (fin.is_open()) {
+        //if open, read lines
+        while (std::getline(fin, line)) {
+            //remove spaces and comments from line
+            line = Parser::removeComments(line);
+            line = Parser::removeSpaces(line);
+
+            //check if line matches header
+            if (line.size() > 0) {
+                //temporary objects for constructing job objects
+                MPMObject tmp, point_tmp, node_tmp, material_tmp, boundary_tmp;
+
+                line = Parser::removeBraces(line);
+                line = Parser::removeQuotes(line);
+                lvec = Parser::splitString(line, '=');
+
+                //switch for headers
+                switch (Parser::findStringID(headers, lvec[0])) {
+                    case 0:
+                        //msh_file
+                        if (lvec.size() > 1){
+                            msh_file = lvec[1];
+                        } else {
+                            std::cerr << "ERROR: No .msh file passed to GmshPoints. Exiting." << std::endl;
+                        }
+                        break;
+                    case 1:
+                        //out_file
+                        if (lvec.size() > 1){
+                            out_file = lvec[1];
+                        } else {
+                            std::cerr << "ERROR: No output file passed to GmshPoints. Exiting." << std::endl;
+                        }
+                        break;
+                    case 2:
+                        //part
+                        params = {"class", "properties", "int-properties", "str-properties"};
+                        std::getline(fin, line);
+                        line = Parser::removeComments(line);
+                        line = Parser::removeSpaces(line);
+                        if (line.compare("{") == 0) {
+                            while (std::getline(fin, line)) {
+                                line = Parser::removeComments(line);
+                                line = Parser::removeSpaces(line);
+
+                                if (line.compare("}") == 0) {
+                                    break;
+                                }
+
+                                line = Parser::removeBraces(line);
+                                line = Parser::removeQuotes(line);
+                                lvec = Parser::splitString(line, '=');
+                                if (lvec.size() > 1) {
+                                    propName = lvec[0];
+                                    propValue = lvec[1];
+
+                                    lvec = Parser::splitString(propValue, ',');
+                                    switch (Parser::findStringID(params, propName)) {
+                                        case 0:
+                                            //class
+                                            part_list.push_back(
+                                            job->serializer = serializer_registry.get_object(propValue);
+                                            break;
+                                        case 1:
+                                            //props
+                                            for (int i = 0; i < lvec.size(); i++) {
+                                                //job->serializer->fp64_props.push_back(std::stod(lvec[i]));
+                                                tmp.fp64_props.push_back(std::stod(lvec[i]));
+                                            }
+                                            break;
+                                        case 2:
+                                            //int-props
+                                            for (int i = 0; i < lvec.size(); i++) {
+                                                //job->serializer->int_props.push_back(std::stoi(lvec[i]));
+                                                tmp.int_props.push_back(std::stoi(lvec[i]));
+                                            }
+                                            break;
+                                        case 3:
+                                            //str-props
+                                            for (int i = 0; i < lvec.size(); i++) {
+                                                //job->serializer->str_props.push_back(lvec[i]);
+                                                tmp.str_props.push_back(lvec[i]);
+                                            }
+                                            break;
+                                        default:
+                                            std::cerr << "Parameter \"" << propName << "\" not recognized."
+                                                      << std::endl;
+                                    }
+                                }
+                            }
+                            if (job->serializer) {
+                                //if serializer is valid
+                                job->serializer->fp64_props = tmp.fp64_props;
+                                job->serializer->int_props = tmp.int_props;
+                                job->serializer->str_props = tmp.str_props;
+                            } else {
+                                //if object is not created, this is fatal
+                                std::cerr << "ERROR: Serializer object needs valid \'class\' defined. Exiting."
+                                          << std::endl;
+                                exit(0);
+                            }
+                            std::cout << "Serializer Configured: " << job->serializer->object_name << std::endl;
+                        }
+                        break;
+                }
+            }
+        }
+    }
+
+
+
+
 
     int node_count, element_count;
     KinematicVectorArray x_n;
@@ -111,7 +245,7 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
     int len;
     std::string line; //read line
     std::vector<std::string> lvec;
-    std::ifstream fin(file); //file to load from
+    std::ifstream fin(msh_file); //file to load from
     if (fin.is_open()) {
         //if open, read lines
         std::vector<std::string> headers= {"$Nodes","$Elements"};
@@ -173,7 +307,7 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
             }
         }
     } else {
-        std::cerr << "ERROR: Cannot open " << file << "! Exiting." << std::endl;
+        std::cerr << "ERROR: Cannot open " << msh_file << "! Exiting." << std::endl;
         exit(0);
     }
 
