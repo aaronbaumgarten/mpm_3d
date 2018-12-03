@@ -24,6 +24,11 @@
 
 /*----------------------------------------------------------------------------*/
 
+void Ball::init(){
+    //initialize r, o
+    return;
+}
+
 bool Ball::encompasses(KinematicVector &xIN) {
     if ((xIN - o).norm() <= r){
         return true;
@@ -33,6 +38,11 @@ bool Ball::encompasses(KinematicVector &xIN) {
 }
 
 /*----------------------------------------------------------------------------*/
+
+void Box::init() {
+    //initialize x_min, x_max
+    return;
+}
 
 bool Box::encompasses(KinematicVector &xIN) {
     for (int i=0; i<xIN.DIM; i++){

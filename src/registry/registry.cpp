@@ -135,3 +135,11 @@ Registry<Boundary>::Registry() {
     object["CartesianBoxCustom"] = &createInstance<Boundary,CartesianBoxCustom>;
     object["AssignedVelocity"] = &createInstance<Boundary,AssignedVelocity>;
 }
+
+/*----------------------------------------------------------------------------*/
+//parts
+template<>
+Registry<Part>::Registry() {
+    object["Ball"] = &createInstance<Part,Ball>;
+    object["Box"] = &createInstance<Part,Box>;
+}
