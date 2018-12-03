@@ -254,7 +254,7 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
 
     //initialize parts
     for (int i=0; i<part_list.size(); i++){
-        part_list[i]->init();
+        part_list[i]->init(job);
     }
 
     //read gmsh file
@@ -283,6 +283,7 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
                     std::getline(fin,line);
 
                     if (floor(msh_version) == 2) {
+                        std::cout << line << std::endl;
                         len = std::stoi(line); //number of nodes;
                         //nodeTags.resize(len);
                         x_n = KinematicVectorArray(len,job->JOB_TYPE);

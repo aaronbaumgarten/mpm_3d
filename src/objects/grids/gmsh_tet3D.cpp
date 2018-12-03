@@ -148,9 +148,9 @@ void TetrahedralGridLinear::init(Job* job){
                                 std::getline(fin,line);
                                 lvec = Parser::splitString(line,' ');
                                 //lvec[0] gives gmsh id (1-indexed)
-                                x_n(i,0) = std::stod(lvec[1]); //x-coord
-                                x_n(i,1) = std::stod(lvec[2]); //y-coord
-                                x_n(i,2) = std::stod(lvec[3]); //z-coord
+                                x_n(k,0) = std::stod(lvec[1]); //x-coord
+                                x_n(k,1) = std::stod(lvec[2]); //y-coord
+                                x_n(k,2) = std::stod(lvec[3]); //z-coord
                                 //increment counter
                                 k++;
                             }

@@ -591,10 +591,8 @@ inline MaterialTensor MaterialTensor::inverse() const{
     tmp[ZX] = 1/detA * (data_ptr[YX]*data_ptr[ZY] - data_ptr[ZX]*data_ptr[YY]);
     tmp[ZY] = 1/detA * (data_ptr[XY]*data_ptr[ZX] - data_ptr[ZY]*data_ptr[XX]);
     tmp[ZZ] = 1/detA * (data_ptr[XX]*data_ptr[YY] - data_ptr[YX]*data_ptr[XY]);
-    for (int i=0;i<TENSOR_MAX_LENGTH;i++){
-        if (!std::isfinite(tmp[i])){
-            std::cerr << "WARNING: MaterialTensor::inverse() has resulted in non-finite value. So that's bad." << std::endl;
-        }
+    if (!std::isfinite(1/detA)){
+        std::cerr << "WARNING: MaterialTensor::inverse() has resulted in non-finite value. So that's bad." << std::endl;
     }
     return MaterialTensor(tmp.data());
 }
@@ -886,10 +884,8 @@ inline KinematicTensor KinematicTensor::inverse() const{
         tmp[ZY] = 1 / detA * (data_ptr[XY] * data_ptr[ZX] - data_ptr[ZY] * data_ptr[XX]);
         tmp[ZZ] = 1 / detA * (data_ptr[XX] * data_ptr[YY] - data_ptr[YX] * data_ptr[XY]);
     }
-    for (int i=0;i<TENSOR_MAX_LENGTH;i++){
-        if (!std::isfinite(tmp[i])){
-            std::cerr << "WARNING: MaterialTensor::inverse() has resulted in non-finite value. So that's bad." << std::endl;
-        }
+    if (!std::isfinite(1/detA)){
+        std::cerr << "WARNING: MaterialTensor::inverse() has resulted in non-finite value. So that's bad." << std::endl;
     }
     return KinematicTensor(tmp.data(),TENSOR_TYPE);
 }
