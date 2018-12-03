@@ -145,7 +145,7 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
                         if (lvec.size() > 1){
                             msh_file = lvec[1];
                         } else {
-                            std::cerr << "ERROR: No .msh file passed to GmshPoints. Exiting." << std::endl;
+                            std::cerr << "ERROR: No .msh file passed to GmshPoints." << std::endl;
                         }
                         break;
                     case 1:
@@ -153,15 +153,15 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
                         if (lvec.size() > 1){
                             out_file = lvec[1];
                         } else {
-                            std::cerr << "ERROR: No output file passed to GmshPoints. Exiting." << std::endl;
+                            std::cerr << "ERROR: No output file passed to GmshPoints." << std::endl;
                         }
                         break;
                     case 2:
                         //lmpp
                         if (lvec.size() > 1){
-                            lmpp = std::stod(lvec[1]);
+                            lmpp = std::stoi(lvec[1]);
                         } else {
-                            std::cerr << "ERROR: No lmpp value passed to GmshPoints. Exiting." << std::endl;
+                            std::cerr << "ERROR: No lmpp value passed to GmshPoints." << std::endl;
                         }
                         break;
                     case 3:
@@ -169,7 +169,7 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
                         if (lvec.size() > 1){
                             rho = std::stod(lvec[1]);
                         } else {
-                            std::cerr << "ERROR: No rho value passed to GmshPoints. Exiting." << std::endl;
+                            std::cerr << "ERROR: No rho value passed to GmshPoints." << std::endl;
                         }
                         break;
                     case 4:
@@ -375,8 +375,8 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
 
                             lvec = Parser::splitString(line, ' ');
                             //block info
-                            block_type = std::stoi(lvec[3]);
-                            block_length = std::stoi(lvec[4]);
+                            block_type = std::stoi(lvec[2]);
+                            block_length = std::stoi(lvec[3]);
                             if (block_type == 4) {
                                 for (int k = 0; k < block_length; k++) {
                                     std::getline(fin, line);
@@ -394,10 +394,10 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
                                     std::getline(fin, line);
                                 }
                             }
-
-                            element_count = i + 1;
-                            nodeIDs.conservativeResize(i + 1, npe);
                         }
+
+                        element_count = i + 1;
+                        nodeIDs.conservativeResize(i + 1, npe);
 
                     } else {
                         std::cerr << "Unrecognized Gmsh version: " << msh_version << ". Exiting." << std::endl;
@@ -418,10 +418,10 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
     //create point initialization lists
     //m, v, x, x_t, a
     std::vector<double> vIN;
-    std::vector<KinematicVector> xIN;
-    std::vector<KinematicVector> x_tIN;
+    KinematicVectorArray xIN;
+    KinematicVectorArray x_tIN;
     KinematicTensor A, Ainv;
-    KinematicVector a, b, c;
+    KinematicVector avec, bvec, cvec;
     double v_e, vTMP;
     KinematicVector x_tTMP = KinematicVector(job->JOB_TYPE);
     x_tTMP.setZero();
@@ -431,17 +431,17 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
 
     //check if n-point grid quadrature points are in parts of body
     for (int e = 0; e < element_count; e++){
-        a = x_n(nodeIDs(e,1)) - x_n(nodeIDs(e,0));
-        b = x_n(nodeIDs(e,2)) - x_n(nodeIDs(e,0));
-        c = x_n(nodeIDs(e,3)) - x_n(nodeIDs(e,0));
+        avec = x_n(nodeIDs(e,1)) - x_n(nodeIDs(e,0));
+        bvec = x_n(nodeIDs(e,2)) - x_n(nodeIDs(e,0));
+        cvec = x_n(nodeIDs(e,3)) - x_n(nodeIDs(e,0));
 
         //volume of element
-        v_e = (a.dot((b.cross(c))))/6.0;
+        v_e = (avec.dot((bvec.cross(cvec))))/6.0;
 
         //mapping from xi to x
-        A(0,0) = a(0); A(1,0) = a(1); A(2,0) = a(2);
-        A(0,1) = b(0); A(1,1) = b(1); A(2,1) = b(2);
-        A(0,2) = c(0); A(1,2) = c(1); A(2,2) = c(2);
+        A(0,0) = avec(0); A(1,0) = avec(1); A(2,0) = avec(2);
+        A(0,1) = bvec(0); A(1,1) = bvec(1); A(2,1) = bvec(2);
+        A(0,2) = cvec(0); A(1,2) = cvec(1); A(2,2) = cvec(2);
 
         //mapping from x to xi
         Ainv = A.inverse();
@@ -478,91 +478,102 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
         }
 
         //check edge tets
-        
-    }
+        for (int i=0; i<=lmpp; i++){
+            for (int j=0; j<=lmpp; j++){
+                for (int k=0; k<lmpp; k++){
+                    if ((lmpp - i - j - k)%2 == 1){
+                        for (int ii=-1; ii<2; i+=2){
+                            if (i == 0){
+                                //skip -1
+                                ii = 1;
+                            }
+                            for (int jj=-1; jj<2; j+=2){
+                                if (j == 0){
+                                    //skip -1
+                                    jj = 1;
+                                }
+                                for (int kk=-1; kk<2; k+=2){
+                                    if (k == 0){
+                                        //skip -1
+                                        kk = 1;
+                                    }
+                                    //add points in octagon
+                                    //n-point quadrature location
+                                    Xi(0) = i + ii/4.0;
+                                    Xi(1) = j + jj/4.0;
+                                    Xi(2) = k + kk/4.0;
+                                    Xi /= lmpp;
 
+                                    //map to x
+                                    X = A*Xi;
 
-    std::string line;
-    std::ifstream fin(file);
-    std::stringstream ss;
-    std::vector<std::string> s_vec;
+                                    //check if any part
+                                    for (int p=0; p<part_list.size(); p++){
+                                        if (part_list[p]->encompasses(X)){
+                                            //add point to list
+                                            xIN.push_back(X);
+                                            x_tIN.push_back(x_tTMP);
 
-    if (fin.is_open()) {
-        std::getline(fin, line);
-        int len = std::stoi(line);
-
-        //size KinematicVectors
-        x = KinematicVectorArray(len, job->JOB_TYPE);
-        u = KinematicVectorArray(len, job->JOB_TYPE);
-        x_t = KinematicVectorArray(len, job->JOB_TYPE);
-        mx_t = KinematicVectorArray(len, job->JOB_TYPE);
-        b = KinematicVectorArray(len, job->JOB_TYPE);
-
-        //size scalar vectors
-        m.resize(len);
-        v.resize(len);
-        v0.resize(len);
-        active.resize(len);
-        extent.resize(len);
-
-        //size tensor arrays
-        T = MaterialTensorArray(len);
-        L = KinematicTensorArray(len, job->JOB_TYPE);
-
-        //zero out all entries to start
-        x.setZero();
-        u.setZero();
-        x_t.setZero();
-        m.setZero();
-        v.setZero();
-        v0.setZero();
-        mx_t.setZero();
-        b.setZero();
-        T.setZero();
-        L.setZero();
-        active.setZero();
-        extent.setZero();
-
-        for (int i = 0; i < len; i++) {
-            std::getline(fin, line);
-            s_vec = Parser::splitString(line, ' ');
-            if (s_vec.size() == (1 + 1 + job->DIM + job->DIM + 1)) {
-                m[i] = std::stod(s_vec[0]);                 //first column is mass
-                v[i] = std::stod(s_vec[1]);                 //second column is volume
-                for (int pos = 0; pos < job->DIM; pos++) {
-                    x(i, pos) = std::stod(s_vec[2 + pos]);    //following cols are position
+                                            vTMP = v_e/(lmpp*lmpp*lmpp);
+                                            vIN.push_back(vTMP);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-                for (int pos = 0; pos < job->DIM; pos++) {
-                    x_t(i, pos) = std::stod(s_vec[2 + job->DIM + pos]);     //following cols are velocity
-                }
-                active[i] = std::stod(s_vec[2 + 2 * job->DIM]);
-
-            } else if (s_vec.size() == (1 + 1 + job->grid->GRID_DIM + job->grid->GRID_DIM + 1)) {
-                m[i] = std::stod(s_vec[0]);                 //first column is mass
-                v[i] = std::stod(s_vec[1]);                 //second column is volume
-                for (int pos = 0; pos < job->grid->GRID_DIM; pos++) {
-                    x(i, pos) = std::stod(s_vec[2 + pos]);    //following cols are position
-                }
-                for (int pos = 0; pos < job->grid->GRID_DIM; pos++) {
-                    x_t(i, pos) = std::stod(s_vec[2 + job->grid->GRID_DIM + pos]);     //following cols are velocity
-                }
-                active[i] = std::stod(s_vec[2 + 2 * job->grid->GRID_DIM]);
-
-            } else {
-                std::cerr << "ERROR: Unable to read line: " << file << std::endl;
-                return;
-            }
-
-            //correct volume and mass for axisymmetric simulation
-            if (job->JOB_TYPE == job->JOB_AXISYM){
-                m[i] *= x(i,0);
-                v[i] *= x(i,0);
             }
         }
+    }
 
-    } else {
-        std::cerr << "ERROR: Unable to open file: " << file << std::endl;
-        return;
+    len = xIN.size();
+
+    //size KinematicVectors
+    x = KinematicVectorArray(len, job->JOB_TYPE);
+    u = KinematicVectorArray(len, job->JOB_TYPE);
+    x_t = KinematicVectorArray(len, job->JOB_TYPE);
+    mx_t = KinematicVectorArray(len, job->JOB_TYPE);
+    b = KinematicVectorArray(len, job->JOB_TYPE);
+
+    //size scalar vectors
+    m.resize(len);
+    v.resize(len);
+    v0.resize(len);
+    active.resize(len);
+    extent.resize(len);
+
+    //size tensor arrays
+    T = MaterialTensorArray(len);
+    L = KinematicTensorArray(len, job->JOB_TYPE);
+
+    //zero out all entries to start
+    x.setZero();
+    u.setZero();
+    x_t.setZero();
+    m.setZero();
+    v.setZero();
+    v0.setZero();
+    mx_t.setZero();
+    b.setZero();
+    T.setZero();
+    L.setZero();
+    active.setZero();
+    extent.setZero();
+
+    for (int i = 0; i < len; i++) {
+        m[i] = rho*vIN[i];
+        v[i] = vIN[i];
+        x[i] = xIN[i];
+        x_t[i] = x_tIN[i];
+        active[i] = 1;
+
+        //correct volume and mass for axisymmetric simulation
+        if (job->JOB_TYPE == job->JOB_AXISYM){
+            m[i] *= x(i,0);
+            v[i] *= x(i,0);
+        }
     }
 
     return;

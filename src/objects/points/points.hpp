@@ -86,7 +86,7 @@ public:
 class Part : public MPMObject{
 public:
     virtual bool encompasses(KinematicVector&) = 0;
-    virtual void init() = 0;
+    virtual void init(Job*) = 0;
 };
 
 class Ball : public Part{
@@ -98,7 +98,7 @@ public:
     double r;           //radius
     KinematicVector o;  //origin
 
-    void init();
+    void init(Job* job);
     bool encompasses(KinematicVector& xIN);
 };
 
@@ -110,7 +110,7 @@ public:
 
     KinematicVector x_min, x_max;  //bounds
 
-    void init();
+    void init(Job* job);
     bool encompasses(KinematicVector& xIN);
 };
 
@@ -125,7 +125,8 @@ public:
     double msh_version;
 
     //linear material points per cell and density of points
-    double lmpp, rho;
+    double rho;
+    int lmpp;
 
     //part list
     std::vector<std::unique_ptr<Part>> part_list;
