@@ -278,12 +278,12 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
                     lvec = Parser::splitString(line,' ');
                     //mesh file version
                     msh_version = std::stod(lvec[0]);
+                    break;
                 case 1:
                     //nodes
                     std::getline(fin,line);
 
                     if (floor(msh_version) == 2) {
-                        std::cout << line << std::endl;
                         len = std::stoi(line); //number of nodes;
                         //nodeTags.resize(len);
                         x_n = KinematicVectorArray(len,job->JOB_TYPE);
@@ -319,9 +319,9 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
                                 std::getline(fin,line);
                                 lvec = Parser::splitString(line,' ');
                                 //lvec[0] gives gmsh id (1-indexed)
-                                x_n(i,0) = std::stod(lvec[1]); //x-coord
-                                x_n(i,1) = std::stod(lvec[2]); //y-coord
-                                x_n(i,2) = std::stod(lvec[3]); //z-coord
+                                x_n(k,0) = std::stod(lvec[1]); //x-coord
+                                x_n(k,1) = std::stod(lvec[2]); //y-coord
+                                x_n(k,2) = std::stod(lvec[3]); //z-coord
                                 //increment counter
                                 k++;
                             }
@@ -459,7 +459,7 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
                         Xi /= lmpp;
 
                         //map to x
-                        X = A*Xi;
+                        X = x_n(nodeIDs(e,0)) + A*Xi;
 
                         //check if any part
                         for (int p=0; p<part_list.size(); p++){
@@ -483,17 +483,17 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
             for (int j=0; j<=lmpp; j++){
                 for (int k=0; k<lmpp; k++){
                     if ((lmpp - i - j - k)%2 == 1){
-                        for (int ii=-1; ii<2; i+=2){
+                        for (int ii=-1; ii<2; ii+=2){
                             if (i == 0){
                                 //skip -1
                                 ii = 1;
                             }
-                            for (int jj=-1; jj<2; j+=2){
+                            for (int jj=-1; jj<2; jj+=2){
                                 if (j == 0){
                                     //skip -1
                                     jj = 1;
                                 }
-                                for (int kk=-1; kk<2; k+=2){
+                                for (int kk=-1; kk<2; kk+=2){
                                     if (k == 0){
                                         //skip -1
                                         kk = 1;
@@ -506,7 +506,7 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
                                     Xi /= lmpp;
 
                                     //map to x
-                                    X = A*Xi;
+                                    X = x_n(nodeIDs(e,0)) + A*Xi;
 
                                     //check if any part
                                     for (int p=0; p<part_list.size(); p++){
@@ -569,6 +569,8 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
         x[i] = xIN[i];
         x_t[i] = x_tIN[i];
         active[i] = 1;
+
+        std::cout << EIGEN_MAP_OF_KINEMATIC_VECTOR(x[i]).transpose() << std::endl;
 
         //correct volume and mass for axisymmetric simulation
         if (job->JOB_TYPE == job->JOB_AXISYM){
