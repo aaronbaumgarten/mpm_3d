@@ -111,7 +111,7 @@ void TetrahedralGridLinear::init(Job* job){
                 case 1:
                     //nodes
                     std::getline(fin,line);
-
+                    
                     if (floor(msh_version) == 2) {
                         len = std::stoi(line); //number of nodes;
                         //nodeTags.resize(len);
@@ -130,7 +130,7 @@ void TetrahedralGridLinear::init(Job* job){
                     } else if (floor(msh_version) == 4){
                         lvec = Parser::splitString(line,' '); //entity_blocks num_nodes
                         len = std::stoi(lvec[1]);
-
+                        
                         //nodeTags.resize(len);
                         x_n = KinematicVectorArray(len,job->JOB_TYPE);
                         node_count = len;
@@ -148,9 +148,9 @@ void TetrahedralGridLinear::init(Job* job){
                                 std::getline(fin,line);
                                 lvec = Parser::splitString(line,' ');
                                 //lvec[0] gives gmsh id (1-indexed)
-                                x_n(i,0) = std::stod(lvec[1]); //x-coord
-                                x_n(i,1) = std::stod(lvec[2]); //y-coord
-                                x_n(i,2) = std::stod(lvec[3]); //z-coord
+                                x_n(k,0) = std::stod(lvec[1]); //x-coord
+                                x_n(k,1) = std::stod(lvec[2]); //y-coord
+                                x_n(k,2) = std::stod(lvec[3]); //z-coord
                                 //increment counter
                                 k++;
                             }
@@ -195,7 +195,6 @@ void TetrahedralGridLinear::init(Job* job){
                         len = std::stoi(lvec[1]); //number of potential entities
 
                         nodeIDs.resize(len, npe); //element to node map
-
                         int i = -1;
                         int block_length, block_type;
                         while (std::getline(fin, line)){
@@ -205,8 +204,8 @@ void TetrahedralGridLinear::init(Job* job){
 
                             lvec = Parser::splitString(line, ' ');
                             //block info
-                            block_type = std::stoi(lvec[3]);
-                            block_length = std::stoi(lvec[4]);
+                            block_type = std::stoi(lvec[2]);
+                            block_length = std::stoi(lvec[3]);
                             if (block_type == 4) {
                                 for (int k = 0; k < block_length; k++) {
                                     std::getline(fin, line);
@@ -225,15 +224,14 @@ void TetrahedralGridLinear::init(Job* job){
                                 }
                             }
 
+                        }
                             element_count = i + 1;
                             nodeIDs.conservativeResize(i + 1, npe);
-                        }
 
                     } else {
                         std::cerr << "Unrecognized Gmsh version: " << msh_version << ". Exiting." << std::endl;
                         exit(0);
                     }
-
                     break;
                 default:
                     //do nothing

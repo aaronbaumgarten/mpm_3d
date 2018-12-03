@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string>
 #include <vector>
-#include <Eigen/Core>
+#include <eigen3/Eigen/Core>
 #include <fstream>
 
 #include "parser.hpp"
