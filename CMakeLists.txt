@@ -13,8 +13,8 @@ include_directories(include)
 include_directories(src)
 include_directories(/usr/include/)
 include_directories(/usr/include/eigen3)
-include_directories(/opt/local/include/)
-include_directories(/opt/local/include/eigen3) #eigen is required for this
+include_directories(/usr/local/include/)
+include_directories(/usr/local/include/eigen3) #eigen is required for this
 
 add_subdirectory(src/tests)
 add_subdirectory(src/registry)
