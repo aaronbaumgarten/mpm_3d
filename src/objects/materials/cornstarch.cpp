@@ -682,8 +682,8 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
             if (phi(i) > phi_j){
                 c(i) = 1;
             } else {
-                //c(i) = (c(i) + H*gammap_dot(i)*job->dt)/(1 + H*gammap_dot(i)*job->dt + S*job->dt);
-                c(i) = (c(i) + H*(gammap_dot(i) - K_4*xi_dot_2_tr)*job->dt)/(1 + H*(gammap_dot(i) - K_4*xi_dot_2_tr)*job->dt + S*job->dt);
+                c(i) = (c(i) + H*gammap_dot(i)*job->dt)/(1 + H*gammap_dot(i)*job->dt + S*job->dt);
+                //c(i) = (c(i) + H*(gammap_dot(i) - K_4*xi_dot_2_tr)*job->dt)/(1 + H*(gammap_dot(i) - K_4*xi_dot_2_tr)*job->dt + S*job->dt);
             }
         }
 

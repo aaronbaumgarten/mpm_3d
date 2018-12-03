@@ -245,7 +245,7 @@ public:
         object_name = "TriangularGridLinear";
     }
 
-    double lc;
+    double lc, msh_version;
     std::string msh_filename;
     KinematicVector Lx, hx;
     Eigen::VectorXi Nx;

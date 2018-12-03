@@ -86,6 +86,7 @@ public:
 class Part : public MPMObject{
 public:
     virtual bool encompasses(KinematicVector&) = 0;
+    virtual void init() = 0;
 };
 
 class Ball : public Part{
@@ -121,11 +122,13 @@ public:
         object_name = "GmshPoints";
     }
 
+    double msh_version;
+
     //linear material points per cell and density of points
     double lmpp, rho;
 
     //part list
-    std::vector<Part> part_list;
+    std::vector<std::unique_ptr<Part>> part_list;
 
     //msh file
     std::string msh_file, out_file;

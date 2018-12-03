@@ -98,37 +98,75 @@ void TetrahedralGridLinear::init(Job* job){
     std::ifstream fin(msh_filename); //file to load from
     if (fin.is_open()) {
         //if open, read lines
-        std::vector<std::string> headers= {"$Nodes","$Elements"};
+        std::vector<std::string> headers= {"$MeshFormat","$Nodes","$Elements"};
         while (std::getline(fin,line)) {
             switch(Parser::findStringID(headers,line)){
                 case 0:
-                    //nodes
+                    //mesh format
                     std::getline(fin,line);
-                    len = std::stoi(line); //number of nodes;
-
-                    //nodeTags.resize(len);
-                    x_n = KinematicVectorArray(len,job->JOB_TYPE);
-                    v_n.resize(len);
-                    node_count = len;
-
-                    //loop to read in all nodes
-                    for (int i=0;i<len;i++){
-                        std::getline(fin,line);
-                        lvec = Parser::splitString(line,' ');
-                        //lvec[0] gives gmsh id (1-indexed)
-                        x_n(i,0) = std::stod(lvec[1]); //x-coord
-                        x_n(i,1) = std::stod(lvec[2]); //y-coord
-                        x_n(i,2) = std::stod(lvec[3]); //z-coord
-                    }
+                    lvec = Parser::splitString(line,' ');
+                    //mesh file version
+                    msh_version = std::stod(lvec[0]);
                     break;
                 case 1:
+                    //nodes
+                    std::getline(fin,line);
+
+                    if (floor(msh_version) == 2) {
+                        len = std::stoi(line); //number of nodes;
+                        //nodeTags.resize(len);
+                        x_n = KinematicVectorArray(len,job->JOB_TYPE);
+                        node_count = len;
+
+                        //loop to read in all nodes
+                        for (int i=0;i<len;i++){
+                            std::getline(fin,line);
+                            lvec = Parser::splitString(line,' ');
+                            //lvec[0] gives gmsh id (1-indexed)
+                            x_n(i,0) = std::stod(lvec[1]); //x-coord
+                            x_n(i,1) = std::stod(lvec[2]); //y-coord
+                            x_n(i,2) = std::stod(lvec[3]); //z-coord
+                        }
+                    } else if (floor(msh_version) == 4){
+                        lvec = Parser::splitString(line,' '); //entity_blocks num_nodes
+                        len = std::stoi(lvec[1]);
+
+                        //nodeTags.resize(len);
+                        x_n = KinematicVectorArray(len,job->JOB_TYPE);
+                        node_count = len;
+                        //version 4 nodes are broken into blocks
+                        int k = 0;
+                        int block_length;
+                        while (k < len){
+                            //read line
+                            std::getline(fin,line);
+                            lvec = Parser::splitString(line, ' ');
+                            //length of block
+                            block_length = std::stoi(lvec[3]);
+                            //read nodes in block
+                            for (int i=0;i<block_length;i++){
+                                std::getline(fin,line);
+                                lvec = Parser::splitString(line,' ');
+                                //lvec[0] gives gmsh id (1-indexed)
+                                x_n(i,0) = std::stod(lvec[1]); //x-coord
+                                x_n(i,1) = std::stod(lvec[2]); //y-coord
+                                x_n(i,2) = std::stod(lvec[3]); //z-coord
+                                //increment counter
+                                k++;
+                            }
+                        }
+                    } else {
+                        std::cerr << "Unrecognized Gmsh version: " << msh_version << ". Exiting." << std::endl;
+                        exit(0);
+                    }
+                    break;
+                case 2:
                     //elements
-                    if (true) {
+                    if (floor(msh_version) == 2) {
                         std::getline(fin, line);
                         len = std::stoi(line); //number of potential elements
 
                         nodeIDs.resize(len, npe); //element to node map
-                        v_e.resize(len); //element volume
 
                         int i = -1;
                         while (std::getline(fin, line)) {
@@ -150,6 +188,50 @@ void TetrahedralGridLinear::init(Job* job){
 
                         element_count = i + 1;
                         nodeIDs.conservativeResize(i + 1, npe);
+
+                    } else if (floor(msh_version) == 4){
+                        std::getline(fin, line);
+                        lvec = Parser::splitString(line,' ');
+                        len = std::stoi(lvec[1]); //number of potential entities
+
+                        nodeIDs.resize(len, npe); //element to node map
+
+                        int i = -1;
+                        int block_length, block_type;
+                        while (std::getline(fin, line)){
+                            if (line.compare("$EndElements") == 0){
+                                break;
+                            }
+
+                            lvec = Parser::splitString(line, ' ');
+                            //block info
+                            block_type = std::stoi(lvec[3]);
+                            block_length = std::stoi(lvec[4]);
+                            if (block_type == 4) {
+                                for (int k = 0; k < block_length; k++) {
+                                    std::getline(fin, line);
+                                    lvec = Parser::splitString(line, ' ');
+
+                                    i++; //increment i
+                                    nodeIDs(i, 0) = std::stoi(lvec[1]) - 1;
+                                    nodeIDs(i, 1) = std::stoi(lvec[2]) - 1;
+                                    nodeIDs(i, 2) = std::stoi(lvec[3]) - 1;
+                                    nodeIDs(i, 3) = std::stoi(lvec[4]) - 1;
+                                }
+                            } else {
+                                //read through block and continue
+                                for (int k=0; k<block_length; k++){
+                                    std::getline(fin, line);
+                                }
+                            }
+
+                            element_count = i + 1;
+                            nodeIDs.conservativeResize(i + 1, npe);
+                        }
+
+                    } else {
+                        std::cerr << "Unrecognized Gmsh version: " << msh_version << ". Exiting." << std::endl;
+                        exit(0);
                     }
 
                     break;
