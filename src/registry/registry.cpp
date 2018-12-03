@@ -101,6 +101,7 @@ Registry<Grid>::Registry() {
 template<>
 Registry<Points>::Registry() {
     object["DefaultPoints"] = &createInstance<Points,DefaultPoints>;
+    object["GmshPoints"] = &createInstance<Points,GmshPoints>;
 }
 
 

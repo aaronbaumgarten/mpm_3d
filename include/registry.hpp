@@ -27,7 +27,7 @@ public:
     std::unique_ptr<T> get_object(std::string strIn) {
         auto search = object.find(strIn);
         if(search == object.end()) {
-            std::cerr << "Undefined registry string: \"" << strIn << "\". Are you sure this class has been added to the registry in object.cpp?" << std::endl;
+            std::cerr << "Undefined registry string: \"" << strIn << "\". Are you sure this class has been added to the registry in registry.cpp?" << std::endl;
             return std::unique_ptr<T>(nullptr);
         } else {
             return search->second();

@@ -225,8 +225,8 @@ void TetrahedralGridLinear::init(Job* job){
                             }
 
                         }
-                            element_count = i + 1;
-                            nodeIDs.conservativeResize(i + 1, npe);
+		        element_count = i + 1;
+		        nodeIDs.conservativeResize(i + 1, npe);
 
                     } else {
                         std::cerr << "Unrecognized Gmsh version: " << msh_version << ". Exiting." << std::endl;
