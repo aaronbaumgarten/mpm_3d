@@ -184,7 +184,7 @@ void ExplicitUSL::mapPointsToNodes(Job* job){
                 nodes->f(i,2) += nval(i);
             }
         }
-        std::cout << points->m.sum() << " ?= " << nodes->m.sum() << std::endl;
+        //std::cout << points->m.sum() << " ?= " << nodes->m.sum() << std::endl;
     }
     return;
 }
