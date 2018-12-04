@@ -451,7 +451,7 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
         for (int i=1; i<=lmpp; i++){
             for (int j=1; j<=lmpp; j++){
                 for (int k=1; k<=lmpp; k++){
-                    if (i + j + k <= lmpp){
+                    if (i + j + k <= (lmpp+1)){
                         //n-point quadrature location
                         Xi(0) = i - 0.5;
                         Xi(1) = j - 0.5;
