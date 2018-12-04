@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
     std::cout << argv[0] << std::endl;
 
     //algebra_test();
+    //map_test();
 
     //create job and configurator objects
     Job *job = new(Job);

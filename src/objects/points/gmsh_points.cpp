@@ -570,7 +570,7 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
         x_t[i] = x_tIN[i];
         active[i] = 1;
 
-        std::cout << EIGEN_MAP_OF_KINEMATIC_VECTOR(x[i]).transpose() << std::endl;
+        //std::cout << EIGEN_MAP_OF_KINEMATIC_VECTOR(x[i]).transpose() << std::endl;
 
         //correct volume and mass for axisymmetric simulation
         if (job->JOB_TYPE == job->JOB_AXISYM){

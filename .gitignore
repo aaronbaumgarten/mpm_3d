@@ -3,6 +3,7 @@
 *.o
 *.so
 *.a
+*.vtk
 mpm_png_to_points/*.png
 cmake-build-debug
 build*

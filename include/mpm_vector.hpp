@@ -182,6 +182,11 @@ public:
     //assignment operator
     Map& operator= (const MaterialVector &other);
     Map& operator= (const KinematicVector &other);
+    Map& operator= (const MaterialVector::Map &other);
+
+    template <class T>
+    Map& operator= (const T &other);
+    //Map& operator= (const KinematicVector::Map &other);
 };
 
 
@@ -306,6 +311,7 @@ public:
 
     //assignment operator
     Map& operator= (const KinematicVector &other);
+    Map& operator= (const KinematicVector::Map &other);
 };
 
 /*----------------------------------------------------------------------------*/
@@ -894,7 +900,24 @@ inline MaterialVector::Map& MaterialVector::Map::operator= (const KinematicVecto
     return *this;
 }
 
+inline MaterialVector::Map& MaterialVector::Map::operator= (const MaterialVector::Map &other){
+    for(int i=0;i<VECTOR_MAX_DIM;i++){data_ptr[i]=other(i);};
+    return *this;
+}
+
+// i guess we need a template here, probably good to know for v4
+template<>
+inline MaterialVector::Map& MaterialVector::Map::operator= (const KinematicVector::Map &other){
+    for(int i=0;i<VECTOR_MAX_DIM;i++){data_ptr[i]=other(i);};
+    return *this;
+}
+
 inline KinematicVector::Map& KinematicVector::Map::operator= (const KinematicVector &other){
+    for(int i=0;i<VECTOR_MAX_DIM;i++){data_ptr[i]=other(i);};
+    return *this;
+}
+
+inline KinematicVector::Map& KinematicVector::Map::operator= (const KinematicVector::Map &other){
     for(int i=0;i<VECTOR_MAX_DIM;i++){data_ptr[i]=other(i);};
     return *this;
 }
