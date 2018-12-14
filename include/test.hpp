@@ -8,5 +8,6 @@
 
 //test linear algebra functions
 void algebra_test();
+void map_test();
 
 #endif //MPM_V3_TEST_HPP
