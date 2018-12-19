@@ -171,7 +171,7 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
     MaterialTensor T, T_tr, L, D, W;
     MaterialTensor tmpMat;
 
-    double H, S, t_k;
+    double H, S, t_k, c_m;
 
     double trD, tau_bar, tau_bar_tr, p, p_tr;
     double beta, mu, phi_eq, xi_dot_1, xi_dot_2;
@@ -230,6 +230,7 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
             c(i) = 0;
         }
         //assign phi_m based off of clumpiness
+        /*
         if (phi(i) > phi_c && phi(i) < phi_star) {
             phi_m = phi_j + (phi(i) - phi_j) * c(i);
         } else if (phi(i) < phi_c){
@@ -237,9 +238,19 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
         } else {
             phi_m = phi_j + (phi_star - phi_j) * c(i);
         }
+        */
+        //assign c_m based off of phi_star
+        if (phi(i) > phi_c && phi(i) < phi_star) {
+            c_m = (phi(i) - phi_j)/(phi_c - phi_j);
+        } else if (phi(i) < phi_c){
+            c_m = 1;
+        } else {
+            c_m = (phi_star - phi_j)/(phi_c - phi_j);
+        }
+
         //assign a based off of clumpiness
         a = a_0 + (a_inf - a_0)*c(i);
-        //phi_m = phi_j + (phi_c - phi_j)*c(i);
+        phi_m = phi_j + (phi_c - phi_j)*c(i);
         /*************************************************/
 
         L = body->points->L(i);
@@ -675,15 +686,13 @@ void Cornstarch::calculateStress(Job* job, Body* body, int SPEC){
             phi_m_vec(i) = phi_m;
 
             //K_6 has units of (Pa s)^(-1)
-            H = (tau_bar/tau_star) * std::sqrt(tau_bar/tau_star);
-            S = (K_5 * gammap_dot(i) + (1-Delta) * K_6 * (std::pow(phi_j - phi(i), alpha) + K_7 * std::pow(phi_j - phi(i), 0.1)) * tau_bar); ///eta_0);
-
+            H = K_5 * (tau_bar/tau_star) * std::sqrt(tau_bar/tau_star) * gammap_dot(i);
+            S = K_5 * (gammap_dot(i) + (K_6 * std::pow(phi_j - phi(i), alpha) + K_7 * std::pow(phi_j - phi(i), 0.1)) * tau_bar);
 
             if (phi(i) > phi_j){
                 c(i) = 1;
             } else {
-                c(i) = (c(i) + H*gammap_dot(i)*job->dt)/(1 + H*gammap_dot(i)*job->dt + S*job->dt);
-                //c(i) = (c(i) + H*(gammap_dot(i) - K_4*xi_dot_2_tr)*job->dt)/(1 + H*(gammap_dot(i) - K_4*xi_dot_2_tr)*job->dt + S*job->dt);
+                c(i) = (c(i) + H*c_m*job->dt)/(1 + H*job->dt + S*job->dt);
             }
         }
 
