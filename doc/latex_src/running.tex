@@ -29,8 +29,13 @@ and the remaining fields are defined on the point function space as follows,
 \[\Vector{b}(\Vector{x},t) = \sum_{p=1}^{N} \Vector{b_p} U_p(\Vector{x},t)\]
 \[\rho(\Vector{x},t) = \sum_{p=1}^{N} \rho_p U_p(\Vector{x},t)\]
 \[\xi(\Vector{x},t) = \sum_{p=1}^{N} \xi_p U_p(\Vector{x},t)\]
-For more details about the default behavior of \texttt{mpm\_3d}, see \cite{dunatunga2017}.
+A pictorial description of these discretizations can be found in figure \ref{fig:simulation}. For more details about the default behavior of \texttt{mpm\_3d}, see \cite{dunatunga2017}.
 
+\begin{figure}[!ht]
+\centering
+\includegraphics[scale=0.5]{images/SimulationDiagram.pdf}
+\caption{Pictorial representation of a material point method simulation for two bodies, $\mathcal{B}^1$ and $\mathcal{B}^2$, in a 2D square domain $\Omega$ from $t=0$ to $t=T$. Each body is simulated by integrating \eqref{eq:pde} through time according to the relevant constitutive laws defined on each body, the initial state of the bodies ($\mathcal{B}_0^1$ and $\mathcal{B}_0^2$), and the boundary conditions defined on $\partial \Omega$, $\partial \mathcal{B}^1$, and $\partial{B}^2$. In this representation, the kinematic fields are discretized on a cartesian grid with functions defined for each node $i$ and the remaining fields are defined on the point function space $U_p(\Vector{x}, t)$ centered on each material point $p$.} \label{fig:simulation}
+\end{figure}
 
 \section{Points File}
 To integrate the PDEs in \eqref{eq:pde} through time, \texttt{mpm\_3d} needs to define a set of initial conditions. In its default configuration, \texttt{mpm\_3d} will do this by reading a space-delimited points file with the following form,
@@ -58,19 +63,25 @@ m_p &= \int_{\Omega}{\rho_p U_p(\Vector{x},0) dv}
 \end{aligned}
 \]
 
-\texttt{mpm\_3d} can be run in 1D (uniaxial-strain), 2D (plane-strain), or 3D. Defining the dimension of a simulation will be covered in more detail in section \ref{scn:config_file}; however, the number of coefficients that define the set of vectors \(\{\Vector{X_p}\}\) or \(\{\Vector{v_p}\}\) in the points file will change according to the choice of simulation dimension.
+\texttt{mpm\_3d} can be run in 1D (uniaxial-strain), 2D (plane-strain or axisymmetric), or 3D. Defining the dimension of a simulation will be covered in more detail in section \ref{scn:config_file}; however, the number of coefficients that define the set of vectors \(\{\Vector{X_p}\}\) or \(\{\Vector{v_p}\}\) in the points file will change according to the choice of simulation dimension.
 
 To generate a points file, there are a number of poorly commented python scripts in the \texttt{mpm\_pygen} folder. In particular, any python script ending in `\texttt{\_v2}' will provide a good starting point for generating your own files.
 
 
 \section{Output Directory}
-While the \texttt{mpm\_3d} is running, it will output simulation snapshots. By default, these simulation snapshots are saved as individual `\texttt{.vtk}' files. It is often useful to direct these files to an new output directory.
+While \texttt{mpm\_3d} is running, it will output simulation snapshots. By default, these simulation snapshots are saved as individual `\texttt{.vtk}' files. It is often useful to direct these files to an new output directory.
 
 \texttt{\$ mkdir output}
 
 
 \section{Configuration File} \label{scn:config_file}
-The last step in setting up a simulation for \texttt{mpm\_3d} is the creation of a configuration file. The configuration file contains information about the various objects and parameters that \texttt{mpm\_3d} will need to create to run the simulation. A comprehensive list of currently implemented objects/classes can be found in section \ref{scn:udc}.
+The last step in setting up a simulation for \texttt{mpm\_3d} is the creation of a configuration file. The configuration file contains information about the various objects and parameters that \texttt{mpm\_3d} will need to be created to run the simulation. A pictorial representation of the structure of these objects is shown in figure \ref{fig:code}. A comprehensive list of currently implemented objects/classes can be found in section \ref{scn:udc}.
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[scale=0.5]{images/CodeDiagram.pdf}
+\caption{Pictorial representation of object structure within \texttt{mpm\_3d}. When \texttt{mpm\_3d} is called, the \texttt{main} function creates a \texttt{Job} and \texttt{Configurator} object. The \texttt{Configurator} parses the configuration file described in section \ref{scn:config_file} and initializes the \texttt{Job} object. The \texttt{Job} object stores all of information and objects needed to run a simulation; each \texttt{Job} object has a \texttt{Serializer} for writing outputs, a \texttt{Driver} for integrating time $t$, a \texttt{Solver} for integrating the PDEs in \eqref{eq:pde} through a single time increment, a \texttt{Grid} for integrating nodal basis functions, a set of \texttt{Body} objects, and a set of \texttt{Contact} objects. The \texttt{Body} object stores the information and objects for simulating a single continuum body; each \texttt{Body} object has a \texttt{Points} object for storing point coefficients and integrating point basis functions, a \texttt{Nodes} object for storing node coefficients, a \texttt{Material} for storing material states and integrating stresses through a single time increment, and a \texttt{Boundary} for enforcing constraints on the simulation domain boundary $\partial \Omega$. Each \texttt{Contact} enforces constraints for interactions between \texttt{Body} objects within the simulation domain $\Omega$.} \label{fig:code}
+\end{figure}
 
 Every configuration file begins with the definition of the `\texttt{job}' object as follows,
 \begin{lstlisting}[language={}, escapeinside={(*}{*)}]

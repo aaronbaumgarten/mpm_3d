@@ -16,11 +16,11 @@ print "files named"
 
 #grid properties
 #Ly = Lx = Lz = 0.4
-Lx = 0.05
-Ly = 0.035
+Lx = 2.0
+Ly = 1.0
 #Ne = 40
-Nx = 50
-Ny = 35
+Nx = 150
+Ny = 75
 Nz = 1
 lmpp = 2
 Lz = Nz*lmpp
@@ -30,7 +30,7 @@ print "grid created"
 
 # global properties
 g = -9.81
-phi = 0.50
+phi = 0.51
 
 # grain properties
 bulk_properties = { 'rho': 1620*phi }
@@ -40,7 +40,7 @@ grain_height = 1.0
 fluid_depth = 0.10#0.1 * Lx
 
 bulk_primitive = Primitives3d.Box(0.0, Lx,
-                                  0.0, 0.03, #0.1*Lx, 0.2*Lx,
+                                  0.0, 0.5, #0.1*Lx, 0.2*Lx,
                                   0, 1.0
                                   )
 bulk_body = CSGTree3d.Node(bulk_primitive)
@@ -60,7 +60,7 @@ fluid_height = 0.08
 #fluid_depth = fluid_depth#Ly
 
 fluid_primitive = Primitives3d.Box(0.0, Lx,
-                                 0.0, 0.03,
+                                 0.0, 0.5,
                                  0, 1.0
                                  )
 fluid_body = CSGTree3d.Node(fluid_primitive)

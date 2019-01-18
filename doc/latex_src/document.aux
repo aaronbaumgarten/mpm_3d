@@ -32,58 +32,63 @@
 \@writefile{toc}{\contentsline {section}{\numberline {3.1}Problem Definition}{6}{section.3.1}}
 \newlabel{eq:pde}{{3.1}{6}{Problem Definition}{equation.3.1.1}{}}
 \citation{dunatunga2017}
+\@writefile{lof}{\contentsline {figure}{\numberline {3.1}{\ignorespaces Pictorial representation of a material point method simulation for two bodies, $\mathcal  {B}^1$ and $\mathcal  {B}^2$, in a 2D square domain $\Omega $ from $t=0$ to $t=T$. Each body is simulated by integrating \textup  {\hbox {\mathsurround \z@ \normalfont  (\ignorespaces \ref  {eq:pde}\unskip \@@italiccorr )}} through time according to the relevant constitutive laws defined on each body, the initial state of the bodies ($\mathcal  {B}_0^1$ and $\mathcal  {B}_0^2$), and the boundary conditions defined on $\partial \Omega $, $\partial \mathcal  {B}^1$, and $\partial {B}^2$. In this representation, the kinematic fields are discretized on a cartesian grid with functions defined for each node $i$ and the remaining fields are defined on the point function space $U_p(\boldsymbol  {x}, t)$ centered on each material point $p$.}}{8}{figure.3.1}}
+\newlabel{fig:simulation}{{3.1}{8}{Pictorial representation of a material point method simulation for two bodies, $\mathcal {B}^1$ and $\mathcal {B}^2$, in a 2D square domain $\Omega $ from $t=0$ to $t=T$. Each body is simulated by integrating \eqref {eq:pde} through time according to the relevant constitutive laws defined on each body, the initial state of the bodies ($\mathcal {B}_0^1$ and $\mathcal {B}_0^2$), and the boundary conditions defined on $\partial \Omega $, $\partial \mathcal {B}^1$, and $\partial {B}^2$. In this representation, the kinematic fields are discretized on a cartesian grid with functions defined for each node $i$ and the remaining fields are defined on the point function space $U_p(\Vector {x}, t)$ centered on each material point $p$}{figure.3.1}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {3.2}Points File}{8}{section.3.2}}
-\@writefile{toc}{\contentsline {section}{\numberline {3.3}Output Directory}{8}{section.3.3}}
+\@writefile{toc}{\contentsline {section}{\numberline {3.3}Output Directory}{9}{section.3.3}}
 \@writefile{toc}{\contentsline {section}{\numberline {3.4}Configuration File}{9}{section.3.4}}
 \newlabel{scn:config_file}{{3.4}{9}{Configuration File}{section.3.4}{}}
-\newlabel{eq:stress_pde}{{3.2}{12}{Configuration File}{equation.3.4.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3.2}{\ignorespaces Pictorial representation of object structure within \texttt  {mpm\_3d}. When \texttt  {mpm\_3d} is called, the \texttt  {main} function creates a \texttt  {Job} and \texttt  {Configurator} object. The \texttt  {Configurator} parses the configuration file described in section \ref  {scn:config_file} and initializes the \texttt  {Job} object. The \texttt  {Job} object stores all of information and objects needed to run a simulation; each \texttt  {Job} object has a \texttt  {Serializer} for writing outputs, a \texttt  {Driver} for integrating time $t$, a \texttt  {Solver} for integrating the PDEs in \textup  {\hbox {\mathsurround \z@ \normalfont  (\ignorespaces \ref  {eq:pde}\unskip \@@italiccorr )}} through a single time increment, a \texttt  {Grid} for integrating nodal basis functions, a set of \texttt  {Body} objects, and a set of \texttt  {Contact} objects. The \texttt  {Body} object stores the information and objects for simulating a single continuum body; each \texttt  {Body} object has a \texttt  {Points} object for storing point coefficients and integrating point basis functions, a \texttt  {Nodes} object for storing node coefficients, a \texttt  {Material} for storing material states and integrating stresses through a single time increment, and a \texttt  {Boundary} for enforcing constraints on the simulation domain boundary $\partial \Omega $. Each \texttt  {Contact} enforces constraints for interactions between \texttt  {Body} objects within the simulation domain $\Omega $.}}{10}{figure.3.2}}
+\newlabel{fig:code}{{3.2}{10}{Pictorial representation of object structure within \texttt {mpm\_3d}. When \texttt {mpm\_3d} is called, the \texttt {main} function creates a \texttt {Job} and \texttt {Configurator} object. The \texttt {Configurator} parses the configuration file described in section \ref {scn:config_file} and initializes the \texttt {Job} object. The \texttt {Job} object stores all of information and objects needed to run a simulation; each \texttt {Job} object has a \texttt {Serializer} for writing outputs, a \texttt {Driver} for integrating time $t$, a \texttt {Solver} for integrating the PDEs in \eqref {eq:pde} through a single time increment, a \texttt {Grid} for integrating nodal basis functions, a set of \texttt {Body} objects, and a set of \texttt {Contact} objects. The \texttt {Body} object stores the information and objects for simulating a single continuum body; each \texttt {Body} object has a \texttt {Points} object for storing point coefficients and integrating point basis functions, a \texttt {Nodes} object for storing node coefficients, a \texttt {Material} for storing material states and integrating stresses through a single time increment, and a \texttt {Boundary} for enforcing constraints on the simulation domain boundary $\partial \Omega $. Each \texttt {Contact} enforces constraints for interactions between \texttt {Body} objects within the simulation domain $\Omega $}{figure.3.2}{}}
 \citation{huang2011}
-\@writefile{toc}{\contentsline {section}{\numberline {3.5}Calling Program}{13}{section.3.5}}
-\@writefile{toc}{\contentsline {section}{\numberline {3.6}Visualizing Results}{13}{section.3.6}}
-\@writefile{toc}{\contentsline {chapter}{\numberline {4}Code Framework and Customization}{14}{chapter.4}}
+\newlabel{eq:stress_pde}{{3.2}{14}{Configuration File}{equation.3.4.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {3.5}Calling Program}{15}{section.3.5}}
+\@writefile{toc}{\contentsline {section}{\numberline {3.6}Visualizing Results}{15}{section.3.6}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {4}Code Framework and Customization}{16}{chapter.4}}
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\@writefile{toc}{\contentsline {section}{\numberline {4.1}General Problem Definition}{14}{section.4.1}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.2}\texttt  {main} Program}{14}{section.4.2}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.3}\texttt  {Job} Class}{14}{section.4.3}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.4}\texttt  {Registry} and \texttt  {Configurator} Classes}{14}{section.4.4}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.5}\texttt  {MPMObjects} Class}{14}{section.4.5}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.6}\texttt  {Serializer} Class}{14}{section.4.6}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.7}\texttt  {Driver} Class}{14}{section.4.7}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.8}\texttt  {Solver} Class}{15}{section.4.8}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.9}\texttt  {Grid} Class}{15}{section.4.9}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.10}\texttt  {Contact} Class}{15}{section.4.10}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.11}\texttt  {Body} Class}{15}{section.4.11}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.12}\texttt  {Points} Class}{15}{section.4.12}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.13}\texttt  {Nodes} Class}{15}{section.4.13}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.14}\texttt  {Material} Class}{15}{section.4.14}}
-\@writefile{toc}{\contentsline {section}{\numberline {4.15}\texttt  {Boundary} Class}{15}{section.4.15}}
+\newlabel{sec:code}{{4}{16}{Code Framework and Customization}{chapter.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.1}General Problem Definition}{16}{section.4.1}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.2}\texttt  {main} Program}{16}{section.4.2}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.3}\texttt  {Job} Class}{16}{section.4.3}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.4}\texttt  {Registry} and \texttt  {Configurator} Classes}{16}{section.4.4}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.5}\texttt  {MPMObjects} Class}{16}{section.4.5}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.6}\texttt  {Serializer} Class}{16}{section.4.6}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.7}\texttt  {Driver} Class}{16}{section.4.7}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.8}\texttt  {Solver} Class}{17}{section.4.8}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.9}\texttt  {Grid} Class}{17}{section.4.9}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.10}\texttt  {Contact} Class}{17}{section.4.10}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.11}\texttt  {Body} Class}{17}{section.4.11}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.12}\texttt  {Points} Class}{17}{section.4.12}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.13}\texttt  {Nodes} Class}{17}{section.4.13}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.14}\texttt  {Material} Class}{17}{section.4.14}}
+\@writefile{toc}{\contentsline {section}{\numberline {4.15}\texttt  {Boundary} Class}{17}{section.4.15}}
 \bibstyle{plain}
 \bibdata{references.bib}
-\@writefile{toc}{\contentsline {chapter}{\numberline {5}User-Defined Classes}{16}{chapter.5}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {5}User-Defined Classes}{18}{chapter.5}}
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\newlabel{scn:udc}{{5}{16}{User-Defined Classes}{chapter.5}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5.1}Serializers}{16}{section.5.1}}
-\newlabel{scn:serializers}{{5.1}{16}{Serializers}{section.5.1}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5.2}Drivers}{16}{section.5.2}}
-\newlabel{scn:drivers}{{5.2}{16}{Drivers}{section.5.2}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5.3}Solvers}{16}{section.5.3}}
-\newlabel{scn:solvers}{{5.3}{16}{Solvers}{section.5.3}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5.4}Grids}{16}{section.5.4}}
-\newlabel{scn:grids}{{5.4}{16}{Grids}{section.5.4}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5.5}Contacts}{16}{section.5.5}}
-\newlabel{scn:contacts}{{5.5}{16}{Contacts}{section.5.5}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5.6}Bodies}{16}{section.5.6}}
-\newlabel{scn:bodies}{{5.6}{16}{Bodies}{section.5.6}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5.7}Points}{16}{section.5.7}}
-\newlabel{scn:points}{{5.7}{16}{Points}{section.5.7}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5.8}Nodes}{16}{section.5.8}}
-\newlabel{scn:nodes}{{5.8}{16}{Nodes}{section.5.8}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5.9}Materials}{16}{section.5.9}}
-\newlabel{scn:materials}{{5.9}{16}{Materials}{section.5.9}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5.10}Boundaries}{16}{section.5.10}}
-\newlabel{scn:boundaries}{{5.10}{16}{Boundaries}{section.5.10}{}}
+\newlabel{scn:udc}{{5}{18}{User-Defined Classes}{chapter.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.1}Serializers}{18}{section.5.1}}
+\newlabel{scn:serializers}{{5.1}{18}{Serializers}{section.5.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.2}Drivers}{18}{section.5.2}}
+\newlabel{scn:drivers}{{5.2}{18}{Drivers}{section.5.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.3}Solvers}{18}{section.5.3}}
+\newlabel{scn:solvers}{{5.3}{18}{Solvers}{section.5.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.4}Grids}{18}{section.5.4}}
+\newlabel{scn:grids}{{5.4}{18}{Grids}{section.5.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.5}Contacts}{18}{section.5.5}}
+\newlabel{scn:contacts}{{5.5}{18}{Contacts}{section.5.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.6}Bodies}{18}{section.5.6}}
+\newlabel{scn:bodies}{{5.6}{18}{Bodies}{section.5.6}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.7}Points}{18}{section.5.7}}
+\newlabel{scn:points}{{5.7}{18}{Points}{section.5.7}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.8}Nodes}{18}{section.5.8}}
+\newlabel{scn:nodes}{{5.8}{18}{Nodes}{section.5.8}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.9}Materials}{18}{section.5.9}}
+\newlabel{scn:materials}{{5.9}{18}{Materials}{section.5.9}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5.10}Boundaries}{18}{section.5.10}}
+\newlabel{scn:boundaries}{{5.10}{18}{Boundaries}{section.5.10}{}}
 \bibcite{dunatunga2017}{{1}{}{{}}{{}}}
 \bibcite{huang2011}{{2}{}{{}}{{}}}
 \bibcite{sulsky1994}{{3}{}{{}}{{}}}

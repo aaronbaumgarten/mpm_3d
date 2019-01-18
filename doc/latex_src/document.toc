@@ -6,34 +6,34 @@
 \contentsline {chapter}{\numberline {3}Running Simulations}{6}{chapter.3}
 \contentsline {section}{\numberline {3.1}Problem Definition}{6}{section.3.1}
 \contentsline {section}{\numberline {3.2}Points File}{8}{section.3.2}
-\contentsline {section}{\numberline {3.3}Output Directory}{8}{section.3.3}
+\contentsline {section}{\numberline {3.3}Output Directory}{9}{section.3.3}
 \contentsline {section}{\numberline {3.4}Configuration File}{9}{section.3.4}
-\contentsline {section}{\numberline {3.5}Calling Program}{13}{section.3.5}
-\contentsline {section}{\numberline {3.6}Visualizing Results}{13}{section.3.6}
-\contentsline {chapter}{\numberline {4}Code Framework and Customization}{14}{chapter.4}
-\contentsline {section}{\numberline {4.1}General Problem Definition}{14}{section.4.1}
-\contentsline {section}{\numberline {4.2}\texttt {main} Program}{14}{section.4.2}
-\contentsline {section}{\numberline {4.3}\texttt {Job} Class}{14}{section.4.3}
-\contentsline {section}{\numberline {4.4}\texttt {Registry} and \texttt {Configurator} Classes}{14}{section.4.4}
-\contentsline {section}{\numberline {4.5}\texttt {MPMObjects} Class}{14}{section.4.5}
-\contentsline {section}{\numberline {4.6}\texttt {Serializer} Class}{14}{section.4.6}
-\contentsline {section}{\numberline {4.7}\texttt {Driver} Class}{14}{section.4.7}
-\contentsline {section}{\numberline {4.8}\texttt {Solver} Class}{15}{section.4.8}
-\contentsline {section}{\numberline {4.9}\texttt {Grid} Class}{15}{section.4.9}
-\contentsline {section}{\numberline {4.10}\texttt {Contact} Class}{15}{section.4.10}
-\contentsline {section}{\numberline {4.11}\texttt {Body} Class}{15}{section.4.11}
-\contentsline {section}{\numberline {4.12}\texttt {Points} Class}{15}{section.4.12}
-\contentsline {section}{\numberline {4.13}\texttt {Nodes} Class}{15}{section.4.13}
-\contentsline {section}{\numberline {4.14}\texttt {Material} Class}{15}{section.4.14}
-\contentsline {section}{\numberline {4.15}\texttt {Boundary} Class}{15}{section.4.15}
-\contentsline {chapter}{\numberline {5}User-Defined Classes}{16}{chapter.5}
-\contentsline {section}{\numberline {5.1}Serializers}{16}{section.5.1}
-\contentsline {section}{\numberline {5.2}Drivers}{16}{section.5.2}
-\contentsline {section}{\numberline {5.3}Solvers}{16}{section.5.3}
-\contentsline {section}{\numberline {5.4}Grids}{16}{section.5.4}
-\contentsline {section}{\numberline {5.5}Contacts}{16}{section.5.5}
-\contentsline {section}{\numberline {5.6}Bodies}{16}{section.5.6}
-\contentsline {section}{\numberline {5.7}Points}{16}{section.5.7}
-\contentsline {section}{\numberline {5.8}Nodes}{16}{section.5.8}
-\contentsline {section}{\numberline {5.9}Materials}{16}{section.5.9}
-\contentsline {section}{\numberline {5.10}Boundaries}{16}{section.5.10}
+\contentsline {section}{\numberline {3.5}Calling Program}{15}{section.3.5}
+\contentsline {section}{\numberline {3.6}Visualizing Results}{15}{section.3.6}
+\contentsline {chapter}{\numberline {4}Code Framework and Customization}{16}{chapter.4}
+\contentsline {section}{\numberline {4.1}General Problem Definition}{16}{section.4.1}
+\contentsline {section}{\numberline {4.2}\texttt {main} Program}{16}{section.4.2}
+\contentsline {section}{\numberline {4.3}\texttt {Job} Class}{16}{section.4.3}
+\contentsline {section}{\numberline {4.4}\texttt {Registry} and \texttt {Configurator} Classes}{16}{section.4.4}
+\contentsline {section}{\numberline {4.5}\texttt {MPMObjects} Class}{16}{section.4.5}
+\contentsline {section}{\numberline {4.6}\texttt {Serializer} Class}{16}{section.4.6}
+\contentsline {section}{\numberline {4.7}\texttt {Driver} Class}{16}{section.4.7}
+\contentsline {section}{\numberline {4.8}\texttt {Solver} Class}{17}{section.4.8}
+\contentsline {section}{\numberline {4.9}\texttt {Grid} Class}{17}{section.4.9}
+\contentsline {section}{\numberline {4.10}\texttt {Contact} Class}{17}{section.4.10}
+\contentsline {section}{\numberline {4.11}\texttt {Body} Class}{17}{section.4.11}
+\contentsline {section}{\numberline {4.12}\texttt {Points} Class}{17}{section.4.12}
+\contentsline {section}{\numberline {4.13}\texttt {Nodes} Class}{17}{section.4.13}
+\contentsline {section}{\numberline {4.14}\texttt {Material} Class}{17}{section.4.14}
+\contentsline {section}{\numberline {4.15}\texttt {Boundary} Class}{17}{section.4.15}
+\contentsline {chapter}{\numberline {5}User-Defined Classes}{18}{chapter.5}
+\contentsline {section}{\numberline {5.1}Serializers}{18}{section.5.1}
+\contentsline {section}{\numberline {5.2}Drivers}{18}{section.5.2}
+\contentsline {section}{\numberline {5.3}Solvers}{18}{section.5.3}
+\contentsline {section}{\numberline {5.4}Grids}{18}{section.5.4}
+\contentsline {section}{\numberline {5.5}Contacts}{18}{section.5.5}
+\contentsline {section}{\numberline {5.6}Bodies}{18}{section.5.6}
+\contentsline {section}{\numberline {5.7}Points}{18}{section.5.7}
+\contentsline {section}{\numberline {5.8}Nodes}{18}{section.5.8}
+\contentsline {section}{\numberline {5.9}Materials}{18}{section.5.9}
+\contentsline {section}{\numberline {5.10}Boundaries}{18}{section.5.10}

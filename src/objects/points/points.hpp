@@ -138,4 +138,24 @@ public:
     void readFromFile(Job* job, Body* body, std::string fileIN);
 };
 
+/*----------------------------------------------------------------------------*/
+
+class DeltaPoints : public DefaultPoints{
+public:
+    DeltaPoints(){
+        object_name = "DeltaPoints";
+    }
+
+    Eigen::VectorXd e, V_i, v_i;
+    KinematicVectorArray grad_e;
+    double alpha, h;
+
+    void init(Job* job, Body* body);
+
+    void generateLoads(Job* job, Body* body);
+    void applyLoads(Job* job, Body* body);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+};
+
 #endif //MPM_V3_POINTS_HPP

@@ -31,7 +31,7 @@ print "grid created"
 g = -9.81
 
 # free block properties
-block_properties = { 'rho': 3000.0 }
+block_properties = { 'rho': 5000.0 }
 block_width = 0.1#*Lx
 block_height = 0.1
 block_depth = 0.1#*Ly
