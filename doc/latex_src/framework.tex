@@ -1,5 +1,36 @@
 \chapter{Code Framework and Customization} \label{sec:code}
 \section{General Problem Definition}
+In continuum mechanics the basic property of a body is that it may occupy regions of Euclidean point space. We identify the body with the region $\mathcal{B}$ it occupies in some fixed configuration, called a \textit{reference configuration}. $\mathcal{B}$ is refered to as the \textit{reference body} and a point $\Vector{X}$ in $\mathcal{B}$ is refered to as a \textit{material point} (see \cite{gurtin2010}).
+
+We are often interested in the motion of $\mathcal{B}$; this motion is a smooth function $\boldsymbol{\chi}$ that assigns to each material point $\Vector{X}$ and time $t$ a point
+$$\Vector{x} = \boldsymbol{\chi}(\Vector{X},t);$$
+$\Vector{x}$ is referred to as the \textit{spatial point} occupied by the material point $\Vector{X}$ at time $t$. The spatial vectors
+$$\dot{\boldsymbol{\chi}}(\Vector{X},t) = \frac{\partial \boldsymbol{\chi}(\Vector{X},t)}{\partial t} \quad \text{and} \quad \ddot{\boldsymbol{\chi}}(\Vector{X},t) = \frac{\partial^2 \boldsymbol{\chi}(\Vector{X},t)}{\partial t^2}$$
+represent the \textit{velocity} and \textit{acceleration} of the material point $\Vector{X}$ at time $t$. The tensor field
+$$\Tensor{F}(\Vector{X},t) = \frac{\partial \Vector{\chi}(\Vector{X},t)}{\partial \Vector{X}}$$
+is referred to as the \textit{deformation gradient} and is a measure of the deformation associated with the mapping of the region $\mathcal{B}$ from the reference configuration to a \textit{deformed configuration} $\mathcal{B}_t$ at some time $t$. Additionally, the spatial tensor field
+$$\Tensor{L}(\Vector{x},t)\big|_{\Vector{x}=\Vector{\chi}(\Vector{X},t)} = \frac{\partial \dot{\chi}(\Vector{X},t)}{\partial \Vector{x}}\bigg|_{\Vector{x}=\Vector{\chi}(\Vector{X},t)}=\dot{\Tensor{F}}(\Vector{X},t)\Tensor{F}^{-1}(\Vector{X},t)$$
+is called the \textit{velocity gradient} and can be defined in terms of this deformation gradient and its material time derivative. A pictorial representaion of the motion function $\Vector{\chi}$ and its derivatives as they relate to the reference and deformed configurations is shown in figure \ref{fig:deformation}.
+
+We write the \textit{mass density} at a spatial point $\Vector{x}$ in the deformed body $\mathcal{B}_t$ as $\rho(\Vector{x},t) > 0$. Using the principle of balance of mass (i.e.\ mass is not created or destroyed in the body), we can express the local evolution rule for mass density as follows,
+$$\dot{\rho}(\Vector{x},t) + \rho(\Vector{x},t)\ \mathrm{tr}\Tensor{L}(\Vector{x},t) = 0.$$
+
+Further, we write the vector field $\Vector{b}_0(\Vector{x},t)$ giving the force, per unit volume, exerted by the environment on $\Vector{x}$ and $\Vector{t}(\Vector{n},\Vector{x},t)$ representing the force, per unit area, exerted on any oriented spatial surface $\mathcal{S}$ in $\mathcal{B}_t$ \textit{upon} the material on the negative side of $\mathcal{S}$ by the material on the positive side with $\Vector{n}$ the unit normal of $\mathcal{S}$. Cauchy's Theorem states that a consequence of the balance of forces is the existence of a spatial tensor field $\Tensor{T}(\Vector{x},t)$ such that,
+$$\Tensor{T}(\Vector{x},t)\Vector{n} = \Vector{t}(\Vector{n},\Vector{x},t).$$
+Using the principle of balance of linear momentum, we can express the evolution of the motion function as follows,
+$$\rho(\Vector{x},t) \ddot{\Vector{\chi}}(\Vector{X},t)\big|_{\Vector{X}=\Vector{\chi}^{-1}(\Vector{x},t)} = \mathrm{div}\Tensor{T}(\Vector{x},t) + \Vector{b}_0(\Vector{x},t),$$
+or more succinctly,
+$$\rho \ddot{\Vector{x}} = \mathrm{div}\Tensor{T} + \Vector{b}_0,$$
+with $(\mathrm{div}\Tensor{T})_{ij} = \partial T_{ij}/\partial x_j$. In some instances, we may also concern ourselves with the balance of energy and imbalance of entropy and write,
+$$
+\begin{aligned}
+\rho \dot{\varepsilon} =& \Tensor{T}:\Tensor{D} - \frac{\partial \Vector{q}}{\partial \Vector{x}} + q\\
+\rho \dot{\eta} \geq& -\frac{\partial (\Vector{q}/\vartheta)}{\partial \Vector{x}} + \frac{q}{\vartheta}
+\end{aligned}
+$$
+with $\varepsilon$ the \textit{specific internal energy}, $\Tensor{D} = \tfrac{1}{2}(\Tensor{L} + \Tensor{L}^{\top})$, $\Vector{q}$ the \textit{heat flux}, $q$ the \textit{heat supply}, $\eta$ the \textit{specific entropy}, and $\vartheta$ the \textit{temperature}.
+
+constitutive model, internal state, boundary conditions, contact rules
 
 \section{\texttt{main} Program}
 

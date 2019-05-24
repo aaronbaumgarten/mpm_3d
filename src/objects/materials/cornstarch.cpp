@@ -113,9 +113,9 @@ void Cornstarch::init(Job* job, Body* body){
     c.setZero();
 
     //if c0 given, then initialize c with value as assigned
-    if (fp64_props.size() > 18){
+    if (fp64_props.size() > 19){
         for (int i=0; i<c.rows(); i++){
-            c(i) = fp64_props[18];
+            c(i) = fp64_props[19];
         }
     }
 
@@ -130,6 +130,24 @@ void Cornstarch::writeFrame(Job* job, Body* body, Serializer* serializer){
     SlurryGranularPhase::writeFrame(job,body,serializer);
     serializer->writeScalarArray(phi_m_vec,"phi_m");
     serializer->writeScalarArray(c,"c");
+
+    //post-process f field
+    Eigen::VectorXd nvec(body->nodes->x.size());
+    Eigen::VectorXd vi(body->nodes->x.size());
+    Eigen::VectorXd pvec(body->points->x.size());
+    for (int i=0; i<pvec.rows(); i++){
+        pvec(i) = c(i)*body->points->v(i);
+    }
+    vi = body->S*body->points->v; //map volume to nodes
+    nvec = body->S*pvec; //map weighted f to nodes
+    for (int i=0; i<nvec.rows(); i++){
+        if (nvec(i)>0){
+            nvec(i) /= vi(i); //normalize by weight
+        }
+    }
+    pvec = body->S.operate(nvec,MPMSparseMatrixBase::TRANSPOSED);
+    serializer->writeScalarArray(pvec,"f");
+
     return;
 }
 

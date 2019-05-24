@@ -22,7 +22,7 @@ Ly = 1.0
 Nx = 150
 Ny = 75
 Nz = 1
-lmpp = 2
+lmpp = 1
 Lz = Nz*lmpp
 hx = Lx/Nx
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
@@ -30,7 +30,7 @@ print "grid created"
 
 # global properties
 g = -9.81
-phi = 0.51
+phi = 0.50
 
 # grain properties
 bulk_properties = { 'rho': 1620*phi }
