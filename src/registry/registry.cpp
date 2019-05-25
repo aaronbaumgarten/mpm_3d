@@ -102,6 +102,7 @@ template<>
 Registry<Points>::Registry() {
     object["DefaultPoints"] = &createInstance<Points,DefaultPoints>;
     object["GmshPoints"] = &createInstance<Points,GmshPoints>;
+    object["CartesianPoints"] = &createInstance<Points,CartesianPoints>;
 }
 
 

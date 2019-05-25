@@ -4,6 +4,7 @@
 *.so
 *.a
 *.vtk
+*.pyc
 mpm_png_to_points/*.png
 cmake-build-debug
 build*

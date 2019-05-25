@@ -140,6 +140,31 @@ public:
 
 /*----------------------------------------------------------------------------*/
 
+class CartesianPoints : public DefaultPoints{
+public:
+    CartesianPoints(){
+        object_name = "CartesianPoints";
+    }
+
+    KinematicVector Lx;
+    Eigen::VectorXi Nx;
+
+    //linear material points per cell and density of points
+    double rho;
+    int lmpp;
+
+    //part list
+    std::vector<std::unique_ptr<Part>> part_list;
+
+    //msh file
+    std::string msh_file, out_file;
+
+    void init(Job* job, Body* body);
+    void readFromFile(Job* job, Body* body, std::string fileIN);
+};
+
+/*----------------------------------------------------------------------------*/
+
 class DeltaPoints : public DefaultPoints{
 public:
     DeltaPoints(){

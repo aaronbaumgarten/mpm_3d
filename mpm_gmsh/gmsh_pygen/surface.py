@@ -50,7 +50,7 @@ class Surface:
     def __str__(self):
         if self.sid < 0:
             return str(-self)
-        return "Curve Loop({0}) = {{{1}}};\nPlane Surface({0}) = {{{0}}};\n".\
+        return "Line Loop({0}) = {{{1}}};\nPlane Surface({0}) = {{{0}}};\n".\
                 format(self.sid,", ".join([str(l.lid) for l in self.lines]))
     
     @classmethod
