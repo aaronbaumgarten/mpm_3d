@@ -32,64 +32,6 @@
 #include "registry.hpp"
 
 /*----------------------------------------------------------------------------*/
-//initialize point state (assumes that readFromFile has been called)
-//no safety check on this, so be careful please
-void CartesianPoints::init(Job* job, Body* body){
-    //v0 initialization
-    v0 = v;
-
-    //extent initialization (for grid integration)
-    if(job->grid->GRID_DIM == 1){
-        for (int i=0;i<v.rows();i++){
-            extent[i] = 0.5 * v[i];
-        }
-    } else if (job->JOB_TYPE == job->JOB_AXISYM){
-        for (int i=0;i<v.rows();i++){
-            extent[i] = 0.5 * std::sqrt(v[i]/x(i,0));
-        }
-    } else if (job->grid->GRID_DIM == 2){
-        for (int i=0;i<v.rows();i++){
-            extent[i] = 0.5 * std::sqrt(v[i]);
-        }
-    } else if (job->grid->GRID_DIM == 3){
-        for (int i = 0; i < v.rows(); i++) {
-            extent[i] = 0.5 * std::cbrt(v[i]);
-        }
-    }
-
-    //A matrix initialization
-    int cp = 1;
-    for (int i=0;i<job->grid->GRID_DIM;i++){
-        cp *= 2; //square or cube
-    }
-    //initialize A matrix
-    //for mapping position in cube to id
-    //0 -> -1,-1,-1
-    //1 -> +1,-1,-1
-    //...
-    //8 -> +1,+1,+1
-    Eigen::VectorXi onoff = -1*Eigen::VectorXi::Ones(job->grid->GRID_DIM);
-    A = Eigen::MatrixXi(cp, job->grid->GRID_DIM);
-    for (int c=0; c<cp;c++){
-        for (int i=0;i<onoff.rows();i++){
-            A(c,i) = onoff(i);
-        }
-        for (int i=0;i<onoff.rows();i++) {
-            if (onoff(i) == -1){
-                onoff(i) = 1;
-                break;
-            } else {
-                onoff(i) = -1;
-            }
-        }
-    }
-
-    std::cout << "Points Initialized: [" << file << "]." << std::endl;
-
-    return;
-}
-
-/*----------------------------------------------------------------------------*/
 //read point data from file
 void CartesianPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
     //for now, only implement 3D version

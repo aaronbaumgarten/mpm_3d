@@ -255,6 +255,22 @@ public:
     virtual double elementVolume(Job*, int) = 0;                                                                //return element volume of id
     virtual int nodeTag(Job*, int) = 0;                                                                         //return 'tag' of node id
     virtual double nodeSurfaceArea(Job*, int) = 0;                                                          //return node surface volume
+
+    //functions which take argument guessing which element point is in.
+    //updates guess with new element value.
+    virtual int whichElement(Job* job, KinematicVector& xIN, int&){
+        return whichElement(job, xIN);
+    }; //return element given position
+    virtual bool inDomain(Job* job, KinematicVector& xIN, int&){
+        return inDomain(job, xIN);
+    }; //check if location is in domain
+    virtual void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL, int&){
+        return evaluateBasisFnValue(job, xIN, nID, nVAL);
+    }; //fill id and value for nodal weights of position
+    virtual void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD, int&){
+        return evaluateBasisFnGradient(job, xIN, nID, nGRAD);
+    }; //fill id and gradient for nodal gradient of position
+
 };
 
 

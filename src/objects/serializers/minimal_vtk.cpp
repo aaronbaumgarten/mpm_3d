@@ -70,7 +70,7 @@ int MinimalVTK::writeFrame(Job* job){
                 std::cerr << "Could not open node frame: " << frameDirectory+nfilename << " !" << std::endl;
             }
 
-            //write out only position, velocity, pressure, and density
+            //write out only position, velocity, pressure, tau_bar, gamma_dot, and density
             //velocity
             writeVectorArray(job->bodies[b]->points->x_t, "velocity");
             //displacement
@@ -81,12 +81,29 @@ int MinimalVTK::writeFrame(Job* job){
                 tmpVec(i) = -1.0/3.0 * job->bodies[b]->points->T[i].trace();
             }
             writeScalarArray(tmpVec,"pressure");
+            //tau_bar
+            for(int i=0;i<job->bodies[b]->points->T.size(); i++){
+                tmpVec(i) = (job->bodies[b]->points->T[i] -
+                                1.0/3.0*job->bodies[b]->points->T[i].trace()*MaterialTensor::Identity()).norm() / std::sqrt(2.);
+            }
+            writeScalarArray(tmpVec,"tau_bar");
+            //gamma_dot
+            for(int i=0;i<job->bodies[b]->points->L.size(); i++){
+                tmpVec(i) = (0.5 * job->bodies[b]->points->L[i] + 0.5 * job->bodies[b]->points->L[i].transpose() -
+                             1.0/3.0*job->bodies[b]->points->L[i].trace()*MaterialTensor::Identity()).norm() * std::sqrt(2.);
+            }
+            writeScalarArray(tmpVec,"gamma_dot");
             //density
             tmpVec = job->bodies[b]->points->m.array() / job->bodies[b]->points->v.array();
             writeScalarArray(tmpVec,"density");
 
-            //write nodal velocity and mass
+            //write nodal velocity and density
             writeVectorArray(job->bodies[b]->nodes->x_t, "velocity");
+            tmpVec = job->bodies[b]->nodes->m;
+            for (int i=0; i < tmpVec.rows(); i++){
+                tmpVec(i) /= job->grid->nodeVolume(job,i);
+            }
+            writeScalarArray(tmpVec, "density");
 
             pfile.close();
             pfile.clear();

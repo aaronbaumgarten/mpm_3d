@@ -87,9 +87,20 @@ void TetrahedralGridLinear::init(Job* job){
     } else {
         //store length, number of linear nodes, and deltas
         msh_filename = str_props[0];
-        lc = fp64_props[0];
+        if (fp64_props.size() == 3) {
+            //assume hx, hy, hz given
+            hx = KinematicVector(job->JOB_TYPE);
+            for (int pos=0;pos<GRID_DIM;pos++){
+                hx(pos) = fp64_props[pos];
+            }
+            lc = -1.; //flag for not using lc
 
-        std::cout << "Grid properties (filename = " << msh_filename << ", lc = " << lc << ")." << std::endl;
+            std::cout << "Grid properties (filename = " << msh_filename << ", hx = " << EIGEN_MAP_OF_KINEMATIC_VECTOR(hx).transpose() << ")." << std::endl;
+        } else {
+            lc = fp64_props[0];
+
+            std::cout << "Grid properties (filename = " << msh_filename << ", lc = " << lc << ")." << std::endl;
+        }
     }
 
     int len;
@@ -307,14 +318,23 @@ void TetrahedralGridLinear::hiddenInit(Job* job){
             }
         }
     }
-    Nx = Eigen::VectorXi(job->DIM);;
-    for (size_t pos=0;pos<GRID_DIM;pos++){
-        Nx(pos) = std::floor(Lx(pos)/lc);
-    }
 
-    hx = KinematicVector(job->JOB_TYPE);
-    for (int pos=0;pos<GRID_DIM;pos++){
-        hx(pos) = Lx(pos) / Nx(pos);
+    if (lc != -1.) {
+        Nx = Eigen::VectorXi(job->DIM);;
+        for (size_t pos = 0; pos < GRID_DIM; pos++) {
+            Nx(pos) = std::floor(Lx(pos) / lc);
+        }
+
+        hx = KinematicVector(job->JOB_TYPE);
+        for (int pos = 0; pos < GRID_DIM; pos++) {
+            hx(pos) = Lx(pos) / Nx(pos);
+        }
+    } else {
+        //hx already set by inputs
+        Nx = Eigen::VectorXi(job->DIM);;
+        for (size_t pos = 0; pos < GRID_DIM; pos++) {
+            Nx(pos) = std::floor(Lx(pos) / hx(pos));
+        }
     }
 
     for (int pos=GRID_DIM;pos<hx.size();pos++){
@@ -328,17 +348,31 @@ void TetrahedralGridLinear::hiddenInit(Job* job){
         len *= Nx(pos);
     }
 
+    //check if this is a large domain
+    if (len > LARGE_DOMAIN_CUTOFF){
+        large_domain = true;
+    } else {
+        large_domain = false;
+    }
 
-    Eigen::VectorXi ijk;
+
+    Eigen::VectorXi ijk = Eigen::VectorXi(GRID_DIM);
     int sc;
 
     //form min/max list
     element_min_max.resize(6*element_count);
     for (int e=0; e<element_count; e++){
+        /*
         //find search cell
         sc = whichSearchCell(x_n(nodeIDs(e,0)));
         //convert to ijk coords
         ijk = n_to_ijk(job, sc);
+        */
+
+        //get ijk from components of x_n
+        ijk[0] = floor(x_n(nodeIDs(e,0))[0]/hx[0]);
+        ijk[1] = floor(x_n(nodeIDs(e,0))[1]/hx[1]);
+        ijk[2] = floor(x_n(nodeIDs(e,0))[2]/hx[2]);
 
         //assign min/max from first node
         for (int pos = 0; pos < ijk.rows(); pos++) {
@@ -348,10 +382,16 @@ void TetrahedralGridLinear::hiddenInit(Job* job){
 
         //repeat for other 3 nodes
         for (int i=1; i<npe; i++){
+            /*
             //find search cell
             sc = whichSearchCell(x_n(nodeIDs(e,i)));
             //convert to ijk coords
             ijk = n_to_ijk(job, sc);
+             */
+            ijk[0] = floor(x_n(nodeIDs(e,i))[0]/hx[0]);
+            ijk[1] = floor(x_n(nodeIDs(e,i))[1]/hx[1]);
+            ijk[2] = floor(x_n(nodeIDs(e,i))[2]/hx[2]);
+
             for (int pos=0; pos<ijk.rows(); pos++){
                 //if ijk < min, assign to min
                 if (ijk(pos) < element_min_max[6*e + pos]){
@@ -363,30 +403,64 @@ void TetrahedralGridLinear::hiddenInit(Job* job){
         }
     }
 
-    bool cell_in_range;
-    //insert elements into search cell list
-    for (int i=0;i<len;i++){
-        search_offsets.push_back(search_cells.size());
-        //find ijk of search cell
-        ijk = n_to_ijk(job, i);
-        //fill cell
-        for (int e = 0; e<element_count; e++){
-            cell_in_range = true;
-            for (int pos = 0; pos < ijk.rows(); pos++){
-                //insert element if search cell is within min/max range
-                if (ijk(pos) < element_min_max[6*e + pos] || ijk(pos) > element_min_max[6*e + 3 + pos]){
-                    cell_in_range = false;
-                    break;
+    std::cout << "Lx: " << EIGEN_MAP_OF_KINEMATIC_VECTOR(Lx).transpose() << std::endl;
+    std::cout << "Nx: " << Nx.transpose() << std::endl;
+    std::cout << "len: " << len << std::endl;
+
+    //if small domain, use same method as in 2D
+    if (!large_domain) {
+        bool cell_in_range;
+        //insert elements into search cell list
+        for (int i = 0; i < len; i++) {
+            search_offsets.push_back(search_cells.size());
+            //find ijk of search cell
+            ijk = n_to_ijk(job, i);
+            //fill cell
+            for (int e = 0; e < element_count; e++) {
+                cell_in_range = true;
+                for (int pos = 0; pos < ijk.rows(); pos++) {
+                    //insert element if search cell is within min/max range
+                    if (ijk(pos) <= element_min_max[6 * e + pos] || ijk(pos) >= element_min_max[6 * e + 3 + pos]) {
+                        cell_in_range = false;
+                        break;
+                    }
+                }
+                //hasn't failed, therefore add to list
+                if (cell_in_range) {
+                    search_cells.push_back(e);
                 }
             }
-            //hasn't failed, therefore add to list
-            if (cell_in_range) {
-                search_cells.push_back(e);
-            }
+            std::cout << "Initializing... " << i << "/" << len << "\r";
         }
-        std::cout << "Initializing... " << i << "/" << len << "\r";
+        search_offsets.push_back(search_cells.size());
+    } else {
+        //use large domain version
+        //reserve std::vector
+        search_cells_large_domain.resize(len);
+
+        int n = -1;
+
+        //loop over elements
+        for (int e=0; e<element_count; e++){
+            //loop over 3D ijk and insert element into search cell bins
+            for (int i=element_min_max[6*e + 0]; i <= element_min_max[6 * e + 3] ; i++){
+                ijk(0) = i;
+                for (int j=element_min_max[6 * e + 1]; j <= element_min_max[6 * e + 4]; j++){
+                    ijk(1) = j;
+                    for (int k=element_min_max[6 * e + 2]; k <= element_min_max[6*e + 5]; k++){
+                        ijk(2) = k;
+                        //find associated cell
+                        n = ijk_to_n(job, ijk);
+                        //insert element number into cell bin
+                        if (n < len) {
+                            search_cells_large_domain[n].push_back(e);
+                        } //else n is out of bounds...
+                    }
+                }
+            }
+            std::cout << "Initializing... " << e << "/" << element_count << "\r";
+        }
     }
-    search_offsets.push_back(search_cells.size());
 
     return;
 }
@@ -447,13 +521,68 @@ int TetrahedralGridLinear::whichElement(Job* job, KinematicVector& xIN) {
     }
     //search in that cell
     int elementID;
-    for (int cellID = search_offsets[searchID]; cellID < search_offsets[searchID + 1]; cellID++) {
-        elementID = search_cells[cellID];
-        if (inElement(job, xIN, elementID)) {
-            return elementID;
+    if (!large_domain){
+        for (int cellID = search_offsets[searchID]; cellID < search_offsets[searchID + 1]; cellID++) {
+            elementID = search_cells[cellID];
+            if (inElement(job, xIN, elementID)) {
+                return elementID;
+            }
+        }
+    } else {
+        for (int i = 0; i < search_cells_large_domain[searchID].size(); i++){
+            elementID = search_cells_large_domain[searchID][i];
+            if (inElement(job, xIN, elementID)){
+                return elementID;
+            }
         }
     }
-    //std::cout << "OUT OF DOMAIN!!!" << std::endl;
+    /*
+    std::cout << "OUT OF DOMAIN!!! " << std::endl;
+
+    if (large_domain){
+        std::cout << searchID << " :";
+        for (int i=0; i < search_cells_large_domain[searchID].size(); i++){
+            std::cout << " " << search_cells_large_domain[searchID][i];
+        }
+        std::cout << std::endl;
+    }
+     */
+    return -1;
+}
+
+int TetrahedralGridLinear::whichElement(Job* job, KinematicVector& xIN, int& elem_guess) {
+    assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "whichElement failed");
+    if (elem_guess > 0) {
+        if (inElement(job, xIN, elem_guess)) {
+            return elem_guess;
+        }
+    }
+
+    //find search cell
+    int searchID = whichSearchCell(xIN);
+    if (searchID < 0) {
+        return -1;
+    }
+    //search in that cell
+    int elementID;
+    if (!large_domain){
+        for (int cellID = search_offsets[searchID]; cellID < search_offsets[searchID + 1]; cellID++) {
+            elementID = search_cells[cellID];
+            if (inElement(job, xIN, elementID)) {
+                elem_guess = elementID;
+                return elementID;
+            }
+        }
+    } else {
+        for (int i = 0; i < search_cells_large_domain[searchID].size(); i++){
+            elementID = search_cells_large_domain[searchID][i];
+            if (inElement(job, xIN, elementID)){
+                elem_guess = elementID;
+                return elementID;
+            }
+        }
+    }
+    elem_guess = -1;
     return -1;
 }
 
@@ -507,6 +636,84 @@ void TetrahedralGridLinear::evaluateBasisFnValue(Job* job, KinematicVector& xIN,
 
 void TetrahedralGridLinear::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD){
     int elementID = whichElement(job,xIN);
+    if (elementID < 0){
+        return;
+    }
+
+    KinematicVector xi = KinematicVector(job->JOB_TYPE);
+    KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
+    KinematicTensor map = A(elementID);
+    KinematicTensor inv_map = Ainv(elementID);
+
+    //xi = Ainv * (x - x0)
+    xi = inv_map*(xIN - x_n(nodeIDs(elementID,0)));
+
+    //fill shape function vals
+    tmpVec(0) = -1; tmpVec(1) = -1; tmpVec(2) = -1;
+    tmpVec = map*tmpVec;
+    nID.push_back(nodeIDs(elementID,0));
+    nGRAD.push_back(tmpVec);
+
+    tmpVec(0) = 1; tmpVec(1) = 0; tmpVec(2) = 0;
+    tmpVec = map*tmpVec;
+    nID.push_back(nodeIDs(elementID,1));
+    nGRAD.push_back(tmpVec);
+
+    tmpVec(0) = 0; tmpVec(1) = 1; tmpVec(2) = 0;
+    tmpVec = map*tmpVec;
+    nID.push_back(nodeIDs(elementID,2));
+    nGRAD.push_back(tmpVec);
+
+    tmpVec(0) = 0; tmpVec(1) = 0; tmpVec(2) = 1;
+    tmpVec = map*tmpVec;
+    nID.push_back(nodeIDs(elementID,3));
+    nGRAD.push_back(tmpVec);
+
+    return;
+}
+
+void TetrahedralGridLinear::evaluateBasisFnValue(Job* job,
+                                                 KinematicVector& xIN,
+                                                 std::vector<int>& nID,
+                                                 std::vector<double>& nVAL,
+                                                 int& elem_guess){
+    int elementID = whichElement(job,xIN,elem_guess);
+    if (elementID < 0){
+        return;
+    }
+
+    KinematicVector xi = KinematicVector(job->JOB_TYPE);
+
+    //xi = Ainv * (x - x0)
+    xi = Ainv(elementID)*(xIN - x_n(nodeIDs(elementID,0)));
+
+    //fill shape function vals
+    double tmp;
+    tmp = 1 - xi(0) - xi(1) - xi(2);
+    nID.push_back(nodeIDs(elementID,0));
+    nVAL.push_back(tmp);
+
+    tmp = xi(0);
+    nID.push_back(nodeIDs(elementID,1));
+    nVAL.push_back(tmp);
+
+    tmp = xi(1);
+    nID.push_back(nodeIDs(elementID,2));
+    nVAL.push_back(tmp);
+
+    tmp = xi(2);
+    nID.push_back(nodeIDs(elementID,3));
+    nVAL.push_back(tmp);
+
+    return;
+}
+
+void TetrahedralGridLinear::evaluateBasisFnGradient(Job* job,
+                                                    KinematicVector& xIN,
+                                                    std::vector<int>& nID,
+                                                    KinematicVectorArray& nGRAD,
+                                                    int& elem_guess){
+    int elementID = whichElement(job,xIN,elem_guess);
     if (elementID < 0){
         return;
     }

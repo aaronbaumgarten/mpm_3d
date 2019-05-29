@@ -66,6 +66,9 @@ public:
     Eigen::VectorXd extent;
     Eigen::MatrixXi A; //for mapping corners to position
 
+    bool use_elem;          //determines whether to use element history for points
+    Eigen::MatrixXi elem;   //for holding previous elemental positions (to limit cell searches to cell crossings)
+
     virtual void init(Job* job, Body* body);
     virtual void readFromFile(Job* job, Body* body, std::string fileIN);
     virtual void generateMap(Job* job, Body* body, int SPEC);             //generate S and gradS
@@ -134,7 +137,7 @@ public:
     //msh file
     std::string msh_file, out_file;
 
-    void init(Job* job, Body* body);
+    //void init(Job* job, Body* body);
     void readFromFile(Job* job, Body* body, std::string fileIN);
 };
 
@@ -159,7 +162,7 @@ public:
     //msh file
     std::string msh_file, out_file;
 
-    void init(Job* job, Body* body);
+    //void init(Job* job, Body* body);
     void readFromFile(Job* job, Body* body, std::string fileIN);
 };
 

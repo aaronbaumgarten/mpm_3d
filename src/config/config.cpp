@@ -697,7 +697,7 @@ int Configurator::configureJob(Job* job){
                                         exit(0);
                                     }
                                 } else {
-                                    std::cerr << "No Points!" << std::endl;
+                                    std::cerr << "No Boundary!" << std::endl;
                                 }
                             } else {
                                 //if object is not created, this is fatal

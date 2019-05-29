@@ -46,24 +46,66 @@ public:
     int cpdi_spec = 1;
     int contact_spec = Contact::IMPLICIT;
 
-    void init(Job* job);
-    void step(Job* job);
-    std::string saveState(Job* job, Serializer* serializer, std::string filepath);
-    int loadState(Job* job, Serializer* serializer, std::string fullpath);
+    virtual void init(Job* job);
+    virtual void step(Job* job);
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
 
-    void createMappings(Job *job);
-    void mapPointsToNodes(Job* job);
-    void generateContacts(Job* job);
-    void addContacts(Job* job);
-    void generateBoundaryConditions(Job* job);
-    void addBoundaryConditions(Job* job);
-    void moveGrid(Job* job);
-    void movePoints(Job* job);
-    void calculateStrainRate(Job* job);
-    void updateDensity(Job* job);
-    void updateStress(Job* job);
-    void generateLoads(Job* job);
-    void applyLoads(Job* job);
+    virtual void createMappings(Job *job);
+    virtual void mapPointsToNodes(Job* job);
+    virtual void generateContacts(Job* job);
+    virtual void addContacts(Job* job);
+    virtual void generateBoundaryConditions(Job* job);
+    virtual void addBoundaryConditions(Job* job);
+    virtual void moveGrid(Job* job);
+    virtual void movePoints(Job* job);
+    virtual void calculateStrainRate(Job* job);
+    virtual void updateDensity(Job* job);
+    virtual void updateStress(Job* job);
+    virtual void generateLoads(Job* job);
+    virtual void applyLoads(Job* job);
 };
+
+/*----------------------------------------------------------------------------*/
+
+/*
+class ParallelExplicitUSL : public ExplicitUSL{
+public:
+    ParallelExplicitUSL(){
+        object_name = "ParallelExplicitUSL"; //set name of object from registry
+    }
+
+    int cpdi_spec = 1;
+    int contact_spec = Contact::IMPLICIT;
+    int num_threads = 1;
+
+    //scalar sparse matrix operations
+    void ssmOperate(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC, int k_begin, int k_end);
+    void ssmOperate(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC, int k_begin, int k_end);
+
+    //kinematic vector sparse matrix operations
+    void kvsmLeftMultiply(const KinematicVectorSparseMatrix &gradS, const MaterialTensorArray &T, MaterialVectorArray &lhs, int SPEC, int k_begin, int k_end);
+    void kvsmTensorProductT(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray L, int SPEC, int k_begin, int k_end);
+
+    virtual void init(Job* job);
+    //virtual void step(Job* job);
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    virtual void createMappings(Job *job);
+    virtual void mapPointsToNodes(Job* job);
+    virtual void generateContacts(Job* job);
+    virtual void addContacts(Job* job);
+    virtual void generateBoundaryConditions(Job* job);
+    virtual void addBoundaryConditions(Job* job);
+    virtual void moveGrid(Job* job);
+    virtual void movePoints(Job* job);
+    virtual void calculateStrainRate(Job* job);
+    virtual void updateDensity(Job* job);
+    virtual void updateStress(Job* job);
+    virtual void generateLoads(Job* job);
+    virtual void applyLoads(Job* job);
+};
+ */
 
 #endif //MPM_V3_SOLVERS_HPP

@@ -298,32 +298,46 @@ public:
         npe = 4;
     }
 
+    //cutoff for number of search cells to switch to large domain version of code.
+    const static int LARGE_DOMAIN_CUTOFF = 200000;
+
+    //search grid for very large matrices
+    bool large_domain = false;
+    std::vector<std::vector<int>> search_cells_large_domain;
+
     //stride is 6 for 3D
     std::vector<int> element_min_max; //list of minimum and maximum ijk of nodes
 
-    int whichSearchCell(const KinematicVector& xIN);
-    bool inElement(Job* job, const KinematicVector& xIN, int idIN);
+    virtual int whichSearchCell(const KinematicVector& xIN);
+    virtual bool inElement(Job* job, const KinematicVector& xIN, int idIN);
 
-    void init(Job* job);
-    void hiddenInit(Job* job);
+    virtual void init(Job* job);
+    virtual void hiddenInit(Job* job);
 
     //void writeFrame(Job* job, Serializer* serializer);
     //std::string saveState(Job* job, Serializer* serializer, std::string filepath);
     //int loadState(Job* job, Serializer* serializer, std::string fullpath);
 
-    void writeHeader(Job* job, Body* body, Serializer* serializer, std::ofstream& nfile, int SPEC); //write cell types
+    virtual void writeHeader(Job* job, Body* body, Serializer* serializer, std::ofstream& nfile, int SPEC); //write cell types
 
-    int whichElement(Job* job, KinematicVector& xIN);
-    bool inDomain(Job* job, KinematicVector& xIN);
-    KinematicVector nodeIDToPosition(Job* job, int idIN);
+    virtual int whichElement(Job* job, KinematicVector& xIN);
+    virtual bool inDomain(Job* job, KinematicVector& xIN);
+    virtual KinematicVector nodeIDToPosition(Job* job, int idIN);
 
-    void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL);
-    void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD);
-    double nodeVolume(Job* job, int idIN);
-    double elementVolume(Job* job, int idIN);
-    int nodeTag(Job* job, int idIN);
+    virtual void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL);
+    virtual void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD);
+    virtual double nodeVolume(Job* job, int idIN);
+    virtual double elementVolume(Job* job, int idIN);
+    virtual int nodeTag(Job* job, int idIN);
     virtual double nodeSurfaceArea(Job* job, int idIN);
+
+    virtual int whichElement(Job* job, KinematicVector& xIN, int& elem_guess); //return element given position
+    virtual void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL, int& elem_guess);     //fill id and value for nodal weights of position
+    virtual void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD, int& elem_guess); //fill id and gradient for nodal gradient of position
+
 };
+
+/*----------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------------------------*/
 

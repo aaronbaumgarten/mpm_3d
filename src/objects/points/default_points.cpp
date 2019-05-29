@@ -82,6 +82,17 @@ void DefaultPoints::init(Job* job, Body* body){
         }
     }
 
+    if (int_props.size() < 1){
+        //standard behavior
+        use_elem = false;
+    } else if (int_props[0] == 1){
+        //create point-wise element list
+        use_elem = true;
+        elem = Eigen::MatrixXi(x.size(),cp);
+        elem.setConstant(-1);
+        std::cout << object_name << " using point-element history." << std::endl;
+    }
+
     std::cout << "Points Initialized: [" << file << "]." << std::endl;
 
     return;
@@ -214,7 +225,7 @@ void DefaultPoints::generateMap(Job* job, Body* body, int SPEC) {
                 for (int pos = job->grid->GRID_DIM; pos < tmpVec.DIM; pos++){
                     tmpVec(pos) = 0;
                 }
-                if (!job->grid->inDomain(job, tmpVec)) {
+                if ((use_elem && !job->grid->inDomain(job, tmpVec, elem(i,c))) || !job->grid->inDomain(job, tmpVec)) {
                     //corner out of domain
                     ith_cpdi = DefaultBody::CPDI_OFF;
                     break;
@@ -226,14 +237,26 @@ void DefaultPoints::generateMap(Job* job, Body* body, int SPEC) {
         if (ith_cpdi == DefaultBody::CPDI_OFF) {
             nvec.resize(0);
             valvec.resize(0);
-            job->grid->evaluateBasisFnValue(job, x_i, nvec, valvec);
+            if (use_elem) {
+                job->grid->evaluateBasisFnValue(job, x_i, nvec, valvec, elem(i,0));
+                for (int c=1; c<A.rows(); c++){
+                    //assign all corners to centroid value
+                    elem(i,c) = elem(i,0);
+                }
+            } else {
+                job->grid->evaluateBasisFnValue(job, x_i, nvec, valvec);
+            }
             for (int j = 0; j < nvec.size(); j++) {
                 body->S.push_back(nvec[j], i, valvec[j]); //node, point, value
             }
 
             nvec.resize(0);
             gradvec.resize(0);
-            job->grid->evaluateBasisFnGradient(job, x_i, nvec, gradvec);
+            if (use_elem) {
+                job->grid->evaluateBasisFnGradient(job, x_i, nvec, gradvec, elem(i,0));
+            } else {
+                job->grid->evaluateBasisFnGradient(job, x_i, nvec, gradvec);
+            }
             for (int j = 0; j < nvec.size(); j++) {
                 body->gradS.push_back(nvec[j], i, gradvec[j]); //node, point, value
             }
@@ -248,7 +271,12 @@ void DefaultPoints::generateMap(Job* job, Body* body, int SPEC) {
                 for (int pos = job->grid->GRID_DIM; pos < tmpVec.DIM; pos++){
                     tmpVec(pos) = 0;
                 }
-                job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
+                //job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
+                if (use_elem) {
+                    job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec, elem(i,c));
+                } else {
+                    job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
+                }
             }
             for (int j = 0; j < nvec.size(); j++) {
                 body->S.push_back(nvec[j], i, valvec[j] / A.rows()); //node, point, value
@@ -271,7 +299,12 @@ void DefaultPoints::generateMap(Job* job, Body* body, int SPEC) {
                     tmpVec(pos) = 0;
                 }
 
-                job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
+                //job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
+                if (use_elem) {
+                    job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec, elem(i,c));
+                } else {
+                    job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
+                }
 
                 for (int v = 0; v < valvec.size(); v++) {
                     //gradient contribution from corner
