@@ -98,7 +98,7 @@ void ParallelExplicitUSL::kvsmLeftMultiply(const KinematicVectorSparseMatrix &gr
 
 void ParallelExplicitUSL::kvsmTensorProductT(const KinematicVectorSparseMatrix &gradS,
                                              const KinematicVectorArray &x,
-                                             KinematicTensorArray L,
+                                             KinematicTensorArray &L,
                                              int SPEC,
                                              int k_begin, int k_end){
     assert(x.size() == gradS.cols(SPEC) && x.VECTOR_TYPE == gradS.VECTOR_TYPE && "Vector sparse matrix multiplication (tensor transpose product) failed.");
@@ -120,12 +120,15 @@ void ParallelExplicitUSL::kvsmTensorProductT(const KinematicVectorSparseMatrix &
 
 void ParallelExplicitUSL::scalarAdd(const std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>& list,
                                     Eigen::VectorXd &sum,
-                                    int i_begin, int i_end){
+                                    int i_begin, int i_end,
+                                    bool clear){
     //fill in i_begin to i_end components of sum
     assert(sum.size() == list[0].size() && "scalarAdd failed.");
     //set to zero
-    for (int i=i_begin; i<=i_end; i++){
-        sum(i) = 0;
+    if (clear) {
+        for (int i = i_begin; i <= i_end; i++) {
+            sum(i) = 0;
+        }
     }
     //add components
     for (int l=0; l<list.size(); l++){
@@ -138,12 +141,15 @@ void ParallelExplicitUSL::scalarAdd(const std::vector<Eigen::VectorXd,Eigen::ali
 
 void ParallelExplicitUSL::vectorAddK(const std::vector<KinematicVectorArray>& list,
                                     KinematicVectorArray &sum,
-                                    int i_begin, int i_end){
+                                    int i_begin, int i_end,
+                                    bool clear){
     //fill in i_begin to i_end components of sum
     assert(sum.size() == list[0].size() && "vectorAdd failed.");
     //set to zero
-    for (int i=i_begin; i<=i_end; i++){
-        sum(i).setZero();
+    if (clear) {
+        for (int i = i_begin; i <= i_end; i++) {
+            sum(i).setZero();
+        }
     }
     //add components
     for (int l=0; l<list.size(); l++){
@@ -156,12 +162,15 @@ void ParallelExplicitUSL::vectorAddK(const std::vector<KinematicVectorArray>& li
 
 void ParallelExplicitUSL::vectorAddM(const std::vector<MaterialVectorArray>& list,
                                     MaterialVectorArray &sum,
-                                    int i_begin, int i_end){
+                                    int i_begin, int i_end,
+                                    bool clear){
     //fill in i_begin to i_end components of sum
     assert(sum.size() == list[0].size() && "vectorAdd failed.");
     //set to zero
-    for (int i=i_begin; i<=i_end; i++){
-        sum(i).setZero();
+    if (clear) {
+        for (int i = i_begin; i <= i_end; i++) {
+            sum(i).setZero();
+        }
     }
     //add components
     for (int l=0; l<list.size(); l++){
@@ -174,12 +183,15 @@ void ParallelExplicitUSL::vectorAddM(const std::vector<MaterialVectorArray>& lis
 
 void ParallelExplicitUSL::tensorAdd(const std::vector<KinematicTensorArray>& list,
                                     KinematicTensorArray &sum,
-                                    int i_begin, int i_end){
+                                    int i_begin, int i_end,
+                                    bool clear){
     //fill in i_begin to i_end components of sum
     assert(sum.size() == list[0].size() && "tensorAdd failed.");
     //set to zero
-    for (int i=i_begin; i<=i_end; i++){
-        sum(i).setZero();
+    if (clear) {
+        for (int i = i_begin; i <= i_end; i++) {
+            sum(i).setZero();
+        }
     }
     //add components
     for (int l=0; l<list.size(); l++){
@@ -194,7 +206,7 @@ void ParallelExplicitUSL::tensorAdd(const std::vector<KinematicTensorArray>& lis
 void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
                                            const Eigen::VectorXd &x,
                                            Eigen::VectorXd &lhs,
-                                           int SPEC){
+                                           int SPEC, bool clear){
     //get length of sparse matrix storage
     int k_max = S.size() - 1;
 
@@ -213,7 +225,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>> lhs_vec(thread_count);
 
     //choose interval size
-    int k_interval = (int)ceil(S.size()/thread_count);
+    int k_interval = (S.size()/thread_count) + 1;
     int k_begin, k_end;
 
     for (int t=0; t<thread_count; t++) {
@@ -243,7 +255,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     }
 
     //choose interval size
-    int i_interval = (int)ceil(lhs.rows()/thread_count);
+    int i_interval = (lhs.rows()/thread_count) + 1;
     int i_begin, i_end;
 
     for (int t=0; t<thread_count; t++){
@@ -254,7 +266,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(scalarAdd, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end);
+        threads[t] = std::thread(scalarAdd, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end, clear);
     }
 
     //join threads
@@ -269,7 +281,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
 void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
                                            const KinematicVectorArray &x,
                                            KinematicVectorArray &lhs,
-                                           int SPEC){
+                                           int SPEC, bool clear){
     //get length of sparse matrix storage
     int k_max = S.size() - 1;
 
@@ -288,7 +300,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     std::vector<KinematicVectorArray> lhs_vec(thread_count);
 
     //choose interval size
-    int k_interval = (int)ceil(S.size()/thread_count);
+    int k_interval = (S.size()/thread_count) + 1;
     int k_begin, k_end;
 
     for (int t=0; t<thread_count; t++) {
@@ -318,7 +330,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     }
 
     //choose interval size
-    int i_interval = (int)ceil(lhs.size()/thread_count);
+    int i_interval = (lhs.size()/thread_count) + 1;
     int i_begin, i_end;
 
     for (int t=0; t<thread_count; t++){
@@ -329,7 +341,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(vectorAddK, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end);
+        threads[t] = std::thread(vectorAddK, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end, clear);
     }
 
     //join threads
@@ -344,7 +356,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
 void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
                                            const MaterialTensorArray &T,
                                            MaterialVectorArray &lhs,
-                                           int SPEC){
+                                           int SPEC, bool clear){
     //get length of sparse matrix storage
     int k_max = gradS.size() - 1;
 
@@ -363,7 +375,7 @@ void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gr
     std::vector<MaterialVectorArray> lhs_vec(thread_count);
 
     //choose interval size
-    int k_interval = (int)ceil(gradS.size()/thread_count);
+    int k_interval = (gradS.size()/thread_count) + 1;
     int k_begin, k_end;
 
     for (int t=0; t<thread_count; t++) {
@@ -393,7 +405,7 @@ void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gr
     }
 
     //choose interval size
-    int i_interval = (int)ceil(lhs.size()/thread_count);
+    int i_interval = (lhs.size()/thread_count) + 1;
     int i_begin, i_end;
 
     for (int t=0; t<thread_count; t++){
@@ -404,7 +416,7 @@ void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gr
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(vectorAddM, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end);
+        threads[t] = std::thread(vectorAddM, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end, clear);
     }
 
     //join threads
@@ -419,8 +431,8 @@ void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gr
 
 void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
                                            const KinematicVectorArray &x,
-                                           KinematicTensorArray L,
-                                           int SPEC){
+                                           KinematicTensorArray &L,
+                                           int SPEC, bool clear){
     //get length of sparse matrix storage
     int k_max = gradS.size() - 1;
 
@@ -439,7 +451,7 @@ void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gr
     std::vector<KinematicTensorArray> lhs_vec(thread_count);
 
     //choose interval size
-    int k_interval = (int)ceil(gradS.size()/thread_count);
+    int k_interval = (gradS.size()/thread_count) + 1;
     int k_begin, k_end;
 
     for (int t=0; t<thread_count; t++) {
@@ -469,7 +481,7 @@ void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gr
     }
 
     //choose interval size
-    int i_interval = (int)ceil(L.size()/thread_count);
+    int i_interval = (L.size()/thread_count) + 1;
     int i_begin, i_end;
 
     for (int t=0; t<thread_count; t++){
@@ -480,7 +492,7 @@ void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gr
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(tensorAdd, std::ref(lhs_vec), std::ref(L), i_begin, i_end);
+        threads[t] = std::thread(tensorAdd, std::ref(lhs_vec), std::ref(L), i_begin, i_end, clear);
     }
 
     //join threads
@@ -563,7 +575,8 @@ void ParallelExplicitUSL::mapPointsToNodes(Job* job){
         nodes = job->bodies[b]->nodes.get();
 
         //map mass
-        nodes->m = body->S * points->m; //m_i = S_ip * m_p
+        //nodes->m = body->S * points->m; //m_i = S_ip * m_p
+        parallelMultiply(body->S, points->m, nodes->m, MPMScalarSparseMatrix::NORMAL);
 
         //map momentum
         for (int i = 0; i < points->mx_t.size(); i++) {
@@ -585,14 +598,17 @@ void ParallelExplicitUSL::mapPointsToNodes(Job* job){
         for (int i = 0; i < points->b.size(); i++) {
             pvec(i) = points->m(i) * points->b(i);
         }
-        nodes->f = body->S * pvec;
+        //nodes->f = body->S * pvec;
+        parallelMultiply(body->S, pvec, nodes->f, MPMScalarSparseMatrix::NORMAL);
 
         //map divergence of stress
         tmpMat = points->T;
         for (int i = 0; i < tmpMat.size(); i++) {
             tmpMat[i] *= points->v[i];
         }
-        nvec = body->gradS.left_multiply_by_tensor(tmpMat); //f_i = v_p T_p * gradS_ip
+        //nvec = body->gradS.left_multiply_by_tensor(tmpMat); //f_i = v_p T_p * gradS_ip
+        nvec = MaterialVectorArray(nodes->x.size());
+        parallelMultiply(body->gradS, tmpMat, nvec, MPMSparseMatrixBase::NORMAL);
         for (int i = 0; i < nvec.size(); i++) {
             nodes->f[i] -= KinematicVector(nvec[i], nodes->f.VECTOR_TYPE);
         }
@@ -604,7 +620,8 @@ void ParallelExplicitUSL::mapPointsToNodes(Job* job){
             for (int i=0;i<pval.rows();i++){
                 pval(i) = tmpMat(i,2,2) / points->x(i,0);
             }
-            nval = body->S * pval;
+            //nval = body->S * pval;
+            parallelMultiply(body->S, pval, nval, MPMScalarSparseMatrix::NORMAL);
             for (int i=0; i<nval.rows(); i++){
                 nodes->f(i,0) -= nval(i);
             }
@@ -613,7 +630,8 @@ void ParallelExplicitUSL::mapPointsToNodes(Job* job){
             for (int i=0; i<pval.rows(); i++){
                 pval(i) = tmpMat(i,0,2) / points->x(i,0);
             }
-            nval = body->S * pval;
+            //nval = body->S * pval;
+            parallelMultiply(body->S, pval, nval, MPMScalarSparseMatrix::NORMAL);
             for (int i=0; i<nval.rows(); i++){
                 nodes->f(i,2) += nval(i);
             }
@@ -669,8 +687,10 @@ void ParallelExplicitUSL::movePoints(Job* job){
         nodes = job->bodies[b]->nodes.get();
 
         //map nodal displacement to point positions
-        points->x += body->S.operate(nodes->u, MPMSparseMatrixBase::TRANSPOSED);
-        points->u += body->S.operate(nodes->u, MPMSparseMatrixBase::TRANSPOSED);
+        //points->x += body->S.operate(nodes->u, MPMSparseMatrixBase::TRANSPOSED);
+        //points->u += body->S.operate(nodes->u, MPMSparseMatrixBase::TRANSPOSED);
+        parallelMultiply(body->S, nodes->u, points->x, MPMScalarSparseMatrix::TRANSPOSED, false);
+        parallelMultiply(body->S, nodes->u, points->u, MPMScalarSparseMatrix::TRANSPOSED, false);
 
         //fix position for out of plane dimension
         if (job->grid->GRID_DIM < job->DIM){
@@ -682,7 +702,8 @@ void ParallelExplicitUSL::movePoints(Job* job){
         }
 
         //map nodal velocity diff to points
-        points->x_t += body->S.operate(nodes->diff_x_t, MPMSparseMatrixBase::TRANSPOSED);
+        //points->x_t += body->S.operate(nodes->diff_x_t, MPMSparseMatrixBase::TRANSPOSED);
+        parallelMultiply(body->S, nodes->diff_x_t, points->x_t, MPMSparseMatrixBase::TRANSPOSED, false);
 
         //calculate momentum
         for (int i=0;i<points->mx_t.size();i++){
@@ -708,11 +729,13 @@ void ParallelExplicitUSL::calculateStrainRate(Job* job){
 
         //calculate gradient of nodal velocity at points
         //body->bodyCalcPointGradient(job,points->L,nodes->x_t,Body::SET);
-        points->L = body->gradS.tensor_product_transpose(nodes->x_t, MPMSparseMatrixBase::TRANSPOSED);
+        //points->L = body->gradS.tensor_product_transpose(nodes->x_t, MPMSparseMatrixBase::TRANSPOSED);
+        parallelMultiply(body->gradS, nodes->x_t, points->L, MPMSparseMatrixBase::TRANSPOSED);
 
         //correct L if axisymmetric
         if (job->JOB_TYPE == job->JOB_AXISYM){
-            pvec = body->S.operate(nodes->x_t, MPMSparseMatrixBase::TRANSPOSED);
+            //pvec = body->S.operate(nodes->x_t, MPMSparseMatrixBase::TRANSPOSED);
+            parallelMultiply(body->S, nodes->x_t, pvec, MPMSparseMatrixBase::TRANSPOSED);
             for (int i=0; i<points->L.size(); i++){
                 points->L(i,0,2) = -pvec(i,2) / points->x(i,0);
                 points->L(i,2,2) = pvec(i,0) / points->x(i,0);

@@ -88,13 +88,13 @@ public:
 
     //kinematic vector sparse matrix operations
     static void kvsmLeftMultiply(const KinematicVectorSparseMatrix &gradS, const MaterialTensorArray &T, MaterialVectorArray &lhs, int SPEC, int k_begin, int k_end);
-    static void kvsmTensorProductT(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray L, int SPEC, int k_begin, int k_end);
+    static void kvsmTensorProductT(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray &L, int SPEC, int k_begin, int k_end);
 
     //parallel scalar add
-    static void scalarAdd(const std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>& list, Eigen::VectorXd &sum, int i_begin, int i_end);
-    static void vectorAddK(const std::vector<KinematicVectorArray>& list, KinematicVectorArray &sum, int i_begin, int i_end);
-    static void vectorAddM(const std::vector<MaterialVectorArray>& list, MaterialVectorArray &sum, int i_begin, int i_end);
-    static void tensorAdd(const std::vector<KinematicTensorArray>& list, KinematicTensorArray &sum, int i_begin, int i_end);
+    static void scalarAdd(const std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>& list, Eigen::VectorXd &sum, int i_begin, int i_end, bool clear);
+    static void vectorAddK(const std::vector<KinematicVectorArray>& list, KinematicVectorArray &sum, int i_begin, int i_end, bool clear);
+    static void vectorAddM(const std::vector<MaterialVectorArray>& list, MaterialVectorArray &sum, int i_begin, int i_end, bool clear);
+    static void tensorAdd(const std::vector<KinematicTensorArray>& list, KinematicTensorArray &sum, int i_begin, int i_end, bool clear);
 
 
     virtual void init(Job* job);
@@ -103,10 +103,10 @@ public:
     virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
 
     //parallel functions
-    void parallelMultiply(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC);
-    void parallelMultiply(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC);
-    void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const MaterialTensorArray &T, MaterialVectorArray &lhs, int SPEC);
-    void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray L, int SPEC);
+    void parallelMultiply(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC, bool clear = true);
+    void parallelMultiply(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC, bool clear = true);
+    void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const MaterialTensorArray &T, MaterialVectorArray &lhs, int SPEC, bool clear = true);
+    void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray &L, int SPEC, bool clear = true);
 
     //virtual void createMappings(Job *job);
     virtual void mapPointsToNodes(Job* job);
