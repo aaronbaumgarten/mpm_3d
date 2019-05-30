@@ -83,18 +83,18 @@ public:
     std::vector<std::thread> threads;
 
     //scalar sparse matrix operations
-    void ssmOperate(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC, int k_begin, int k_end);
-    void ssmOperate(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC, int k_begin, int k_end);
+    static void ssmOperateStoS(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC, int k_begin, int k_end);
+    static void ssmOperateVtoV(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC, int k_begin, int k_end);
 
     //kinematic vector sparse matrix operations
-    void kvsmLeftMultiply(const KinematicVectorSparseMatrix &gradS, const MaterialTensorArray &T, MaterialVectorArray &lhs, int SPEC, int k_begin, int k_end);
-    void kvsmTensorProductT(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray L, int SPEC, int k_begin, int k_end);
+    static void kvsmLeftMultiply(const KinematicVectorSparseMatrix &gradS, const MaterialTensorArray &T, MaterialVectorArray &lhs, int SPEC, int k_begin, int k_end);
+    static void kvsmTensorProductT(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray L, int SPEC, int k_begin, int k_end);
 
     //parallel scalar add
-    void scalarAdd(const std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>& list, Eigen::VectorXd &sum, int i_begin, int i_end);
-    void vectorAdd(const std::vector<KinematicVectorArray>& list, KinematicVectorArray &sum, int i_begin, int i_end);
-    void vectorAdd(const std::vector<MaterialVectorArray>& list, MaterialVectorArray &sum, int i_begin, int i_end);
-    void tensorAdd(const std::vector<KinematicTensorArray>& list, KinematicTensorArray &sum, int i_begin, int i_end);
+    static void scalarAdd(const std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>& list, Eigen::VectorXd &sum, int i_begin, int i_end);
+    static void vectorAddK(const std::vector<KinematicVectorArray>& list, KinematicVectorArray &sum, int i_begin, int i_end);
+    static void vectorAddM(const std::vector<MaterialVectorArray>& list, MaterialVectorArray &sum, int i_begin, int i_end);
+    static void tensorAdd(const std::vector<KinematicTensorArray>& list, KinematicTensorArray &sum, int i_begin, int i_end);
 
 
     virtual void init(Job* job);

@@ -27,7 +27,7 @@
 #include <thread>
 
 //scalar sparse matrix operations
-void ParallelExplicitUSL::ssmOperate(const MPMScalarSparseMatrix &S,
+void ParallelExplicitUSL::ssmOperateStoS(const MPMScalarSparseMatrix &S,
                                      const Eigen::VectorXd &x,
                                      Eigen::VectorXd &lhs,
                                      int SPEC,
@@ -51,7 +51,7 @@ void ParallelExplicitUSL::ssmOperate(const MPMScalarSparseMatrix &S,
 }
 
 
-void ParallelExplicitUSL::ssmOperate(const MPMScalarSparseMatrix &S,
+void ParallelExplicitUSL::ssmOperateVtoV(const MPMScalarSparseMatrix &S,
                                      const KinematicVectorArray &x,
                                      KinematicVectorArray &lhs,
                                      int SPEC,
@@ -136,7 +136,7 @@ void ParallelExplicitUSL::scalarAdd(const std::vector<Eigen::VectorXd,Eigen::ali
     return;
 }
 
-void ParallelExplicitUSL::vectorAdd(const std::vector<KinematicVectorArray>& list,
+void ParallelExplicitUSL::vectorAddK(const std::vector<KinematicVectorArray>& list,
                                     KinematicVectorArray &sum,
                                     int i_begin, int i_end){
     //fill in i_begin to i_end components of sum
@@ -154,7 +154,7 @@ void ParallelExplicitUSL::vectorAdd(const std::vector<KinematicVectorArray>& lis
     return;
 }
 
-void ParallelExplicitUSL::vectorAdd(const std::vector<MaterialVectorArray>& list,
+void ParallelExplicitUSL::vectorAddM(const std::vector<MaterialVectorArray>& list,
                                     MaterialVectorArray &sum,
                                     int i_begin, int i_end){
     //fill in i_begin to i_end components of sum
@@ -227,7 +227,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
             k_end = k_max;
         }
         //begin threads
-        threads[t] = std::thread(ssmOperate, S, x, lhs_vec[t], SPEC, k_begin, k_end);
+        threads[t] = std::thread(ssmOperateStoS, std::ref(S), std::ref(x), std::ref(lhs_vec[t]), SPEC, k_begin, k_end);
     }
 
     //join threads
@@ -254,7 +254,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(scalarAdd,lhs_vec,lhs,i_begin,i_end);
+        threads[t] = std::thread(scalarAdd, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end);
     }
 
     //join threads
@@ -293,7 +293,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
 
     for (int t=0; t<thread_count; t++) {
         //initialize lhs
-        lhs_vec[t] = Eigen::VectorXd(lhs.size());
+        lhs_vec[t] = KinematicVectorArray(lhs.size(),lhs.VECTOR_TYPE);
 
         //set interval
         k_begin = t * k_interval;
@@ -302,7 +302,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
             k_end = k_max;
         }
         //begin threads
-        threads[t] = std::thread(ssmOperate, S, x, lhs_vec[t], SPEC, k_begin, k_end);
+        threads[t] = std::thread(ssmOperateVtoV, std::ref(S), std::ref(x), std::ref(lhs_vec[t]), SPEC, k_begin, k_end);
     }
 
     //join threads
@@ -329,7 +329,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(vectorAdd,lhs_vec,lhs,i_begin,i_end);
+        threads[t] = std::thread(vectorAddK, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end);
     }
 
     //join threads
@@ -368,7 +368,7 @@ void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gr
 
     for (int t=0; t<thread_count; t++) {
         //initialize lhs
-        lhs_vec[t] = Eigen::VectorXd(lhs.size());
+        lhs_vec[t] = MaterialVectorArray(lhs.size());
 
         //set interval
         k_begin = t * k_interval;
@@ -377,7 +377,7 @@ void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gr
             k_end = k_max;
         }
         //begin threads
-        threads[t] = std::thread(kvsmLeftMultiply, gradS, T, lhs_vec[t], SPEC, k_begin, k_end);
+        threads[t] = std::thread(kvsmLeftMultiply, std::ref(gradS), std::ref(T), std::ref(lhs_vec[t]), SPEC, k_begin, k_end);
     }
 
     //join threads
@@ -404,7 +404,7 @@ void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gr
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(vectorAdd,lhs_vec,lhs,i_begin,i_end);
+        threads[t] = std::thread(vectorAddM, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end);
     }
 
     //join threads
@@ -444,7 +444,7 @@ void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gr
 
     for (int t=0; t<thread_count; t++) {
         //initialize lhs
-        lhs_vec[t] = Eigen::VectorXd(L.size());
+        lhs_vec[t] = KinematicTensorArray(L.size(),L.TENSOR_TYPE);
 
         //set interval
         k_begin = t * k_interval;
@@ -453,7 +453,7 @@ void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gr
             k_end = k_max;
         }
         //begin threads
-        threads[t] = std::thread(kvsmTensorProductT, gradS, x, lhs_vec[t], SPEC, k_begin, k_end);
+        threads[t] = std::thread(kvsmTensorProductT, std::ref(gradS), std::ref(x), std::ref(lhs_vec[t]), SPEC, k_begin, k_end);
     }
 
     //join threads
@@ -480,7 +480,7 @@ void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gr
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(tensorAdd,lhs_vec,L,i_begin,i_end);
+        threads[t] = std::thread(tensorAdd, std::ref(lhs_vec), std::ref(L), i_begin, i_end);
     }
 
     //join threads
