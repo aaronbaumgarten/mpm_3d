@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 #include <Eigen/Core>
+#include <thread>
 
 /*
  * IN THIS FILE, DEFINE SOLVER OBJECTS.
@@ -68,7 +69,6 @@ public:
 
 /*----------------------------------------------------------------------------*/
 
-/*
 class ParallelExplicitUSL : public ExplicitUSL{
 public:
     ParallelExplicitUSL(){
@@ -79,6 +79,9 @@ public:
     int contact_spec = Contact::IMPLICIT;
     int num_threads = 1;
 
+    //thread container
+    std::vector<std::thread> threads;
+
     //scalar sparse matrix operations
     void ssmOperate(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC, int k_begin, int k_end);
     void ssmOperate(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC, int k_begin, int k_end);
@@ -87,25 +90,37 @@ public:
     void kvsmLeftMultiply(const KinematicVectorSparseMatrix &gradS, const MaterialTensorArray &T, MaterialVectorArray &lhs, int SPEC, int k_begin, int k_end);
     void kvsmTensorProductT(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray L, int SPEC, int k_begin, int k_end);
 
+    //parallel scalar add
+    void scalarAdd(const std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>& list, Eigen::VectorXd &sum, int i_begin, int i_end);
+    void vectorAdd(const std::vector<KinematicVectorArray>& list, KinematicVectorArray &sum, int i_begin, int i_end);
+    void vectorAdd(const std::vector<MaterialVectorArray>& list, MaterialVectorArray &sum, int i_begin, int i_end);
+    void tensorAdd(const std::vector<KinematicTensorArray>& list, KinematicTensorArray &sum, int i_begin, int i_end);
+
+
     virtual void init(Job* job);
     //virtual void step(Job* job);
     virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
     virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
 
-    virtual void createMappings(Job *job);
+    //parallel functions
+    void parallelMultiply(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC);
+    void parallelMultiply(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC);
+    void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const MaterialTensorArray &T, MaterialVectorArray &lhs, int SPEC);
+    void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray L, int SPEC);
+
+    //virtual void createMappings(Job *job);
     virtual void mapPointsToNodes(Job* job);
-    virtual void generateContacts(Job* job);
-    virtual void addContacts(Job* job);
-    virtual void generateBoundaryConditions(Job* job);
-    virtual void addBoundaryConditions(Job* job);
+    //virtual void generateContacts(Job* job);
+    //virtual void addContacts(Job* job);
+    //virtual void generateBoundaryConditions(Job* job);
+    //virtual void addBoundaryConditions(Job* job);
     virtual void moveGrid(Job* job);
     virtual void movePoints(Job* job);
     virtual void calculateStrainRate(Job* job);
     virtual void updateDensity(Job* job);
-    virtual void updateStress(Job* job);
-    virtual void generateLoads(Job* job);
-    virtual void applyLoads(Job* job);
+    //virtual void updateStress(Job* job);
+    //virtual void generateLoads(Job* job);
+    //virtual void applyLoads(Job* job);
 };
- */
 
 #endif //MPM_V3_SOLVERS_HPP

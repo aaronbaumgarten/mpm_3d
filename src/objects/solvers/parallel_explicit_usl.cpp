@@ -118,6 +118,380 @@ void ParallelExplicitUSL::kvsmTensorProductT(const KinematicVectorSparseMatrix &
     return;
 }
 
+void ParallelExplicitUSL::scalarAdd(const std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>& list,
+                                    Eigen::VectorXd &sum,
+                                    int i_begin, int i_end){
+    //fill in i_begin to i_end components of sum
+    assert(sum.size() == list[0].size() && "scalarAdd failed.");
+    //set to zero
+    for (int i=i_begin; i<=i_end; i++){
+        sum(i) = 0;
+    }
+    //add components
+    for (int l=0; l<list.size(); l++){
+        for (int i=i_begin; i<=i_end; i++){
+            sum(i) += list[l](i);
+        }
+    }
+    return;
+}
+
+void ParallelExplicitUSL::vectorAdd(const std::vector<KinematicVectorArray>& list,
+                                    KinematicVectorArray &sum,
+                                    int i_begin, int i_end){
+    //fill in i_begin to i_end components of sum
+    assert(sum.size() == list[0].size() && "vectorAdd failed.");
+    //set to zero
+    for (int i=i_begin; i<=i_end; i++){
+        sum(i).setZero();
+    }
+    //add components
+    for (int l=0; l<list.size(); l++){
+        for (int i=i_begin; i<=i_end; i++){
+            sum(i) += list[l](i);
+        }
+    }
+    return;
+}
+
+void ParallelExplicitUSL::vectorAdd(const std::vector<MaterialVectorArray>& list,
+                                    MaterialVectorArray &sum,
+                                    int i_begin, int i_end){
+    //fill in i_begin to i_end components of sum
+    assert(sum.size() == list[0].size() && "vectorAdd failed.");
+    //set to zero
+    for (int i=i_begin; i<=i_end; i++){
+        sum(i).setZero();
+    }
+    //add components
+    for (int l=0; l<list.size(); l++){
+        for (int i=i_begin; i<=i_end; i++){
+            sum(i) += list[l](i);
+        }
+    }
+    return;
+}
+
+void ParallelExplicitUSL::tensorAdd(const std::vector<KinematicTensorArray>& list,
+                                    KinematicTensorArray &sum,
+                                    int i_begin, int i_end){
+    //fill in i_begin to i_end components of sum
+    assert(sum.size() == list[0].size() && "tensorAdd failed.");
+    //set to zero
+    for (int i=i_begin; i<=i_end; i++){
+        sum(i).setZero();
+    }
+    //add components
+    for (int l=0; l<list.size(); l++){
+        for (int i=i_begin; i<=i_end; i++){
+            sum(i) += list[l](i);
+        }
+    }
+    return;
+}
+
+
+void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
+                                           const Eigen::VectorXd &x,
+                                           Eigen::VectorXd &lhs,
+                                           int SPEC){
+    //get length of sparse matrix storage
+    int k_max = S.size() - 1;
+
+    //get length of output vector
+    int i_max = lhs.rows() - 1;
+
+    //determine number of threads for matrix vector mult
+    int thread_count;
+    if (S.size() >= num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = S.size();
+    }
+
+    //intermediate storage vector
+    std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>> lhs_vec(thread_count);
+
+    //choose interval size
+    int k_interval = (int)ceil(S.size()/thread_count);
+    int k_begin, k_end;
+
+    for (int t=0; t<thread_count; t++) {
+        //initialize lhs
+        lhs_vec[t] = Eigen::VectorXd(lhs.rows());
+
+        //set interval
+        k_begin = t * k_interval;
+        k_end = k_begin + k_interval - 1;
+        if (k_end > k_max){
+            k_end = k_max;
+        }
+        //begin threads
+        threads[t] = std::thread(ssmOperate, S, x, lhs_vec[t], SPEC, k_begin, k_end);
+    }
+
+    //join threads
+    for (int t=0; t<thread_count; t++){
+        threads[t].join();
+    }
+
+    //determine number of threads for addition
+    if (lhs.rows() > num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = lhs.rows();
+    }
+
+    //choose interval size
+    int i_interval = (int)ceil(lhs.rows()/thread_count);
+    int i_begin, i_end;
+
+    for (int t=0; t<thread_count; t++){
+        //set interval
+        i_begin = t*i_interval;
+        i_end = i_begin + i_interval-1;
+        if (i_end > i_max){
+            i_end = i_max;
+        }
+        //begin threads
+        threads[t] = std::thread(scalarAdd,lhs_vec,lhs,i_begin,i_end);
+    }
+
+    //join threads
+    for (int t=0; t<thread_count; t++){
+        threads[t].join();
+    }
+
+    //should be all done
+    return;
+}
+
+void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
+                                           const KinematicVectorArray &x,
+                                           KinematicVectorArray &lhs,
+                                           int SPEC){
+    //get length of sparse matrix storage
+    int k_max = S.size() - 1;
+
+    //get length of output vector
+    int i_max = lhs.size() - 1;
+
+    //determine number of threads for matrix vector mult
+    int thread_count;
+    if (S.size() >= num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = S.size();
+    }
+
+    //intermediate storage vector
+    std::vector<KinematicVectorArray> lhs_vec(thread_count);
+
+    //choose interval size
+    int k_interval = (int)ceil(S.size()/thread_count);
+    int k_begin, k_end;
+
+    for (int t=0; t<thread_count; t++) {
+        //initialize lhs
+        lhs_vec[t] = Eigen::VectorXd(lhs.size());
+
+        //set interval
+        k_begin = t * k_interval;
+        k_end = k_begin + k_interval - 1;
+        if (k_end > k_max){
+            k_end = k_max;
+        }
+        //begin threads
+        threads[t] = std::thread(ssmOperate, S, x, lhs_vec[t], SPEC, k_begin, k_end);
+    }
+
+    //join threads
+    for (int t=0; t<thread_count; t++){
+        threads[t].join();
+    }
+
+    //determine number of threads for addition
+    if (lhs.size() > num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = lhs.size();
+    }
+
+    //choose interval size
+    int i_interval = (int)ceil(lhs.size()/thread_count);
+    int i_begin, i_end;
+
+    for (int t=0; t<thread_count; t++){
+        //set interval
+        i_begin = t*i_interval;
+        i_end = i_begin + i_interval-1;
+        if (i_end > i_max){
+            i_end = i_max;
+        }
+        //begin threads
+        threads[t] = std::thread(vectorAdd,lhs_vec,lhs,i_begin,i_end);
+    }
+
+    //join threads
+    for (int t=0; t<thread_count; t++){
+        threads[t].join();
+    }
+
+    //should be all done
+    return;
+}
+
+void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
+                                           const MaterialTensorArray &T,
+                                           MaterialVectorArray &lhs,
+                                           int SPEC){
+    //get length of sparse matrix storage
+    int k_max = gradS.size() - 1;
+
+    //get length of output vector
+    int i_max = lhs.size() - 1;
+
+    //determine number of threads for matrix vector mult
+    int thread_count;
+    if (gradS.size() >= num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = gradS.size();
+    }
+
+    //intermediate storage vector
+    std::vector<MaterialVectorArray> lhs_vec(thread_count);
+
+    //choose interval size
+    int k_interval = (int)ceil(gradS.size()/thread_count);
+    int k_begin, k_end;
+
+    for (int t=0; t<thread_count; t++) {
+        //initialize lhs
+        lhs_vec[t] = Eigen::VectorXd(lhs.size());
+
+        //set interval
+        k_begin = t * k_interval;
+        k_end = k_begin + k_interval - 1;
+        if (k_end > k_max){
+            k_end = k_max;
+        }
+        //begin threads
+        threads[t] = std::thread(kvsmLeftMultiply, gradS, T, lhs_vec[t], SPEC, k_begin, k_end);
+    }
+
+    //join threads
+    for (int t=0; t<thread_count; t++){
+        threads[t].join();
+    }
+
+    //determine number of threads for addition
+    if (lhs.size() > num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = lhs.size();
+    }
+
+    //choose interval size
+    int i_interval = (int)ceil(lhs.size()/thread_count);
+    int i_begin, i_end;
+
+    for (int t=0; t<thread_count; t++){
+        //set interval
+        i_begin = t*i_interval;
+        i_end = i_begin + i_interval-1;
+        if (i_end > i_max){
+            i_end = i_max;
+        }
+        //begin threads
+        threads[t] = std::thread(vectorAdd,lhs_vec,lhs,i_begin,i_end);
+    }
+
+    //join threads
+    for (int t=0; t<thread_count; t++){
+        threads[t].join();
+    }
+
+    //should be all done
+    return;
+}
+
+
+void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
+                                           const KinematicVectorArray &x,
+                                           KinematicTensorArray L,
+                                           int SPEC){
+    //get length of sparse matrix storage
+    int k_max = gradS.size() - 1;
+
+    //get length of output vector
+    int i_max = L.size() - 1;
+
+    //determine number of threads for matrix vector mult
+    int thread_count;
+    if (gradS.size() >= num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = gradS.size();
+    }
+
+    //intermediate storage vector
+    std::vector<KinematicTensorArray> lhs_vec(thread_count);
+
+    //choose interval size
+    int k_interval = (int)ceil(gradS.size()/thread_count);
+    int k_begin, k_end;
+
+    for (int t=0; t<thread_count; t++) {
+        //initialize lhs
+        lhs_vec[t] = Eigen::VectorXd(L.size());
+
+        //set interval
+        k_begin = t * k_interval;
+        k_end = k_begin + k_interval - 1;
+        if (k_end > k_max){
+            k_end = k_max;
+        }
+        //begin threads
+        threads[t] = std::thread(kvsmTensorProductT, gradS, x, lhs_vec[t], SPEC, k_begin, k_end);
+    }
+
+    //join threads
+    for (int t=0; t<thread_count; t++){
+        threads[t].join();
+    }
+
+    //determine number of threads for addition
+    if (L.size() > num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = L.size();
+    }
+
+    //choose interval size
+    int i_interval = (int)ceil(L.size()/thread_count);
+    int i_begin, i_end;
+
+    for (int t=0; t<thread_count; t++){
+        //set interval
+        i_begin = t*i_interval;
+        i_end = i_begin + i_interval-1;
+        if (i_end > i_max){
+            i_end = i_max;
+        }
+        //begin threads
+        threads[t] = std::thread(tensorAdd,lhs_vec,L,i_begin,i_end);
+    }
+
+    //join threads
+    for (int t=0; t<thread_count; t++){
+        threads[t].join();
+    }
+
+    //should be all done
+    return;
+}
+
 
 /*----------------------------------------------------------------------------*/
 //
@@ -146,7 +520,7 @@ void ParallelExplicitUSL::init(Job* job){
     }
 
     //declare threads
-    std::thread t[num_threads];
+    threads = std::vector<std::thread>(num_threads);
 
     printf("Solver properties (cpdi_spec = %i, contact_spec = %i, num_threads = %i).\n", cpdi_spec, contact_spec, num_threads);
     std::cout << "Solver Initialized." << std::endl;
@@ -168,15 +542,8 @@ int ParallelExplicitUSL::loadState(Job* job, Serializer* serializer, std::string
 
 /*----------------------------------------------------------------------------*/
 //
-void ParallelExplicitUSL::createMappings(Job *job){
-    for (int b=0;b<job->bodies.size();b++){
-        //job->bodies[b]->generateMap(job, DefaultBody::CPDI_ON); //use_cpdi by default
-        job->bodies[b]->generateMap(job, cpdi_spec);
-    }
-    return;
-}
 
-void ExplicitUSL::mapPointsToNodes(Job* job){
+void ParallelExplicitUSL::mapPointsToNodes(Job* job){
     Body *body;
     Points *points;
     Nodes *nodes;
@@ -256,48 +623,7 @@ void ExplicitUSL::mapPointsToNodes(Job* job){
     return;
 }
 
-void ExplicitUSL::generateContacts(Job* job){
-    for (int c=0;c<job->contacts.size();c++){
-        if (job->activeContacts[c] == 0){
-            continue;
-        }
-        job->contacts[c]->generateRules(job);
-    }
-    return;
-}
-
-void ExplicitUSL::addContacts(Job* job){
-    for (int c=0;c<job->contacts.size();c++){
-        if (job->activeContacts[c] == 0){
-            continue;
-        }
-        //job->contacts[c]->applyRules(job,Contact::EXPLICIT);
-        job->contacts[c]->applyRules(job, contact_spec);
-    }
-    return;
-}
-
-void ExplicitUSL::generateBoundaryConditions(Job* job){
-    for (int b=0;b<job->bodies.size();b++){
-        if (job->activeBodies[b] == 0 || job->bodies[b]->activeBoundary == 0){
-            continue;
-        }
-        job->bodies[b]->boundary->generateRules(job,job->bodies[b].get());
-    }
-    return;
-}
-
-void ExplicitUSL::addBoundaryConditions(Job* job){
-    for (int b=0;b<job->bodies.size();b++){
-        if (job->activeBodies[b] == 0 || job->bodies[b]->activeBoundary == 0){
-            continue;
-        }
-        job->bodies[b]->boundary->applyRules(job,job->bodies[b].get());
-    }
-    return;
-}
-
-void ExplicitUSL::moveGrid(Job* job){
+void ParallelExplicitUSL::moveGrid(Job* job){
     for (int b=0;b<job->bodies.size();b++){
         if (job->activeBodies[b] == 0){
             continue;
@@ -330,7 +656,7 @@ void ExplicitUSL::moveGrid(Job* job){
     return;
 }
 
-void ExplicitUSL::movePoints(Job* job){
+void ParallelExplicitUSL::movePoints(Job* job){
     Body* body;
     Points* points;
     Nodes* nodes;
@@ -366,7 +692,7 @@ void ExplicitUSL::movePoints(Job* job){
     return;
 }
 
-void ExplicitUSL::calculateStrainRate(Job* job){
+void ParallelExplicitUSL::calculateStrainRate(Job* job){
     Body* body;
     Points* points;
     Nodes* nodes;
@@ -396,7 +722,7 @@ void ExplicitUSL::calculateStrainRate(Job* job){
     return;
 }
 
-void ExplicitUSL::updateDensity(Job* job){
+void ParallelExplicitUSL::updateDensity(Job* job){
     for (int b=0;b<job->bodies.size();b++){
         if (job->activeBodies[b] == 0){
             continue;
@@ -407,36 +733,6 @@ void ExplicitUSL::updateDensity(Job* job){
 
         //this is new, but maybe useful
         job->bodies[b]->points->updateIntegrators(job,job->bodies[b].get());
-    }
-    return;
-}
-
-void ExplicitUSL::updateStress(Job* job){
-    for (int b=0;b<job->bodies.size();b++){
-        if (job->activeBodies[b] == 0 || job->bodies[b]->activeMaterial == 0){
-            continue;
-        }
-        job->bodies[b]->material->calculateStress(job, job->bodies[b].get(), Material::UPDATE);
-    }
-    return;
-}
-
-void ExplicitUSL::generateLoads(Job* job){
-    for (int b=0;b<job->bodies.size();b++){
-        if (job->activeBodies[b] == 0){
-            continue;
-        }
-        job->bodies[b]->generateLoads(job);
-    }
-    return;
-}
-
-void ExplicitUSL::applyLoads(Job* job){
-    for (int b=0;b<job->bodies.size();b++){
-        if (job->activeBodies[b] == 0){
-            continue;
-        }
-        job->bodies[b]->applyLoads(job);
     }
     return;
 }

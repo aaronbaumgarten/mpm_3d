@@ -305,6 +305,11 @@ public:
     bool large_domain = false;
     std::vector<std::vector<int>> search_cells_large_domain;
 
+    //search method for very large, irregular grids
+    bool use_n_to_e = false;
+    std::vector<std::vector<int>> node_to_element_map;
+    std::vector<std::vector<int>> element_neighbors;
+
     //stride is 6 for 3D
     std::vector<int> element_min_max; //list of minimum and maximum ijk of nodes
 
