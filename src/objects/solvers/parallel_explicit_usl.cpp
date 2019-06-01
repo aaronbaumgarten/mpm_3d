@@ -198,6 +198,7 @@ void ParallelExplicitUSL::mapPointsToNodes(Job* job){
             points->mx_t(i) = points->m(i) * points->x_t(i);
         }*/
         parallelMultiply(points->x_t, points->m, 1.0, points->mx_t, true);
+
         //nodes->mx_t = body->S * points->mx_t;
         parallelMultiply(body->S, points->mx_t, nodes->mx_t, MPMScalarSparseMatrix::NORMAL);
 

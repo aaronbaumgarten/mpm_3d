@@ -57,8 +57,7 @@ void ParallelExplicitUSL::ssmOperateVtoV(const MPMScalarSparseMatrix &S,
                                          int SPEC,
                                          int k_begin, int k_end){
     assert(S.cols(SPEC) == x.size() && "Scalar sparse matrix multiplication failed.");
-    //lhs = KinematicVectorArray(S.rows(SPEC),x.VECTOR_TYPE);
-    //lhs.setZero();
+    lhs.setZero();
 
     int i_tmp, j_tmp;
     const std::vector<int>& i_ref = S.get_i_index_ref(SPEC);
@@ -80,7 +79,6 @@ void ParallelExplicitUSL::kvsmLeftMultiply(const KinematicVectorSparseMatrix &gr
                                            int SPEC,
                                            int k_begin, int k_end){
     assert(T.size() == gradS.cols(SPEC) && "Vector sparse matrix multiplication (tensor multiplication) failed.");
-    lhs = MaterialVectorArray(gradS.rows(SPEC));
     lhs.setZero();
 
     int i_tmp, j_tmp;
@@ -103,7 +101,6 @@ void ParallelExplicitUSL::kvsmTensorProductT(const KinematicVectorSparseMatrix &
                                              int SPEC,
                                              int k_begin, int k_end){
     assert(x.size() == gradS.cols(SPEC) && x.VECTOR_TYPE == gradS.VECTOR_TYPE && "Vector sparse matrix multiplication (tensor transpose product) failed.");
-    L = KinematicTensorArray(gradS.rows(SPEC),gradS.VECTOR_TYPE);
     L.setZero();
 
     int i_tmp, j_tmp;
