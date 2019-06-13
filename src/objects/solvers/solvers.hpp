@@ -153,26 +153,31 @@ public:
     ThreadPool* jobThreadPool;
 
     //scalar sparse matrix operations
-    static void ssmOperateStoSwithFlag(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC, int k_begin, int k_end, bool& done);
-    static void ssmOperateVtoVwithFlag(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC, int k_begin, int k_end, bool& done);
+    static void ssmOperateStoSwithFlag(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC, int k_begin, int k_end, volatile bool& done);
+    static void ssmOperateVtoVwithFlag(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC, int k_begin, int k_end, volatile bool& done);
 
     //kinematic vector sparse matrix operations
-    static void kvsmLeftMultiplywithFlag(const KinematicVectorSparseMatrix &gradS, const MaterialTensorArray &T, MaterialVectorArray &lhs, int SPEC, int k_begin, int k_end, bool& done);
-    static void kvsmTensorProductTwithFlag(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray &L, int SPEC, int k_begin, int k_end, bool& done);
+    static void kvsmLeftMultiplywithFlag(const KinematicVectorSparseMatrix &gradS, const MaterialTensorArray &T, MaterialVectorArray &lhs, int SPEC, int k_begin, int k_end, volatile bool& done);
+    static void kvsmTensorProductTwithFlag(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray &L, int SPEC, int k_begin, int k_end, volatile bool& done);
 
     //parallel scalar add
-    static void scalarAddwithFlag(const std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>& list, Eigen::VectorXd &sum, int i_begin, int i_end, bool clear, bool& done);
-    static void vectorAddKwithFlag(const std::vector<KinematicVectorArray>& list, KinematicVectorArray &sum, int i_begin, int i_end, bool clear, bool& done);
-    static void vectorAddMwithFlag(const std::vector<MaterialVectorArray>& list, MaterialVectorArray &sum, int i_begin, int i_end, bool clear, bool& done);
-    static void tensorAddwithFlag(const std::vector<KinematicTensorArray>& list, KinematicTensorArray &sum, int i_begin, int i_end, bool clear, bool& done);
+    static void scalarAddwithFlag(const std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>>& list, Eigen::VectorXd &sum, int i_begin, int i_end, bool clear, volatile bool& done);
+    static void vectorAddKwithFlag(const std::vector<KinematicVectorArray>& list, KinematicVectorArray &sum, int i_begin, int i_end, bool clear, volatile bool& done);
+    static void vectorAddMwithFlag(const std::vector<MaterialVectorArray>& list, MaterialVectorArray &sum, int i_begin, int i_end, bool clear, volatile bool& done);
+    static void tensorAddwithFlag(const std::vector<KinematicTensorArray>& list, KinematicTensorArray &sum, int i_begin, int i_end, bool clear, volatile bool& done);
 
     //vectorized operations
-    static void multiplyKVbySwithFlag(KinematicVectorArray &kv, Eigen::VectorXd &s, double scale, KinematicVectorArray &out, int i_begin, int i_end, bool& done);
-    static void divideKVbySwithFlag(KinematicVectorArray &kv, Eigen::VectorXd &s, double scale, KinematicVectorArray &out, int i_begin, int i_end, bool& done);
-    static void multiplySbySwithFlag(Eigen::VectorXd &a, Eigen::VectorXd &b, double scale, Eigen::VectorXd &out, int i_begin, int i_end, bool& done);
-    static void multiplyMTbySwithFlag(MaterialTensorArray &mt, Eigen::VectorXd &s, double scale, MaterialTensorArray &out, int i_begin, int i_end, bool& done);
-    static void addStoSwithFlag(Eigen::VectorXd &a, Eigen::VectorXd &b, double scale, Eigen::VectorXd &out, int i_begin, int i_end, bool& done);
-    static void subtractSfromSwithFlag(Eigen::VectorXd &a, Eigen::VectorXd &b, double scale, Eigen::VectorXd &out, int i_begin, int i_end, bool& done);
+    static void multiplyKVbySwithFlag(KinematicVectorArray &kv, Eigen::VectorXd &s, double scale, KinematicVectorArray &out, int i_begin, int i_end, volatile bool& done);
+    static void divideKVbySwithFlag(KinematicVectorArray &kv, Eigen::VectorXd &s, double scale, KinematicVectorArray &out, int i_begin, int i_end, volatile bool& done);
+    static void multiplySbySwithFlag(Eigen::VectorXd &a, Eigen::VectorXd &b, double scale, Eigen::VectorXd &out, int i_begin, int i_end, volatile bool& done);
+    static void multiplyMTbySwithFlag(MaterialTensorArray &mt, Eigen::VectorXd &s, double scale, MaterialTensorArray &out, int i_begin, int i_end, volatile bool& done);
+    static void addStoSwithFlag(Eigen::VectorXd &a, Eigen::VectorXd &b, double scale, Eigen::VectorXd &out, int i_begin, int i_end, volatile bool& done);
+    static void subtractSfromSwithFlag(Eigen::VectorXd &a, Eigen::VectorXd &b, double scale, Eigen::VectorXd &out, int i_begin, int i_end, volatile bool& done);
+
+    //zero operations
+    static void zeroKVwithFlag(KinematicVectorArray &kv, int i_begin, int i_end, volatile bool& done);
+    static void zeroSwithFlag(Eigen::VectorXd &s, int i_begin, int i_end, volatile bool& done);
+    static void zeroMTwithFlag(MaterialTensorArray &mt, int i_begin, int i_end, volatile bool& done);
 
     virtual void init(Job* job);
     virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);

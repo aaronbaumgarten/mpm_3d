@@ -101,7 +101,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     /*for (int t=0; t<thread_count; t++){
         taskComplete[t] = false;
     }*/
-    bool firstTaskComplete[thread_count] = {false};
+    volatile bool firstTaskComplete[thread_count] = {false};
 
     //choose interval size
     int k_interval = (S.size()/thread_count) + 1;
@@ -121,6 +121,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
         //threads[t] = std::thread(ssmOperateStoS, std::ref(S), std::ref(x), std::ref(lhs_vec[t]), SPEC, k_begin, k_end);
         //std::function<void (void)> tmpFunc = std::bind(ssmOperateStoSwithFlag, std::ref(S), std::ref(x), std::ref(lhs_vec[t]), SPEC, k_begin, k_end, taskComplete[t]);
         jobThreadPool->doJob(std::bind(ssmOperateStoSwithFlag, std::ref(S), std::ref(x), std::ref(lhs_vec[t]), SPEC, k_begin, k_end, std::ref(firstTaskComplete[t])));
+        //std::cout << "Started task: " << t << "." << std::endl;
     }
 
     //join threads
@@ -133,6 +134,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
         //set flag to true
         taskDone = true;
         for (int t=0; t<thread_count; t++){
+            //std::cout << firstTaskComplete[t] << "?" << std::endl;
             if (!firstTaskComplete[t]){
                 //if any task is not done, set flag to false
                 taskDone = false;
@@ -140,6 +142,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
             }
         }
     }
+    //std::cout << "Tasks completed." << std::endl;
 
     //determine number of threads for addition
     if (lhs.rows() > num_threads){
@@ -153,7 +156,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     for (int t=0; t<thread_count; t++){
         taskComplete[t] = false;
     }*/
-    bool secondTaskComplete[thread_count] = {false};
+    volatile bool secondTaskComplete[thread_count] = {false};
 
     //choose interval size
     int i_interval = (lhs.rows()/thread_count) + 1;
@@ -215,7 +218,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     std::vector<KinematicVectorArray> lhs_vec(thread_count);
 
     //boolean of completion status
-    bool firstTaskComplete[thread_count] = {false};
+    volatile bool firstTaskComplete[thread_count] = {false};
 
     //choose interval size
     int k_interval = (S.size()/thread_count) + 1;
@@ -262,7 +265,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     }
 
     //boolean of completion status
-    bool secondTaskComplete[thread_count] = {false};
+    volatile bool secondTaskComplete[thread_count] = {false};
 
     //choose interval size
     int i_interval = (lhs.size()/thread_count) + 1;
@@ -290,7 +293,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
         //set flag to true
         taskDone = true;
         for (int t=0; t<thread_count; t++){
-            if (!taskComplete[t]){
+            if (!secondTaskComplete[t]){
                 //if any task is not done, set flag to false
                 taskDone = false;
                 break;
@@ -324,10 +327,11 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
     std::vector<MaterialVectorArray> lhs_vec(thread_count);
 
     //boolean of completion status
-    std::vector<bool> taskComplete = std::vector<bool>(thread_count);
+    /*std::vector<bool> taskComplete = std::vector<bool>(thread_count);
     for (int t=0; t<thread_count; t++){
         taskComplete[t] = false;
-    }
+    }*/
+    volatile bool firstTaskComplete[thread_count] = {false};
 
     //choose interval size
     int k_interval = (gradS.size()/thread_count) + 1;
@@ -345,7 +349,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
         }
         //begin threads
         //threads[t] = std::thread(kvsmLeftMultiply, std::ref(gradS), std::ref(T), std::ref(lhs_vec[t]), SPEC, k_begin, k_end);
-        jobThreadPool->doJob(std::bind(kvsmLeftMultiplywithFlag, std::ref(gradS), std::ref(T), std::ref(lhs_vec[t]), SPEC, k_begin, k_end, taskComplete[t]));
+        jobThreadPool->doJob(std::bind(kvsmLeftMultiplywithFlag, std::ref(gradS), std::ref(T), std::ref(lhs_vec[t]), SPEC, k_begin, k_end, std::ref(firstTaskComplete[t])));
     }
 
     //join threads
@@ -358,7 +362,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
         //set flag to true
         taskDone = true;
         for (int t=0; t<thread_count; t++){
-            if (!taskComplete[t]){
+            if (!firstTaskComplete[t]){
                 //if any task is not done, set flag to false
                 taskDone = false;
                 break;
@@ -374,10 +378,11 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
     }
 
     //boolean for task completion
-    taskComplete = std::vector<bool>(thread_count);
+    /*taskComplete = std::vector<bool>(thread_count);
     for (int t=0; t<thread_count; t++){
         taskComplete[t] = false;
-    }
+    }*/
+    volatile bool secondTaskComplete[thread_count] = {false};
 
     //choose interval size
     int i_interval = (lhs.size()/thread_count) + 1;
@@ -392,7 +397,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
         }
         //begin threads
         //threads[t] = std::thread(vectorAddM, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end, clear);
-        jobThreadPool->doJob(std::bind(vectorAddMwithFlag, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end, clear, taskComplete[t]));
+        jobThreadPool->doJob(std::bind(vectorAddMwithFlag, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end, clear, std::ref(secondTaskComplete[t])));
     }
 
     //join threads
@@ -406,7 +411,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
         //set flag to true
         taskDone = true;
         for (int t=0; t<thread_count; t++){
-            if (!taskComplete[t]){
+            if (!secondTaskComplete[t]){
                 //if any task is not done, set flag to false
                 taskDone = false;
                 break;
@@ -440,6 +445,9 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
     //intermediate storage vector
     std::vector<KinematicTensorArray> lhs_vec(thread_count);
 
+    //boolean array to track task completion
+    volatile bool firstTaskComplete[thread_count] = {false};
+
     //choose interval size
     int k_interval = (gradS.size()/thread_count) + 1;
     int k_begin, k_end;
@@ -455,12 +463,25 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
             k_end = k_max;
         }
         //begin threads
-        threads[t] = std::thread(kvsmTensorProductT, std::ref(gradS), std::ref(x), std::ref(lhs_vec[t]), SPEC, k_begin, k_end);
+        jobThreadPool->doJob(std::bind(kvsmTensorProductTwithFlag, std::ref(gradS), std::ref(x), std::ref(lhs_vec[t]), SPEC, k_begin, k_end, std::ref(firstTaskComplete[t])));
     }
 
     //join threads
-    for (int t=0; t<thread_count; t++){
+    /*for (int t=0; t<thread_count; t++){
         threads[t].join();
+    }*/
+    bool taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!firstTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
     }
 
     //determine number of threads for addition
@@ -469,6 +490,9 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
     } else {
         thread_count = L.size();
     }
+
+    //boolean array for second task
+    volatile bool secondTaskComplete[thread_count] = {false};
 
     //choose interval size
     int i_interval = (L.size()/thread_count) + 1;
@@ -482,12 +506,26 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(tensorAdd, std::ref(lhs_vec), std::ref(L), i_begin, i_end, clear);
+        jobThreadPool->doJob(std::bind(tensorAddwithFlag, std::ref(lhs_vec), std::ref(L), i_begin, i_end, clear, std::ref(secondTaskComplete[t])));
     }
 
     //join threads
-    for (int t=0; t<thread_count; t++){
+    //join threads
+    /*for (int t=0; t<thread_count; t++){
         threads[t].join();
+    }*/
+    taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!secondTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
     }
 
     //should be all done
@@ -519,6 +557,8 @@ void ThreadPoolExplicitUSL::parallelMultiply(KinematicVectorArray &kv,
 
     //clear
     if (clear){
+        volatile bool firstTaskComplete[thread_count] = {false};
+
         for (int t=0; t<thread_count; t++){
             //set interval
             i_begin = t*i_interval;
@@ -527,14 +567,30 @@ void ThreadPoolExplicitUSL::parallelMultiply(KinematicVectorArray &kv,
                 i_end = i_max;
             }
             //begin threads
-            threads[t] = std::thread(zeroKV, std::ref(out), i_begin, i_end);
+            jobThreadPool->doJob(std::bind(zeroKVwithFlag, std::ref(out), i_begin, i_end, std::ref(firstTaskComplete[t])));
         }
 
         //join threads
-        for (int t=0; t<thread_count; t++){
+        /*for (int t=0; t<thread_count; t++){
             threads[t].join();
+        }*/
+        bool taskDone = false;
+        //wait for task to complete
+        while (!taskDone){
+            //set flag to true
+            taskDone = true;
+            for (int t=0; t<thread_count; t++){
+                if (!firstTaskComplete[t]){
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
         }
     }
+
+    //boolean array for second task
+    volatile bool secondTaskComplete[thread_count] = {false};
 
     for (int t=0; t<thread_count; t++){
         //set interval
@@ -544,12 +600,22 @@ void ThreadPoolExplicitUSL::parallelMultiply(KinematicVectorArray &kv,
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(multiplyKVbyS, std::ref(kv), std::ref(s), scale, std::ref(out), i_begin, i_end);
+        jobThreadPool->doJob(std::bind(multiplyKVbySwithFlag, std::ref(kv), std::ref(s), scale, std::ref(out), i_begin, i_end, std::ref(secondTaskComplete[t])));
     }
 
     //join threads
-    for (int t=0; t<thread_count; t++){
-        threads[t].join();
+    bool taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!secondTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
     }
 
     return;
@@ -577,6 +643,8 @@ void ThreadPoolExplicitUSL::parallelDivide(KinematicVectorArray &kv,
 
     //clear
     if (clear){
+        volatile bool firstTaskComplete[thread_count] = {false};
+
         for (int t=0; t<thread_count; t++){
             //set interval
             i_begin = t*i_interval;
@@ -585,14 +653,27 @@ void ThreadPoolExplicitUSL::parallelDivide(KinematicVectorArray &kv,
                 i_end = i_max;
             }
             //begin threads
-            threads[t] = std::thread(zeroKV, std::ref(out), i_begin, i_end);
+            jobThreadPool->doJob(std::bind(zeroKVwithFlag, std::ref(out), i_begin, i_end, std::ref(firstTaskComplete[t])));
         }
 
         //join threads
-        for (int t=0; t<thread_count; t++){
-            threads[t].join();
+        bool taskDone = false;
+        //wait for task to complete
+        while (!taskDone){
+            //set flag to true
+            taskDone = true;
+            for (int t=0; t<thread_count; t++){
+                if (!firstTaskComplete[t]){
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
         }
     }
+
+    //boolean array for second task completion
+    volatile bool secondTaskComplete[thread_count] = {false};
 
     for (int t=0; t<thread_count; t++){
         //set interval
@@ -602,12 +683,22 @@ void ThreadPoolExplicitUSL::parallelDivide(KinematicVectorArray &kv,
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(divideKVbyS, std::ref(kv), std::ref(s), scale, std::ref(out), i_begin, i_end);
+        jobThreadPool->doJob(std::bind(divideKVbySwithFlag, std::ref(kv), std::ref(s), scale, std::ref(out), i_begin, i_end, std::ref(secondTaskComplete[t])));
     }
 
     //join threads
-    for (int t=0; t<thread_count; t++){
-        threads[t].join();
+    bool taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!secondTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
     }
 
     return;
@@ -635,6 +726,8 @@ void ThreadPoolExplicitUSL::parallelMultiply(Eigen::VectorXd &a,
 
     //clear
     if (clear){
+        volatile bool firstTaskComplete[thread_count] = {false};
+
         for (int t=0; t<thread_count; t++){
             //set interval
             i_begin = t*i_interval;
@@ -643,14 +736,27 @@ void ThreadPoolExplicitUSL::parallelMultiply(Eigen::VectorXd &a,
                 i_end = i_max;
             }
             //begin threads
-            threads[t] = std::thread(zeroS, std::ref(out), i_begin, i_end);
+            jobThreadPool->doJob(std::bind(zeroSwithFlag, std::ref(out), i_begin, i_end, std::ref(firstTaskComplete[t])));
         }
 
         //join threads
-        for (int t=0; t<thread_count; t++){
-            threads[t].join();
+        bool taskDone = false;
+        //wait for task to complete
+        while (!taskDone){
+            //set flag to true
+            taskDone = true;
+            for (int t=0; t<thread_count; t++){
+                if (!firstTaskComplete[t]){
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
         }
     }
+
+    //boolean array for second task
+    volatile bool secondTaskComplete[thread_count] = {false};
 
     for (int t=0; t<thread_count; t++){
         //set interval
@@ -660,12 +766,22 @@ void ThreadPoolExplicitUSL::parallelMultiply(Eigen::VectorXd &a,
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(multiplySbyS, std::ref(a), std::ref(b), scale, std::ref(out), i_begin, i_end);
+        jobThreadPool->doJob(std::bind(multiplySbySwithFlag, std::ref(a), std::ref(b), scale, std::ref(out), i_begin, i_end, std::ref(secondTaskComplete[t])));
     }
 
     //join threads
-    for (int t=0; t<thread_count; t++){
-        threads[t].join();
+    bool taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!secondTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
     }
 
     return;
@@ -693,6 +809,8 @@ void ThreadPoolExplicitUSL::parallelMultiply(MaterialTensorArray &mt,
 
     //clear
     if (clear){
+        volatile bool firstTaskComplete[thread_count] = {false};
+
         for (int t=0; t<thread_count; t++){
             //set interval
             i_begin = t*i_interval;
@@ -701,14 +819,27 @@ void ThreadPoolExplicitUSL::parallelMultiply(MaterialTensorArray &mt,
                 i_end = i_max;
             }
             //begin threads
-            threads[t] = std::thread(zeroMT, std::ref(out), i_begin, i_end);
+            jobThreadPool->doJob(std::bind(zeroMTwithFlag, std::ref(out), i_begin, i_end, std::ref(firstTaskComplete[t])));
         }
 
         //join threads
-        for (int t=0; t<thread_count; t++){
-            threads[t].join();
+        bool taskDone = false;
+        //wait for task to complete
+        while (!taskDone){
+            //set flag to true
+            taskDone = true;
+            for (int t=0; t<thread_count; t++){
+                if (!firstTaskComplete[t]){
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
         }
     }
+
+    //second boolean array
+    volatile bool secondTaskComplete[thread_count] = {false};
 
     //multipy MaterialTensor by Scalar and add to output
     for (int t=0; t<thread_count; t++){
@@ -719,12 +850,22 @@ void ThreadPoolExplicitUSL::parallelMultiply(MaterialTensorArray &mt,
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(multiplyMTbyS, std::ref(mt), std::ref(s), scale, std::ref(out), i_begin, i_end);
+        jobThreadPool->doJob(std::bind(multiplyMTbySwithFlag, std::ref(mt), std::ref(s), scale, std::ref(out), i_begin, i_end, std::ref(secondTaskComplete[t])));
     }
 
     //join threads
-    for (int t=0; t<thread_count; t++){
-        threads[t].join();
+    bool taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!secondTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
     }
 
     return;
@@ -753,6 +894,8 @@ void ThreadPoolExplicitUSL::parallelAdd(Eigen::VectorXd &a,
 
     //clear
     if (clear){
+        volatile bool firstTaskComplete[thread_count] = {false};
+
         for (int t=0; t<thread_count; t++){
             //set interval
             i_begin = t*i_interval;
@@ -761,14 +904,27 @@ void ThreadPoolExplicitUSL::parallelAdd(Eigen::VectorXd &a,
                 i_end = i_max;
             }
             //begin threads
-            threads[t] = std::thread(zeroS, std::ref(out), i_begin, i_end);
+            jobThreadPool->doJob(std::bind(zeroSwithFlag, std::ref(out), i_begin, i_end, std::ref(firstTaskComplete[t])));
         }
 
         //join threads
-        for (int t=0; t<thread_count; t++){
-            threads[t].join();
+        bool taskDone = false;
+        //wait for task to complete
+        while (!taskDone){
+            //set flag to true
+            taskDone = true;
+            for (int t=0; t<thread_count; t++){
+                if (!firstTaskComplete[t]){
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
         }
     }
+
+    //second task completion boolean array
+    volatile bool secondTaskComplete[thread_count] = {false};
 
     for (int t=0; t<thread_count; t++){
         //set interval
@@ -778,12 +934,22 @@ void ThreadPoolExplicitUSL::parallelAdd(Eigen::VectorXd &a,
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(addStoS, std::ref(a), std::ref(b), scale, std::ref(out), i_begin, i_end);
+        jobThreadPool->doJob(std::bind(addStoSwithFlag, std::ref(a), std::ref(b), scale, std::ref(out), i_begin, i_end, std::ref(secondTaskComplete[t])));
     }
 
     //join threads
-    for (int t=0; t<thread_count; t++){
-        threads[t].join();
+    bool taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!secondTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
     }
 
     return;
@@ -811,6 +977,8 @@ void ThreadPoolExplicitUSL::parallelSubtract(Eigen::VectorXd &a,
 
     //clear
     if (clear){
+        volatile bool firstTaskComplete[thread_count] = {false};
+
         for (int t=0; t<thread_count; t++){
             //set interval
             i_begin = t*i_interval;
@@ -819,14 +987,27 @@ void ThreadPoolExplicitUSL::parallelSubtract(Eigen::VectorXd &a,
                 i_end = i_max;
             }
             //begin threads
-            threads[t] = std::thread(zeroS, std::ref(out), i_begin, i_end);
+            jobThreadPool->doJob(std::bind(zeroSwithFlag, std::ref(out), i_begin, i_end, std::ref(firstTaskComplete[t])));
         }
 
         //join threads
-        for (int t=0; t<thread_count; t++){
-            threads[t].join();
+        bool taskDone = false;
+        //wait for task to complete
+        while (!taskDone){
+            //set flag to true
+            taskDone = true;
+            for (int t=0; t<thread_count; t++){
+                if (!firstTaskComplete[t]){
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
         }
     }
+
+    //second boolean array for task completion
+    volatile bool secondTaskComplete[thread_count] = {false};
 
     for (int t=0; t<thread_count; t++){
         //set interval
@@ -836,12 +1017,22 @@ void ThreadPoolExplicitUSL::parallelSubtract(Eigen::VectorXd &a,
             i_end = i_max;
         }
         //begin threads
-        threads[t] = std::thread(subtractSfromS, std::ref(a), std::ref(b), scale, std::ref(out), i_begin, i_end);
+        jobThreadPool->doJob(std::bind(subtractSfromSwithFlag, std::ref(a), std::ref(b), scale, std::ref(out), i_begin, i_end, std::ref(secondTaskComplete[t])));
     }
 
     //join threads
-    for (int t=0; t<thread_count; t++){
-        threads[t].join();
+    bool taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!secondTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
     }
 
     return;
