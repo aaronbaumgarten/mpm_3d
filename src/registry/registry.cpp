@@ -54,6 +54,7 @@ template<>
 Registry<Solver>::Registry() {
     object["ExplicitUSL"] = &createInstance<Solver,ExplicitUSL>;
     object["ParallelExplicitUSL"] = &createInstance<Solver,ParallelExplicitUSL>;
+    object["ThreadPoolExplicitUSL"] = &createInstance<Solver,ThreadPoolExplicitUSL>;
 }
 
 

@@ -124,7 +124,7 @@ int Configurator::configureJob(Job* job){
                 switch (Parser::findStringID(headers,line)) {
                     case 0:
                         //job
-                        params = {"dt","t","TYPE"};
+                        params = {"dt","t","TYPE","threads"};
                         std::getline(fin,line);
                         line = Parser::removeComments(line);
                         line = Parser::removeSpaces(line);
@@ -157,6 +157,10 @@ int Configurator::configureJob(Job* job){
                                         case 2:
                                             //JOB_TYPE
                                             job->assignJobType(std::stoi(propValue));
+                                            break;
+                                        case 3:
+                                            //threads
+                                            job->thread_count = std::stoi(propValue);
                                             break;
                                         default:
                                             std::cerr << "Parameter \"" << propName << "\" not recognized." << std::endl;

@@ -222,8 +222,8 @@ void CartesianPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
 
     //create point initialization lists
     //m, v, x, x_t, a
-    KinematicVectorArray xIN;
-    KinematicVectorArray x_tIN;
+    KinematicVectorArray xIN(0,job->JOB_TYPE);
+    KinematicVectorArray x_tIN(0,job->JOB_TYPE);
     KinematicVector x_tTMP = KinematicVector(job->JOB_TYPE);
     KinematicVector X = KinematicVector(job->JOB_TYPE);
     x_tTMP.setZero();

@@ -196,6 +196,8 @@ void Sand_SachithLocal::calculateStress(Job* job, Body* body, int SPEC){
 
             nup_tau = ((tau_tr - tau_tau) / G) / job->dt;
 
+            //std::cout << i << " : " << tau_tau/p_tr << " : " << nup_tau * grains_d * sqrt(GRAINS_RHO/p_tr) << std::endl;
+
             tmpMat = scale_factor * t0_tr - p_tr * MaterialTensor::Identity();
             body->points->T(i) = tmpMat;
 

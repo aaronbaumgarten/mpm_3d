@@ -67,9 +67,10 @@ void Box::init(Job *job) {
     } else {
         //store length, number of linear nodes, and deltas
         x_min = KinematicVector(job->JOB_TYPE);
+        x_max = KinematicVector(job->JOB_TYPE);
         for (int i=0; i<job->grid->GRID_DIM; i++){
             x_min[i] = fp64_props[i];
-            x_max[i] = fp64_props[i+3];
+            x_max[i] = fp64_props[i+job->grid->GRID_DIM];
         }
 
         std::cout << "Part properties (x_min = " << EIGEN_MAP_OF_KINEMATIC_VECTOR(x_min).transpose() << ", x_max = " <<  EIGEN_MAP_OF_KINEMATIC_VECTOR(x_max).transpose()  << ")." << std::endl;

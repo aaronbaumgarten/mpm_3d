@@ -18,6 +18,7 @@
 #include "mpm_tensorarray.hpp"
 #include "mpm_vector.hpp"
 #include "mpm_vectorarray.hpp"
+#include "threadpool.hpp"
 
 class Job{
 public:
@@ -37,6 +38,10 @@ public:
     double t0, t, dt;
     int JOB_TYPE = JOB_3D;
     int DIM = 3;
+
+    //number of threads
+    int thread_count = 0;
+    ThreadPool threadPool = ThreadPool(0);
 
     //list of bodies and conacts
     std::vector<int> activeBodies;
@@ -71,7 +76,15 @@ public:
     void init(){
         //called by config object after properties have been assigned
         std::cout << "Job properties (JOB_TYPE = " << JOB_TYPE << ", t = " << t << ", dt = " << dt << ")." << std::endl;
+        if (thread_count > 1){
+            std::cout << "Using " << thread_count << " threads." << std::endl;
+        }
         std::cout << "Job Initialized." << std::endl;
+
+        //do not start threadpool if thread_count == 1
+        if (thread_count > 1) {
+            threadPool = ThreadPool(thread_count);
+        }
 
         //call initialization on sub-objects in order of precedence
         serializer->init(this);
