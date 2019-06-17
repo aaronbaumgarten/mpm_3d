@@ -71,7 +71,16 @@ void ThreadPoolExplicitUSL::kvsmTensorProductTwithFlag(const KinematicVectorSpar
                                                int SPEC, int k_begin, int k_end,
                                                volatile bool& done){
     //do job
+    //ParallelExplicitUSL::kvsmTensorProductT(gradS, x, L, SPEC, k_begin, k_end);
+
+    struct timespec tStart, tFinish;
+    clock_gettime(CLOCK_MONOTONIC, &tStart);
     ParallelExplicitUSL::kvsmTensorProductT(gradS, x, L, SPEC, k_begin, k_end);
+    clock_gettime(CLOCK_MONOTONIC, &tFinish);
+
+    std::cout << k_begin << " to " << k_end << " : " << (tFinish.tv_sec - tStart.tv_sec) +
+                                                        (tFinish.tv_nsec - tStart.tv_nsec) / 1000000000.0 << std::endl;
+
     //say done
     done = true;
     return;

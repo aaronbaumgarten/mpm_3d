@@ -210,7 +210,7 @@ void ParallelExplicitUSL::tensorAdd(const std::vector<KinematicTensorArray>& lis
 void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
                                            const Eigen::VectorXd &x,
                                            Eigen::VectorXd &lhs,
-                                           int SPEC, bool clear){
+                                           int SPEC, bool clear, int memUnitID){
     //get length of sparse matrix storage
     int k_max = S.size() - 1;
 
@@ -285,7 +285,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
 void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
                                            const KinematicVectorArray &x,
                                            KinematicVectorArray &lhs,
-                                           int SPEC, bool clear){
+                                           int SPEC, bool clear, int memUnitID){
     //get length of sparse matrix storage
     int k_max = S.size() - 1;
 
@@ -360,7 +360,7 @@ void ParallelExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
 void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
                                            const MaterialTensorArray &T,
                                            MaterialVectorArray &lhs,
-                                           int SPEC, bool clear){
+                                           int SPEC, bool clear, int memUnitID){
     //get length of sparse matrix storage
     int k_max = gradS.size() - 1;
 
@@ -436,7 +436,7 @@ void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gr
 void ParallelExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
                                            const KinematicVectorArray &x,
                                            KinematicTensorArray &L,
-                                           int SPEC, bool clear){
+                                           int SPEC, bool clear, int memUnitID){
     //get length of sparse matrix storage
     int k_max = gradS.size() - 1;
 

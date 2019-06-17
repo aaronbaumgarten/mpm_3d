@@ -25,6 +25,7 @@
 #include <functional>
 #include <binders.h>
 
+
 /*----------------------------------------------------------------------------*/
 //
 void ThreadPoolExplicitUSL::init(Job* job){
@@ -57,6 +58,11 @@ void ThreadPoolExplicitUSL::init(Job* job){
     //get pointer to job->threadPool
     jobThreadPool = &job->threadPool;
 
+    //initialize memory units
+    for (int b=0; b<job->bodies.size(); b++){
+        memoryUnits.push_back(parallelMemoryUnit());
+    }
+
     printf("Solver properties (cpdi_spec = %i, contact_spec = %i, num_threads = %i).\n", cpdi_spec, contact_spec, num_threads);
     std::cout << "Solver Initialized." << std::endl;
     return;
@@ -75,10 +81,178 @@ int ThreadPoolExplicitUSL::loadState(Job* job, Serializer* serializer, std::stri
 }
 
 /*----------------------------------------------------------------------------*/
+void ThreadPoolExplicitUSL::mapPointsToNodes(Job* job){
+    Body *body;
+    Points *points;
+    Nodes *nodes;
+    Eigen::VectorXd pval;
+    Eigen::VectorXd nval;
+    KinematicVectorArray pvec;
+    MaterialVectorArray nvec;
+    MaterialTensorArray tmpMat;
+    double tmpVAL;
+
+    for (int b=0;b<job->bodies.size();b++){
+        if (job->activeBodies[b] == 0){
+            continue;
+        }
+        body = job->bodies[b].get();
+        points = job->bodies[b]->points.get();
+        nodes = job->bodies[b]->nodes.get();
+
+        //map mass
+        parallelMultiply(body->S, points->m, nodes->m, MPMScalarSparseMatrix::NORMAL, true, b);
+
+        //map momentum
+        parallelMultiply(points->x_t, points->m, 1.0, points->mx_t, true);
+
+        parallelMultiply(body->S, points->mx_t, nodes->mx_t, MPMScalarSparseMatrix::NORMAL, true, b);
+
+        parallelDivide(nodes->mx_t, nodes->m, 1.0, nodes->x_t, true);
+
+        //map body force
+        pvec = KinematicVectorArray(points->b.size(), points->b.VECTOR_TYPE);
+        parallelMultiply(points->b, points->m, 1.0, pvec, true);
+        parallelMultiply(body->S, pvec, nodes->f, MPMScalarSparseMatrix::NORMAL, true, b);
+
+        //map divergence of stress
+        tmpMat = MaterialTensorArray(points->T.size());
+        parallelMultiply(points->T, points->v, 1.0, tmpMat, true);
+
+        nvec = MaterialVectorArray(nodes->x.size());
+        parallelMultiply(body->gradS, tmpMat, nvec, MPMSparseMatrixBase::NORMAL, true, b);
+        for (int i = 0; i < nvec.size(); i++) {
+            nodes->f[i] -= KinematicVector(nvec[i], nodes->f.VECTOR_TYPE);
+        }
+
+        if (job->JOB_TYPE == job->JOB_AXISYM){
+            pval = Eigen::VectorXd(points->x.size());
+
+            //scale s_tt by r and add contribution to f_r
+            for (int i=0;i<pval.rows();i++){
+                pval(i) = tmpMat(i,2,2) / points->x(i,0);
+            }
+            parallelMultiply(body->S, pval, nval, MPMScalarSparseMatrix::NORMAL, true, b);
+            for (int i=0; i<nval.rows(); i++){
+                nodes->f(i,0) -= nval(i);
+            }
+
+            //scale s_rt by r and add contribution to f_t
+            for (int i=0; i<pval.rows(); i++){
+                pval(i) = tmpMat(i,0,2) / points->x(i,0);
+            }
+            parallelMultiply(body->S, pval, nval, MPMScalarSparseMatrix::NORMAL, true, b);
+            for (int i=0; i<nval.rows(); i++){
+                nodes->f(i,2) += nval(i);
+            }
+        }
+        //std::cout << points->m.sum() << " ?= " << nodes->m.sum() << std::endl;
+    }
+    return;
+}
+
+void ThreadPoolExplicitUSL::moveGrid(Job* job){
+    for (int b=0;b<job->bodies.size();b++){
+        if (job->activeBodies[b] == 0){
+            continue;
+        }
+
+        //update momentum
+        job->bodies[b]->nodes->mx_t += job->dt * job->bodies[b]->nodes->f;
+
+        //calculate velocity
+        parallelDivide(job->bodies[b]->nodes->mx_t, job->bodies[b]->nodes->m, 1.0, job->bodies[b]->nodes->x_t, true);
+
+        //set displacement
+        job->bodies[b]->nodes->u = job->dt * job->bodies[b]->nodes->x_t;
+
+        //calculate difference in velocity
+        parallelDivide(job->bodies[b]->nodes->f, job->bodies[b]->nodes->m, job->dt, job->bodies[b]->nodes->diff_x_t, true);
+    }
+    return;
+}
+
+void ThreadPoolExplicitUSL::movePoints(Job* job){
+    Body* body;
+    Points* points;
+    Nodes* nodes;
+    for (int b=0;b<job->bodies.size();b++){
+        if (job->activeBodies[b] == 0){
+            continue;
+        }
+        body = job->bodies[b].get();
+        points = job->bodies[b]->points.get();
+        nodes = job->bodies[b]->nodes.get();
+
+        //map nodal displacement to point positions
+        parallelMultiply(body->S, nodes->u, points->x, MPMScalarSparseMatrix::TRANSPOSED, false, b);
+        parallelMultiply(body->S, nodes->u, points->u, MPMScalarSparseMatrix::TRANSPOSED, false, b);
+
+        //fix position for out of plane dimension
+        if (job->grid->GRID_DIM < job->DIM){
+            for (int i=0; i<points->x.size(); i++){
+                for (int pos=job->grid->GRID_DIM; pos<job->DIM; pos++){
+                    points->x(i,pos) = 0;
+                }
+            }
+        }
+
+        //map nodal velocity diff to points
+        parallelMultiply(body->S, nodes->diff_x_t, points->x_t, MPMSparseMatrixBase::TRANSPOSED, false, b);
+
+        //calculate momentum
+        parallelMultiply(points->x_t, points->m, 1.0, points->mx_t, true);
+    }
+    return;
+}
+
+void ThreadPoolExplicitUSL::calculateStrainRate(Job* job){
+    Body* body;
+    Points* points;
+    Nodes* nodes;
+    KinematicVectorArray pvec;
+
+    for (int b=0;b<job->bodies.size();b++){
+        if (job->activeBodies[b] == 0){
+            continue;
+        }
+        body = job->bodies[b].get();
+        points = job->bodies[b]->points.get();
+        nodes = job->bodies[b]->nodes.get();
+
+        //calculate gradient of nodal velocity at points
+
+        if (debug) {
+            struct timespec tStart, tFinish;
+            clock_gettime(CLOCK_MONOTONIC, &tStart);
+            parallelMultiply(body->gradS, nodes->x_t, points->L, MPMSparseMatrixBase::TRANSPOSED, true, b);
+            clock_gettime(CLOCK_MONOTONIC, &tFinish);
+
+            std::cout << b << " : " << (tFinish.tv_sec - tStart.tv_sec) +
+                                       (tFinish.tv_nsec - tStart.tv_nsec) / 1000000000.0 << std::endl << std::endl;
+
+        } else {
+            parallelMultiply(body->gradS, nodes->x_t, points->L, MPMSparseMatrixBase::TRANSPOSED, true, b);
+        }
+
+        //correct L if axisymmetric
+        if (job->JOB_TYPE == job->JOB_AXISYM){
+            pvec = KinematicVectorArray(points->L.size(), points->L.TENSOR_TYPE);
+            parallelMultiply(body->S, nodes->x_t, pvec, MPMSparseMatrixBase::TRANSPOSED, true, b);
+            for (int i=0; i<points->L.size(); i++){
+                points->L(i,0,2) = -pvec(i,2) / points->x(i,0);
+                points->L(i,2,2) = pvec(i,0) / points->x(i,0);
+            }
+        }
+    }
+    return;
+}
+
+/*----------------------------------------------------------------------------*/
 void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
                                            const Eigen::VectorXd &x,
                                            Eigen::VectorXd &lhs,
-                                           int SPEC, bool clear){
+                                           int SPEC, bool clear, int memUnitID){
     //get length of sparse matrix storage
     int k_max = S.size() - 1;
 
@@ -94,7 +268,10 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     }
 
     //intermediate storage vector
-    std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>> lhs_vec(thread_count);
+    //std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>> lhs_vec(thread_count);
+    if (memoryUnits[memUnitID].s.size() != thread_count){
+        memoryUnits[memUnitID].s.resize(thread_count);
+    }
 
     //boolean of completion status
     //std::vector<bool> taskComplete = std::vector<bool>(thread_count);
@@ -109,7 +286,9 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
 
     for (int t=0; t<thread_count; t++) {
         //initialize lhs
-        lhs_vec[t] = Eigen::VectorXd(lhs.rows());
+        if (memoryUnits[memUnitID].s[t].rows() != lhs.rows()){
+            memoryUnits[memUnitID].s[t] = Eigen::VectorXd(lhs.rows());
+        }
 
         //set interval
         k_begin = t * k_interval;
@@ -120,7 +299,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
         //begin threads
         //threads[t] = std::thread(ssmOperateStoS, std::ref(S), std::ref(x), std::ref(lhs_vec[t]), SPEC, k_begin, k_end);
         //std::function<void (void)> tmpFunc = std::bind(ssmOperateStoSwithFlag, std::ref(S), std::ref(x), std::ref(lhs_vec[t]), SPEC, k_begin, k_end, taskComplete[t]);
-        jobThreadPool->doJob(std::bind(ssmOperateStoSwithFlag, std::ref(S), std::ref(x), std::ref(lhs_vec[t]), SPEC, k_begin, k_end, std::ref(firstTaskComplete[t])));
+        jobThreadPool->doJob(std::bind(ssmOperateStoSwithFlag, std::ref(S), std::ref(x), std::ref(memoryUnits[memUnitID].s[t]), SPEC, k_begin, k_end, std::ref(firstTaskComplete[t])));
         //std::cout << "Started task: " << t << "." << std::endl;
     }
 
@@ -171,7 +350,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
         }
         //begin threads
         //threads[t] = std::thread(scalarAdd, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end, clear);
-        jobThreadPool->doJob(std::bind(scalarAddwithFlag, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end, clear, std::ref(secondTaskComplete[t])));
+        jobThreadPool->doJob(std::bind(scalarAddwithFlag, std::ref(memoryUnits[memUnitID].s), std::ref(lhs), i_begin, i_end, clear, std::ref(secondTaskComplete[t])));
     }
 
     //join threads
@@ -199,7 +378,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
 void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
                                            const KinematicVectorArray &x,
                                            KinematicVectorArray &lhs,
-                                           int SPEC, bool clear){
+                                           int SPEC, bool clear, int memUnitID){
     //get length of sparse matrix storage
     int k_max = S.size() - 1;
 
@@ -215,7 +394,10 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     }
 
     //intermediate storage vector
-    std::vector<KinematicVectorArray> lhs_vec(thread_count);
+    //std::vector<KinematicVectorArray> lhs_vec(thread_count);
+    if (memoryUnits[memUnitID].kv.size() != thread_count){
+        memoryUnits[memUnitID].kv.resize(thread_count);
+    }
 
     //boolean of completion status
     volatile bool firstTaskComplete[thread_count] = {false};
@@ -226,7 +408,10 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
 
     for (int t=0; t<thread_count; t++) {
         //initialize lhs
-        lhs_vec[t] = KinematicVectorArray(lhs.size(),lhs.VECTOR_TYPE);
+        //lhs_vec[t] = KinematicVectorArray(lhs.size(),lhs.VECTOR_TYPE);
+        if (memoryUnits[memUnitID].kv[t].size() != lhs.size()){
+            memoryUnits[memUnitID].kv[t] = KinematicVectorArray(lhs.size(),lhs.VECTOR_TYPE);
+        }
 
         //set interval
         k_begin = t * k_interval;
@@ -236,7 +421,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
         }
         //begin threads
         //threads[t] = std::thread(ssmOperateVtoV, std::ref(S), std::ref(x), std::ref(lhs_vec[t]), SPEC, k_begin, k_end);
-        jobThreadPool->doJob(std::bind(ssmOperateVtoVwithFlag, std::ref(S), std::ref(x), std::ref(lhs_vec[t]), SPEC, k_begin, k_end, std::ref(firstTaskComplete[t])));
+        jobThreadPool->doJob(std::bind(ssmOperateVtoVwithFlag, std::ref(S), std::ref(x), std::ref(memoryUnits[memUnitID].kv[t]), SPEC, k_begin, k_end, std::ref(firstTaskComplete[t])));
     }
 
     //join threads
@@ -280,7 +465,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
         }
         //begin threads
         //threads[t] = std::thread(vectorAddK, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end, clear);
-        jobThreadPool->doJob(std::bind(vectorAddKwithFlag, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end, clear, std::ref(secondTaskComplete[t])));
+        jobThreadPool->doJob(std::bind(vectorAddKwithFlag, std::ref(memoryUnits[memUnitID].kv), std::ref(lhs), i_begin, i_end, clear, std::ref(secondTaskComplete[t])));
     }
 
     //join threads
@@ -308,7 +493,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
 void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
                                            const MaterialTensorArray &T,
                                            MaterialVectorArray &lhs,
-                                           int SPEC, bool clear){
+                                           int SPEC, bool clear, int memUnitID){
     //get length of sparse matrix storage
     int k_max = gradS.size() - 1;
 
@@ -324,7 +509,10 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
     }
 
     //intermediate storage vector
-    std::vector<MaterialVectorArray> lhs_vec(thread_count);
+    //std::vector<MaterialVectorArray> lhs_vec(thread_count);
+    if (memoryUnits[memUnitID].mv.size() != thread_count){
+        memoryUnits[memUnitID].mv.resize(thread_count);
+    }
 
     //boolean of completion status
     /*std::vector<bool> taskComplete = std::vector<bool>(thread_count);
@@ -339,7 +527,10 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
 
     for (int t=0; t<thread_count; t++) {
         //initialize lhs
-        lhs_vec[t] = MaterialVectorArray(lhs.size());
+        //lhs_vec[t] = MaterialVectorArray(lhs.size());
+        if (memoryUnits[memUnitID].mv[t].size() != lhs.size()){
+            memoryUnits[memUnitID].mv[t] = MaterialVectorArray(lhs.size());
+        }
 
         //set interval
         k_begin = t * k_interval;
@@ -349,7 +540,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
         }
         //begin threads
         //threads[t] = std::thread(kvsmLeftMultiply, std::ref(gradS), std::ref(T), std::ref(lhs_vec[t]), SPEC, k_begin, k_end);
-        jobThreadPool->doJob(std::bind(kvsmLeftMultiplywithFlag, std::ref(gradS), std::ref(T), std::ref(lhs_vec[t]), SPEC, k_begin, k_end, std::ref(firstTaskComplete[t])));
+        jobThreadPool->doJob(std::bind(kvsmLeftMultiplywithFlag, std::ref(gradS), std::ref(T), std::ref(memoryUnits[memUnitID].mv[t]), SPEC, k_begin, k_end, std::ref(firstTaskComplete[t])));
     }
 
     //join threads
@@ -397,7 +588,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
         }
         //begin threads
         //threads[t] = std::thread(vectorAddM, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end, clear);
-        jobThreadPool->doJob(std::bind(vectorAddMwithFlag, std::ref(lhs_vec), std::ref(lhs), i_begin, i_end, clear, std::ref(secondTaskComplete[t])));
+        jobThreadPool->doJob(std::bind(vectorAddMwithFlag, std::ref(memoryUnits[memUnitID].mv), std::ref(lhs), i_begin, i_end, clear, std::ref(secondTaskComplete[t])));
     }
 
     //join threads
@@ -423,11 +614,10 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
     return;
 }
 
-
 void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
                                            const KinematicVectorArray &x,
                                            KinematicTensorArray &L,
-                                           int SPEC, bool clear){
+                                           int SPEC, bool clear, int memUnitID){
     //get length of sparse matrix storage
     int k_max = gradS.size() - 1;
 
@@ -443,7 +633,10 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
     }
 
     //intermediate storage vector
-    std::vector<KinematicTensorArray> lhs_vec(thread_count);
+    //std::vector<KinematicTensorArray> lhs_vec(thread_count);
+    if (memoryUnits[memUnitID].kt.size() != thread_count){
+        memoryUnits[memUnitID].kt.resize(thread_count);
+    }
 
     //boolean array to track task completion
     volatile bool firstTaskComplete[thread_count] = {false};
@@ -454,7 +647,10 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
 
     for (int t=0; t<thread_count; t++) {
         //initialize lhs
-        lhs_vec[t] = KinematicTensorArray(L.size(),L.TENSOR_TYPE);
+        //lhs_vec[t] = KinematicTensorArray(L.size(),L.TENSOR_TYPE); //is this slowing things down?
+        if (memoryUnits[memUnitID].kt[t].size() != L.size()){
+            memoryUnits[memUnitID].kt[t] = KinematicTensorArray(L.size(),L.TENSOR_TYPE);
+        }
 
         //set interval
         k_begin = t * k_interval;
@@ -463,7 +659,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
             k_end = k_max;
         }
         //begin threads
-        jobThreadPool->doJob(std::bind(kvsmTensorProductTwithFlag, std::ref(gradS), std::ref(x), std::ref(lhs_vec[t]), SPEC, k_begin, k_end, std::ref(firstTaskComplete[t])));
+        jobThreadPool->doJob(std::bind(kvsmTensorProductTwithFlag, std::ref(gradS), std::ref(x), std::ref(memoryUnits[memUnitID].kt[t]), SPEC, k_begin, k_end, std::ref(firstTaskComplete[t])));
     }
 
     //join threads
@@ -506,7 +702,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
             i_end = i_max;
         }
         //begin threads
-        jobThreadPool->doJob(std::bind(tensorAddwithFlag, std::ref(lhs_vec), std::ref(L), i_begin, i_end, clear, std::ref(secondTaskComplete[t])));
+        jobThreadPool->doJob(std::bind(tensorAddwithFlag, std::ref(memoryUnits[memUnitID].kt), std::ref(L), i_begin, i_end, clear, std::ref(secondTaskComplete[t])));
     }
 
     //join threads

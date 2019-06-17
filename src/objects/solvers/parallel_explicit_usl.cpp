@@ -361,7 +361,19 @@ void ParallelExplicitUSL::calculateStrainRate(Job* job){
         //calculate gradient of nodal velocity at points
         //body->bodyCalcPointGradient(job,points->L,nodes->x_t,Body::SET);
         //points->L = body->gradS.tensor_product_transpose(nodes->x_t, MPMSparseMatrixBase::TRANSPOSED);
-        parallelMultiply(body->gradS, nodes->x_t, points->L, MPMSparseMatrixBase::TRANSPOSED);
+
+        if (debug) {
+            struct timespec tStart, tFinish;
+            clock_gettime(CLOCK_MONOTONIC, &tStart);
+            parallelMultiply(body->gradS, nodes->x_t, points->L, MPMSparseMatrixBase::TRANSPOSED);
+            clock_gettime(CLOCK_MONOTONIC, &tFinish);
+
+            std::cout << b << " : " << (tFinish.tv_sec - tStart.tv_sec) +
+                                       (tFinish.tv_nsec - tStart.tv_nsec) / 1000000000.0 << std::endl << std::endl;
+
+        } else {
+            parallelMultiply(body->gradS, nodes->x_t, points->L, MPMSparseMatrixBase::TRANSPOSED);
+        }
 
         //correct L if axisymmetric
         if (job->JOB_TYPE == job->JOB_AXISYM){

@@ -114,10 +114,10 @@ public:
     virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
 
     //parallel functions
-    virtual void parallelMultiply(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC, bool clear = true);
-    virtual void parallelMultiply(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC, bool clear = true);
-    virtual void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const MaterialTensorArray &T, MaterialVectorArray &lhs, int SPEC, bool clear = true);
-    virtual void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray &L, int SPEC, bool clear = true);
+    virtual void parallelMultiply(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC, bool clear = true, int memUnitID = 0);
+    virtual void parallelMultiply(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC, bool clear = true, int memUnitID = 0);
+    virtual void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const MaterialTensorArray &T, MaterialVectorArray &lhs, int SPEC, bool clear = true, int memUnitID = 0);
+    virtual void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray &L, int SPEC, bool clear = true, int memUnitID = 0);
 
     virtual void parallelMultiply(KinematicVectorArray &kv, Eigen::VectorXd &s, double scale, KinematicVectorArray &out, bool clear = true);
     virtual void parallelDivide(KinematicVectorArray &kv, Eigen::VectorXd &s, double scale, KinematicVectorArray &out, bool clear = true);
@@ -152,6 +152,17 @@ public:
     //pointer to job->threadPool
     ThreadPool* jobThreadPool;
 
+    //memory container for parallel operations
+    struct parallelMemoryUnit {
+        std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>> s;
+        std::vector<KinematicVectorArray> kv;
+        std::vector<MaterialVectorArray> mv;
+        std::vector<KinematicTensorArray> kt;
+    };
+
+    //instantiate
+    std::vector<parallelMemoryUnit> memoryUnits;
+
     //scalar sparse matrix operations
     static void ssmOperateStoSwithFlag(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC, int k_begin, int k_end, volatile bool& done);
     static void ssmOperateVtoVwithFlag(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC, int k_begin, int k_end, volatile bool& done);
@@ -184,10 +195,10 @@ public:
     virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
 
     //parallel functions
-    virtual void parallelMultiply(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC, bool clear = true);
-    virtual void parallelMultiply(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC, bool clear = true);
-    virtual void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const MaterialTensorArray &T, MaterialVectorArray &lhs, int SPEC, bool clear = true);
-    virtual void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray &L, int SPEC, bool clear = true);
+    virtual void parallelMultiply(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC, bool clear = true, int memUnitID = 0);
+    virtual void parallelMultiply(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC, bool clear = true, int memUnitID = 0);
+    virtual void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const MaterialTensorArray &T, MaterialVectorArray &lhs, int SPEC, bool clear = true, int memUnitID = 0);
+    virtual void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &x, KinematicTensorArray &L, int SPEC, bool clear = true, int memUnitID = 0);
 
     virtual void parallelMultiply(KinematicVectorArray &kv, Eigen::VectorXd &s, double scale, KinematicVectorArray &out, bool clear = true);
     virtual void parallelDivide(KinematicVectorArray &kv, Eigen::VectorXd &s, double scale, KinematicVectorArray &out, bool clear = true);
@@ -197,14 +208,14 @@ public:
     virtual void parallelSubtract(Eigen::VectorXd &a, Eigen::VectorXd &b, double scale, Eigen::VectorXd &out, bool clear = true);
 
     //virtual void createMappings(Job *job);
-    //virtual void mapPointsToNodes(Job* job);
+    virtual void mapPointsToNodes(Job* job);
     //virtual void generateContacts(Job* job);
     //virtual void addContacts(Job* job);
     //virtual void generateBoundaryConditions(Job* job);
     //virtual void addBoundaryConditions(Job* job);
-    //virtual void moveGrid(Job* job);
-    //virtual void movePoints(Job* job);
-    //virtual void calculateStrainRate(Job* job);
+    virtual void moveGrid(Job* job);
+    virtual void movePoints(Job* job);
+    virtual void calculateStrainRate(Job* job);
     //virtual void updateDensity(Job* job);
     //virtual void updateStress(Job* job);
     //virtual void generateLoads(Job* job);
