@@ -109,6 +109,10 @@ public:
         mu_f = 0;
     }
 
+    bool generate_friction = false;
+    bool generate_tractions = false;
+    bool generate_periodic = false;
+
     static const int NO_SLIP_WALL       = 0;
     static const int FRICTION_LESS_WALL = 1;
     static const int FRICTIONAL_WALL    = 2;

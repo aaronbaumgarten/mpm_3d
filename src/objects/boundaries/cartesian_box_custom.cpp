@@ -92,6 +92,10 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                 //check for friction and assign coefficient
                 mu_f = fp64_props[PROPS_REF_LIST[i]];
                 std::cout << "[" << mu_f << "]";
+
+                //set flag to true
+                generate_friction = true;
+
             } else if (limit_props[i] == PERIODIC){
                 //check periodic and make sure that both walls are periodic
                 if ((i == 0 || i == 1) && (limit_props[0] != PERIODIC || limit_props[1] != PERIODIC)){
@@ -109,6 +113,10 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                 } else {
                     //wooh! you did it right!
                 }
+
+                //set flag to true
+                generate_periodic = true;
+
             } else if (limit_props[i] == DRIVEN_VELOCITY){
                 std::cout << "[";
                 for (int pos = 0; pos < v_set.DIM; pos++){
@@ -123,6 +131,10 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                     std::cout << " " << v_set(i,pos);
                 }
                 std::cout << " ]";
+
+                //set flag to true
+                generate_tractions = true;
+
             } else if (limit_props[i] == DRIVEN_VELOCITY_BOUNDED_TRACTION){
                 std::cout << "[<";
                 for (int pos = 0; pos < v_set.DIM; pos++){
@@ -134,6 +146,9 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                 //check for tau_max and assign coefficient
                 tau_max = fp64_props[PROPS_REF_LIST[i] + v_set.DIM];
                 std::cout << "[" << tau_max << "]";
+
+                //set flag to true
+                generate_tractions = true;
             }
         }
 
@@ -233,33 +248,42 @@ void CartesianBoxCustom::init(Job* job, Body* body){
 }
 
 void CartesianBoxCustom::generateRules(Job* job, Body* body){
-    //setup friction
-    tmp = body->points->T;
-    for (int i=0;i<tmp.size();i++){
-        tmp(i) *= body->points->v(i);
-    }
 
-    //setup traction
-    if (job->JOB_TYPE == job->JOB_AXISYM) {
-        Eigen::VectorXd A_tmp = Eigen::VectorXd(body->points->x.size());
-        for (int i = 0; i < body->points->x.size(); i++){
-            A_tmp(i) = body->points->v(i) / body->points->x(i,0); //in axisym simulations area of integration equals volume/r
+    if (generate_friction) {
+        //setup friction
+        tmp = body->points->T;
+        for (int i = 0; i < tmp.size(); i++) {
+            tmp(i) *= body->points->v(i);
         }
-        v_n = body->S * A_tmp;
-    } else {
-        v_n = body->S * body->points->v;
     }
 
-    //wrap particles about appropriate axes for periodic BCs
-    for (int i=0;i<body->points->x.size();i++){
-        for (int pos=0;pos<job->grid->GRID_DIM;pos++){
-            if (limit_props(2*pos+1) == PERIODIC && body->points->x(i,pos) > Lx_max(pos)){
-                body->points->x(i,pos) -= (Lx_max(pos)-Lx_min(pos));
-            } else if (limit_props(2*pos) == PERIODIC && body->points->x(i,pos) < Lx_min(pos)){ //0){
-                body->points->x(i,pos) += (Lx_max(pos)-Lx_min(pos));
+    if (generate_tractions) {
+        //setup traction
+        if (job->JOB_TYPE == job->JOB_AXISYM) {
+            Eigen::VectorXd A_tmp = Eigen::VectorXd(body->points->x.size());
+            for (int i = 0; i < body->points->x.size(); i++) {
+                A_tmp(i) = body->points->v(i) /
+                           body->points->x(i, 0); //in axisym simulations area of integration equals volume/r
+            }
+            v_n = body->S * A_tmp;
+        } else {
+            v_n = body->S * body->points->v;
+        }
+    }
+
+    if (generate_periodic) {
+        //wrap particles about appropriate axes for periodic BCs
+        for (int i = 0; i < body->points->x.size(); i++) {
+            for (int pos = 0; pos < job->grid->GRID_DIM; pos++) {
+                if (limit_props(2 * pos + 1) == PERIODIC && body->points->x(i, pos) > Lx_max(pos)) {
+                    body->points->x(i, pos) -= (Lx_max(pos) - Lx_min(pos));
+                } else if (limit_props(2 * pos) == PERIODIC && body->points->x(i, pos) < Lx_min(pos)) { //0){
+                    body->points->x(i, pos) += (Lx_max(pos) - Lx_min(pos));
+                }
             }
         }
     }
+
     return;
 }
 
@@ -269,17 +293,19 @@ void CartesianBoxCustom::applyRules(Job* job, Body* body){
     KinematicVector delta_momentum = KinematicVector(job->JOB_TYPE);
     KinematicVector f_ext = KinematicVector(job->JOB_TYPE);
 
-    //map body force to nodes (avoids possible contact forces)
-    pvec = body->points->b;
-    for (int i=0;i<pvec.size();i++){
-        pvec(i) *= body->points->m(i);
-    }
-    bcNodalForce = body->S * pvec;
+    if (generate_friction) {
+        //map body force to nodes (avoids possible contact forces)
+        pvec = body->points->b;
+        for (int i = 0; i < pvec.size(); i++) {
+            pvec(i) *= body->points->m(i);
+        }
+        bcNodalForce = body->S * pvec;
 
-    //map divergence of stress
-    nvec = body->gradS.left_multiply_by_tensor(tmp);
-    for (int i=0;i<nvec.size();i++){
-        bcNodalForce(i) -= KinematicVector(nvec[i],bcNodalForce.VECTOR_TYPE);
+        //map divergence of stress
+        nvec = body->gradS.left_multiply_by_tensor(tmp);
+        for (int i = 0; i < nvec.size(); i++) {
+            bcNodalForce(i) -= KinematicVector(nvec[i], bcNodalForce.VECTOR_TYPE);
+        }
     }
 
     for (int i=0;i<body->nodes->x_t.size();i++){
