@@ -521,5 +521,30 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
         }
     }
 
+    //load output file and write ASCII data
+    std::ofstream fout(out_file, std::ios::trunc);
+    if (fout.is_open()){
+        //write first line with number of points
+        fout << x.size() << "\n";
+
+        //write one line of data per point
+        for (int i=0; i<x.size(); i++){
+            fout << m[i] << " ";
+            fout << v[i] << " ";
+            for (int pos=0; pos<x.DIM; pos++){
+                fout << x(i,pos) << " ";
+            }
+            for (int pos=0; pos<x_t.DIM; pos++){
+                fout << x_t(i,pos) << " ";
+            }
+            fout << "1\n";
+        }
+
+        fout.close();
+        std::cout << "Point File Written: " << out_file << "." << std::endl;
+    } else {
+        std::cerr << "Could not open point data file: " << out_file << " !" << std::endl;
+    }
+
     return;
 }

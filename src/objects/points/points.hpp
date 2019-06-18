@@ -186,4 +186,40 @@ public:
     void writeFrame(Job* job, Body* body, Serializer* serializer);
 };
 
+/*---------------------------------------------------------------------------*/
+
+class ThreadPoolPoints : public DefaultPoints{
+public:
+    ThreadPoolPoints(){
+        object_name = "ThreadPoolPoints";
+    }
+
+    std::vector<MPMScalarSparseMatrix> S_vec = std::vector<MPMScalarSparseMatrix>(0);
+    std::vector<KinematicVectorSparseMatrix> gradS_vec = std::vector<KinematicVectorSparseMatrix>(0);
+
+    static void fillMap(Job* job, Body* body, ThreadPoolPoints* points,
+                        int SPEC,
+                        MPMScalarSparseMatrix& S,
+                        KinematicVectorSparseMatrix& gradS,
+                        int i_begin, int i_end, volatile bool &done);
+
+    static void combineMaps(Job* job, Body* body, ThreadPoolPoints* points,
+                            MPMScalarSparseMatrix& S,
+                            KinematicVectorSparseMatrix& gradS,
+                            int i_begin_S, int i_begin_gradS, volatile bool &done);
+
+    //virtual void init(Job* job, Body* body);
+    //virtual void readFromFile(Job* job, Body* body, std::string fileIN);
+    virtual void generateMap(Job* job, Body* body, int SPEC);             //generate S and gradS
+    //virtual void updateIntegrators(Job* job, Body* body);                 //update integrators (extent, etc.)
+
+    //virtual void writeHeader(Job* job, Body* body, Serializer* serializer, std::ofstream& pfile, int SPEC);
+    //virtual void writeFrame(Job* job, Body* body, Serializer* serializer);
+    //virtual std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    //virtual int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+
+    //virtual void generateLoads(Job* job, Body* body);   //arbitrary loading during simulation
+    //virtual void applyLoads(Job* job, Body* body);
+};
+
 #endif //MPM_V3_POINTS_HPP

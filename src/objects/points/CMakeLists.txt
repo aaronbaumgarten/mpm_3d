@@ -4,5 +4,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/parts.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/gmsh_points.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_points.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/threadpool_points.cpp
         PARENT_SCOPE
         )

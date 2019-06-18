@@ -87,6 +87,11 @@ public:
 
     void doJob (std::function <void (void)> func)
     {
+        // If there are no threads to do job, exit
+        if (threads_.size() == 0){
+            std::cerr << "ERROR: No threads in ThreadPool to run job! Exiting." << std::endl;
+            exit(0);
+        }
         // Place a job on the queu and unblock a thread
         std::unique_lock <std::mutex> l (lock_);
 

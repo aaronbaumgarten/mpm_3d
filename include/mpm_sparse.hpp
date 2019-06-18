@@ -35,6 +35,13 @@ public:
         j_max = j;
     }
 
+    //initialize without max rows, cols
+    MPMSparseMatrixBase() {
+        i_max = 0;
+        j_max = 0;
+        std::cerr << "WARNING: Initializing sparse matrix with zero size!" << std::endl;
+    }
+
     /*------------------------------------------------------------------------*/
     //return properties of sparse matrix
     inline int rows(int SPEC = NORMAL) const {
@@ -102,6 +109,9 @@ public:
     //initialize with max rows, cols
     MPMScalarSparseMatrix(int i, int j) : MPMSparseMatrixBase(i,j) {}
 
+    //initialize without max rows, cols
+    MPMScalarSparseMatrix() : MPMSparseMatrixBase() {}
+
     /*------------------------------------------------------------------------*/
     //return transpose
     MPMScalarSparseMatrix transpose() const {
@@ -121,11 +131,30 @@ public:
         return;
     }
 
+    //resize the sparse matrix
+    void resize(int size){
+        //I hope you know what you are doing.
+        i_vec.resize(size);
+        j_vec.resize(size);
+        buffer.resize(size);
+    }
+
     //push_back a tuple
     void push_back(const int &i, const int &j, const double &val) {
         i_vec.push_back(i);
         j_vec.push_back(j);
         buffer.push_back(val);
+    }
+
+    //insert a tuple
+    void insert(const int &k, const int &i, const int &j, const double &val) {
+        if (k < i_vec.size()) {
+            i_vec[k] = i;
+            j_vec[k] = j;
+            buffer[k] = val;
+        } else {
+            std::cerr << "ERROR: MPMScalarSparseMatrix insert() out of range! " << k << " > " << i_vec.size()-1 << "!";
+        }
     }
 
     //diagonalize
@@ -152,6 +181,9 @@ public:
     //initialize with max rows, cols
     MaterialVectorSparseMatrix(int i, int j) : MPMSparseMatrixBase(i,j) {}
 
+    //initialize without max rows, cols
+    MaterialVectorSparseMatrix() : MPMSparseMatrixBase() {}
+
     /*------------------------------------------------------------------------*/
     //transpose
     MaterialVectorSparseMatrix transpose() const {
@@ -171,11 +203,30 @@ public:
         return;
     }
 
+    //resize the sparse matrix
+    void resize(int size){
+        //I hope you know what you are doing.
+        i_vec.resize(size);
+        j_vec.resize(size);
+        buffer.resize(size);
+    }
+
     //push_back a tuple
     void push_back(const int &i, const int &j, const MaterialVector &val) {
         i_vec.push_back(i);
         j_vec.push_back(j);
         buffer.push_back(val);
+    }
+
+    //insert a tuple
+    void insert(const int &k, const int &i, const int &j, const MaterialVector &val) {
+        if (k < i_vec.size()) {
+            i_vec[k] = i;
+            j_vec[k] = j;
+            buffer[k] = val;
+        } else {
+            std::cerr << "ERROR: MaterialVectorSparseMatrix insert() out of range! " << k << " > " << i_vec.size()-1 << "!";
+        }
     }
 
     //diagonalize
@@ -241,6 +292,9 @@ public:
         assignVectorType(input_type);
     }
 
+    //initiialize without max rows, cols
+    KinematicVectorSparseMatrix() : MPMSparseMatrixBase() {}
+
     /*------------------------------------------------------------------------*/
     //transpose
     KinematicVectorSparseMatrix transpose() const {
@@ -261,11 +315,32 @@ public:
         return;
     }
 
+    //resize the sparse matrix
+    void resize(int size){
+        //I hope you know what you are doing.
+        //std::cout << size << std::endl;
+        //exit(0);
+        i_vec.resize(size);
+        j_vec.resize(size);
+        buffer.resize(size);
+    }
+
     //push_back a tuple
     void push_back(const int& i, const int& j, const KinematicVector& val){
         i_vec.push_back(i);
         j_vec.push_back(j);
         buffer.push_back(val);
+    }
+
+    //insert a tuple
+    void insert(const int &k, const int &i, const int &j, const KinematicVector& val) {
+        if (k < i_vec.size()) {
+            i_vec[k] = i;
+            j_vec[k] = j;
+            buffer[k] = val;
+        } else {
+            std::cerr << "ERROR: KinematicVectorSparseMatrix insert() out of range! " << k << " > " << i_vec.size()-1 << "!";
+        }
     }
 
     //diagonalize

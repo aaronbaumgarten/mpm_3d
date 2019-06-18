@@ -82,6 +82,12 @@ int ThreadPoolExplicitUSL::loadState(Job* job, Serializer* serializer, std::stri
 
 /*----------------------------------------------------------------------------*/
 void ThreadPoolExplicitUSL::mapPointsToNodes(Job* job){
+    //check that threadpool exists and not serial
+    if (job->thread_count <= 1){
+        ExplicitUSL::mapPointsToNodes(job);
+        return;
+    }
+
     Body *body;
     Points *points;
     Nodes *nodes;
@@ -152,6 +158,12 @@ void ThreadPoolExplicitUSL::mapPointsToNodes(Job* job){
 }
 
 void ThreadPoolExplicitUSL::moveGrid(Job* job){
+    //check that threadpool exists and not serial
+    if (job->thread_count <= 1){
+        ExplicitUSL::moveGrid(job);
+        return;
+    }
+
     for (int b=0;b<job->bodies.size();b++){
         if (job->activeBodies[b] == 0){
             continue;
@@ -173,6 +185,12 @@ void ThreadPoolExplicitUSL::moveGrid(Job* job){
 }
 
 void ThreadPoolExplicitUSL::movePoints(Job* job){
+    //check that threadpool exists and not serial
+    if (job->thread_count <= 1){
+        ExplicitUSL::movePoints(job);
+        return;
+    }
+
     Body* body;
     Points* points;
     Nodes* nodes;
@@ -207,6 +225,12 @@ void ThreadPoolExplicitUSL::movePoints(Job* job){
 }
 
 void ThreadPoolExplicitUSL::calculateStrainRate(Job* job){
+    //check that threadpool exists and not serial
+    if (job->thread_count <= 1){
+        ExplicitUSL::calculateStrainRate(job);
+        return;
+    }
+
     Body* body;
     Points* points;
     Nodes* nodes;
