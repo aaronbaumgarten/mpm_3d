@@ -202,6 +202,12 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                     bcNodalMask(i,pos) = -6;
                 }
                 is_edge = true;
+
+                //free boundary rule
+                if (limit_props(2*pos) == FREE_BOUNDARY && bcNodalMask(i,pos) != 1){
+                    bcNodalMask(i,pos) = -1;
+                    is_edge = false;
+                }
             } else if (body->nodes->x(i,pos) == Lx_max(pos)) {
                 if (limit_props(2*pos + 1) == FRICTION_LESS_WALL){
                     bcNodalMask(i,pos) = 1;
@@ -215,11 +221,17 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                 } else if (limit_props(2*pos + 1) == DRIVEN_TRACTION && bcNodalMask(i,pos) != 1){
                     bcNodalMask(i).setOnes();
                     bcNodalMask(i,pos) = 5;
-                } else if (limit_props(2*pos) == DRIVEN_VELOCITY_BOUNDED_TRACTION && bcNodalMask(i,pos) != 1){
+                } else if (limit_props(2*pos + 1) == DRIVEN_VELOCITY_BOUNDED_TRACTION && bcNodalMask(i,pos) != 1){
                     bcNodalMask(i).setOnes();
                     bcNodalMask(i,pos) = 6;
                 }
                 is_edge = true;
+
+                //free boundary rule
+                if (limit_props(2*pos + 1) == FREE_BOUNDARY && bcNodalMask(i,pos) != 1){
+                    bcNodalMask(i,pos) = -1;
+                    is_edge = false;
+                }
             }
         }
 
@@ -314,6 +326,9 @@ void CartesianBoxCustom::applyRules(Job* job, Body* body){
                 //zero out boundary and do not adjust friction.
                 body->nodes->x_t(i,pos) = 0;
                 body->nodes->mx_t(i,pos) = 0;
+                body->nodes->f(i,pos) = 0;
+            } else if (bcNodalMask(i,pos) == -1){
+                //zero out boundary forces only
                 body->nodes->f(i,pos) = 0;
             } else if (bcNodalMask(i,pos) == -2){
                 //zero out velocity on lower boundary

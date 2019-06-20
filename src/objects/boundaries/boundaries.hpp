@@ -113,6 +113,7 @@ public:
     bool generate_tractions = false;
     bool generate_periodic = false;
 
+    static const int FREE_BOUNDARY      = -1;
     static const int NO_SLIP_WALL       = 0;
     static const int FRICTION_LESS_WALL = 1;
     static const int FRICTIONAL_WALL    = 2;
