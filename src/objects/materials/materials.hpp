@@ -141,6 +141,8 @@ public:
         object_name = "BarotropicViscousFluid";
     }
 
+    bool use_delta_correction = false;
+
     double alpha = 0.0;
     double eta, K;
 

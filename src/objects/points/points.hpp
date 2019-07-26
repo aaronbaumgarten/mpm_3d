@@ -166,26 +166,6 @@ public:
     void readFromFile(Job* job, Body* body, std::string fileIN);
 };
 
-/*----------------------------------------------------------------------------*/
-
-class DeltaPoints : public DefaultPoints{
-public:
-    DeltaPoints(){
-        object_name = "DeltaPoints";
-    }
-
-    Eigen::VectorXd e, V_i, v_i;
-    KinematicVectorArray grad_e;
-    double alpha, h;
-
-    void init(Job* job, Body* body);
-
-    void generateLoads(Job* job, Body* body);
-    void applyLoads(Job* job, Body* body);
-
-    void writeFrame(Job* job, Body* body, Serializer* serializer);
-};
-
 /*---------------------------------------------------------------------------*/
 
 class ThreadPoolPoints : public DefaultPoints{
@@ -220,6 +200,39 @@ public:
 
     //virtual void generateLoads(Job* job, Body* body);   //arbitrary loading during simulation
     //virtual void applyLoads(Job* job, Body* body);
+};
+
+
+/*----------------------------------------------------------------------------*/
+
+class ImprovedQuadraturePoints : public DefaultPoints{
+public:
+    ImprovedQuadraturePoints(){
+        object_name = "ImprovedQuadraturePoints";
+    }
+
+    /* input to this file denotes the type of improved quadrature to use
+     * 0 -- No quadrature improvement
+     * 1 -- uGIMP
+     * 2 -- GIMP
+     * 3 -- CPDI
+     * 4 -- CPDI2 (?)
+     * 5 -- Modified Gradient MPM
+     * 5 -- Avoid-a-void
+     * 6 -- \delta-correction, constant strain
+     * 7 -- \delta-correction, constant time
+     */
+
+    Eigen::VectorXd e, V_i, v_i;
+    KinematicVectorArray grad_e;
+    double alpha, h;
+
+    void init(Job* job, Body* body);
+
+    void generateLoads(Job* job, Body* body);
+    void applyLoads(Job* job, Body* body);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
 };
 
 #endif //MPM_V3_POINTS_HPP

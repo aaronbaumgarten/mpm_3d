@@ -39,10 +39,12 @@ void BarotropicViscousFluid::init(Job* job, Body* body){
     if (fp64_props.size() == 4){
         h = fp64_props[2];
         alpha = fp64_props[3];
+        use_delta_correction = true;
         std::cout << "[" << h << ", " << alpha << "]." << std::endl;
     } else {
         h = 0;
         alpha = 0;
+        use_delta_correction = false;
         std::cout << std::endl;
     }
 
@@ -86,26 +88,28 @@ void BarotropicViscousFluid::calculateStress(Job* job, Body* body, int SPEC){
     double tmpNum;
     KinematicVector delta = KinematicVector(job->JOB_TYPE);
 
-    //calculate nodal volume integral
-    if (job->JOB_TYPE == job->JOB_AXISYM){
-        //need to adjust point integration area
-        Eigen::VectorXd A_tmp = body->points->v;
-        for (int i=0; i<A_tmp.rows(); i++){
-            A_tmp(i) /= body->points->x(i,0);
+    if (use_delta_correction) {
+        //calculate nodal volume integral
+        if (job->JOB_TYPE == job->JOB_AXISYM) {
+            //need to adjust point integration area
+            Eigen::VectorXd A_tmp = body->points->v;
+            for (int i = 0; i < A_tmp.rows(); i++) {
+                A_tmp(i) /= body->points->x(i, 0);
+            }
+            v_i = body->S * A_tmp;
+        } else {
+            //otherwise integration area and volume are the same
+            v_i = body->S * body->points->v;
         }
-        v_i = body->S * A_tmp;
-    } else {
-        //otherwise integration area and volume are the same
-        v_i = body->S * body->points->v;
-    }
 
-    for (int i=0; i<V_i.rows(); i++){
-        tmpNum = (v_i(i) - V_i(i))/(V_i(i));
-        e(i) = std::max(0.0,tmpNum);
-    }
+        for (int i = 0; i < V_i.rows(); i++) {
+            tmpNum = (v_i(i) - V_i(i)) / (V_i(i));
+            e(i) = std::max(0.0, tmpNum);
+        }
 
-    //calculate gradient of nodal overshoot
-    grad_e = body->gradS.operate(e, MPMSparseMatrixBase::TRANSPOSED);
+        //calculate gradient of nodal overshoot
+        grad_e = body->gradS.operate(e, MPMSparseMatrixBase::TRANSPOSED);
+    }
 
     //strain smoothing
     Eigen::VectorXd J = Eigen::VectorXd(body->points->x.size());
@@ -125,7 +129,7 @@ void BarotropicViscousFluid::calculateStress(Job* job, Body* body, int SPEC){
         trD = D.trace();
 
         //stress update after density correction
-        if (alpha > 0) {
+        if (use_delta_correction) {
 
             delta = -alpha * job->dt * (L - (trD / 3.0) * MaterialTensor::Identity()).norm() * grad_e(i) * h * h;
 
@@ -182,10 +186,12 @@ void BarotropicViscousFluid::assignPressure(Job* job, Body* body, double pressur
 /*----------------------------------------------------------------------------*/
 
 void BarotropicViscousFluid::writeFrame(Job* job, Body* body, Serializer* serializer){
-    serializer->writeVectorArray(grad_e,"grad_err");
-    serializer->writeVectorArray(del_pos,"del_pos");
-    serializer->writeScalarArray(V_i, "grid_volume");
-    serializer->writeScalarArray(e, "err");
+    if (use_delta_correction) {
+        serializer->writeVectorArray(grad_e, "grad_err");
+        serializer->writeVectorArray(del_pos, "del_pos");
+        serializer->writeScalarArray(V_i, "grid_volume");
+        serializer->writeScalarArray(e, "err");
+    }
 
     Eigen::VectorXd nvec(body->nodes->x.size());
     Eigen::VectorXd pvec(body->points->x.size());

@@ -133,6 +133,7 @@ void ThreadPoolExplicitUSL::mapPointsToNodes(Job* job){
 
         if (job->JOB_TYPE == job->JOB_AXISYM){
             pval = Eigen::VectorXd(points->x.size());
+            nval = Eigen::VectorXd(nodes->x.size());
 
             //scale s_tt by r and add contribution to f_r
             for (int i=0;i<pval.rows();i++){

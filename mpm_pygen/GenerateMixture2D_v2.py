@@ -16,13 +16,13 @@ print "files named"
 
 #grid properties
 #Ly = Lx = Lz = 0.4
-Lx = 2.0
-Ly = 1.0
+Lx = 0.12
+Ly = 0.60
 #Ne = 40
-Nx = 150
-Ny = 75
+Nx = 60
+Ny = 300
 Nz = 1
-lmpp = 1
+lmpp = 2
 Lz = Nz*lmpp
 hx = Lx/Nx
 grid = Grid3d.CartesianPointGrid(Lx, Ly, Lz, Nx, Ny, Nz, lmpp)
@@ -30,17 +30,17 @@ print "grid created"
 
 # global properties
 g = -9.81
-phi = 0.50
+phi = 0.591
 
 # grain properties
-bulk_properties = { 'rho': 1620*phi }
-grain_width = 0.06
-grain_depth = 0.048
+bulk_properties = { 'rho': 2520*phi }
+grain_width = 0.12
+grain_depth = 0.30
 grain_height = 1.0
-fluid_depth = 0.10#0.1 * Lx
+fluid_depth = 0.60
 
 bulk_primitive = Primitives3d.Box(0.0, Lx,
-                                  0.0, 0.5, #0.1*Lx, 0.2*Lx,
+                                  0.0, grain_depth,
                                   0, 1.0
                                   )
 bulk_body = CSGTree3d.Node(bulk_primitive)
@@ -54,13 +54,13 @@ bulk_point_array = grid.point_array
 
 
 # fluid properties
-fluid_properties = { 'rho': 1620.0 }
+fluid_properties = { 'rho': 1.225 }
 fluid_width = Lx
-fluid_height = 0.08
+fluid_height = fluid_depth
 #fluid_depth = fluid_depth#Ly
 
 fluid_primitive = Primitives3d.Box(0.0, Lx,
-                                 0.0, 0.5,
+                                 0.0, fluid_height,
                                  0, 1.0
                                  )
 fluid_body = CSGTree3d.Node(fluid_primitive)

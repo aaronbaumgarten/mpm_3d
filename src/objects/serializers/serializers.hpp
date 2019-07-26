@@ -98,4 +98,17 @@ public:
     int writeFrame(Job*);
 };
 
+class SlicePointsVTK : public DefaultVTK {
+public:
+    //default constructor
+    SlicePointsVTK(){
+        object_name = "SlicePointsVTK";
+        mainpath = "";
+    }
+
+    int stride = 1;
+    void init(Job*);
+    int writeFrame(Job*);
+};
+
 #endif //MPM_V3_SERIALIZERS_HPP
