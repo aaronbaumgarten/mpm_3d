@@ -214,14 +214,71 @@ public:
     /* input to this file denotes the type of improved quadrature to use
      * 0 -- No quadrature improvement
      * 1 -- uGIMP
-     * 2 -- GIMP
+     * 2 -- cpGIMP
      * 3 -- CPDI
-     * 4 -- CPDI2 (?)
-     * 5 -- Modified Gradient MPM
+     * 4 -- CPDI2
      * 5 -- Avoid-a-void
      * 6 -- \delta-correction, constant strain
      * 7 -- \delta-correction, constant time
      */
+
+    static const int STANDARD = 0;
+    static const int UGIMP = 1;
+    static const int CPGIMP = 2;
+    static const int CPDI = 3;
+    static const int CPDI2 = 4;
+    static const int AVAV = 5;
+    static const int DELTA_CS = 6;
+    static const int DELTA_CT = 7;
+
+    int QUADRULE = 0;
+
+    //uGIMP already implemented
+    //cpGIMP requires adjusting F on each point
+    //CPDI requires only F
+    //CPDI2 requires corner positions be advected
+
+    //error measure, true integral of node basis function, estimated integral of node basis function
+    Eigen::VectorXd e, V_i, v_i;
+
+    //gradient of error measure
+    KinematicVectorArray grad_e;
+
+    //deformation gradient (points)
+    KinematicTensorArray F;
+
+    //number of corners per material point
+    int cpmp;
+
+    //list of corner positions (length cpmp*points)
+    KinematicVectorArray corner_positions;
+
+    //mapping matrix for corner positions
+    MPMScalarSparseMatrix corner_S;
+
+    //grid variables for delta correction scheme
+    double alpha, h;
+
+    //initialization function
+    void init(Job* job, Body* body);
+
+    //generate mapping matrix associated with point integration
+    void generateMap(Job* job, Body* body, int SPEC);
+
+    //update integrators (F, corner_positions)
+    void updateIntegrators(Job* job, Body* body);
+
+    //output corners to file (maybe vtk?)
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+};
+
+/*----------------------------------------------------------------------------*/
+/*
+class EnhancedStrainPoints : public DefaultPoints{
+public:
+    EnhancedStrainPoints(){
+        object_name = "EnhancedStrainPoints";
+    }
 
     Eigen::VectorXd e, V_i, v_i;
     KinematicVectorArray grad_e;
@@ -234,5 +291,6 @@ public:
 
     void writeFrame(Job* job, Body* body, Serializer* serializer);
 };
+ */
 
 #endif //MPM_V3_POINTS_HPP

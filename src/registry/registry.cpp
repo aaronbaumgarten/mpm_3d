@@ -128,6 +128,7 @@ Registry<Material>::Registry() {
     object["SlurryFluidPhase"] = &createInstance<Material,SlurryFluidPhase>;
     object["BarotropicViscousFluid"] = &createInstance<Material,BarotropicViscousFluid>;
     object["Cornstarch"] = &createInstance<Material,Cornstarch>;
+    object["SlurryGranularPhase_wUnderCompaction"] = &createInstance<Material,SlurryGranularPhase_wUnderCompaction>;
 }
 
 

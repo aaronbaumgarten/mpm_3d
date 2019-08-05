@@ -1,10 +1,11 @@
 set(SOURCE_FILES
         ${SOURCE_FILES}
         ${CMAKE_CURRENT_SOURCE_DIR}/isolin.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/g_local_mu2.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/slurry_mu_im.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/sand_sachithlocal.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/slurry_granular_phase.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/viscousfluid.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/slurry_viscousfluid.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/cornstarch.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/slurry_granular_phase_w_under_compaction.cpp
         PARENT_SCOPE
         )

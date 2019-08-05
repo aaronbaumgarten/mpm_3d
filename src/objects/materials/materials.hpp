@@ -215,4 +215,20 @@ public:
     void writeFrame(Job* job, Body* body, Serializer* serializer);
 };
 
+/*----------------------------------------------------------------------------*/
+
+class SlurryGranularPhase_wUnderCompaction : public SlurryGranularPhase{
+public:
+    SlurryGranularPhase_wUnderCompaction(){
+        object_name = "SlurryGranularPhase_wUnderCompaction";
+    }
+
+    //material properties
+    double phi_c;
+
+    virtual void init(Job* job, Body* body);
+    virtual void calculateStress(Job* job, Body* body, int SPEC);
+};
+
+
 #endif //MPM_V3_MATERIALS_HPP

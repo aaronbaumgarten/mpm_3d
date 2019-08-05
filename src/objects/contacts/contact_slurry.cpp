@@ -205,7 +205,7 @@ void SlurryContact::applyRules(Job* job, int SPEC){
             }
 
             f1i = fn1i*normal + ft1i*s1i;
-            f2i = fn1i*normal + ft2i*s2i;
+            f2i = fn2i*normal + ft2i*s2i;
 
             job->bodies[b1]->nodes->f[i] -= f1i + f2i;
             job->bodies[b2]->nodes->f[i] += f1i;

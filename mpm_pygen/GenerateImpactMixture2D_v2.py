@@ -31,7 +31,7 @@ print "grid created"
 
 # global properties
 g = -9.81
-phi = 0.591
+phi = 0.581
 
 # grain properties
 bulk_properties = { 'rho': 2520*phi }
