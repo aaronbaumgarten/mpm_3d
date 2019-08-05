@@ -12,3 +12,4 @@ mpm_pygen/*.points
 mpm_pygen/*.grid
 mpm_pygen/*.particles
 mpm_gmsh/*.msh
+mpm_gmsh/gmsh_pygen/*.msh
