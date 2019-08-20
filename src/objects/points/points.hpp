@@ -253,11 +253,9 @@ public:
     //list of corner positions (length cpmp*points)
     KinematicVectorArray corner_positions;
 
-    //mapping matrix for corner positions
-    MPMScalarSparseMatrix corner_S;
-
     //grid variables for delta correction scheme
     double alpha, h;
+    KinematicVectorArray del_pos;
 
     //initialization function
     void init(Job* job, Body* body);

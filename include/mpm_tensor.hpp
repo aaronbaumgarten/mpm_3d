@@ -12,6 +12,7 @@
 #include <Eigen/Dense>
 #include <iostream>
 #include <array>
+#include "factorial.hpp"
 
 /*----------------------------------------------------------------------------*/
 //Eigen::Map object which interfaces with KinematicTensor object.
@@ -199,6 +200,9 @@ public:
     //symetric and skew decomposition
     MaterialTensor sym() const;
     MaterialTensor skw() const;
+
+    //tensor exponent
+    MaterialTensor exp(int order = 5) const;
 };
 
 /*----------------------------------------------------------------------------*/
@@ -340,6 +344,9 @@ public:
     //symetric and skew decomposition
     KinematicTensor sym() const;
     KinematicTensor skw() const;
+
+    //tensor exponent
+    KinematicTensor exp(int order = 5) const;
 };
 
 /*----------------------------------------------------------------------------*/
@@ -624,6 +631,19 @@ inline MaterialTensor MaterialTensor::sym() const{
 inline MaterialTensor MaterialTensor::skw() const{
     MaterialTensor tmp(this->data());
     return 0.5*(tmp - tmp.transpose());
+}
+
+//material tensor exponent
+inline MaterialTensor MaterialTensor::exp(int order) const{
+    MaterialTensor tmp(this->data());
+    MaterialTensor output = MaterialTensor::Identity();
+
+    //exp(X) = I + \sum(1/k! * X^k)
+    for (int k=order; k>=1; k--){
+        output = MaterialTensor::Identity() + 1.0/k * tmp * output;
+    }
+
+    return output;
 }
 
 
@@ -924,6 +944,19 @@ inline KinematicTensor KinematicTensor::sym() const{
 inline KinematicTensor KinematicTensor::skw() const{
     KinematicTensor tmp(this->data(),this->TENSOR_TYPE);
     return 0.5*(tmp - tmp.transpose());
+}
+
+//kinematic tensor exponent
+inline KinematicTensor KinematicTensor::exp(int order) const{
+    KinematicTensor tmp(this->data(), this->TENSOR_TYPE);
+    KinematicTensor output = KinematicTensor::Identity(this->TENSOR_TYPE);
+
+    //exp(X) = I + \sum(1/k! * X^k)
+    for (int k=order; k>=1; k--){
+        output = KinematicTensor::Identity(this->TENSOR_TYPE) + 1.0/k * tmp * output;
+    }
+
+    return output;
 }
 
 /*----------------------------------------------------------------------------*/

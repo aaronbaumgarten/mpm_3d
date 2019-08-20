@@ -16,11 +16,11 @@ print "files named"
 
 #grid properties
 #Ly = Lx = Lz = 0.4
-Lx = 0.12
-Ly = 0.60
+Lx = 2.0
+Ly = 1.0
 #Ne = 40
-Nx = 60
-Ny = 300
+Nx = 150
+Ny = 75
 Nz = 1
 lmpp = 2
 Lz = Nz*lmpp
@@ -30,12 +30,12 @@ print "grid created"
 
 # global properties
 g = -9.81
-phi = 0.591
+phi = 0.482
 
 # grain properties
-bulk_properties = { 'rho': 2520*phi }
+bulk_properties = { 'rho': 1620*phi }
 grain_width = 0.12
-grain_depth = 0.30
+grain_depth = 0.5
 grain_height = 1.0
 fluid_depth = 0.60
 
@@ -54,9 +54,9 @@ bulk_point_array = grid.point_array
 
 
 # fluid properties
-fluid_properties = { 'rho': 1.225 }
+fluid_properties = { 'rho': 1620 }
 fluid_width = Lx
-fluid_height = fluid_depth
+fluid_height = grain_depth
 #fluid_depth = fluid_depth#Ly
 
 fluid_primitive = Primitives3d.Box(0.0, Lx,
