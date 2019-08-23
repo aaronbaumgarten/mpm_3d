@@ -174,8 +174,11 @@ void ContactRigid_ReflectedBoundary::applyRules(Job* job, int SPEC){
                 //set contact forces
                 job->bodies[b2]->nodes->f(i) += fcti;
                 job->bodies[b1]->nodes->f(i) -= fcti;
+
+                contact_force[i] = -fcti;
+            } else {
+                contact_force[i] = 0;
             }
-            contact_force[i] = -fcti;
         } else {
             //zero reported force
             contact_force[i].setZero();

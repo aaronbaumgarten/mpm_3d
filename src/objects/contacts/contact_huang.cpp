@@ -121,6 +121,7 @@ void ContactHuang::applyRules(Job* job, int SPEC){
         //test every node for contact
         if (job->bodies[b1]->nodes->m[i] > 0 && job->bodies[b2]->nodes->m[i] > 0) {
 
+            fcti.setZero();
             normal = contact_normal(i);
 
             //determine 'center of mass' velocity

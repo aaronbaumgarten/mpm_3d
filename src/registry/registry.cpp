@@ -107,6 +107,7 @@ Registry<Points>::Registry() {
     object["GmshPoints"] = &createInstance<Points,GmshPoints>;
     object["CartesianPoints"] = &createInstance<Points,CartesianPoints>;
     object["ThreadPoolPoints"] = &createInstance<Points,ThreadPoolPoints>;
+    object["ImprovedQuadraturePoints"] = &createInstance<Points,ImprovedQuadraturePoints>;
 }
 
 

@@ -129,6 +129,9 @@ void SlurryContact::applyRules(Job* job, int SPEC){
     for (int i = 0; i < contact_normal.size(); i++) {
         //test every node for contact
         if (job->bodies[b1]->nodes->m[i] > 0 && (job->bodies[b2]->nodes->m[i] > 0 || job->bodies[b3]->nodes->m[i] > 0)){
+            f1i.setZero();
+            f2i.setZero();
+
             //contact must involve body 1
             normal = contact_normal(i);
             m1 = job->bodies[b1]->nodes->m[i];

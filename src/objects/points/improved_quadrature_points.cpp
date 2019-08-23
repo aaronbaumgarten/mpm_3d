@@ -3,7 +3,9 @@
 // improved_quadrature_points.cpp
 //
 
+
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <stdlib.h>
 #include <string>
@@ -29,6 +31,8 @@
 #include "points.hpp"
 #include "objects/bodies/bodies.hpp"
 
+static bool DEBUG_IMPROVED_QUAD = false;
+
 /* input to this file denotes the type of improved quadrature to use
      * 0 -- No quadrature improvement
      * 1 -- uGIMP
@@ -44,15 +48,17 @@
 //initialize point state (assumes that readFromFile has been called)
 //no safety check on this, so be careful please
 void ImprovedQuadraturePoints::init(Job* job, Body* body){
-    if (int_props.size() < 1){
+    if (int_props.size() < 1 && str_props.size() < 1){
         std::cout << int_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 1 property defined (QUADRULE).\n",
+                "%s:%s: Need at least 2 properties defined (QUADRULE, outputFolder).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
         //assign quadrature rule
         QUADRULE = int_props[0];
+        //assign output folder
+        outputFolder = Parser::makeDirectory(str_props[0]);
     }
 
     //all points require v0 initialization
@@ -144,14 +150,14 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
         }
 
         //initialize list of corner position vectors
-        corner_positions = KinematicVectorArray(x.size()*cp,x.VECTOR_TYPE);
+        corner_positions = KinematicVectorArray(x.size()*cpmp,x.VECTOR_TYPE);
         for (int i = 0; i < x.size(); i++) {
             for (int c = 0; c < A.rows(); c++) {
                 for (int pos = 0; pos < job->grid->GRID_DIM; pos++) {
-                    corner_positions[i,c*x.DIM + pos] = x[i,pos] + 0.5 * extent(i) * A(c, pos);
+                    corner_positions(i*cpmp + c,pos) = x(i,pos) + 0.5 * extent(i) * A(c, pos);
                 }
                 for (int pos = job->grid->GRID_DIM; pos < x.DIM; pos++) {
-                    corner_positions[i,c*x.DIM + pos] = 0;
+                    corner_positions(i*cpmp + c,pos) = 0;
                 }
             }
         }
@@ -177,13 +183,12 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
     }
 
     //Avoid-a-void not implemented yet
-    if (QUADRULE != STANDARD ||
-        QUADRULE != UGIMP ||
-        QUADRULE != CPGIMP ||
-        QUADRULE != CPDI ||
-        QUADRULE != CPDI2 ||
-        QUADRULE != DELTA_CS
-            ){
+    if ((QUADRULE != STANDARD) &&
+            (QUADRULE != UGIMP) &&
+            (QUADRULE != CPGIMP) &&
+            (QUADRULE != CPDI) &&
+            (QUADRULE != CPDI2) &&
+            (QUADRULE != DELTA_CS)){
         std::cerr << "ERROR: Rule " << QUADRULE << " not implemented in ImprovedQuadraturePoints yet. Exiting." << std::endl;
         exit(0);
     }
@@ -210,100 +215,6 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
 
     return;
 }
-
-/*----------------------------------------------------------------------------*/
-//read point data from file
-void DefaultPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
-    //first line lists number of points in file
-    //subsequent lines contain m, v, x, x_t, active
-    file = fileIN;
-
-    std::string line;
-    std::ifstream fin(file);
-    std::stringstream ss;
-    std::vector<std::string> s_vec;
-
-    if (fin.is_open()) {
-        std::getline(fin, line);
-        int len = std::stoi(line);
-
-        //size KinematicVectors
-        x = KinematicVectorArray(len, job->JOB_TYPE);
-        u = KinematicVectorArray(len, job->JOB_TYPE);
-        x_t = KinematicVectorArray(len, job->JOB_TYPE);
-        mx_t = KinematicVectorArray(len, job->JOB_TYPE);
-        b = KinematicVectorArray(len, job->JOB_TYPE);
-
-        //size scalar vectors
-        m.resize(len);
-        v.resize(len);
-        v0.resize(len);
-        active.resize(len);
-        extent.resize(len);
-
-        //size tensor arrays
-        T = MaterialTensorArray(len);
-        L = KinematicTensorArray(len, job->JOB_TYPE);
-
-        //zero out all entries to start
-        x.setZero();
-        u.setZero();
-        x_t.setZero();
-        m.setZero();
-        v.setZero();
-        v0.setZero();
-        mx_t.setZero();
-        b.setZero();
-        T.setZero();
-        L.setZero();
-        active.setZero();
-        extent.setZero();
-
-        for (int i = 0; i < len; i++) {
-            std::getline(fin, line);
-            s_vec = Parser::splitString(line, ' ');
-            if (s_vec.size() == (1 + 1 + job->DIM + job->DIM + 1)) {
-                m[i] = std::stod(s_vec[0]);                 //first column is mass
-                v[i] = std::stod(s_vec[1]);                 //second column is volume
-                for (int pos = 0; pos < job->DIM; pos++) {
-                    x(i, pos) = std::stod(s_vec[2 + pos]);    //following cols are position
-                }
-                for (int pos = 0; pos < job->DIM; pos++) {
-                    x_t(i, pos) = std::stod(s_vec[2 + job->DIM + pos]);     //following cols are velocity
-                }
-                active[i] = std::stod(s_vec[2 + 2 * job->DIM]);
-
-            } else if (s_vec.size() == (1 + 1 + job->grid->GRID_DIM + job->grid->GRID_DIM + 1)) {
-                m[i] = std::stod(s_vec[0]);                 //first column is mass
-                v[i] = std::stod(s_vec[1]);                 //second column is volume
-                for (int pos = 0; pos < job->grid->GRID_DIM; pos++) {
-                    x(i, pos) = std::stod(s_vec[2 + pos]);    //following cols are position
-                }
-                for (int pos = 0; pos < job->grid->GRID_DIM; pos++) {
-                    x_t(i, pos) = std::stod(s_vec[2 + job->grid->GRID_DIM + pos]);     //following cols are velocity
-                }
-                active[i] = std::stod(s_vec[2 + 2 * job->grid->GRID_DIM]);
-
-            } else {
-                std::cerr << "ERROR: Unable to read line: " << file << std::endl;
-                return;
-            }
-
-            //correct volume and mass for axisymmetric simulation
-            if (job->JOB_TYPE == job->JOB_AXISYM){
-                m[i] *= x(i,0);
-                v[i] *= x(i,0);
-            }
-        }
-
-    } else {
-        std::cerr << "ERROR: Unable to open file: " << file << std::endl;
-        return;
-    }
-
-    return;
-}
-
 
 void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
     //the default body will defer to points to generate the mapping
@@ -384,8 +295,25 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
             } else {
                 //check that corners are in domain
                 for (int c = 0; c < A.rows(); c++) {
-                    for (int pos = 0; pos < job->grid->GRID_DIM; pos++){
-                        tmpVec[pos] = x_i[pos] + 0.5*extent(i)*A(c,pos);
+                    //determine corner positions
+                    if (QUADRULE == UGIMP){
+                        //corners are fixed distance from point center
+                        for (int pos = 0; pos < job->grid->GRID_DIM; pos++){
+                            tmpVec[pos] = x_i[pos] + 0.5*extent(i)*A(c,pos);
+                        }
+                    } else if (QUADRULE == CPGIMP){
+                        //corners are stretched along cartesian axes
+                        for (int pos = 0; pos < job->grid->GRID_DIM; pos++){
+                            tmpVec[pos] = x_i[pos] + 0.5*extent(i)*A(c,pos)*F(i,pos,pos);
+                        }
+                    } else if (QUADRULE == CPDI){
+                        //corners are defined by x_c = F \xi_c
+                        for (int pos = 0; pos < job->grid->GRID_DIM; pos++){
+                            tmpVec[pos] = x_i[pos];
+                            for (int ii=0; ii<job->grid->GRID_DIM; ii++){
+                                tmpVec[pos] += 0.5*extent(i)*A(c,ii)*F(i,pos,ii);
+                            }
+                        }
                     }
                     for (int pos = job->grid->GRID_DIM; pos < tmpVec.DIM; pos++){
                         tmpVec(pos) = 0;
@@ -451,7 +379,7 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
                             //corners are defined by x_c = F \xi_c
                             for (int pos = 0; pos < job->grid->GRID_DIM; pos++){
                                 tmpVec[pos] = x_i[pos];
-                                for (int ii=0; ii<job->grid->GRID_DIM; ii){
+                                for (int ii=0; ii<job->grid->GRID_DIM; ii++){
                                     tmpVec[pos] += 0.5*extent(i)*A(c,ii)*F(i,pos,ii);
                                 }
                             }
@@ -470,6 +398,7 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
                     }
 
                     //insert mappings into mapping matrix with appropriate weights
+                    /*
                     double detF = 1;
                     if (QUADRULE == UGIMP) {
                         detF = 1;
@@ -479,10 +408,11 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
                         }
                     } else if (QUADRULE == CPDI){
                         detF = F(i).det();
-                    }
+                    }*/
 
                     for (int j = 0; j < nvec.size(); j++) {
-                        body->S.push_back(nvec[j], i, detF * valvec[j] / A.rows()); //node, point, value
+                        //body->S.push_back(nvec[j], i, detF * valvec[j] / A.rows()); //node, point, value
+                        body->S.push_back(nvec[j], i, valvec[j] / A.rows()); //node, point, value
                     }
 
                     //determine gradient using quadrature rules
@@ -510,7 +440,7 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
                             //corners are defined by x_c = F \xi_c
                             for (int pos = 0; pos < job->grid->GRID_DIM; pos++){
                                 tmpVec[pos] = x_i[pos];
-                                for (int ii=0; ii<job->grid->GRID_DIM; ii){
+                                for (int ii=0; ii<job->grid->GRID_DIM; ii++){
                                     tmpVec[pos] += 0.5*extent(i)*A(c,ii)*F(i,pos,ii);
                                 }
                             }
@@ -555,6 +485,7 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
                 }
             }
         }
+
     } else if (QUADRULE == CPDI2) {
         /*---------------------------------------------------------------------------------------*/
         //cpdi2
@@ -646,14 +577,14 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
                         std::cout << "WARNING: Point has zero volume!." << std::endl;
                     }
 
-                    /* CALCULATE S_ip */
-                    //initialize storage vectors
-                    nvec.resize(0);
-                    valvec.resize(0);
-                    gradvec.resize(0);
-
                     //determine corner weights
                     for (int c = 0; c < A.rows(); c++) {
+                        /* CALCULATE S_ip */
+                        //initialize storage vectors
+                        nvec.resize(0);
+                        valvec.resize(0);
+                        gradvec.resize(0);
+
                         //determine corner positions
                         tmpVec = corner_positions(i * cpmp + c);
 
@@ -677,22 +608,30 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
                         for (int j = 0; j < nvec.size(); j++) {
 
                             //mapping contribution from corner
-                            body->S.push_back(nvec[j], i, w * valvec[j] / A.rows()); //node, point, value
+                            body->S.push_back(nvec[j], i, w * valvec[j]);// / A.rows()); //node, point, value
 
                             //gradient contribution from corner
-                            tmpGrad[0] = (A(c,0)*b2 - A(c,1)*(a2 + a3*A(c,0)/3.0))/vp;
-                            tmpGrad[1] = (-A(c,0)*(b1 + b3*A(c,1)/3.0) + A(c,1)*a1)/vp;
+                            tmpGrad[0] = valvec[j]*(A(c,0)*b2 - A(c,1)*(a2 + a3*A(c,0)/3.0))/vp;
+                            tmpGrad[1] = valvec[j]*(-A(c,0)*(b1 + b3*A(c,1)/3.0) + A(c,1)*a1)/vp;
                             for (int pos = job->grid->GRID_DIM; pos < tmpGrad.DIM; pos++) {
                                 tmpGrad[pos] = 0;
                             }
 
                             //add to point gradient
-                            gradvec.push_back(tmpGrad);
+                            //gradvec.push_back(tmpGrad);
+                            body->gradS.push_back(nvec[j], i, tmpGrad);
                         }
                     }
                 }
             }
         }
+    }
+
+    if (DEBUG_IMPROVED_QUAD) {
+        //check for partition of unity in mapping
+        Eigen::VectorXd unity_nodes = Eigen::VectorXd::Ones(body->nodes->x.size());
+        Eigen::VectorXd unity_points = body->S.operate(unity_nodes, MPMSparseMatrixBase::TRANSPOSED);
+        std::cout << "min: " << unity_points.minCoeff() << ", max: " << unity_points.maxCoeff() << std::endl;
     }
 
     //for all methods, calculate error measures
@@ -709,7 +648,7 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
         v_i = body->S * body->points->v;
     }
 
-    double tmpNum
+    double tmpNum;
     for (int i = 0; i < V_i.rows(); i++) {
         tmpNum = (v_i(i) - V_i(i)) / (V_i(i));
         e(i) = std::max(0.0, tmpNum);
@@ -729,6 +668,136 @@ void ImprovedQuadraturePoints::writeFrame(Job* job, Body* body, Serializer* seri
     DefaultPoints::writeFrame(job, body, serializer);
 
     //custom file output
+    serializer->writeVectorArray(grad_e, "grad_err");
+    serializer->writeScalarArray(V_i, "grid_volume");
+    serializer->writeScalarArray(e, "err");
+
+    if (QUADRULE == DELTA_CS) {
+        serializer->writeVectorArray(del_pos, "del_pos");
+    }
+
+    //create temporary kinematicvector
+    KinematicVector tmpVec(x.VECTOR_TYPE);
+    //for uGIMP, cpGIMP, CPDI, and CPDI2, write output file with boxes for point domains
+    if (QUADRULE == UGIMP || QUADRULE == CPGIMP || QUADRULE == CPDI || QUADRULE == CPDI2) {
+        //open point file
+        std::stringstream ss;
+        ss << "fpd." << body->id << "." << body->name << ".corners." << std::setw(10) << std::setfill('0') << (sampledFrames)
+           << ".vtk";
+        //increment sampled frames
+        sampledFrames++;
+
+        std::string pfilename = ss.str();
+        //pfile = std::ofstream(frameDirectory+pfilename,std::ios::trunc);
+        std::ofstream pfile = std::ofstream(outputFolder + pfilename, std::ios::trunc);
+
+        int plen = body->points->x.size();
+
+        pfile << "# vtk DataFile Version 3.0\n" << "Frame: 0, Time: 0\n";
+        pfile << "ASCII\n";
+        pfile << "DATASET UNSTRUCTURED_GRID\n";
+
+        pfile << "POINTS " << (plen * cpmp) << " double\n";
+        for (int i = 0; i < plen; i++) {
+            //store point position
+            KinematicVector::Map x_i = x[i];
+
+            for (int c = 0; c < cpmp; c++) {
+                //determine corner positions
+                if (QUADRULE == UGIMP){
+                    //corners are fixed distance from point center
+                    for (int pos = 0; pos < job->grid->GRID_DIM; pos++){
+                        tmpVec[pos] = x_i[pos] + 0.5*extent(i)*A(c,pos);
+                    }
+                } else if (QUADRULE == CPGIMP){
+                    //corners are stretched along cartesian axes
+                    for (int pos = 0; pos < job->grid->GRID_DIM; pos++){
+                        tmpVec[pos] = x_i[pos] + 0.5*extent(i)*A(c,pos)*F(i,pos,pos);
+                    }
+                } else if (QUADRULE == CPDI){
+                    //corners are defined by x_c = F \xi_c
+                    for (int pos = 0; pos < job->grid->GRID_DIM; pos++){
+                        tmpVec[pos] = x_i[pos];
+                        for (int ii=0; ii<job->grid->GRID_DIM; ii++){
+                            tmpVec[pos] += 0.5*extent(i)*A(c,ii)*F(i,pos,ii);
+                        }
+                    }
+                } else if (QUADRULE == CPDI2){
+                    //corner positions defined by stored value
+                    tmpVec = corner_positions[i*cpmp + c];
+                }
+
+                //vtk files require x,y,z
+                for (int pos = 0; pos < 3; pos++) {
+                    if (pos < body->points->x.DIM && (body->points->active(i) != 0) &&
+                        std::isfinite(tmpVec[pos])) {
+                        pfile << tmpVec[pos] << " ";
+                    } else {
+                        pfile << "0 ";
+                    }
+                }
+                pfile << "\n";
+            }
+        }
+
+        pfile << "CELLS " << plen << " " << (1 + cpmp) * plen << "\n";
+        if (job->grid->GRID_DIM == 1){
+            for (int i=0; i<plen; i++) {
+                pfile << "2 " << i*cpmp << " "
+                              << i*cpmp+1 << "\n";
+            }
+        } else if(job->grid->GRID_DIM == 2){
+            for (int i=0; i<plen; i++) {
+                pfile << "4 " << i*cpmp << " "
+                              << i*cpmp+1 << " "
+                              << i*cpmp+3 << " "
+                              << i*cpmp+2 << "\n";
+            }
+        } else {
+            for (int i=0; i<plen; i++) {
+                pfile << "8 " << i*cpmp << " "
+                               << i*cpmp+1 << " "
+                               << i*cpmp+3 << " "
+                               << i*cpmp+2 << " "
+                               << i*cpmp+4 << " "
+                               << i*cpmp+5 << " "
+                               << i*cpmp+7 << " "
+                               << i*cpmp+6 << "\n";
+            }
+        }
+
+        pfile << "CELL_TYPES " << plen << "\n";
+        if (job->grid->GRID_DIM == 1) {
+            for (int i = 0; i < plen; i++) {
+                pfile << "3\n";
+            }
+        } else if (job->grid->GRID_DIM == 2) {
+            for (int i = 0; i < plen; i++) {
+                pfile << "9\n";
+            }
+        } else {
+            for (int i = 0; i < plen; i++) {
+                pfile << "12\n";
+            }
+        }
+
+        pfile << "POINT_DATA " << plen*cpmp << "\n";
+
+        //write to point file
+        pfile << "SCALARS volume double 1\n";
+        pfile << "LOOKUP_TABLE default\n";
+        for (int i = 0; i < plen; i++){
+            for (int c=0; c<cpmp; c++){
+                if (active(i) == 1 && std::isfinite(v(i))) {
+                    pfile << v(i) << "\n";
+                } else {
+                    pfile << "0" << "\n";
+                }
+            }
+        }
+
+        pfile.close();
+    }
 
     return;
 }
@@ -754,7 +823,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
         for (int i=0; i<F.size(); i++){
             //F^{n+1} = exp(L*dt)*F^{n}
             tmpL = job->dt*L[i];
-            F[i] = tmpL.exp(4)*F[i];
+            F[i] = tmpL.exp(5)*F[i];
 
             //update volume
             v[i] = F[i].det() * v0[i];
@@ -832,12 +901,12 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         std::cout << "WARNING: Point has zero volume!." << std::endl;
                     }
 
-                    //initialize storage vectors
-                    nvec.resize(0);
-                    valvec.resize(0);
-
                     //determine corner weights
                     for (int c = 0; c < A.rows(); c++) {
+                        //initialize storage vectors
+                        nvec.resize(0);
+                        valvec.resize(0);
+
                         //determine corner positions
                         tmpVec = corner_positions(i * cpmp + c);
 
@@ -855,7 +924,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
 
                         //use nodal velocities to update corner position
                         for (int j = 0; j < nvec.size(); j++) {
-                            corner_positions[i*cpmp + c] += w*job->dt*body->nodes->x_t[nvec[j]]*valvec[j];
+                            corner_positions[i*cpmp + c] += job->dt*body->nodes->x_t[nvec[j]]*valvec[j];
                         }
                     }
 
@@ -923,28 +992,5 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
         }
     }
 
-    return;
-}
-
-
-/*----------------------------------------------------------------------------*/
-//not implemented yet
-std::string DefaultPoints::saveState(Job* job, Body* body, Serializer* serializer, std::string filepath){
-    return "err";
-}
-
-int DefaultPoints::loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath){
-    return 0;
-}
-
-/*----------------------------------------------------------------------------*/
-//
-void DefaultPoints::generateLoads(Job* job, Body* body){
-    //do nothing
-    return;
-}
-
-void DefaultPoints::applyLoads(Job* job, Body* body){
-    //do nothing
     return;
 }

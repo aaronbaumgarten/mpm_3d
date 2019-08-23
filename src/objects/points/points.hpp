@@ -257,6 +257,10 @@ public:
     double alpha, h;
     KinematicVectorArray del_pos;
 
+    //internal variables for i/o
+    int sampledFrames = 0;
+    std::string outputFolder;
+
     //initialization function
     void init(Job* job, Body* body);
 
