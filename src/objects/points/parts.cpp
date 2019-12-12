@@ -86,3 +86,38 @@ bool Box::encompasses(KinematicVector &xIN) {
     }
     return true;
 }
+
+/*----------------------------------------------------------------------------*/
+
+void SineWave::init(Job* job){
+    //initialize amplitude, wavelength, offset
+    if (fp64_props.size() < 4){
+        std::cout << fp64_props.size() << "\n";
+        fprintf(stderr,
+                "%s:%s: Need 4 values defined.\n",
+                __FILE__, __func__);
+        exit(0);
+    } else {
+        //store values
+        amplitude = fp64_props[0];
+        wavelength = fp64_props[1];
+        x_0 = fp64_props[2];
+        y_0 = fp64_props[3];
+
+        std::cout << "Part properties (amplitude = " << amplitude
+                  << ", wavelength = " << wavelength
+                  << ", x_0 = " << x_0
+                  << ", y_0 = " << y_0 << ")." << std::endl;
+    }
+    return;
+}
+
+bool SineWave::encompasses(KinematicVector &xIN) {
+    assert(xIN.DIM >= 2 && "SineWave not implented in 1D.");
+    //check whether y-dimension lies underneath function of x-dimension
+    if ((xIN[1]-y_0) <= amplitude*std::sin(2.0*M_PI*(xIN[0] - x_0)/wavelength)){
+        return true;
+    } else {
+        return false;
+    }
+}

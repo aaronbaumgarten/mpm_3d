@@ -150,4 +150,5 @@ template<>
 Registry<Part>::Registry() {
     object["Ball"] = &createInstance<Part,Ball>;
     object["Box"] = &createInstance<Part,Box>;
+    object["SineWave"] = &createInstance<Part,SineWave>;
 }

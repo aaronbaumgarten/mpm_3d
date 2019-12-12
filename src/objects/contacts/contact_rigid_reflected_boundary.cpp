@@ -177,7 +177,7 @@ void ContactRigid_ReflectedBoundary::applyRules(Job* job, int SPEC){
 
                 contact_force[i] = -fcti;
             } else {
-                contact_force[i] = 0;
+                contact_force[i].setZero();
             }
         } else {
             //zero reported force

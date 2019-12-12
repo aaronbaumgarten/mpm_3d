@@ -1,0 +1,12 @@
+# point generation for two blocks
+Lx = {1.0, 1.0}
+Nx = {50, 50}
+out_file = "out.points"
+lmpp = 3
+rho = 1000 #kg/m^3
+
+part
+{
+    class = "SineWave"
+    properties = {0.25, 1.0, 0.0, 0.5}
+}

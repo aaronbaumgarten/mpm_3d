@@ -117,6 +117,19 @@ public:
     bool encompasses(KinematicVector& xIN);
 };
 
+class SineWave : public Part{
+public:
+    SineWave(){
+        object_name = "SineWave";
+    }
+
+    double amplitude, wavelength, x_0, y_0;
+
+    void init(Job* job);
+    bool encompasses(KinematicVector& xIN);
+
+};
+
 /*----------------------------------------------------------------------------*/
 
 class GmshPoints : public DefaultPoints{
