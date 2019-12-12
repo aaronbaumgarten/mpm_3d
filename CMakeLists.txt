@@ -22,6 +22,8 @@ add_subdirectory(src/algebra)
 
 add_subdirectory(src/config)
 
+add_subdirectory(src/fvm)
+
 add_subdirectory(src/objects/serializers)
 add_subdirectory(src/objects/drivers)
 add_subdirectory(src/objects/solvers)

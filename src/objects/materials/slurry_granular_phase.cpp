@@ -61,7 +61,7 @@ void SlurryGranularPhase::init(Job* job, Body* body){
         }
 
         if (fluid_body_id == -1){
-            std::cout << std::endl << "WARNING: No fluid body defined! Setting eta to 0!" << std::endl << std::endl;
+            std::cout << std::endl << "WARNING: No fluid body defined!" << std::endl << std::endl;
         }
 
         if (K_3 > mu_1 / phi_m){

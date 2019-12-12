@@ -5,6 +5,7 @@
 
 #include "registry.hpp"
 #include "mpm_objects.hpp"
+#include "fvm_objects.hpp"
 
 #include "objects/serializers/serializers.hpp"
 #include "objects/drivers/drivers.hpp"
@@ -46,6 +47,7 @@ Registry<Driver>::Registry() {
     object["UserDefinedGravityDriver"] = &createInstance<Driver,UserDefinedGravityDriver>;
     object["CavityFlowDriver"] = &createInstance<Driver,CavityFlowDriver>;
     object["BallisticDriver"] = &createInstance<Driver,BallisticDriver>;
+    object["FiniteVolumeDriver"] = &createInstance<Driver,FiniteVolumeDriver>;
 }
 
 
@@ -151,4 +153,26 @@ Registry<Part>::Registry() {
     object["Ball"] = &createInstance<Part,Ball>;
     object["Box"] = &createInstance<Part,Box>;
     object["SineWave"] = &createInstance<Part,SineWave>;
+}
+
+/*----------------------------------------------------------------------------*/
+//finite volume objects
+template<>
+Registry<FiniteVolumeSolver>::Registry() {
+}
+
+template<>
+Registry<FiniteVolumeGrid>::Registry() {
+}
+
+template<>
+Registry<FiniteVolumeBody>::Registry() {
+}
+
+template<>
+Registry<FiniteVolumeMaterial>::Registry() {
+}
+
+template<>
+Registry<FiniteVolumeSerializer>::Registry() {
 }
