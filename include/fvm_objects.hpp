@@ -40,6 +40,13 @@ public:
 //responsible for tracking element, face definitions and cross integrals with mpm grid
 class FiniteVolumeGrid: public MPMObject{
 public:
+
+    //boundary condition types
+    static const int DIRICHLET = 0;
+    static const int NEUMANN = 1;
+    static const int PERIODIC = 2;
+
+    //grid definions
     int face_count;      //number of faces which define grid
     int node_count;      //number of nodes which define grid
     int element_count;   //number of elements in grid
@@ -57,25 +64,34 @@ public:
     virtual int getElementTag(int) = 0;            //return 'tag' of id
     virtual double getFaceArea(int) = 0;           //return face area of id
     virtual int getFaceTag(int) = 0;               //return 'tag of face id
-    virtual KinematicVector getFaceNormal(int) = 0; //return normal vector associated with given id
+    virtual KinematicVector getFaceNormal(Job*, int) = 0; //return normal vector associated with given id
 
     virtual std::vector<int> getElementFaces(int) = 0; //return faces associated with given element id
-    virtual std::array<int,2> getOrientedElementByFace(int) = 0; //return elements associated with given face id A -|-> B
+    virtual std::array<int,2> getOrientedElementsByFace(int) = 0; //return elements associated with given face id A -|-> B
     virtual std::vector<int> getElementNeighbors(int) = 0; //return list of elements in neighborhood
+    virtual KinematicVector getElementCentroid(Job*, int) = 0; //return element centroid
+    virtual KinematicVector getFaceCentroid(Job*, int) = 0;
 
     virtual void generateMappings(Job*, FiniteVolumeDriver*) = 0; //generate M_ji and gradM_ji maps
-    virtual void constructVelocityField(Job*, FiniteVolumeDriver*, int) = 0; //construct velocity from FV body
-    virtual KinematicTensorArray getVelocityGradients(Job*, FiniteVolumeDriver*, int) = 0; //return velocity gradient in each element
+    virtual void constructMomentumField(Job*, FiniteVolumeDriver*) = 0; //construct momentum from FV body
+    virtual void constructDensityField(Job*, FiniteVolumeDriver*) = 0; //construct momentum from FV body
+    virtual KinematicTensorArray getVelocityGradients(Job*, FiniteVolumeDriver*) = 0; //return velocity gradient in each element
 
     //functions to compute element-wise fluxes of field variables using reconstructed velocity field
-    virtual Eigen::VectorXd calculateElementFluxIntegrals(Eigen::VectorXd&, int) = 0;
-    virtual KinematicVector calculateElementFluxIntegrals(KinematicVector&, int) = 0;
-    virtual KinematicTensor calculateElementFluxIntegrals(KinematicTensor&, int) = 0;
-    virtual MaterialVector calculateElementFluxIntegrals(MaterialVector&, int) = 0;
-    virtual MaterialTensor calculateElementFluxIntegrals(MaterialTensor&, int) = 0;
+    virtual Eigen::VectorXd calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, Eigen::VectorXd&) = 0;
+    //virtual KinematicVectorArray calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, KinematicVectorArray&, int) = 0;
+    //virtual KinematicTensorArray calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, KinematicTensorArray&, int) = 0;
+    //virtual MaterialVectorArray calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, MaterialVectorArray&, int) = 0;
+    //virtual MaterialTensorArray calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, MaterialTensorArray&, int) = 0;
 
     //functions to compute element surface tractions
-    virtual KinematicVector calculateElementSurfaceTractionIntegrals(MaterialTensor& tau_f, Eigen::VectorXd& p_f, int) = 0;
+    virtual KinematicVectorArray calculateElementSurfaceTractionIntegrals(Job* job, FiniteVolumeDriver* driver) = 0;
+
+    //functions to compute element mass flux
+    virtual Eigen::VectorXd calculateElementMassFluxes(Job* job, FiniteVolumeDriver* driver) = 0;
+
+    //functions to compute element momentum fluxes
+    virtual Eigen::VectorXd calculateElementMomentumFluxes(Job* job, FiniteVolumeDriver* driver) = 0;
 };
 
 
@@ -88,9 +104,10 @@ public:
     virtual void init(Job*, FiniteVolumeDriver*) = 0;
 
     //container for fluid fields
-    KinematicVectorArray u;
-    Eigen::VectorXd rho_bar, p;
-    MaterialTensorArray tau;
+    KinematicTensorArray p_x;      //momentum gradient
+    KinematicVectorArray p, rho_x; //momentum and density gradient
+    Eigen::VectorXd rho, P;        //density and pressure
+    MaterialTensorArray tau;       //shear stress
 };
 
 /*----------------------------------------------------------------------------*/
@@ -102,8 +119,10 @@ public:
     virtual void init(Job*, FiniteVolumeDriver*) = 0;
 
     //functions to calculate fluid fields
+    virtual MaterialTensor getStress(Job*, FiniteVolumeDriver*, KinematicTensor L, double rho, double theta);
     virtual void calculateElementPressures(Job*, FiniteVolumeDriver*) = 0;
     virtual void calculateElementShearStresses(Job*, FiniteVolumeDriver*) = 0;
+    virtual void solveMaterialEquations(Job*, FiniteVolumeDriver*) = 0;
 };
 
 /*------------------------------------------------------------------------*/
@@ -168,6 +187,9 @@ public:
     double stop_time;
     KinematicVector gravity;
     std::string file;
+
+    //order of finite volume reconstruction
+    int order = 2;
 };
 
 /*------------------------------------------------------------------------*/

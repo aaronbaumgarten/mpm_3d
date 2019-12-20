@@ -84,12 +84,21 @@ void FiniteVolumeDriver::init(Job* job){
         file = str_props[0];
     }
 
+    if (int_props.size() >= 1){
+        order = int_props[0];
+    }
+
+    if (order < 1){
+        std::cout << "ERROR: Order selected is less than 1, that doesn't seem right." << std::endl;
+        order = 1;
+    }
+
     //print grid properties
     std::cout << "Driver properties (stop_time = " << stop_time << ", gravity = < ";
     for (int pos=0; pos<job->grid->GRID_DIM; pos++){
         std::cout << gravity[pos] << " ";
     }
-    std::cout << ">, " << file << ")." << std::endl;
+    std::cout << ">, file = " << file << ", order = " << order << ")." << std::endl;
 
     /*---------------------------------------*/
     //read in finite volume configuration file
@@ -495,6 +504,14 @@ void FiniteVolumeDriver::init(Job* job){
 /*----------------------------------------------------------------------------*/
 
 void FiniteVolumeDriver::run(Job* job) {
+    //initialize FVM objects
+    serializer->init(job, this);
+    fluid_grid->init(job, this);
+    fluid_body->init(job, this);
+    fluid_material->init(job, this);
+    solver->init(job, this);
+
+    //set counters to zero
     int stepCount = 0;
     int frameCount = 0;
 
