@@ -46,6 +46,9 @@ public:
     static const int NEUMANN = 1;
     static const int PERIODIC = 2;
 
+    //Harten entropy correction scale
+    static constexpr double delta = 0.1;
+
     //grid definions
     int face_count;      //number of faces which define grid
     int node_count;      //number of nodes which define grid
@@ -84,14 +87,11 @@ public:
     //virtual MaterialVectorArray calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, MaterialVectorArray&, int) = 0;
     //virtual MaterialTensorArray calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, MaterialTensorArray&, int) = 0;
 
-    //functions to compute element surface tractions
-    virtual KinematicVectorArray calculateElementSurfaceTractionIntegrals(Job* job, FiniteVolumeDriver* driver) = 0;
-
     //functions to compute element mass flux
     virtual Eigen::VectorXd calculateElementMassFluxes(Job* job, FiniteVolumeDriver* driver) = 0;
 
     //functions to compute element momentum fluxes
-    virtual Eigen::VectorXd calculateElementMomentumFluxes(Job* job, FiniteVolumeDriver* driver) = 0;
+    virtual KinematicVectorArray calculateElementMomentumFluxes(Job* job, FiniteVolumeDriver* driver) = 0;
 };
 
 
@@ -106,7 +106,7 @@ public:
     //container for fluid fields
     KinematicTensorArray p_x;      //momentum gradient
     KinematicVectorArray p, rho_x; //momentum and density gradient
-    Eigen::VectorXd rho, P;        //density and pressure
+    Eigen::VectorXd rho, P, theta; //density, pressure, and temperature
     MaterialTensorArray tau;       //shear stress
 };
 
@@ -119,7 +119,10 @@ public:
     virtual void init(Job*, FiniteVolumeDriver*) = 0;
 
     //functions to calculate fluid fields
-    virtual MaterialTensor getStress(Job*, FiniteVolumeDriver*, KinematicTensor L, double rho, double theta);
+    virtual MaterialTensor getStress(Job*, FiniteVolumeDriver*, KinematicVector x, KinematicTensor L, double rho, double theta) = 0;
+    virtual MaterialTensor getShearStress(Job*, FiniteVolumeDriver*, KinematicVector x, KinematicTensor L, double rho, double theta) = 0;
+    virtual double getPressure(Job*, FiniteVolumeDriver*, KinematicVector x, double rho, double theta) = 0;
+    virtual double getSpeedOfSound(Job*, FiniteVolumeDriver*, KinematicVector x, double rho, double theta) = 0;
     virtual void calculateElementPressures(Job*, FiniteVolumeDriver*) = 0;
     virtual void calculateElementShearStresses(Job*, FiniteVolumeDriver*) = 0;
     virtual void solveMaterialEquations(Job*, FiniteVolumeDriver*) = 0;

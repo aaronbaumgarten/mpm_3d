@@ -70,14 +70,11 @@ public:
     //virtual MaterialVectorArray calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, MaterialVectorArray&, int) = 0;
     //virtual MaterialTensorArray calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, MaterialTensorArray&, int) = 0;
 
-    //functions to compute element surface tractions
-    virtual KinematicVectorArray calculateElementSurfaceTractionIntegrals(Job* job, FiniteVolumeDriver* driver) = 0;
-
     //functions to compute element mass flux
     virtual Eigen::VectorXd calculateElementMassFluxes(Job* job, FiniteVolumeDriver* driver) = 0;
 
     //functions to compute element momentum fluxes
-    virtual Eigen::VectorXd calculateElementMomentumFluxes(Job* job, FiniteVolumeDriver* driver) = 0;
+    virtual KinematicVectorArray calculateElementMomentumFluxes(Job* job, FiniteVolumeDriver* driver) = 0;
 };
 */
 
@@ -135,14 +132,11 @@ public:
     //functions to compute element-wise fluxes of field variables using reconstructed velocity field
     virtual Eigen::VectorXd calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, Eigen::VectorXd& values);
 
-    //functions to compute element surface tractions
-    virtual KinematicVectorArray calculateElementSurfaceTractionIntegrals(Job* job, FiniteVolumeDriver* driver);
-
     //functions to compute element mass flux
     virtual Eigen::VectorXd calculateElementMassFluxes(Job* job, FiniteVolumeDriver* driver);
 
     //functions to compute element momentum fluxes
-    virtual Eigen::VectorXd calculateElementMomentumFluxes(Job* job, FiniteVolumeDriver* driver);
+    virtual KinematicVectorArray calculateElementMomentumFluxes(Job* job, FiniteVolumeDriver* driver);
 };
 
 /*----------------------------------------------------------------------------*/

@@ -3,6 +3,7 @@
 // registry.cpp
 //
 
+#include <fvm/fvm_grids.hpp>
 #include "registry.hpp"
 #include "mpm_objects.hpp"
 #include "fvm_objects.hpp"
@@ -19,6 +20,8 @@
 #include "objects/nodes/nodes.hpp"
 #include "objects/materials/materials.hpp"
 #include "objects/boundaries/boundaries.hpp"
+
+#include "fvm/fvm_grids.hpp"
 
 template<typename Base, typename Derived> std::unique_ptr<Base> createInstance() { return std::unique_ptr<Base>(new Derived); }
 
@@ -163,6 +166,7 @@ Registry<FiniteVolumeSolver>::Registry() {
 
 template<>
 Registry<FiniteVolumeGrid>::Registry() {
+    object["FVMCartesian"] = &createInstance<FiniteVolumeGrid,FVMCartesian>;
 }
 
 template<>
