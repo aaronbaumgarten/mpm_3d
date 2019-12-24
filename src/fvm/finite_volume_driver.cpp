@@ -57,6 +57,21 @@ void FiniteVolumeDriver::checkConfigFile(std::string filename) {
 /*----------------------------------------------------------------------------*/
 
 void FiniteVolumeDriver::init(Job* job){
+    //assign grid dimension from job type
+    if (job->JOB_TYPE == job->JOB_1D){
+        GRID_DIM = 1;
+    } else if (job->JOB_TYPE == job->JOB_2D){
+        GRID_DIM = 2;
+    } else if (job->JOB_TYPE == job->JOB_3D){
+        GRID_DIM = 3;
+    } else if (job->JOB_TYPE == job->JOB_2D_OOP){
+        GRID_DIM = 2; //this is important, job->DIM =/= job->grid->GRID_DIM
+    } else if (job->JOB_TYPE == job->JOB_AXISYM){
+        GRID_DIM = 2; //this is important, job->DIM =/= job->grid->GRID_DIM
+    } else {
+        std::cerr << "Job doesn't have defined type for input " << job->JOB_TYPE << "." << std::endl;
+    }
+
     //check size of properties passed to driver object
     if (fp64_props.size() < 1 || str_props.size() < 1) {
         std::cout << fp64_props.size() << ", " << str_props.size() << "\n";
@@ -64,7 +79,7 @@ void FiniteVolumeDriver::init(Job* job){
                 "%s:%s: Need at least 2 properties defined (stop_time, file_name).\n",
                 __FILE__, __func__);
         exit(0);
-    } else if (fp64_props.size() < 1+job->grid->GRID_DIM) {
+    } else if (fp64_props.size() < 1+GRID_DIM) {
 
         //store stop_time
         stop_time = fp64_props[0];
@@ -78,7 +93,7 @@ void FiniteVolumeDriver::init(Job* job){
     } else {
         stop_time = fp64_props[0];
         gravity = KinematicVector(job->JOB_TYPE);
-        for (int pos=0; pos<job->grid->GRID_DIM; pos++){
+        for (int pos=0; pos<GRID_DIM; pos++){
             gravity[pos] = fp64_props[pos+1];
         }
         file = str_props[0];
@@ -95,7 +110,7 @@ void FiniteVolumeDriver::init(Job* job){
 
     //print grid properties
     std::cout << "Driver properties (stop_time = " << stop_time << ", gravity = < ";
-    for (int pos=0; pos<job->grid->GRID_DIM; pos++){
+    for (int pos=0; pos<GRID_DIM; pos++){
         std::cout << gravity[pos] << " ";
     }
     std::cout << ">, file = " << file << ", order = " << order << ")." << std::endl;
@@ -205,7 +220,7 @@ void FiniteVolumeDriver::init(Job* job){
                                 serializer->str_props = tmp.str_props;
                             } else {
                                 //if object is not created, this is fatal
-                                std::cerr << "ERROR: Part object needs valid \'class\' defined. Exiting."
+                                std::cerr << "ERROR: FiniteVolumeSerializer object needs valid \'class\' defined. Exiting."
                                           << std::endl;
                                 exit(0);
                             }
@@ -274,7 +289,7 @@ void FiniteVolumeDriver::init(Job* job){
                                 fluid_grid->str_props = tmp.str_props;
                             } else {
                                 //if object is not created, this is fatal
-                                std::cerr << "ERROR: Part object needs valid \'class\' defined. Exiting."
+                                std::cerr << "ERROR: FiniteVolumeGrid object needs valid \'class\' defined. Exiting."
                                           << std::endl;
                                 exit(0);
                             }
@@ -343,7 +358,7 @@ void FiniteVolumeDriver::init(Job* job){
                                 fluid_body->str_props = tmp.str_props;
                             } else {
                                 //if object is not created, this is fatal
-                                std::cerr << "ERROR: Part object needs valid \'class\' defined. Exiting."
+                                std::cerr << "ERROR: FiniteVolumeBody object needs valid \'class\' defined. Exiting."
                                           << std::endl;
                                 exit(0);
                             }
@@ -412,7 +427,7 @@ void FiniteVolumeDriver::init(Job* job){
                                 fluid_material->str_props = tmp.str_props;
                             } else {
                                 //if object is not created, this is fatal
-                                std::cerr << "ERROR: Part object needs valid \'class\' defined. Exiting."
+                                std::cerr << "ERROR: FiniteVolumeMaterial object needs valid \'class\' defined. Exiting."
                                           << std::endl;
                                 exit(0);
                             }
@@ -481,7 +496,7 @@ void FiniteVolumeDriver::init(Job* job){
                                 solver->str_props = tmp.str_props;
                             } else {
                                 //if object is not created, this is fatal
-                                std::cerr << "ERROR: Part object needs valid \'class\' defined. Exiting."
+                                std::cerr << "ERROR: FiniteVolumeSolver object needs valid \'class\' defined. Exiting."
                                           << std::endl;
                                 exit(0);
                             }

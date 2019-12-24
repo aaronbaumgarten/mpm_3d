@@ -90,6 +90,7 @@ public:
     double element_volumes;
     std::vector<double> face_areas;
     std::vector<int> face_normals; //x,y,z only
+    int num_neighbors;
 
     //boundary conditions
     //-x,+x,-y,+y,-z,+z

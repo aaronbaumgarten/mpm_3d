@@ -23,17 +23,29 @@
 #include "fvm_grids.hpp"
 
 void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
+    //assign grid dimension from job type
+    if (job->JOB_TYPE == job->JOB_1D){
+        GRID_DIM = 1;
+    } else if (job->JOB_TYPE == job->JOB_2D){
+        GRID_DIM = 2;
+    } else if (job->JOB_TYPE == job->JOB_3D){
+        GRID_DIM = 3;
+    } else if (job->JOB_TYPE == job->JOB_2D_OOP){
+        GRID_DIM = 2; //this is important, job->DIM =/= job->grid->GRID_DIM
+    } else if (job->JOB_TYPE == job->JOB_AXISYM){
+        GRID_DIM = 2; //this is important, job->DIM =/= job->grid->GRID_DIM
+    } else {
+        std::cerr << "Job doesn't have defined type for input " << job->JOB_TYPE << "." << std::endl;
+    }
+
     //check size of properties passed to driver object
-    if (fp64_props.size() < job->grid->GRID_DIM || int_props.size() < job->grid->GRID_DIM) {
+    if (fp64_props.size() < GRID_DIM || int_props.size() < GRID_DIM) {
         std::cout << fp64_props.size() << ", " << str_props.size() << "\n";
         fprintf(stderr,
                 "%s:%s: Need at least %i properties defined (Lx, Nx).\n",
-                __FILE__, __func__, (2*job->grid->GRID_DIM));
+                __FILE__, __func__, (2*GRID_DIM));
         exit(0);
     } else {
-        //set grid dimension from master job
-        GRID_DIM = job->grid->GRID_DIM;
-
         //set side lengths and discretization
         Lx = std::vector<double>(GRID_DIM);
         Nx = std::vector<int>(GRID_DIM);
@@ -213,8 +225,8 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
                 face_elements[2*Nx[1]*Nx[0] + i][0] = -1;
                 face_elements[2*Nx[1]*Nx[0] + i][1] = -1;
             } else {
-                ijk[0] = i;
-                ijk[1] = Nx[1] - 1;
+                ijk[0] = Nx[0] - 1;
+                ijk[1] = i;
                 face_elements[2 * Nx[1] * Nx[0] + i][0] = ijk_to_e(ijk); //+x
                 face_elements[2 * Nx[1] * Nx[0] + i][1] = -1;
             }
@@ -226,8 +238,8 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
                 face_elements[2*Nx[1]*Nx[0] + i][0] = -1;
                 face_elements[2*Nx[1]*Nx[0] + i][1] = -1;
             } else {
-                ijk[0] = Nx[0] - 1;
-                ijk[1] = i;
+                ijk[0] = i;
+                ijk[1] = Nx[1] - 1;
                 face_elements[2 * Nx[1] * Nx[0] + Nx[1] + i][0] = ijk_to_e(ijk); //+y
                 face_elements[2 * Nx[1] * Nx[0] + Nx[1] + i][1] = -1; //+y
             }
@@ -292,7 +304,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
             //get element in the -z direction
             tmp[1] = ijk[1]; tmp[2] -= 1;
             e_kminus = ijk_to_e(tmp);
-            face_elements[3*e+1][0] = e_kminus;
+            face_elements[3*e+2][0] = e_kminus;
 
             //check bc_tags
             tmp = ijk;
@@ -335,9 +347,9 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
                 face_elements[3*Nx[2]*Nx[1]*Nx[0] + i][0] = -1;
                 face_elements[3*Nx[2]*Nx[1]*Nx[0] + i][1] = -1;
             } else {
-                tmp[0] = i;
-                tmp[1] = Nx[1] - 1;
-                tmp[2] = Nx[2] - 1;
+                tmp[0] = Nx[0] - 1;
+                tmp[1] = i%Nx[1];
+                tmp[2] = ((i - i%Nx[1])/Nx[1]);
                 face_elements[3*Nx[2]*Nx[1]*Nx[0] + i][0] = ijk_to_e(tmp); //+x
                 face_elements[3*Nx[2]*Nx[1]*Nx[0] + i][1] = -1;
             }
@@ -349,9 +361,9 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
                 face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + i][0] = -1;
                 face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + i][1] = -1;
             } else {
-                tmp[0] = Nx[0] - 1;
-                tmp[1] = i;
-                tmp[2] = Nx[2] - 1;
+                tmp[0] = i%Nx[0];
+                tmp[1] = Nx[1] - 1;
+                tmp[2] = (i - i%Nx[0])/Nx[0];
                 face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + i][0] = ijk_to_e(tmp); //+y
                 face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + i][1] = -1;
             }
@@ -363,9 +375,9 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
                 face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + Nx[0]*Nx[2] + i][0] = -1;
                 face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + Nx[0]*Nx[2] + i][1] = -1;
             } else {
-                tmp[0] = Nx[0] - 1;
-                tmp[1] = Nx[1] - 1;
-                tmp[2] = i;
+                tmp[0] = i%Nx[0];
+                tmp[1] = (i - i%Nx[0])/Nx[0];
+                tmp[2] = Nx[2] - 1;
                 face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + Nx[0]*Nx[2] + i][0] = ijk_to_e(tmp); //+z
                 face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + Nx[0]*Nx[2] + i][1] = -1;
             }
@@ -400,6 +412,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
     std::vector<int> tmp = ijk;
     int tmp_e;
     for (int e=0; e<element_count; e++){
+        ijk = e_to_ijk(e);
         //loop over i
         for (int i=-1; i<2; i++){
             tmp[0] = ijk[0] + i;
@@ -412,20 +425,20 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
                             //loop over k
                             tmp[2] = ijk[2] + k;
                             tmp_e = ijk_to_e(tmp);
-                            if (tmp_e >= 0 && tmp_e != e){
+                            if (tmp_e >= 0 && tmp_e != e && tmp_e < element_count){
                                 element_neighbors[e].push_back(tmp_e);
                             }
                         }
                     } else {
                         tmp_e = ijk_to_e(tmp);
-                        if (tmp_e >= 0 && tmp_e != e){
+                        if (tmp_e >= 0 && tmp_e != e && tmp_e < element_count){
                             element_neighbors[e].push_back(tmp_e);
                         }
                     }
                 }
             } else {
                 tmp_e = ijk_to_e(tmp);
-                if (tmp_e >= 0 && tmp_e != e){
+                if (tmp_e >= 0 && tmp_e != e && tmp_e < element_count){
                     element_neighbors[e].push_back(tmp_e);
                 }
             }
@@ -433,10 +446,16 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
     }
 
     //consistency check!!!
+    num_neighbors = 3;
+    for (int i = 1; i<GRID_DIM; i++){
+        num_neighbors *= 3;
+    }
+    num_neighbors -= 1;
+
     for (int e=0; e<element_count; e++){
-        if (element_neighbors[e].size() > GRID_DIM*GRID_DIM - 1){
+        if (element_neighbors[e].size() > num_neighbors){
             std::cout << "ERROR: Element " << e << " has too many neighbors! ";
-            std::cout << element_neighbors[e].size() << " > " << GRID_DIM*GRID_DIM - 1 << "!" << std::endl;
+            std::cout << element_neighbors[e].size() << " > " << num_neighbors - 1 << "!" << std::endl;
         }
     }
 
@@ -451,23 +470,23 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         std::cout << " " << Nx[pos];
     }
     std::cout << std::endl;
-    std::cout << "-x: " << bc_tags[0] << " :";
+    std::cout << "    -x: " << bc_tags[0] << " : ";
     for (int pos=0; pos<GRID_DIM; pos++){
-        std::cout << bc_values[0][pos];
+        std::cout << bc_values[0][pos] << " ";
     }
     std::cout << " +x: " << bc_tags[1] << " :";
     for (int pos=0; pos<GRID_DIM; pos++){
-        std::cout << bc_values[1][pos];
+        std::cout << bc_values[1][pos] << " ";
     }
     std::cout << std::endl;
     if (GRID_DIM > 1){
-        std::cout << "-y: " << bc_tags[2] << " :";
+        std::cout << "    -y: " << bc_tags[2] << " :";
         for (int pos=0; pos<GRID_DIM; pos++){
-            std::cout << bc_values[2][pos];
+            std::cout << bc_values[2][pos] << " ";
         }
         std::cout << " +y: " << bc_tags[3] << " :";
         for (int pos=0; pos<GRID_DIM; pos++){
-            std::cout << bc_values[3][pos];
+            std::cout << bc_values[3][pos] << " ";
         }
         std::cout << std::endl;
     }
@@ -484,6 +503,21 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
     }
 
     std::cout << "FiniteVolumeGrid initialized." << std::endl;
+
+    /*
+    //error checking
+    for (int f=0; f<face_elements.size(); f++){
+        std::cout << f << " : " << face_elements[f][0] << " | " << face_elements[f][1] << std::endl;
+    }
+    std::cout << std::endl;
+    for (int e=0; e<element_count; e++){
+        std::cout << e << " : ";
+        for (int i=0; i<element_neighbors[e].size(); i++){
+            std::cout << element_neighbors[e][i] << ", ";
+        }
+        std::cout << std::endl;
+    }
+    */
 }
 
 /*----------------------------------------------------------------------------*/
@@ -501,7 +535,7 @@ std::vector<int> FVMCartesian::e_to_ijk(int e){
 int FVMCartesian::ijk_to_e(std::vector<int> ijk){
     int tmp = 0;
     for (int i=ijk.size(); i>0; i--){
-        if (ijk[i-1] < 0){
+        if (ijk[i-1] < 0 || ijk[i-1] >= Nx[i-1]){
             return -1;
         }
         tmp = tmp*Nx[i-1] + ijk[i-1];
@@ -522,7 +556,7 @@ std::vector<int> FVMCartesian::n_to_ijk(int n){
 int FVMCartesian::ijk_to_n(std::vector<int> ijk){
     int tmp = 0;
     for (int i=ijk.size(); i>0; i--){
-        if (ijk[i-1] < 0){
+        if (ijk[i-1] < 0 || ijk[i-1] >= (Nx[i-1]+1)){
             return -1;
         }
         tmp = tmp*(Nx[i-1]+1) + ijk[i-1];
@@ -533,7 +567,91 @@ int FVMCartesian::ijk_to_n(std::vector<int> ijk){
 /*---------------------------------------------------------------------------*/
 
 void FVMCartesian::writeHeader(std::ofstream& file, int SPEC){
-    std::cout << "ERROR: writeHeader not yet implemented in FVMCartesian!" << std::endl;
+    if (SPEC != Serializer::VTK){
+        std::cerr << "ERROR: Unknown file SPEC in writeHeader: " << SPEC  << "! Exiting." << std::endl;
+        exit(0);
+    }
+
+    int nlen = node_count;
+
+    file << "ASCII\n";
+    file << "DATASET UNSTRUCTURED_GRID\n";
+
+    file << "POINTS " << nlen << " double\n";
+
+    std::vector<int> ijk, tmp;
+    for (int i=0;i<nlen;i++){
+        //vtk files require x,y,z
+        ijk = n_to_ijk(i);
+        for (int pos = 0; pos < 3; pos++){
+            if (pos < GRID_DIM){
+                file << ijk[pos]*hx[pos] << " ";
+            } else {
+                file << "0 ";
+            }
+        }
+        file << "\n";
+    }
+
+    if (GRID_DIM == 1) {
+        //use lines
+        file << "CELLS " << element_count << " " << 3 * element_count << "\n";
+        for (int e = 0; e < element_count; e++) {
+            ijk = e_to_ijk(e);
+            tmp = ijk; tmp[0] += 1;
+            file << "2 " << ijk_to_n(ijk) << " " << ijk_to_n(tmp) << "\n";
+        }
+
+        file << "CELL_TYPES " << element_count << "\n";
+        for (int e = 0; e < element_count; e++) {
+            file << "3\n";
+        }
+    } else if (GRID_DIM == 2){
+        file << "CELLS " << element_count << " " << 5 * element_count << "\n";
+        for (int e = 0; e < element_count; e++){
+            ijk = e_to_ijk(e);
+            file << "4 " << ijk_to_n(ijk);
+            ijk[0] += 1;
+            file << " " << ijk_to_n(ijk);
+            ijk[0] -= 1; ijk[1] += 1;
+            file << " " << ijk_to_n(ijk);
+            ijk[1] += 1;
+            file << " " << ijk_to_n(ijk) << "\n";
+        }
+
+        file << "CELL_TYPES " << element_count << "\n";
+        for (int e=0; e<element_count; e++){
+            file << "8\n";
+        }
+    } else if (GRID_DIM == 3){
+        file << "CELLS " << element_count << " " << 9 * element_count << "\n";
+        for (int e = 0; e < element_count; e++){
+            file << "8 ";
+            ijk = e_to_ijk(e);
+            file << ijk_to_n(ijk) << " ";
+            ijk[0] += 1;
+            file << ijk_to_n(ijk) << " ";
+            ijk[0] -= 1; ijk[1] += 1;
+            file << ijk_to_n(ijk) << " ";
+            ijk[0] += 1;
+            file << ijk_to_n(ijk) << " ";
+            ijk[0] -= 1; ijk[1] -= 1; ijk[2] += 1;
+            file << ijk_to_n(ijk) << " ";
+            ijk[0] += 1;
+            file << ijk_to_n(ijk) << " ";
+            ijk[0] -= 1; ijk[1] += 1;
+            file << ijk_to_n(ijk) << " ";
+            ijk[0] += 1;
+            file << ijk_to_n(ijk) << "\n";
+        }
+
+        file << "CELL_TYPES " << element_count << "\n";
+        for (int e=0; e<element_count; e++){
+            file << "11\n";
+        }
+    }
+
+    file << "CELL_DATA " << nlen << "\n";
     return;
 }
 
@@ -641,8 +759,8 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                       << std::endl;
         }
         //initialize matrix A and vector B
-        Eigen::MatrixXd A = Eigen::MatrixXd(GRID_DIM*GRID_DIM-1, GRID_DIM);
-        Eigen::VectorXd b = Eigen::VectorXd(GRID_DIM*GRID_DIM-1);
+        Eigen::MatrixXd A = Eigen::MatrixXd(num_neighbors, GRID_DIM);
+        Eigen::VectorXd b = Eigen::VectorXd(num_neighbors);
         Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
         KinematicVector x_0, x;
         KinematicVector p_0, p, p_max, p_min, min_dif;
@@ -665,7 +783,7 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                         //if periodic, then x - x_0 may be greater than L/2
                         if (tmp_dif > Lx[pos]/2.0){
                             A(ii, pos) = tmp_dif - Lx[pos];
-                        } else if (tmp_dif < Lx[pos]/2.0){
+                        } else if (tmp_dif < -Lx[pos]/2.0){
                             A(ii, pos) = tmp_dif + Lx[pos];
                         } else {
                             A(ii, pos) = x[pos] - x_0[pos];
@@ -686,35 +804,35 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                 for (int j = 0; j<element_faces[e].size(); j++){
                     //only add BCs for dirichlet conditions
                     int f = element_faces[e][j];
-                    if (face_bcs[f] >= 0 && bc_tags[face_bcs[f]] == FiniteVolumeGrid::DIRICHLET){
+                    if (face_bcs[f] >= 0 && bc_tags[face_bcs[f]] == FiniteVolumeGrid::DIRICHLET) {
                         x = getFaceCentroid(job, f);
-                        p = rho_0*bc_values[face_bcs[f]];
-                    }
-                    for (int pos = 0; pos<GRID_DIM; pos++) {
-                        tmp_dif = x[pos] - x_0[pos];
-                        //if periodic, then x - x_0 may be greater than L/2
-                        if (tmp_dif > Lx[pos]/2.0){
-                            A(i, pos) = tmp_dif - Lx[pos];
-                        } else if (tmp_dif < Lx[pos]/2.0){
-                            A(i, pos) = tmp_dif + Lx[pos];
-                        } else {
-                            A(i, pos) = x[pos] - x_0[pos];
+                        p = rho_0 * bc_values[face_bcs[f]];
+                        for (int pos = 0; pos < GRID_DIM; pos++) {
+                            tmp_dif = x[pos] - x_0[pos];
+                            //if periodic, then x - x_0 may be greater than L/2
+                            if (tmp_dif > Lx[pos] / 2.0) {
+                                A(i, pos) = tmp_dif - Lx[pos];
+                            } else if (tmp_dif < -Lx[pos] / 2.0) {
+                                A(i, pos) = tmp_dif + Lx[pos];
+                            } else {
+                                A(i, pos) = x[pos] - x_0[pos];
+                            }
                         }
-                    }
-                    b(i) = p[mom_index] - p_0[mom_index];
+                        b(i) = p[mom_index] - p_0[mom_index];
 
-                    //update maximum and minimum velocities
-                    if (p[mom_index] > p_max[mom_index]){
-                        p_max[mom_index] = p[mom_index];
-                    } else if (p[mom_index] < p_min[mom_index]){
-                        p_min[mom_index] = p[mom_index];
+                        //update maximum and minimum velocities
+                        if (p[mom_index] > p_max[mom_index]) {
+                            p_max[mom_index] = p[mom_index];
+                        } else if (p[mom_index] < p_min[mom_index]) {
+                            p_min[mom_index] = p[mom_index];
+                        }
+                        //increment i
+                        i++;
                     }
-                    //increment i
-                    i++;
                 }
 
                 //zero remainder of system of eq'ns
-                for (int ii=i; ii<GRID_DIM*GRID_DIM-1; ii++){
+                for (int ii=i; ii<num_neighbors; ii++){
                     for (int pos=0; pos<GRID_DIM; pos++){
                         A(ii,pos) = 0;
                         b(ii) = 0;
@@ -764,8 +882,8 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                       << std::endl;
         }
         //initialize matrix A and vector B
-        Eigen::MatrixXd A = Eigen::MatrixXd(GRID_DIM*GRID_DIM-1, GRID_DIM);
-        Eigen::VectorXd b = Eigen::VectorXd(GRID_DIM*GRID_DIM-1);
+        Eigen::MatrixXd A = Eigen::MatrixXd(num_neighbors, GRID_DIM);
+        Eigen::VectorXd b = Eigen::VectorXd(num_neighbors);
         Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
         KinematicVector x_0, x;
         double rho_0, rho, rho_max, rho_min, min_dif;
@@ -786,7 +904,7 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                     //if periodic, then x - x_0 may be greater than L/2
                     if (tmp_dif > Lx[pos]/2.0){
                         A(ii, pos) = tmp_dif - Lx[pos];
-                    } else if (tmp_dif < Lx[pos]/2.0){
+                    } else if (tmp_dif < -Lx[pos]/2.0){
                         A(ii, pos) = tmp_dif + Lx[pos];
                     } else {
                         A(ii, pos) = x[pos] - x_0[pos];
@@ -807,29 +925,29 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
             for (int j = 0; j<element_faces[e].size(); j++){
                 //only add BCs for dirichlet conditions
                 int f = element_faces[e][j];
-                if (face_bcs[f] >= 0 && bc_tags[face_bcs[f]] == FiniteVolumeGrid::DIRICHLET){
+                if (face_bcs[f] >= 0 && bc_tags[face_bcs[f]] == FiniteVolumeGrid::DIRICHLET) {
                     x = getFaceCentroid(job, f);
                     //rho = rho_0;
-                }
-                for (int pos = 0; pos<GRID_DIM; pos++) {
-                    tmp_dif = x[pos] - x_0[pos];
-                    //if periodic, then x - x_0 may be greater than L/2
-                    if (tmp_dif > Lx[pos]/2.0){
-                        A(i, pos) = tmp_dif - Lx[pos];
-                    } else if (tmp_dif < Lx[pos]/2.0){
-                        A(i, pos) = tmp_dif + Lx[pos];
-                    } else {
-                        A(i, pos) = x[pos] - x_0[pos];
+                    for (int pos = 0; pos < GRID_DIM; pos++) {
+                        tmp_dif = x[pos] - x_0[pos];
+                        //if periodic, then x - x_0 may be greater than L/2
+                        if (tmp_dif > Lx[pos] / 2.0) {
+                            A(i, pos) = tmp_dif - Lx[pos];
+                        } else if (tmp_dif < -Lx[pos] / 2.0) {
+                            A(i, pos) = tmp_dif + Lx[pos];
+                        } else {
+                            A(i, pos) = x[pos] - x_0[pos];
+                        }
                     }
-                }
-                b(i) = 0;
+                    b(i) = 0;
 
-                //increment i
-                i++;
+                    //increment i
+                    i++;
+                }
             }
 
             //zero remainder of system of eq'ns
-            for (int ii=i; ii<GRID_DIM*GRID_DIM-1; ii++){
+            for (int ii=i; ii<num_neighbors; ii++){
                 for (int pos=0; pos<GRID_DIM; pos++){
                     A(ii,pos) = 0;
                     b(ii) = 0;
@@ -848,7 +966,6 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                 min_dif = std::abs(rho_0 - rho_max);
             }
 
-
             //limit gradient to ensure monotonicity
             //calculate maximum velocity change in cell
             tmp_dif = 0;
@@ -863,6 +980,10 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                     driver->fluid_body->rho_x(e, pos) *= min_dif/tmp_dif;
                 }
             }
+            /*
+            std::cout << e << std::endl;
+            std::cout << A << std::endl;
+             */
         }
     }
     return;
@@ -876,8 +997,8 @@ KinematicTensorArray FVMCartesian::getVelocityGradients(Job* job, FiniteVolumeDr
     double rho, rho_0, tmp_dif;
 
     //initialize matrix A and vector B
-    Eigen::MatrixXd A = Eigen::MatrixXd(GRID_DIM*GRID_DIM-1, GRID_DIM);
-    Eigen::VectorXd b = Eigen::VectorXd(GRID_DIM*GRID_DIM-1);
+    Eigen::MatrixXd A = Eigen::MatrixXd(num_neighbors, GRID_DIM);
+    Eigen::VectorXd b = Eigen::VectorXd(num_neighbors);
     Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
     KinematicVector x_0, x;
     KinematicVector u_0;
@@ -900,7 +1021,7 @@ KinematicTensorArray FVMCartesian::getVelocityGradients(Job* job, FiniteVolumeDr
                     //if periodic, then x - x_0 may be greater than L/2
                     if (tmp_dif > Lx[pos]/2.0){
                         A(ii, pos) = tmp_dif - Lx[pos];
-                    } else if (tmp_dif < Lx[pos]/2.0){
+                    } else if (tmp_dif < -Lx[pos]/2.0){
                         A(ii, pos) = tmp_dif + Lx[pos];
                     } else {
                         A(ii, pos) = x[pos] - x_0[pos];
@@ -914,29 +1035,29 @@ KinematicTensorArray FVMCartesian::getVelocityGradients(Job* job, FiniteVolumeDr
             for (int j = 0; j<element_faces[e].size(); j++){
                 //only add BCs for dirichlet conditions
                 int f = element_faces[e][j];
-                if (face_bcs[f] >= 0 && bc_tags[face_bcs[f]] == FiniteVolumeGrid::DIRICHLET){
+                if (face_bcs[f] >= 0 && bc_tags[face_bcs[f]] == FiniteVolumeGrid::DIRICHLET) {
                     x = getFaceCentroid(job, f);
                     u = bc_values[face_bcs[f]];
-                }
-                for (int pos = 0; pos<GRID_DIM; pos++) {
-                    tmp_dif = x[pos] - x_0[pos];
-                    //if periodic, then x - x_0 may be greater than L/2
-                    if (tmp_dif > Lx[pos]/2.0){
-                        A(i, pos) = tmp_dif - Lx[pos];
-                    } else if (tmp_dif < Lx[pos]/2.0){
-                        A(i, pos) = tmp_dif + Lx[pos];
-                    } else {
-                        A(i, pos) = x[pos] - x_0[pos];
+                    for (int pos = 0; pos < GRID_DIM; pos++) {
+                        tmp_dif = x[pos] - x_0[pos];
+                        //if periodic, then x - x_0 may be greater than L/2
+                        if (tmp_dif > Lx[pos] / 2.0) {
+                            A(i, pos) = tmp_dif - Lx[pos];
+                        } else if (tmp_dif < -Lx[pos] / 2.0) {
+                            A(i, pos) = tmp_dif + Lx[pos];
+                        } else {
+                            A(i, pos) = x[pos] - x_0[pos];
+                        }
                     }
-                }
-                b(i) = u[dir] - u_0[dir];
+                    b(i) = u[dir] - u_0[dir];
 
-                //increment i
-                i++;
+                    //increment i
+                    i++;
+                }
             }
 
             //zero remainder of system of eq'ns
-            for (int ii=i; ii<GRID_DIM*GRID_DIM-1; ii++){
+            for (int ii=i; ii<num_neighbors; ii++){
                 for (int pos=0; pos<GRID_DIM; pos++){
                     A(ii,pos) = 0;
                     b(ii) = 0;
@@ -1098,8 +1219,8 @@ Eigen::VectorXd FVMCartesian::calculateElementFluxIntegrals(Job* job, FiniteVolu
         KinematicVectorArray phi_x = KinematicVectorArray(element_count, job->JOB_TYPE);
 
         //initialize matrix A and vector B
-        Eigen::MatrixXd A = Eigen::MatrixXd(GRID_DIM*GRID_DIM-1, GRID_DIM);
-        Eigen::VectorXd b = Eigen::VectorXd(GRID_DIM*GRID_DIM-1);
+        Eigen::MatrixXd A = Eigen::MatrixXd(num_neighbors, GRID_DIM);
+        Eigen::VectorXd b = Eigen::VectorXd(num_neighbors);
         Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
         KinematicVector x_0, x, x_face, x_quad;
         x_quad = KinematicVector(job->JOB_TYPE);
@@ -1120,7 +1241,7 @@ Eigen::VectorXd FVMCartesian::calculateElementFluxIntegrals(Job* job, FiniteVolu
                     //if periodic, then x - x_0 may be greater than L/2
                     if (tmp_dif > Lx[pos]/2.0){
                         A(ii, pos) = tmp_dif - Lx[pos];
-                    } else if (tmp_dif < Lx[pos]/2.0){
+                    } else if (tmp_dif < -Lx[pos]/2.0){
                         A(ii, pos) = tmp_dif + Lx[pos];
                     } else {
                         A(ii, pos) = x[pos] - x_0[pos];
@@ -1137,7 +1258,7 @@ Eigen::VectorXd FVMCartesian::calculateElementFluxIntegrals(Job* job, FiniteVolu
             }
 
             //zero remainder of system of eq'ns
-            for (int ii=element_neighbors[e].size(); ii<GRID_DIM*GRID_DIM-1; ii++){
+            for (int ii=element_neighbors[e].size(); ii<num_neighbors; ii++){
                 for (int pos=0; pos<GRID_DIM; pos++){
                     A(ii,pos) = 0;
                     b(ii) = 0;
@@ -1474,7 +1595,8 @@ Eigen::VectorXd FVMCartesian::calculateElementMassFluxes(Job* job, FiniteVolumeD
                       << std::endl;
         }
 
-        KinematicVector x, x_face;
+        KinematicVector x = KinematicVector(job->JOB_TYPE);
+        KinematicVector x_face = KinematicVector(job->JOB_TYPE);
         KinematicVector x_quad = KinematicVector(job->JOB_TYPE);
 
         //loop over faces and use quadrature to reconstruct flux integral
@@ -1504,7 +1626,7 @@ Eigen::VectorXd FVMCartesian::calculateElementMassFluxes(Job* job, FiniteVolumeD
                             x_quad[pos] = x_face[pos];
                         } else {
                             //move along face
-                            x[pos] = hx[pos]/2.0 * quad_points[f][ii];
+                            x[pos] = hx[pos]/2.0 * quad_points[q][ii];
                             x_quad[pos] = x_face[pos] + x[pos];
                             ii++;
                         }
@@ -1569,7 +1691,7 @@ Eigen::VectorXd FVMCartesian::calculateElementMassFluxes(Job* job, FiniteVolumeD
                             x[pos] = normal[pos] * hx[pos]/2.0;
                         } else {
                             //move along face
-                            x[pos] = hx[pos]/2.0 * quad_points[f][ii];
+                            x[pos] = hx[pos]/2.0 * quad_points[q][ii];
                             ii++;
                         }
                     }
@@ -1611,7 +1733,7 @@ Eigen::VectorXd FVMCartesian::calculateElementMassFluxes(Job* job, FiniteVolumeD
                             x[pos] = normal[pos] * hx[pos]/2.0;
                         } else {
                             //move along face
-                            x[pos] = hx[pos]/2.0 * quad_points[f][ii];
+                            x[pos] = hx[pos]/2.0 * quad_points[q][ii];
                             ii++;
                         }
                     }
@@ -1821,7 +1943,7 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
                       << std::endl;
         }
 
-        KinematicVector x;
+        KinematicVector x = KinematicVector(job->JOB_TYPE);
 
         //loop over faces and use quadrature to reconstruct flux integral
         u_plus = KinematicVector(job->JOB_TYPE);
@@ -1850,7 +1972,7 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
                             x_quad[pos] = x_face[pos];
                         } else {
                             //move along face
-                            x[pos] = hx[pos]/2.0 * quad_points[f][ii];
+                            x[pos] = hx[pos]/2.0 * quad_points[q][ii];
                             x_quad[pos] = x_face[pos] + x[pos];
                             ii++;
                         }
@@ -1859,7 +1981,7 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
                     //calculate A properties
                     rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
                     p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*x;
-                    u_minus = p_plus/rho_minus;
+                    u_minus = p_minus/rho_minus;
 
                     //relative position to centroid of B
                     for (int pos=0; pos<GRID_DIM; pos++){
@@ -1896,6 +2018,14 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
                     a_3 = p_plus - p_minus - (rho_plus-rho_minus)*u_bar;
                     a_3 = a_3 - a_3.dot(normal)*normal; //remove normal component of a_3 vector
 
+                    /*
+                    std::cout << "alpha_int: " << a_1 << " " << a_2 << std::endl;
+                    std::cout << "quadrature_location: " << x[0] << ", " << x[1] << std::endl;
+                    std::cout << "rho: " << rho_plus << ", " << rho_minus << std::endl;
+                    std::cout << ", u: " << u_plus[0] << ", " << u_minus[0] << std::endl;
+                    std::cout << "u_bar: " << u_bar[0] << ", c_bar: " << c << std::endl;
+                     */
+
                     //flux in n direction
                     flux = area/num_quad * 0.5 * (p_plus*u_plus.dot(normal) + p_minus*u_minus.dot(normal)
                                                     - a_1*lambda_1*(u_bar - c*normal)
@@ -1931,7 +2061,7 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
                             x_quad[pos] = x_face[pos];
                         } else {
                             //move along face
-                            x[pos] = hx[pos]/2.0 * quad_points[f][ii];
+                            x[pos] = hx[pos]/2.0 * quad_points[q][ii];
                             x_quad[pos] = x_face[pos] + x[pos];
                             ii++;
                         }
@@ -1994,7 +2124,7 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
                             x[pos] = normal[pos] * hx[pos]/2.0;
                         } else {
                             //move along face
-                            x[pos] = hx[pos]/2.0 * quad_points[f][ii];
+                            x[pos] = hx[pos]/2.0 * quad_points[q][ii];
                             ii++;
                         }
                     }

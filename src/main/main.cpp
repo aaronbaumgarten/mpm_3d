@@ -34,6 +34,8 @@ int main(int argc, char *argv[]) {
     Job *job = new(Job);
     Configurator config;
 
+    //fvm_test(job);
+
     //set main program path in config
     config.setMainPath(std::string(argv[0]));
 

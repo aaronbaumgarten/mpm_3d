@@ -2,5 +2,9 @@ set(SOURCE_FILES
         ${SOURCE_FILES}
         ${CMAKE_CURRENT_SOURCE_DIR}/finite_volume_driver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_cartesian.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_default_body.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_barotropic_viscous_fluid.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_default_solver.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_default_vtk.cpp
         PARENT_SCOPE
         )

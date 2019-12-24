@@ -10,4 +10,7 @@
 void algebra_test();
 void map_test();
 
+class Job;
+void fvm_test(Job*);
+
 #endif //MPM_V3_TEST_HPP

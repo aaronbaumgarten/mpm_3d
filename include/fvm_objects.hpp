@@ -168,6 +168,8 @@ public:
         object_name = "FiniteVolumeDriver"; //set object name here
     }
 
+    int GRID_DIM = 3;
+
     //functions which must be implemented by every driver
     virtual void init(Job*);                                        //initialize from Job
     virtual std::string saveState(Job*, Serializer*, std::string);  //save to file (in given directory) and return filename

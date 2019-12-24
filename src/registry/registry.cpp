@@ -4,6 +4,7 @@
 //
 
 #include <fvm/fvm_grids.hpp>
+#include <fvm/fvm_bodies.hpp>
 #include "registry.hpp"
 #include "mpm_objects.hpp"
 #include "fvm_objects.hpp"
@@ -22,6 +23,10 @@
 #include "objects/boundaries/boundaries.hpp"
 
 #include "fvm/fvm_grids.hpp"
+#include "fvm/fvm_bodies.hpp"
+#include "fvm/fvm_materials.hpp"
+#include "fvm/fvm_solvers.hpp"
+#include "fvm/fvm_serializers.hpp"
 
 template<typename Base, typename Derived> std::unique_ptr<Base> createInstance() { return std::unique_ptr<Base>(new Derived); }
 
@@ -162,6 +167,7 @@ Registry<Part>::Registry() {
 //finite volume objects
 template<>
 Registry<FiniteVolumeSolver>::Registry() {
+    object["FVMDefaultSolver"] = &createInstance<FiniteVolumeSolver,FVMDefaultSolver>;
 }
 
 template<>
@@ -171,12 +177,15 @@ Registry<FiniteVolumeGrid>::Registry() {
 
 template<>
 Registry<FiniteVolumeBody>::Registry() {
+    object["FVMDefaultBody"] = &createInstance<FiniteVolumeBody,FVMDefaultBody>;
 }
 
 template<>
 Registry<FiniteVolumeMaterial>::Registry() {
+    object["FVMBarotropicViscousFluid"] = &createInstance<FiniteVolumeMaterial,FVMBarotropicViscousFluid>;
 }
 
 template<>
 Registry<FiniteVolumeSerializer>::Registry() {
+    object["FVMDefaultVTK"] = &createInstance<FiniteVolumeSerializer,FVMDefaultVTK>;
 }
