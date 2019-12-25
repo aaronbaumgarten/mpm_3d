@@ -46,4 +46,22 @@ public:
     virtual void step(Job* job, FiniteVolumeDriver* driver);                                        //perform single mpm step
 };
 
+class FVMRungeKuttaSolver : public FiniteVolumeSolver {
+public:
+    FVMRungeKuttaSolver(){
+        object_name = "FVMRungeKuttaSolver";
+    }
+
+    int order = 4;
+
+    Eigen::VectorXd density_fluxes;
+    KinematicVectorArray momentum_fluxes;
+
+    Eigen::VectorXd rho_k1, rho_k2, rho_k3, rho_k4;
+    KinematicVectorArray p_k1, p_k2, p_k3, p_k4;
+
+    virtual void init(Job* job, FiniteVolumeDriver* driver);                                        //initialize from Job
+    virtual void step(Job* job, FiniteVolumeDriver* driver);                                        //perform single mpm step
+};
+
 #endif //MPM_V3_FVM_SOLVERS_HPP

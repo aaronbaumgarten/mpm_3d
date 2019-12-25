@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <eigen3/Eigen/Core>
+#include <Eigen/Dense>
 #include <fstream>
 #include <job.hpp>
 
@@ -233,10 +234,10 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         }
         for (int i=0; i<Nx[0]; i++){
             //+y faces of domain
-            face_bcs[2*Nx[1]*Nx[0] + i] = 3;                    //+y
+            face_bcs[2*Nx[1]*Nx[0] + Nx[1] + i] = 3;                    //+y
             if (bc_tags[3] == FiniteVolumeGrid::PERIODIC){
-                face_elements[2*Nx[1]*Nx[0] + i][0] = -1;
-                face_elements[2*Nx[1]*Nx[0] + i][1] = -1;
+                face_elements[2*Nx[1]*Nx[0] + Nx[1] + i][0] = -1;
+                face_elements[2*Nx[1]*Nx[0] + Nx[1] + i][1] = -1;
             } else {
                 ijk[0] = i;
                 ijk[1] = Nx[1] - 1;
@@ -459,6 +460,86 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         }
     }
 
+    //lastly, construct A and b for least squares calculations
+    A_e = std::vector<Eigen::MatrixXd>(element_count);
+    A_inv = std::vector<Eigen::MatrixXd>(element_count);
+    b_e = std::vector<Eigen::VectorXd>(element_count);
+    int length_of_A; //including element neighbors and dirichlet faces
+    //initialize matrix A and vector B
+    KinematicVector x_0, x;
+    double tmp_dif;
+    for (int e = 0; e<element_count; e++) {
+        //size A and b for element based on number of neighboring cells and dirichlet faces
+        length_of_A = element_neighbors[e].size();
+        for (int j = 0; j < element_faces[e].size(); j++) {
+            //only add BCs for dirichlet conditions
+            int f = element_faces[e][j];
+            if (face_bcs[f] >= 0 && bc_tags[face_bcs[f]] == FiniteVolumeGrid::DIRICHLET) {
+                length_of_A++; //add dirichlet conditions to A
+            }
+        }
+
+        //get element centroid
+        x_0 = getElementCentroid(job, e);
+        A_e[e] = Eigen::MatrixXd(length_of_A,GRID_DIM);
+        b_e[e] = Eigen::VectorXd(length_of_A);
+        //create system of equations
+        for (int ii = 0; ii < element_neighbors[e].size(); ii++) {
+            x = getElementCentroid(job, element_neighbors[e][ii]);
+            for (int pos = 0; pos < GRID_DIM; pos++) {
+                tmp_dif = x[pos] - x_0[pos];
+                //if periodic, then x - x_0 may be greater than L/2
+                if (tmp_dif > Lx[pos] / 2.0) {
+                    A_e[e](ii, pos) = tmp_dif - Lx[pos];
+                } else if (tmp_dif < -Lx[pos] / 2.0) {
+                    A_e[e](ii, pos) = tmp_dif + Lx[pos];
+                } else {
+                    A_e[e](ii, pos) = x[pos] - x_0[pos];
+                }
+            }
+        }
+
+        //add dirichlet boundary conditions
+        int i = element_neighbors[e].size();
+        for (int j = 0; j < element_faces[e].size(); j++) {
+            //only add BCs for dirichlet conditions
+            int f = element_faces[e][j];
+            if (face_bcs[f] >= 0 && bc_tags[face_bcs[f]] == FiniteVolumeGrid::DIRICHLET) {
+                x = getFaceCentroid(job, f);
+                for (int pos = 0; pos < GRID_DIM; pos++) {
+                    tmp_dif = x[pos] - x_0[pos];
+                    //if periodic, then x - x_0 may be greater than L/2
+                    if (tmp_dif > Lx[pos] / 2.0) {
+                        A_e[e](i, pos) = tmp_dif - Lx[pos];
+                    } else if (tmp_dif < -Lx[pos] / 2.0) {
+                        A_e[e](i, pos) = tmp_dif + Lx[pos];
+                    } else {
+                        A_e[e](i, pos) = x[pos] - x_0[pos];
+                    }
+                }
+                //increment counter
+                i++;
+            }
+        }
+
+        //psuedo inverse
+        A_inv[e] = Eigen::MatrixXd(GRID_DIM,A_e[e].rows());
+        Eigen::MatrixXd AtA_inv = Eigen::MatrixXd(GRID_DIM,GRID_DIM);
+        AtA_inv.setZero();
+        Eigen::MatrixXd AtA = A_e[e].transpose()*A_e[e];
+        Eigen::VectorXd a;
+        Eigen::VectorXd e_vec = Eigen::VectorXd(AtA.rows());
+        for (int ii=0; ii<AtA.rows(); ii++){
+            e_vec.setZero();
+            e_vec(ii) = 1;
+            a = AtA.householderQr().solve(e_vec);
+            for (int jj=0; jj<GRID_DIM; jj++){
+                AtA_inv(jj,ii) = a(jj);
+            }
+        }
+        A_inv[e] = AtA_inv*A_e[e].transpose();
+    }
+
     //print grid properties
     std::cout << "FiniteVolumeGrid properties:" << std::endl;
     std::cout << "    Lx =";
@@ -615,7 +696,7 @@ void FVMCartesian::writeHeader(std::ofstream& file, int SPEC){
             file << " " << ijk_to_n(ijk);
             ijk[0] -= 1; ijk[1] += 1;
             file << " " << ijk_to_n(ijk);
-            ijk[1] += 1;
+            ijk[0] += 1;
             file << " " << ijk_to_n(ijk) << "\n";
         }
 
@@ -651,7 +732,7 @@ void FVMCartesian::writeHeader(std::ofstream& file, int SPEC){
         }
     }
 
-    file << "CELL_DATA " << nlen << "\n";
+    file << "CELL_DATA " << element_count << "\n";
     return;
 }
 
@@ -759,8 +840,8 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                       << std::endl;
         }
         //initialize matrix A and vector B
-        Eigen::MatrixXd A = Eigen::MatrixXd(num_neighbors, GRID_DIM);
-        Eigen::VectorXd b = Eigen::VectorXd(num_neighbors);
+        //Eigen::MatrixXd A = Eigen::MatrixXd(num_neighbors, GRID_DIM);
+        //Eigen::VectorXd b = Eigen::VectorXd(num_neighbors);
         Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
         KinematicVector x_0, x;
         KinematicVector p_0, p, p_max, p_min, min_dif;
@@ -776,8 +857,8 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
             for (int mom_index = 0; mom_index<GRID_DIM; mom_index++){
                 //create system of equations
                 for (int ii=0; ii<element_neighbors[e].size(); ii++){
-                    x = getElementCentroid(job, element_neighbors[e][ii]);
-                    p = driver->fluid_body->p[element_neighbors[e][ii]];
+                    //x = getElementCentroid(job, element_neighbors[e][ii]);
+                    /*
                     for (int pos = 0; pos<GRID_DIM; pos++) {
                         tmp_dif = x[pos] - x_0[pos];
                         //if periodic, then x - x_0 may be greater than L/2
@@ -789,7 +870,11 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                             A(ii, pos) = x[pos] - x_0[pos];
                         }
                     }
-                    b(ii) = p[mom_index] - p_0[mom_index];
+                     */
+
+                    //just fill in b vector
+                    p = driver->fluid_body->p[element_neighbors[e][ii]];
+                    b_e[e](ii) = p[mom_index] - p_0[mom_index];
 
                     //update maximum and minimum velocities
                     if (p[mom_index] > p_max[mom_index]){
@@ -805,6 +890,7 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                     //only add BCs for dirichlet conditions
                     int f = element_faces[e][j];
                     if (face_bcs[f] >= 0 && bc_tags[face_bcs[f]] == FiniteVolumeGrid::DIRICHLET) {
+                        /*
                         x = getFaceCentroid(job, f);
                         p = rho_0 * bc_values[face_bcs[f]];
                         for (int pos = 0; pos < GRID_DIM; pos++) {
@@ -818,7 +904,10 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                                 A(i, pos) = x[pos] - x_0[pos];
                             }
                         }
-                        b(i) = p[mom_index] - p_0[mom_index];
+                         */
+                        //fill in b vector
+                        p = rho_0 * bc_values[face_bcs[f]];
+                        b_e[e](i) = p[mom_index] - p_0[mom_index];
 
                         //update maximum and minimum velocities
                         if (p[mom_index] > p_max[mom_index]) {
@@ -831,6 +920,7 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                     }
                 }
 
+                /*
                 //zero remainder of system of eq'ns
                 for (int ii=i; ii<num_neighbors; ii++){
                     for (int pos=0; pos<GRID_DIM; pos++){
@@ -838,9 +928,11 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                         b(ii) = 0;
                     }
                 }
+                 */
 
                 //solve for u_pos component of gradient
-                sol = A.householderQr().solve(b);
+                //sol = A_e[e].householderQr().solve(b_e[e]);
+                sol = A_inv[e]*b_e[e];
                 for (int pos = 0; pos<GRID_DIM; pos++){
                     driver->fluid_body->p_x(e, mom_index, pos) = sol(pos);
                 }
@@ -882,8 +974,8 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                       << std::endl;
         }
         //initialize matrix A and vector B
-        Eigen::MatrixXd A = Eigen::MatrixXd(num_neighbors, GRID_DIM);
-        Eigen::VectorXd b = Eigen::VectorXd(num_neighbors);
+        //Eigen::MatrixXd A = Eigen::MatrixXd(num_neighbors, GRID_DIM);
+        //Eigen::VectorXd b = Eigen::VectorXd(num_neighbors);
         Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
         KinematicVector x_0, x;
         double rho_0, rho, rho_max, rho_min, min_dif;
@@ -897,8 +989,8 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
 
             //create system of equations
             for (int ii=0; ii<element_neighbors[e].size(); ii++){
+                /*
                 x = getElementCentroid(job, element_neighbors[e][ii]);
-                rho = driver->fluid_body->rho(element_neighbors[e][ii]);
                 for (int pos = 0; pos<GRID_DIM; pos++) {
                     tmp_dif = x[pos] - x_0[pos];
                     //if periodic, then x - x_0 may be greater than L/2
@@ -910,7 +1002,11 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                         A(ii, pos) = x[pos] - x_0[pos];
                     }
                 }
-                b(ii) = rho - rho_0;
+                 */
+
+                //fill in b vector
+                rho = driver->fluid_body->rho(element_neighbors[e][ii]);
+                b_e[e](ii) = rho - rho_0;
 
                 //update maximum and minimum velocities
                 if (rho > rho_max){
@@ -926,8 +1022,9 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                 //only add BCs for dirichlet conditions
                 int f = element_faces[e][j];
                 if (face_bcs[f] >= 0 && bc_tags[face_bcs[f]] == FiniteVolumeGrid::DIRICHLET) {
-                    x = getFaceCentroid(job, f);
+                    //x = getFaceCentroid(job, f);
                     //rho = rho_0;
+                    /*
                     for (int pos = 0; pos < GRID_DIM; pos++) {
                         tmp_dif = x[pos] - x_0[pos];
                         //if periodic, then x - x_0 may be greater than L/2
@@ -939,13 +1036,15 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                             A(i, pos) = x[pos] - x_0[pos];
                         }
                     }
-                    b(i) = 0;
+                     */
+                    b_e[e](i) = 0;
 
                     //increment i
                     i++;
                 }
             }
 
+            /*
             //zero remainder of system of eq'ns
             for (int ii=i; ii<num_neighbors; ii++){
                 for (int pos=0; pos<GRID_DIM; pos++){
@@ -953,9 +1052,11 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                     b(ii) = 0;
                 }
             }
+             */
 
             //solve for u_pos component of gradient
-            sol = A.householderQr().solve(b);
+            //sol = A_e[e].householderQr().solve(b_e[e]);
+            sol = A_inv[e]*b_e[e];
             for (int pos = 0; pos<GRID_DIM; pos++){
                 driver->fluid_body->rho_x(e, pos) = sol(pos);
             }
@@ -997,8 +1098,8 @@ KinematicTensorArray FVMCartesian::getVelocityGradients(Job* job, FiniteVolumeDr
     double rho, rho_0, tmp_dif;
 
     //initialize matrix A and vector B
-    Eigen::MatrixXd A = Eigen::MatrixXd(num_neighbors, GRID_DIM);
-    Eigen::VectorXd b = Eigen::VectorXd(num_neighbors);
+    //Eigen::MatrixXd A = Eigen::MatrixXd(num_neighbors, GRID_DIM);
+    //Eigen::VectorXd b = Eigen::VectorXd(num_neighbors);
     Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
     KinematicVector x_0, x;
     KinematicVector u_0;
@@ -1013,6 +1114,7 @@ KinematicTensorArray FVMCartesian::getVelocityGradients(Job* job, FiniteVolumeDr
         for (int dir = 0; dir<GRID_DIM; dir++){
             //create system of equations
             for (int ii=0; ii<element_neighbors[e].size(); ii++){
+                /*
                 x = getElementCentroid(job, element_neighbors[e][ii]);
                 p = driver->fluid_body->p[element_neighbors[e][ii]];
                 rho = driver->fluid_body->rho(element_neighbors[e][ii]);
@@ -1027,7 +1129,10 @@ KinematicTensorArray FVMCartesian::getVelocityGradients(Job* job, FiniteVolumeDr
                         A(ii, pos) = x[pos] - x_0[pos];
                     }
                 }
-                b(ii) = p[dir]/rho - u_0[dir];
+                 */
+                rho = driver->fluid_body->rho(element_neighbors[e][ii]);
+                p = driver->fluid_body->p[element_neighbors[e][ii]];
+                b_e[e](ii) = p[dir]/rho - u_0[dir];
             }
 
             //add boundary conditions where applicable (total number of eq'ns still less than rows of A)
@@ -1036,8 +1141,8 @@ KinematicTensorArray FVMCartesian::getVelocityGradients(Job* job, FiniteVolumeDr
                 //only add BCs for dirichlet conditions
                 int f = element_faces[e][j];
                 if (face_bcs[f] >= 0 && bc_tags[face_bcs[f]] == FiniteVolumeGrid::DIRICHLET) {
+                    /*
                     x = getFaceCentroid(job, f);
-                    u = bc_values[face_bcs[f]];
                     for (int pos = 0; pos < GRID_DIM; pos++) {
                         tmp_dif = x[pos] - x_0[pos];
                         //if periodic, then x - x_0 may be greater than L/2
@@ -1049,13 +1154,16 @@ KinematicTensorArray FVMCartesian::getVelocityGradients(Job* job, FiniteVolumeDr
                             A(i, pos) = x[pos] - x_0[pos];
                         }
                     }
-                    b(i) = u[dir] - u_0[dir];
+                     */
+                    u = bc_values[face_bcs[f]];
+                    b_e[e](i) = u[dir] - u_0[dir];
 
                     //increment i
                     i++;
                 }
             }
 
+            /*
             //zero remainder of system of eq'ns
             for (int ii=i; ii<num_neighbors; ii++){
                 for (int pos=0; pos<GRID_DIM; pos++){
@@ -1063,9 +1171,11 @@ KinematicTensorArray FVMCartesian::getVelocityGradients(Job* job, FiniteVolumeDr
                     b(ii) = 0;
                 }
             }
+             */
 
             //solve for u_pos component of gradient
-            sol = A.householderQr().solve(b);
+            //sol = A_e[e].householderQr().solve(b_e[e]);
+            sol = A_inv[e]*b_e[e];
             for (int pos = 0; pos<GRID_DIM; pos++){
                 u_x(e, dir, pos) = sol(pos);
             }
@@ -1219,8 +1329,8 @@ Eigen::VectorXd FVMCartesian::calculateElementFluxIntegrals(Job* job, FiniteVolu
         KinematicVectorArray phi_x = KinematicVectorArray(element_count, job->JOB_TYPE);
 
         //initialize matrix A and vector B
-        Eigen::MatrixXd A = Eigen::MatrixXd(num_neighbors, GRID_DIM);
-        Eigen::VectorXd b = Eigen::VectorXd(num_neighbors);
+        //Eigen::MatrixXd A = Eigen::MatrixXd(num_neighbors, GRID_DIM);
+        //Eigen::VectorXd b = Eigen::VectorXd(num_neighbors);
         Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
         KinematicVector x_0, x, x_face, x_quad;
         x_quad = KinematicVector(job->JOB_TYPE);
@@ -1234,6 +1344,7 @@ Eigen::VectorXd FVMCartesian::calculateElementFluxIntegrals(Job* job, FiniteVolu
 
             //create system of equations
             for (int ii=0; ii<element_neighbors[e].size(); ii++){
+                /*
                 x = getElementCentroid(job, element_neighbors[e][ii]);
                 value = phi(element_neighbors[e][ii]);
                 for (int pos = 0; pos<GRID_DIM; pos++) {
@@ -1247,7 +1358,10 @@ Eigen::VectorXd FVMCartesian::calculateElementFluxIntegrals(Job* job, FiniteVolu
                         A(ii, pos) = x[pos] - x_0[pos];
                     }
                 }
-                b(ii) = value - value_0;
+                 */
+
+                value = phi(element_neighbors[e][ii]);
+                b_e[e](ii) = value - value_0;
 
                 //update maximum and minimum velocities
                 if (value > value_max){
@@ -1258,15 +1372,16 @@ Eigen::VectorXd FVMCartesian::calculateElementFluxIntegrals(Job* job, FiniteVolu
             }
 
             //zero remainder of system of eq'ns
-            for (int ii=element_neighbors[e].size(); ii<num_neighbors; ii++){
+            for (int ii=element_neighbors[e].size(); ii<b_e[e].rows(); ii++){
                 for (int pos=0; pos<GRID_DIM; pos++){
-                    A(ii,pos) = 0;
-                    b(ii) = 0;
+                    //A(ii,pos) = 0;
+                    b_e[e](ii) = 0;
                 }
             }
 
             //solve for u_pos component of gradient
-            sol = A.householderQr().solve(b);
+            //sol = A_e[e].householderQr().solve(b_e[e]);
+            sol = A_inv[e]*b_e[e];
             for (int pos = 0; pos<GRID_DIM; pos++){
                 phi_x(e, pos) = sol(pos);
             }
@@ -1781,12 +1896,14 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
     double rho_plus, rho_minus;
     double area;
     double rho_bar, c, a_1, a_2, lambda_1, lambda_2;
+    KinematicVector x_0 = KinematicVector(job->JOB_TYPE);
     KinematicVector x_face = KinematicVector(job->JOB_TYPE);
     KinematicVector x_quad = KinematicVector(job->JOB_TYPE);
     KinematicVector a_3 = KinematicVector(job->JOB_TYPE);
 
     //traction calculatons
     KinematicTensorArray L = getVelocityGradients(job, driver);
+    KinematicTensor L_tmp = KinematicTensor(job->JOB_TYPE);
     MaterialTensor tau_plus, tau_minus;
     double P_plus, P_minus, theta_bar;
 
@@ -1865,7 +1982,7 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
                 P_plus = c*c*(rho_plus - rho_bar) + driver->fluid_material->getPressure(job, driver, x_face, rho_bar, theta_bar);
                 P_minus = c*c*(rho_minus - rho_plus) + P_plus;
 
-                flux += area * 0.5 * ((P_plus + P_minus)*normal - KinematicTensor((tau_plus + tau_minus), job->JOB_TYPE)*normal);
+                flux += area * 0.5 * ((P_plus + P_minus)*normal - KinematicVector((tau_plus + tau_minus)*normal, job->JOB_TYPE));
 
                 //add flux to element integrals
                 result(e_minus) -= flux;
@@ -1882,12 +1999,21 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
                     //tractions
                     rho_bar = driver->fluid_body->rho(e_minus);
                     theta_bar = driver->fluid_body->theta(e_minus);
-                    tau_minus = driver->fluid_material->getShearStress(job, driver, x_face, L[e_minus], rho_bar, theta_bar);
+
+                    //estimate L
+                    x_0 = getElementCentroid(job, e_minus);
+                    for (int ii=0; ii<GRID_DIM; ii++){
+                        for (int jj=0; jj<GRID_DIM; jj++){
+                            L_tmp(ii,jj) = (bc_values[face_bcs[f]][ii] - p_minus[ii]/rho_bar)/(x_face - x_0).dot(normal)*normal[jj];
+                        }
+                    }
+
+                    tau_minus = driver->fluid_material->getShearStress(job, driver, x_face, L_tmp, rho_bar, theta_bar);
                     P_minus = driver->fluid_material->getPressure(job, driver, x_face, rho_bar, theta_bar);
 
                     flux = p_minus*area*bc_values[face_bcs[f]].dot(normal)
                            + area*P_minus*normal
-                           + area*KinematicTensor(tau_minus, job->JOB_TYPE)*normal;
+                           - area*KinematicVector(tau_minus*normal, job->JOB_TYPE);
                     result(e_minus) -= flux;
                 }
 
@@ -1898,12 +2024,21 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
                     //tractions
                     rho_bar = driver->fluid_body->rho(e_plus);
                     theta_bar = driver->fluid_body->theta(e_plus);
-                    tau_plus = driver->fluid_material->getShearStress(job, driver, x_face, L[e_plus], rho_bar, theta_bar);
+
+                    //estimate L
+                    x_0 = getElementCentroid(job, e_plus);
+                    for (int ii=0; ii<GRID_DIM; ii++){
+                        for (int jj=0; jj<GRID_DIM; jj++){
+                            L_tmp(ii,jj) = (bc_values[face_bcs[f]][ii] - p_plus[ii]/rho_bar)/(x_face - x_0).dot(normal)*normal[jj];
+                        }
+                    }
+
+                    tau_plus = driver->fluid_material->getShearStress(job, driver, x_face, L_tmp, rho_bar, theta_bar);
                     P_plus = driver->fluid_material->getPressure(job, driver, x_face, rho_bar, theta_bar);
 
                     flux = p_plus*area*bc_values[face_bcs[f]].dot(normal)
                            + area*P_plus*normal
-                           + area*KinematicTensor(tau_plus, job->JOB_TYPE)*normal;
+                           - area*KinematicVector(tau_plus*normal, job->JOB_TYPE);
 
                     result(e_plus) += flux;
                 }
@@ -2039,7 +2174,7 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
                     P_plus = c*c*(rho_plus - rho_bar) + driver->fluid_material->getPressure(job, driver, x_quad, rho_bar, theta_bar);
                     P_minus = c*c*(rho_minus - rho_plus) + P_plus;
 
-                    flux += area/num_quad * 0.5 * ((P_plus + P_minus)*normal - KinematicTensor((tau_plus + tau_minus), job->JOB_TYPE)*normal);
+                    flux += area/num_quad * 0.5 * ((P_plus + P_minus)*normal - KinematicVector((tau_plus + tau_minus)*normal, job->JOB_TYPE));
 
                     //add flux to element integrals
                     result(e_minus) -= flux;
@@ -2074,12 +2209,21 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
                         //tractions
                         rho_bar = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
                         theta_bar = driver->fluid_body->theta(e_minus);
-                        tau_minus = driver->fluid_material->getShearStress(job, driver, x_quad, L[e_minus], rho_bar, theta_bar);
+
+                        //estimate L
+                        x_0 = getElementCentroid(job, e_minus);
+                        for (int ii=0; ii<GRID_DIM; ii++){
+                            for (int jj=0; jj<GRID_DIM; jj++){
+                                L_tmp(ii,jj) = (bc_values[face_bcs[f]][ii] - p_minus[ii]/rho_bar)/(x_face - x_0).dot(normal)*normal[jj];
+                            }
+                        }
+
+                        tau_minus = driver->fluid_material->getShearStress(job, driver, x_quad, L_tmp, rho_bar, theta_bar);
                         P_minus = driver->fluid_material->getPressure(job, driver, x_quad, rho_bar, theta_bar);
 
                         flux = p_minus*area/num_quad*bc_values[face_bcs[f]].dot(normal)
                                + area/num_quad*P_minus*normal
-                               + area/num_quad*KinematicTensor(tau_minus, job->JOB_TYPE)*normal;
+                               - area/num_quad*KinematicVector(tau_minus*normal, job->JOB_TYPE);
 
                         result(e_minus) -= flux;
                     }
@@ -2099,12 +2243,21 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
                         //tractions
                         rho_bar = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
                         theta_bar = driver->fluid_body->theta(e_plus);
-                        tau_plus = driver->fluid_material->getShearStress(job, driver, x_quad, L[e_plus], rho_bar, theta_bar);
+
+                        //estimate L
+                        x_0 = getElementCentroid(job, e_plus);
+                        for (int ii=0; ii<GRID_DIM; ii++){
+                            for (int jj=0; jj<GRID_DIM; jj++){
+                                L_tmp(ii,jj) = (bc_values[face_bcs[f]][ii] - p_plus[ii]/rho_bar)/(x_face - x_0).dot(normal)*normal[jj];
+                            }
+                        }
+
+                        tau_plus = driver->fluid_material->getShearStress(job, driver, x_quad, L_tmp, rho_bar, theta_bar);
                         P_plus = driver->fluid_material->getPressure(job, driver, x_quad, rho_bar, theta_bar);
 
                         flux = p_plus*area/num_quad*bc_values[face_bcs[f]].dot(normal)
                                + area/num_quad*P_plus*normal
-                               + area/num_quad*KinematicTensor(tau_plus, job->JOB_TYPE)*normal;
+                               - area/num_quad*KinematicVector(tau_plus*normal, job->JOB_TYPE);
 
                         result(e_plus) += flux;
                     }

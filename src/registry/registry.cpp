@@ -168,6 +168,7 @@ Registry<Part>::Registry() {
 template<>
 Registry<FiniteVolumeSolver>::Registry() {
     object["FVMDefaultSolver"] = &createInstance<FiniteVolumeSolver,FVMDefaultSolver>;
+    object["FVMRungeKuttaSolver"] = &createInstance<FiniteVolumeSolver,FVMRungeKuttaSolver>;
 }
 
 template<>

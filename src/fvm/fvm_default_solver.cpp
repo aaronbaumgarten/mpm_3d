@@ -50,7 +50,7 @@ void FVMDefaultSolver::step(Job* job, FiniteVolumeDriver* driver){
         driver->fluid_body->p[e]   += momentum_fluxes[e] / volume * job->dt;    //d(rho u dv)/dt = flux
 
         //add gravitational contribution to momentum update
-        driver->fluid_body->p[e]   += driver->fluid_body->rho(e)*driver->gravity;
+        driver->fluid_body->p[e]   += driver->fluid_body->rho(e)*driver->gravity * job->dt;
     }
 
     //end step

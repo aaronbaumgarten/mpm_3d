@@ -103,6 +103,11 @@ public:
     std::vector<std::vector<int>> element_faces;    //unordered list of faces
     std::vector<std::vector<int>> element_neighbors; //list of nearest neighbors
 
+    //gradient reconstruction vectors for solving least squares problem
+    std::vector<Eigen::MatrixXd> A_e;
+    std::vector<Eigen::MatrixXd> A_inv; //psuedo inverse
+    std::vector<Eigen::VectorXd> b_e;
+
     //mapping functions
     std::vector<int> e_to_ijk(int e); //convert element id to ijk element definition
     int ijk_to_e(std::vector<int> ijk); //convert ijk element definition to e
