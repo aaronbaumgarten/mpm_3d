@@ -417,14 +417,48 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         //loop over i
         for (int i=-1; i<2; i++){
             tmp[0] = ijk[0] + i;
+            //check for periodic BC
+            for (int f=0; f<element_faces[e].size(); f++){
+                //loop -x
+                if (face_bcs[f] == 0 && bc_tags[face_bcs[f]] == PERIODIC){
+                    if (ijk[0] == 0 && i==-1) {
+                        tmp[0] = Nx[0] - 1;
+                    } else if (ijk[0] == Nx[0]-1 && i==1){
+                        tmp[0] = 0;
+                    }
+                }
+            }
             if (GRID_DIM > 1){
                 //loop over j
                 for (int j=-1; j<2; j++){
                     tmp[1] = ijk[1] + j;
+                    //check for periodic BC
+                    for (int f=0; f<element_faces[e].size(); f++){
+                        //loop -y
+                        if (face_bcs[f] == 2 && bc_tags[face_bcs[f]] == PERIODIC){
+                            if (ijk[1] == 0 && j == -1) {
+                                tmp[1] = Nx[1] - 1;
+                            } else if (ijk[1] == Nx[1] -1 && j == 1) {
+                                tmp[1] = 0;
+                            }
+                        }
+                    }
                     if (GRID_DIM > 2){
                         for (int k=-1; k<2; k++){
                             //loop over k
                             tmp[2] = ijk[2] + k;
+                            //check for periodic BC
+                            for (int f=0; f<element_faces[e].size(); f++){
+                                //loop -z
+                                if (face_bcs[f] == 4 && bc_tags[face_bcs[f]] == PERIODIC){
+                                    if (ijk[2] == 0 && k == -1) {
+                                        tmp[2] = Nx[2] - 1;
+                                    } else if (ijk[2] == Nx[2] - 1 && k == 1) {
+                                        tmp[2] = 0;
+                                    }
+                                }
+                            }
+
                             tmp_e = ijk_to_e(tmp);
                             if (tmp_e >= 0 && tmp_e != e && tmp_e < element_count){
                                 element_neighbors[e].push_back(tmp_e);
@@ -445,6 +479,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
             }
         }
     }
+
 
     //consistency check!!!
     num_neighbors = 3;
@@ -598,7 +633,23 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         }
         std::cout << std::endl;
     }
-    */
+
+    //check periodic faces for double counting
+    for (int f=0; f<face_count; f++){
+        if (face_bcs[f] > -1 && bc_tags[face_bcs[f]] == PERIODIC){
+            std::cout << f << " : " << face_elements[f][0] << " | " << face_elements[f][1] << std::endl;
+            std::cout << "  " << face_elements[f][0] << " : ";
+            for (int i=0; i<element_neighbors[face_elements[f][0]].size(); i++){
+                std::cout << element_neighbors[face_elements[f][0]][i] << " ";
+            }
+            std::cout << std::endl << "  " << face_elements[f][1] << " : ";
+            for (int i=0; i<element_neighbors[face_elements[f][1]].size(); i++){
+                std::cout << element_neighbors[face_elements[f][1]][i] << " ";
+            }
+            std::cout << std::endl;
+        }
+    }
+     */
 }
 
 /*----------------------------------------------------------------------------*/
@@ -2214,7 +2265,8 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
                         x_0 = getElementCentroid(job, e_minus);
                         for (int ii=0; ii<GRID_DIM; ii++){
                             for (int jj=0; jj<GRID_DIM; jj++){
-                                L_tmp(ii,jj) = (bc_values[face_bcs[f]][ii] - p_minus[ii]/rho_bar)/(x_face - x_0).dot(normal)*normal[jj];
+                                L_tmp(ii,jj) = (bc_values[face_bcs[f]][ii] - driver->fluid_body->p[e_minus][ii]/rho_bar)
+                                               /(x_face - x_0).dot(normal)*normal[jj];
                             }
                         }
 
@@ -2248,7 +2300,8 @@ KinematicVectorArray FVMCartesian::calculateElementMomentumFluxes(Job* job, Fini
                         x_0 = getElementCentroid(job, e_plus);
                         for (int ii=0; ii<GRID_DIM; ii++){
                             for (int jj=0; jj<GRID_DIM; jj++){
-                                L_tmp(ii,jj) = (bc_values[face_bcs[f]][ii] - p_plus[ii]/rho_bar)/(x_face - x_0).dot(normal)*normal[jj];
+                                L_tmp(ii,jj) = (bc_values[face_bcs[f]][ii] - driver->fluid_body->p[e_plus][ii]/rho_bar)
+                                               /(x_face - x_0).dot(normal)*normal[jj];
                             }
                         }
 
