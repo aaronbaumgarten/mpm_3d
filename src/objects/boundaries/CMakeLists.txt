@@ -5,5 +5,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_frictional_box.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_box_custom.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/assigned_velocity.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/general_custom_boundary.cpp
         PARENT_SCOPE
         )

@@ -247,9 +247,10 @@ public:
 
     double lc, msh_version;
     std::string msh_filename;
-    KinematicVector Lx, hx;
+    KinematicVector Lx, hx, x_min;
     Eigen::VectorXi Nx;
     Eigen::MatrixXi nodeIDs; //element to node map
+    Eigen::VectorXi nodeTags; //node tags
 
     int npe = 3;
     KinematicVectorArray x_n;

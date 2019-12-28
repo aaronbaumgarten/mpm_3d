@@ -152,6 +152,7 @@ Registry<Boundary>::Registry() {
     object["CartesianFrictionalBox"] = &createInstance<Boundary,CartesianFrictionalBox>;
     object["CartesianBoxCustom"] = &createInstance<Boundary,CartesianBoxCustom>;
     object["AssignedVelocity"] = &createInstance<Boundary,AssignedVelocity>;
+    object["GeneralCustomBoundary"] = &createInstance<Boundary,GeneralCustomBoundary>;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -174,6 +175,7 @@ Registry<FiniteVolumeSolver>::Registry() {
 template<>
 Registry<FiniteVolumeGrid>::Registry() {
     object["FVMCartesian"] = &createInstance<FiniteVolumeGrid,FVMCartesian>;
+    object["FVMGmsh2D"] = &createInstance<FiniteVolumeGrid,FVMGmsh2D>;
 }
 
 template<>

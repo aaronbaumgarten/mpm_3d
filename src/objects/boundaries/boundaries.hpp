@@ -160,4 +160,33 @@ public:
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
 };
 
+/*----------------------------------------------------------------------------*/
+
+class GeneralCustomBoundary : public Boundary{
+public:
+    GeneralCustomBoundary(){
+        object_name = "GeneralCustomBoundary";
+    }
+
+    static const int FREE_BOUNDARY      = -1;
+    static const int DIRICHLET          = 0;
+
+    Eigen::VectorXi limit_props, bcTag;
+    std::vector<KinematicVector> limit_vals;
+    KinematicVectorArray bcNodalForce;
+    KinematicVectorArray bcValues;
+    MaterialTensorArray tmp;
+    MaterialVectorArray nvec;
+    KinematicVectorArray pvec;
+    Eigen::VectorXd v_n;
+
+    void init(Job* job, Body* body);
+    void generateRules(Job* job, Body* body);
+    void applyRules(Job* job, Body* body);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
 #endif //MPM_V3_BOUNDARIES_HPP

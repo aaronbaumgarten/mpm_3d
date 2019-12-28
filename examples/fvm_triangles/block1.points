@@ -1,0 +1,12 @@
+# point generation for two blocks
+Lx = {1.0, 1.0}
+Nx = {100, 100}
+out_file = "out.points"
+lmpp = 2
+rho = 1000 #kg/m^3
+
+part
+{
+    class = "Box"
+    properties = {0.4,0.4,0.6,0.6}
+}

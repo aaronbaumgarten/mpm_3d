@@ -147,4 +147,66 @@ public:
 
 /*----------------------------------------------------------------------------*/
 
+class FVMGmsh2D : public FiniteVolumeGrid{
+public:
+    FVMGmsh2D(){
+        object_name = "FVMGmsh2D";
+    }
+
+    //grid definitions
+    std::string filename;
+    Eigen::VectorXd face_areas;
+    KinematicVectorArray face_normals; //x,y,z only
+
+    Eigen::MatrixXi nodeIDs;        //element to node map
+    int npe = 3;                    //nodes per element
+    KinematicVectorArray x_n, x_e, x_f;  //node positions, element centroids, face_centroid
+    Eigen::VectorXd v_e;            //element volumes
+
+    //boundary conditions
+    Eigen::VectorXi bc_tags;        //tags for each face
+    KinematicVectorArray bc_values; //bc values at each face
+
+    //grid definitions
+    std::vector<std::array<int,2>> face_nodes;      //un-oriented list of nodes a---b
+    std::vector<std::array<int,2>> face_elements;   //oriented face list (A -|-> B)
+    std::vector<std::vector<int>> element_faces;    //unordered list of faces
+    std::vector<std::vector<int>> element_neighbors; //list of nearest neighbors
+
+    //gradient reconstruction vectors for solving least squares problem
+    std::vector<Eigen::MatrixXd> A_e;
+    std::vector<Eigen::MatrixXd> A_inv; //psuedo inverse
+    std::vector<Eigen::VectorXd> b_e;
+
+    virtual void init(Job* job, FiniteVolumeDriver* driver);
+
+    virtual void writeHeader(std::ofstream& file, int TYPE);
+
+    virtual double getElementVolume(int e);
+    virtual int getElementTag(int e);
+    virtual double getFaceArea(int f);
+    virtual int getFaceTag(int f);
+    virtual KinematicVector getFaceNormal(Job* job, int f);
+
+    virtual std::vector<int> getElementFaces(int e);
+    virtual std::array<int,2> getOrientedElementsByFace(int e);
+    virtual std::vector<int> getElementNeighbors(int e);
+    virtual KinematicVector getElementCentroid(Job* job, int e); //return element centroid
+    virtual KinematicVector getFaceCentroid(Job* job, int f);
+
+    virtual void generateMappings(Job* job, FiniteVolumeDriver* driver);
+    virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver);
+    virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver);
+    virtual KinematicTensorArray getVelocityGradients(Job* job, FiniteVolumeDriver* driver);
+
+    //functions to compute element-wise fluxes of field variables using reconstructed velocity field
+    virtual Eigen::VectorXd calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, Eigen::VectorXd& values);
+
+    //functions to compute element mass flux
+    virtual Eigen::VectorXd calculateElementMassFluxes(Job* job, FiniteVolumeDriver* driver);
+
+    //functions to compute element momentum fluxes
+    virtual KinematicVectorArray calculateElementMomentumFluxes(Job* job, FiniteVolumeDriver* driver);
+};
+
 #endif //MPM_V3_FVM_GRIDS_HPP

@@ -115,17 +115,19 @@ bool TriangularGridLinear::line_segment_intersect(Eigen::VectorXd s0_p0, Eigen::
 int TriangularGridLinear::whichSearchCell(const KinematicVector &xIN){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "whichSearchCell failed");
     bool inDomain;
-    int elementID = floor(xIN[0] / hx[0]); //id in x-dimension
+    //relative position to bottom left corner.
+    KinematicVector xTMP = xIN - x_min;
+    int elementID = floor(xTMP[0] / hx[0]); //id in x-dimension
     for (int i = 0; i < GRID_DIM; i++) {
-        inDomain = (xIN[i] < Lx[i] && xIN[i] >= 0);
+        inDomain = (xTMP[i] < Lx[i] && xTMP[i] >= 0);
         if (!inDomain) { //if xIn is outside domain, return -1
             return -1;
         }
         if (i == 1) {
             //add number of elements in next layer of id in higher dimensions
-            elementID += floor(xIN[i] / hx[i]) * (Nx[i - 1]);
+            elementID += floor(xTMP[i] / hx[i]) * (Nx[i - 1]);
         } else if (i == 2) {
-            elementID += floor(xIN[i] / hx[i]) * (Nx[i - 1]) * (Nx[i - 2]);
+            elementID += floor(xTMP[i] / hx[i]) * (Nx[i - 1]) * (Nx[i - 2]);
         }
     }
     return elementID;
@@ -165,7 +167,7 @@ void TriangularGridLinear::init(Job* job){
         std::cout << "Grid properties (filename = " << msh_filename << ", lc = " << lc << ")." << std::endl;
     }
 
-    int len;
+    int len, tag;
     std::string line; //read line
     std::vector<std::string> lvec;
     std::ifstream fin(msh_filename); //file to load from
@@ -190,6 +192,8 @@ void TriangularGridLinear::init(Job* job){
 
                         //nodeTags.resize(len);
                         x_n = KinematicVectorArray(len, job->JOB_TYPE);
+                        nodeTags = Eigen::VectorXi(len);
+                        nodeTags.setConstant(-1);
                         v_n.resize(len);
                         node_count = len;
 
@@ -208,6 +212,8 @@ void TriangularGridLinear::init(Job* job){
                         //nodeTags.resize(len);
                         x_n = KinematicVectorArray(len,job->JOB_TYPE);
                         node_count = len;
+                        nodeTags = Eigen::VectorXi(len);
+                        nodeTags.setConstant(-1);
                         //version 4 nodes are broken into blocks
                         int k = 0;
                         int block_length;
@@ -217,13 +223,17 @@ void TriangularGridLinear::init(Job* job){
                             lvec = Parser::splitString(line, ' ');
                             //length of block
                             block_length = std::stoi(lvec[3]);
+                            //skip tags
+                            for (int i=0;i<block_length;i++){
+                                std::getline(fin,line);
+                            }
                             //read nodes in block
                             for (int i=0;i<block_length;i++){
                                 std::getline(fin,line);
                                 lvec = Parser::splitString(line,' ');
                                 //lvec[0] gives gmsh id (1-indexed)
-                                x_n(i,0) = std::stod(lvec[1]); //x-coord
-                                x_n(i,1) = std::stod(lvec[2]); //y-coord
+                                x_n(k,0) = std::stod(lvec[0]); //x-coord
+                                x_n(k,1) = std::stod(lvec[1]); //y-coord
                                 //increment counter
                                 k++;
                             }
@@ -257,11 +267,18 @@ void TriangularGridLinear::init(Job* job){
                                 nodeIDs(i, 1) = std::stoi(lvec[4 + len]) - 1;
                                 nodeIDs(i, 2) = std::stoi(lvec[5 + len]) - 1;
                             }
+                            //if element type is line, set node tags according to line tag
+                            if (std::stoi(lvec[1]) == 1){
+                                len = std::stoi(lvec[2]);           //num tags
+                                tag = std::stoi(lvec[3]);           //first tag
+                                nodeTags(std::stoi(lvec[3 + len]) - 1) = tag;
+                                nodeTags(std::stoi(lvec[4 + len]) - 1) = tag;
+                            }
                         }
 
                         element_count = i + 1;
                         nodeIDs.conservativeResize(i + 1, 3);
-                    }  else if (floor(msh_version) == 4){
+                    } else if (floor(msh_version) == 4){
                         std::getline(fin, line);
                         lvec = Parser::splitString(line,' ');
                         len = std::stoi(lvec[1]); //number of potential entities
@@ -277,8 +294,9 @@ void TriangularGridLinear::init(Job* job){
 
                             lvec = Parser::splitString(line, ' ');
                             //block info
-                            block_type = std::stoi(lvec[3]);
-                            block_length = std::stoi(lvec[4]);
+                            tag = std::stoi(lvec[1]);
+                            block_type = std::stoi(lvec[2]);
+                            block_length = std::stoi(lvec[3]);
                             //check that entity is triangle
                             if (block_type == 2) {
                                 for (int k = 0; k < block_length; k++) {
@@ -290,16 +308,24 @@ void TriangularGridLinear::init(Job* job){
                                     nodeIDs(i, 1) = std::stoi(lvec[2]) - 1;
                                     nodeIDs(i, 2) = std::stoi(lvec[3]) - 1;
                                 }
+                            } else if (block_type == 1) {
+                                //if entity is a line, it defines a set of physical tags for nodes
+                                for (int k=0; k<block_length; k++){
+                                    std::getline(fin, line);
+                                    lvec = Parser::splitString(line, ' ');
+                                    nodeTags(std::stoi(lvec[1]) - 1) = tag;
+                                    nodeTags(std::stoi(lvec[2]) - 1) = tag;
+                                }
                             } else {
                                 //read through block and continue
                                 for (int k=0; k<block_length; k++){
                                     std::getline(fin, line);
                                 }
                             }
-
-                            element_count = i + 1;
-                            nodeIDs.conservativeResize(i + 1, npe);
                         }
+
+                        element_count = i + 1;
+                        nodeIDs.conservativeResize(i + 1, npe);
 
                     } else {
                         std::cerr << "Unrecognized Gmsh version: " << msh_version << ". Exiting." << std::endl;
@@ -327,7 +353,6 @@ void TriangularGridLinear::init(Job* job){
 void TriangularGridLinear::hiddenInit(Job* job){
 
     //called from loading or initializing functions
-
     v_e.resize(nodeIDs.rows());
     v_n.resize(x_n.size());
     v_n.setZero();
@@ -372,15 +397,22 @@ void TriangularGridLinear::hiddenInit(Job* job){
 
     //setup search grid
     //store length, number of linear nodes, and deltas
+    x_min = KinematicVector(job->JOB_TYPE);
     Lx = KinematicVector(job->JOB_TYPE);
+    x_min.setZero();
     Lx.setZero();
     for (int i=0;i<x_n.size();i++){
         for (int pos=0;pos<GRID_DIM;pos++){
             if (x_n(i,pos) > Lx(pos)){
                 Lx(pos) = x_n(i,pos);
             }
+            if (x_n(i,pos) < x_min(pos)){
+                x_min(pos) = x_n(i,pos);
+            }
         }
     }
+    Lx = Lx - x_min; //adjust Lx to account for negative point positions
+
     Nx = Eigen::VectorXi(job->DIM);;
     for (size_t pos=0;pos<GRID_DIM;pos++){
         Nx(pos) = std::floor(Lx(pos)/lc);
@@ -407,6 +439,7 @@ void TriangularGridLinear::hiddenInit(Job* job){
     std::vector<Eigen::Vector2d,Eigen::aligned_allocator<Eigen::Vector2d>> list_p0;
     std::vector<Eigen::Vector2d,Eigen::aligned_allocator<Eigen::Vector2d>> list_p1;
     Eigen::VectorXd xe0, xe1, xe2;
+    KinematicVector x_tmp = KinematicVector(job->JOB_TYPE);
 
     s1_p0 << 0,0; s1_p1 << 1,0;
     list_p0.push_back(s1_p0);
@@ -429,6 +462,10 @@ void TriangularGridLinear::hiddenInit(Job* job){
         //fill search_cells
         //check every side for intersect with every edge
         ijk = (n_to_ijk(job,i)).cast<double>();
+        //get centroid of search cell
+        for (int pos = 0; pos<GRID_DIM; pos++){
+            x_tmp[pos] = ijk(pos) * hx[pos] + hx[pos]/2.0;
+        }
         for (int side = 0; side < 4; side++){
             s1_p0(0) = (ijk(0) + list_p0[side](0));
             s1_p0(1) = (ijk(1) + list_p0[side](1));
@@ -440,6 +477,12 @@ void TriangularGridLinear::hiddenInit(Job* job){
             }
 
             for (int e = 0; e<element_count; e++){
+                //check if centroid is within element
+                if (inElement(job, x_tmp, e)){
+                    search_cells.push_back(e);
+                    continue;
+                }
+
                 //check corners within cell first
                 if (i == whichSearchCell(x_n(nodeIDs(e, 0)))) {
                     search_cells.push_back(e);
@@ -534,6 +577,8 @@ void TriangularGridLinear::writeHeader(Job* job, Body* body, Serializer* seriali
         nfile << "5\n";
     }
     nfile << "POINT_DATA " << nlen << "\n";
+    Eigen::VectorXd tmp = nodeTags.cast<double>();
+    serializer->writeScalarArray(tmp, "node_tags");
 } //write cell types
 
 
@@ -644,7 +689,8 @@ double TriangularGridLinear::elementVolume(Job* job, int idIN){
 }
 
 int TriangularGridLinear::nodeTag(Job* job, int idIN){
-    return -1;
+    return nodeTags(idIN);
+    //return -1;
 }
 
 double TriangularGridLinear::nodeSurfaceArea(Job *job, int idIN) {
