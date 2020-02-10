@@ -45,18 +45,49 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
     //if integers are passed, they define boundary conditions
     std::vector<int> tmp_bc_tags = std::vector<int>(0);
     std::vector<KinematicVector> tmp_bc_values = std::vector<KinematicVector>(0);
+    std::vector<double> tmp_bc_density = std::vector<double>(0);                    //for supersonic inlet
+    int supersonic_props = 0;
     if (int_props.size() >= 1){
         tmp_bc_tags.resize(int_props.size());
         tmp_bc_values.resize(int_props.size());
+        tmp_bc_density.resize(int_props.size());
 
         if (fp64_props.size() < int_props.size()*GRID_DIM){
             std::cerr << "ERROR: FVMGmsh2D passed mismatched integer (" << int_props.size() << ") and double (" << fp64_props.size() << ") properties!" << std::endl;
+            exit(0);
         }
 
         for (int i = 0; i<int_props.size(); i++){
             tmp_bc_tags[i] = int_props[i];
-            tmp_bc_values[i][0] = fp64_props[2*i];
-            tmp_bc_values[i][1] = fp64_props[2*i + 1];
+
+            //check for supersonic inlet
+            if (tmp_bc_tags[i] == SUPERSONIC_INLET){
+                //need to have another floating point inlet property
+                supersonic_props++;
+                if (fp64_props.size() < int_props.size()*GRID_DIM + supersonic_props){
+                    std::cerr << "ERROR: FVMGmsh2D passed mismatched integer ("
+                              << int_props.size() << ") and double ("
+                              << fp64_props.size() << ") properties with "
+                              << supersonic_props << " additional properties required!" << std::endl;
+                    exit(0);
+                }
+                tmp_bc_density[i] = fp64_props[2*i + supersonic_props - 1];
+            } else {
+                tmp_bc_density[i] = -1; //this should never actually be used
+            }
+
+            tmp_bc_values[i][0] = fp64_props[2*i + supersonic_props];
+            tmp_bc_values[i][1] = fp64_props[2*i + 1 + supersonic_props];
+
+            //check that bc tag is in coded list
+            if (tmp_bc_tags[i] != DIRICHLET
+                && tmp_bc_tags[i] != NEUMANN
+                && tmp_bc_tags[i] != PERIODIC
+                && tmp_bc_tags[i] != NEUMANN_DAMPING
+                && tmp_bc_tags[i] != SUPERSONIC_INLET){
+                std::cerr << "ERROR: Boundary tag " << tmp_bc_tags[i] << " not defined for FVMGmsh2D grid object! Exiting." << std::endl;
+                exit(0);
+            }
         }
     }
 
@@ -66,6 +97,9 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
     }
 
     std::cout << "FiniteVolumeGrid properties: (filename = " << filename << ")" << std::endl;
+    for (int i=0; i<tmp_bc_tags.size(); i++){
+        std::cout << "    " << i << " : " << tmp_bc_tags[i] << " : " << tmp_bc_density[i] << " - <" << tmp_bc_values[i][0] << ", " << tmp_bc_values[i][1] << ">" << std::endl;
+    }
 
     //temporary vector listing faces on boundary
     std::vector<std::array<int,3>> bounding_faces; //id, node1, node2
@@ -457,6 +491,8 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
     bc_tags.setConstant(-1);                                        //by default, interior faces are set to -1
     bc_values = KinematicVectorArray(face_count, job->JOB_TYPE);
     bc_values.setZero();                                            //by default, boundary conditions are zero
+    bc_density = Eigen::VectorXd(face_count);
+    bc_density.setZero();
 
     //loop over stored boundary faces
     int which_boundary;
@@ -478,6 +514,7 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
         } else {
             bc_tags[f_tmp] = tmp_bc_tags[which_boundary];
             bc_values[f_tmp] = tmp_bc_values[which_boundary];
+            bc_density[f_tmp] = tmp_bc_density[which_boundary];
         }
     }
 
@@ -496,7 +533,7 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
         for (int j = 0; j < element_faces[e].size(); j++) {
             //only add BCs for dirichlet conditions
             int f = element_faces[e][j];
-            if (bc_tags[f] == FiniteVolumeGrid::DIRICHLET) {
+            if (bc_tags[f] == DIRICHLET || bc_tags[f] == SUPERSONIC_INLET) {
                 length_of_A++; //add dirichlet conditions to A
             }
         }
@@ -519,10 +556,11 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
         for (int j = 0; j < element_faces[e].size(); j++) {
             //only add BCs for dirichlet conditions
             int f = element_faces[e][j];
-            if (bc_tags[f] == FiniteVolumeGrid::DIRICHLET) {
+            if (bc_tags[f] == DIRICHLET || bc_tags[f] == SUPERSONIC_INLET) {
                 x = getFaceCentroid(job, f);
                 for (int pos = 0; pos < GRID_DIM; pos++) {
                     tmp_dif = x[pos] - x_0[pos];
+                    A_e[e](i, pos) = x[pos] - x_0[pos];
                 }
                 //increment counter
                 i++;
@@ -685,6 +723,19 @@ void FVMGmsh2D::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                         }
                         //increment i
                         i++;
+                    } else if (bc_tags[f] == SUPERSONIC_INLET) {
+                        //fill in b vector
+                        p = bc_density[f] * bc_values[f];
+                        b_e[e](i) = p[mom_index] - p_0[mom_index];
+
+                        //update maximum and minimum velocities
+                        if (p[mom_index] > p_max[mom_index]) {
+                            p_max[mom_index] = p[mom_index];
+                        } else if (p[mom_index] < p_min[mom_index]) {
+                            p_min[mom_index] = p[mom_index];
+                        }
+                        //increment i
+                        i++;
                     }
                 }
 
@@ -764,6 +815,11 @@ void FVMGmsh2D::constructDensityField(Job* job, FiniteVolumeDriver* driver){
 
                     //increment i
                     i++;
+                } else if (bc_tags[f] == SUPERSONIC_INLET) {
+                    b_e[e](i) = bc_density[f] - rho_0;
+
+                    //increment i
+                    i++;
                 }
             }
 
@@ -828,7 +884,7 @@ KinematicTensorArray FVMGmsh2D::getVelocityGradients(Job* job, FiniteVolumeDrive
             for (int j = 0; j<element_faces[e].size(); j++){
                 //only add BCs for dirichlet conditions
                 int f = element_faces[e][j];
-                if (bc_tags[f] == FiniteVolumeGrid::DIRICHLET) {
+                if (bc_tags[f] == DIRICHLET || bc_tags[f] == SUPERSONIC_INLET) {
                     u = bc_values[f];
                     b_e[e](i) = u[dir] - u_0[dir];
 
@@ -932,7 +988,7 @@ Eigen::VectorXd FVMGmsh2D::calculateElementFluxIntegrals(Job* job, FiniteVolumeD
                 //add flux to element integrals
                 result(e_minus) -= flux;
                 result(e_plus) += flux;
-            } else if (bc_tags[f] == DIRICHLET){
+            } else if (bc_tags[f] == DIRICHLET || bc_tags[f] == SUPERSONIC_INLET){
                 //face has prescribed velocity
                 e_minus = face_elements[f][0];
                 e_plus = face_elements[f][1];
@@ -950,7 +1006,7 @@ Eigen::VectorXd FVMGmsh2D::calculateElementFluxIntegrals(Job* job, FiniteVolumeD
                     flux = v_plus*area*bc_values[f].dot(normal);
                     result(e_plus) += flux;
                 }
-            } else if (bc_tags[f] == NEUMANN){
+            } else if (bc_tags[f] == NEUMANN || bc_tags[f] == NEUMANN_DAMPING){
                 //face has prescribed traction
                 e_minus = face_elements[f][0];
                 e_plus = face_elements[f][1];
@@ -1109,7 +1165,7 @@ Eigen::VectorXd FVMGmsh2D::calculateElementFluxIntegrals(Job* job, FiniteVolumeD
                     result(e_minus) -= flux;
                     result(e_plus) += flux;
                 }
-            } else if (bc_tags[f] == DIRICHLET){
+            } else if (bc_tags[f] == DIRICHLET || bc_tags[f] == SUPERSONIC_INLET){
                 //face has prescribed velocity
                 e_minus = face_elements[f][0];
                 e_plus = face_elements[f][1];
@@ -1141,7 +1197,7 @@ Eigen::VectorXd FVMGmsh2D::calculateElementFluxIntegrals(Job* job, FiniteVolumeD
                         result(e_plus) += flux;
                     }
                 }
-            } else if (bc_tags[f] == NEUMANN){
+            } else if (bc_tags[f] == NEUMANN || bc_tags[f] == NEUMANN_DAMPING){
                 //face has prescribed traction
                 e_minus = face_elements[f][0];
                 e_plus = face_elements[f][1];
@@ -1270,7 +1326,25 @@ Eigen::VectorXd FVMGmsh2D::calculateElementMassFluxes(Job* job, FiniteVolumeDriv
                     flux = rho_plus*area*bc_values[f].dot(normal);
                     result(e_plus) += flux;
                 }
-            } else if (bc_tags[f] == NEUMANN){
+            } else if (bc_tags[f] == SUPERSONIC_INLET){
+                //face has prescribed velocity
+                e_minus = face_elements[f][0];
+                e_plus = face_elements[f][1];
+
+                if (e_minus > -1){
+                    //flux defined by cell value and assigned velocity
+                    rho_minus = bc_density[f];
+                    flux = rho_minus*area*bc_values[f].dot(normal);
+                    result(e_minus) -= flux;
+                }
+
+                if (e_plus > -1){
+                    //flux defined by cell value and assigned velocity
+                    rho_plus = bc_density[f];
+                    flux = rho_plus*area*bc_values[f].dot(normal);
+                    result(e_plus) += flux;
+                }
+            } else if (bc_tags[f] == NEUMANN || bc_tags[f] == NEUMANN_DAMPING){
                 //face has prescribed traction
                 e_minus = face_elements[f][0];
                 e_plus = face_elements[f][1];
@@ -1396,7 +1470,37 @@ Eigen::VectorXd FVMGmsh2D::calculateElementMassFluxes(Job* job, FiniteVolumeDriv
                         result(e_plus) += flux;
                     }
                 }
-            } else if (bc_tags[f] == NEUMANN){
+            } else if (bc_tags[f] == SUPERSONIC_INLET){
+                //face has prescribed velocity
+                e_minus = face_elements[f][0];
+                e_plus = face_elements[f][1];
+
+                //loop over quadrature points
+                for (int q=0; q<num_quad; q++) {
+
+                    if (e_minus > -1) {
+                        //relative position to centroid of A
+                        x = x_f[f] - x_e[e_minus];
+                        x[0] += -quad_points[q]*normal[1]*area;
+                        x[1] += quad_points[q]*normal[0]*area;
+                        //calculate A properties
+                        rho_minus = bc_density[f];
+                        flux = rho_minus*area/num_quad*bc_values[f].dot(normal);
+                        result(e_minus) -= flux;
+                    }
+
+                    if (e_plus > -1) {
+                        //relative position to centroid of B
+                        x = x_f[f] - x_e[e_plus];
+                        x[0] += -quad_points[q]*normal[1]*area;
+                        x[1] += quad_points[q]*normal[0]*area;
+                        //calculate B properties
+                        rho_plus = bc_density[f];
+                        flux = rho_plus*area/num_quad*bc_values[f].dot(normal);
+                        result(e_plus) += flux;
+                    }
+                }
+            } else if (bc_tags[f] == NEUMANN || bc_tags[f] == NEUMANN_DAMPING){
                 //face has prescribed traction
                 e_minus = face_elements[f][0];
                 e_plus = face_elements[f][1];
@@ -1588,6 +1692,61 @@ KinematicVectorArray FVMGmsh2D::calculateElementMomentumFluxes(Job* job, FiniteV
 
                     result(e_plus) += flux;
                 }
+            } else if (bc_tags[f] == SUPERSONIC_INLET){
+                //face has prescribed velocity
+                e_minus = face_elements[f][0];
+                e_plus = face_elements[f][1];
+
+                if (e_minus > -1){
+                    //flux defined by cell value and assigned velocity
+                    p_minus = driver->fluid_body->p[e_minus];
+
+                    //tractions
+                    rho_bar = driver->fluid_body->rho(e_minus);
+                    theta_bar = driver->fluid_body->theta(e_minus);
+
+                    //estimate L
+                    x_0 = getElementCentroid(job, e_minus);
+                    for (int ii=0; ii<GRID_DIM; ii++){
+                        for (int jj=0; jj<GRID_DIM; jj++){
+                            L_tmp(ii,jj) = (bc_values[f][ii] - p_minus[ii]/rho_bar)/(x_face - x_0).dot(normal)*normal[jj];
+                        }
+                    }
+
+                    tau_minus = driver->fluid_material->getShearStress(job, driver, x_face, L_tmp, bc_density[f], theta_bar);
+                    P_minus = driver->fluid_material->getPressure(job, driver, x_face, bc_density[f], theta_bar);
+
+                    flux = bc_density[f]*bc_values[f]*area*bc_values[f].dot(normal)
+                           + area*P_minus*normal
+                           - area*KinematicVector(tau_minus*normal, job->JOB_TYPE);
+                    result(e_minus) -= flux;
+                }
+
+                if (e_plus > -1){
+                    //flux defined by cell value and assigned velocity
+                    p_plus = driver->fluid_body->p[e_plus];
+
+                    //tractions
+                    rho_bar = driver->fluid_body->rho(e_plus);
+                    theta_bar = driver->fluid_body->theta(e_plus);
+
+                    //estimate L
+                    x_0 = getElementCentroid(job, e_plus);
+                    for (int ii=0; ii<GRID_DIM; ii++){
+                        for (int jj=0; jj<GRID_DIM; jj++){
+                            L_tmp(ii,jj) = (bc_values[f][ii] - p_plus[ii]/rho_bar)/(x_face - x_0).dot(normal)*normal[jj];
+                        }
+                    }
+
+                    tau_plus = driver->fluid_material->getShearStress(job, driver, x_face, L_tmp, bc_density[f], theta_bar);
+                    P_plus = driver->fluid_material->getPressure(job, driver, x_face, bc_density[f], theta_bar);
+
+                    flux = bc_density[f]*bc_values[f]*area*bc_values[f].dot(normal)
+                           + area*P_plus*normal
+                           - area*KinematicVector(tau_plus*normal, job->JOB_TYPE);
+
+                    result(e_plus) += flux;
+                }
             } else if (bc_tags[f] == NEUMANN){
                 //face has prescribed traction
                 e_minus = face_elements[f][0];
@@ -1615,6 +1774,40 @@ KinematicVectorArray FVMGmsh2D::calculateElementMomentumFluxes(Job* job, FiniteV
                     //add traction directly to flux integral
                     result(e_plus) += flux;
                     result(e_minus) += area*bc_values[f];
+                }
+            } else if (bc_tags[f] == NEUMANN_DAMPING){
+                //face has prescribed traction for weighted average
+                e_minus = face_elements[f][0];
+                e_plus = face_elements[f][1];
+
+                if (e_minus > -1){
+                    //flux defined by cell value and cell velocity
+                    rho_minus = driver->fluid_body->rho(e_minus);
+                    p_minus = driver->fluid_body->p[e_minus];
+                    u_minus = p_minus/rho_minus;
+                    flux = p_minus*area*u_minus.dot(normal);
+
+                    theta_bar = driver->fluid_body->theta(e_minus);
+                    P_minus = driver->fluid_material->getPressure(job, driver, x_face, rho_minus, theta_bar);
+
+                    //add traction directly to flux integral
+                    result(e_minus) -= flux + lambda*area*P_minus*normal;
+                    result(e_minus) += (1.0-lambda)*area*bc_values[f];
+                }
+
+                if (e_plus > -1){
+                    //flux defined by cell value and cell velocity
+                    rho_plus = driver->fluid_body->rho(e_plus);
+                    p_plus = driver->fluid_body->p[e_plus];
+                    u_plus = p_plus/rho_plus;
+                    flux = p_plus*area*u_plus.dot(normal);
+
+                    theta_bar = driver->fluid_body->theta(e_plus);
+                    P_plus = driver->fluid_material->getPressure(job, driver, x_face, rho_plus, theta_bar);
+
+                    //add traction directly to flux integral
+                    result(e_plus) += flux + lambda*area*P_plus*normal;
+                    result(e_minus) += (1.0 - lambda)*area*bc_values[f];
                 }
             }
         }
@@ -1787,6 +1980,79 @@ KinematicVectorArray FVMGmsh2D::calculateElementMomentumFluxes(Job* job, FiniteV
                         result(e_plus) += flux;
                     }
                 }
+            } else if (bc_tags[f] == SUPERSONIC_INLET){
+                //face has prescribed velocity
+                e_minus = face_elements[f][0];
+                e_plus = face_elements[f][1];
+
+                //loop over quadrature points
+                for (int q=0; q<num_quad; q++) {
+                    if (e_minus > -1) {
+                        //relative position to centroid of A
+                        x = x_f[f] - x_e[e_minus];
+                        x[0] += -quad_points[q]*normal[1]*area;
+                        x[1] += quad_points[q]*normal[0]*area;
+                        x_quad = x_e[e_minus] + x;
+
+                        //calculate A properties
+                        p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*x;
+
+                        //tractions
+                        rho_bar = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
+                        theta_bar = driver->fluid_body->theta(e_minus);
+
+                        //estimate L
+                        x_0 = getElementCentroid(job, e_minus);
+                        for (int ii=0; ii<GRID_DIM; ii++){
+                            for (int jj=0; jj<GRID_DIM; jj++){
+                                L_tmp(ii,jj) = (bc_values[f][ii] - driver->fluid_body->p[e_minus][ii]/rho_bar)
+                                               /(x_face - x_0).dot(normal)*normal[jj];
+                            }
+                        }
+
+                        tau_minus = driver->fluid_material->getShearStress(job, driver, x_quad, L_tmp, bc_density[f], theta_bar);
+                        P_minus = driver->fluid_material->getPressure(job, driver, x_quad, bc_density[f], theta_bar);
+
+                        flux = bc_density[f]*bc_values[f]*area/num_quad*bc_values[f].dot(normal)
+                               + area/num_quad*P_minus*normal
+                               - area/num_quad*KinematicVector(tau_minus*normal, job->JOB_TYPE);
+
+                        result(e_minus) -= flux;
+                    }
+
+                    if (e_plus > -1) {
+                        //relative position to centroid of B
+                        x = x_f[f] - x_e[e_plus];
+                        x[0] += -quad_points[q]*normal[1]*area;
+                        x[1] += quad_points[q]*normal[0]*area;
+                        x_quad = x_e[e_plus] + x;
+
+                        //calculate B properties
+                        p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus]*x;
+
+                        //tractions
+                        rho_bar = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
+                        theta_bar = driver->fluid_body->theta(e_plus);
+
+                        //estimate L
+                        x_0 = getElementCentroid(job, e_plus);
+                        for (int ii=0; ii<GRID_DIM; ii++){
+                            for (int jj=0; jj<GRID_DIM; jj++){
+                                L_tmp(ii,jj) = (bc_values[f][ii] - driver->fluid_body->p[e_plus][ii]/rho_bar)
+                                               /(x_face - x_0).dot(normal)*normal[jj];
+                            }
+                        }
+
+                        tau_plus = driver->fluid_material->getShearStress(job, driver, x_quad, L_tmp, bc_density[f], theta_bar);
+                        P_plus = driver->fluid_material->getPressure(job, driver, x_quad, bc_density[f], theta_bar);
+
+                        flux = bc_density[f]*bc_values[f]*area/num_quad*bc_values[f].dot(normal)
+                               + area/num_quad*P_plus*normal
+                               - area/num_quad*KinematicVector(tau_plus*normal, job->JOB_TYPE);
+
+                        result(e_plus) += flux;
+                    }
+                }
             } else if (bc_tags[f] == NEUMANN){
                 //face has prescribed traction
                 e_minus = face_elements[f][0];
@@ -1828,6 +2094,55 @@ KinematicVectorArray FVMGmsh2D::calculateElementMomentumFluxes(Job* job, FiniteV
                         //add traction directly
                         result(e_plus) += flux;
                         result(e_minus) += area/num_quad*bc_values[f];
+                    }
+                }
+            } else if (bc_tags[f] == NEUMANN_DAMPING){
+                //face has prescribed traction
+                e_minus = face_elements[f][0];
+                e_plus = face_elements[f][1];
+
+                //loop over quadrature points
+                for (int q=0; q<num_quad; q++) {
+                    if (e_minus > -1) {
+                        //relative position to centroid of A
+                        x = x_f[f] - x_e[e_minus];
+                        x[0] += -quad_points[q]*normal[1]*area;
+                        x[1] += quad_points[q]*normal[0]*area;
+                        x_quad = x_e[e_minus] + x;
+
+                        //calculate A properties
+                        rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
+                        p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*x;
+                        u_minus = p_minus/rho_minus;
+                        flux = p_minus*area/num_quad*u_minus.dot(normal);
+
+                        theta_bar = driver->fluid_body->theta(e_minus);
+                        P_minus = driver->fluid_material->getPressure(job, driver, x_quad, driver->fluid_body->rho(e_minus), theta_bar);
+
+                        //add traction directly
+                        result(e_minus) -= flux + lambda*area/num_quad*P_minus*normal;
+                        result(e_minus) += (1-lambda)*area/num_quad*bc_values[f];
+                    }
+
+                    if (e_plus > -1) {
+                        //relative position to centroid of B
+                        x = x_f[f] - x_e[e_plus];
+                        x[0] += -quad_points[q]*normal[1]*area;
+                        x[1] += quad_points[q]*normal[0]*area;
+                        x_quad = x_e[e_plus] + x;
+
+                        //calculate B properties
+                        rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
+                        p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus]*x;
+                        u_plus = p_plus/rho_plus;
+                        flux = p_plus*area/num_quad*u_plus.dot(normal);
+
+                        theta_bar = driver->fluid_body->theta(e_plus);
+                        P_plus = driver->fluid_material->getPressure(job, driver, x_quad, driver->fluid_body->rho(e_plus), theta_bar);
+
+                        //add traction directly
+                        result(e_plus) += flux + lambda*area/num_quad*P_plus*normal;
+                        result(e_minus) += (1-lambda)*area/num_quad*bc_values[f];
                     }
                 }
             }

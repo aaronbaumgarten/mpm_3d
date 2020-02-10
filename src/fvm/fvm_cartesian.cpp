@@ -81,6 +81,11 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         //bc_tags given
         for (int i=0; i<bc_tags.size(); i++){
             bc_tags[i] = int_props[i+GRID_DIM];
+            //check that bc tag is in coded list
+            if (bc_tags[i] != DIRICHLET && bc_tags[i] != NEUMANN && bc_tags[i] != PERIODIC){
+                std::cerr << "ERROR: Boundary tag " << bc_tags[i] << " not defined for FVMCartesian grid object! Exiting." << std::endl;
+                exit(0);
+            }
         }
 
         //check bc_tags for consistency

@@ -94,6 +94,17 @@ int FVMDefaultVTK::writeFrame(Job* job, FiniteVolumeDriver* driver){
         writeVectorArray(u, "velocity");
         writeTensorArray(u_x, "velocity_gradient");
 
+        //mach number
+        Eigen::VectorXd mach = Eigen::VectorXd(driver->fluid_grid->element_count);
+        for (int e=0; e<driver->fluid_grid->element_count; e++){
+            mach(e) = u[e].norm()/driver->fluid_material->getSpeedOfSound(job,
+                                                                          driver,
+                                                                          driver->fluid_grid->getElementCentroid(job, e),
+                                                                          driver->fluid_body->rho(e),
+                                                                          driver->fluid_body->theta(e));
+        }
+        writeScalarArray(mach, "mach");
+
     } else {
         std::cerr << "Could not open frame: " << frameDirectory+filename << " !" << std::endl;
     }

@@ -32,6 +32,8 @@ public:
     static const int DIRICHLET = 0;
     static const int NEUMANN = 1;
     static const int PERIODIC = 2;
+    static const int NEUMANN_DAMPING = 3;
+    static const int SUPERSONIC_INLET = 4;
 
     int face_count;      //number of faces which define grid
     int node_count;      //number of nodes which define grid
@@ -153,6 +155,9 @@ public:
         object_name = "FVMGmsh2D";
     }
 
+    //neumann damping coefficient
+    double lambda = 0.999;
+
     //grid definitions
     std::string filename;
     Eigen::VectorXd face_areas;
@@ -166,6 +171,7 @@ public:
     //boundary conditions
     Eigen::VectorXi bc_tags;        //tags for each face
     KinematicVectorArray bc_values; //bc values at each face
+    Eigen::VectorXd bc_density;     //density at supersonic inlets
 
     //grid definitions
     std::vector<std::array<int,2>> face_nodes;      //un-oriented list of nodes a---b

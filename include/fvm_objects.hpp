@@ -45,6 +45,8 @@ public:
     static const int DIRICHLET = 0;
     static const int NEUMANN = 1;
     static const int PERIODIC = 2;
+    static const int NEUMANN_DAMPING = 3;
+    static const int SUPERSONIC_INLET = 4;
 
     //Harten entropy correction scale
     static constexpr double delta = 0.1;
