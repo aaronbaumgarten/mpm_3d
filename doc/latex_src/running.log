@@ -894,7 +894,7 @@ Missing character: There is no e in font nullfont!
 Missing character: There is no l in font nullfont!
 Missing character: There is no d in font nullfont!
 ! Undefined control sequence.
-l.15 ...the fourth-order stiffness field \(\mathbb
+l.15 ...the fourth-ORDER stiffness field \(\mathbb
                                                   {C}(\Vector{x},t)\), and \...
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have
@@ -903,7 +903,7 @@ spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
 ! Undefined control sequence.
-l.15 ...order stiffness field \(\mathbb{C}(\Vector
+l.15 ...ORDER stiffness field \(\mathbb{C}(\Vector
                                                   {x},t)\), and \(\xi\) repr...
 The control sequence at the end of the top line
 of your error message was never \def'ed. If you have

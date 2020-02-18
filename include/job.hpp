@@ -86,7 +86,7 @@ public:
             threadPool = ThreadPool(thread_count);
         }
 
-        //call initialization on sub-objects in order of precedence
+        //call initialization on sub-objects in ORDER of precedence
         serializer->init(this);
         driver->init(this);
         solver->init(this);

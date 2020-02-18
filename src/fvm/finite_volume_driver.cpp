@@ -57,6 +57,7 @@ void FiniteVolumeDriver::checkConfigFile(std::string filename) {
 /*----------------------------------------------------------------------------*/
 
 void FiniteVolumeDriver::init(Job* job){
+    int GRID_DIM;
     //assign grid dimension from job type
     if (job->JOB_TYPE == job->JOB_1D){
         GRID_DIM = 1;
@@ -99,13 +100,26 @@ void FiniteVolumeDriver::init(Job* job){
         file = str_props[0];
     }
 
+    //define ORDER of element-wise flux reconstructions
     if (int_props.size() >= 1){
-        order = int_props[0];
+        ORDER = int_props[0];
     }
 
-    if (order < 1){
+    //ensure ORDER is valid
+    if (ORDER < 1){
         std::cout << "ERROR: Order selected is less than 1, that doesn't seem right." << std::endl;
-        order = 1;
+        ORDER = 1;
+    }
+
+    //set simulation type, i.e. underlying fluid assumptions
+    if (int_props.size() >= 2){
+        TYPE = int_props[1];
+    }
+
+    //ensure TYPE is valid
+    if (TYPE != THERMAL && TYPE != ISOTHERMAL && TYPE != INCOMPRESSIBLE){
+        std::cout << "ERROR: Simulation type " << TYPE << " is not defined. Exiting." << std::endl;
+        exit(0);
     }
 
     //print grid properties
@@ -113,7 +127,7 @@ void FiniteVolumeDriver::init(Job* job){
     for (int pos=0; pos<GRID_DIM; pos++){
         std::cout << gravity[pos] << " ";
     }
-    std::cout << ">, file = " << file << ", order = " << order << ")." << std::endl;
+    std::cout << ">, file = " << file << ", ORDER = " << ORDER << ")." << std::endl;
 
     /*---------------------------------------*/
     //read in finite volume configuration file

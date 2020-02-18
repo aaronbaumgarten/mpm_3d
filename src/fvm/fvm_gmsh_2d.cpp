@@ -672,11 +672,11 @@ void FVMGmsh2D::generateMappings(Job* job, FiniteVolumeDriver* driver){
 /*----------------------------------------------------------------------------*/
 //reconstruct momentum field
 void FVMGmsh2D::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
-    if (driver->order == 1){
+    if (driver->ORDER == 1){
         driver->fluid_body->p_x.setZero(); //let momentum be constant within an element
-    } else if (driver->order >= 2){
-        if (driver->order > 2) {
-            std::cout << "ERROR: FVMGmsh2D does not currently implement higher order momentum reconstruction."
+    } else if (driver->ORDER >= 2){
+        if (driver->ORDER > 2) {
+            std::cout << "ERROR: FVMGmsh2D does not currently implement higher ORDER momentum reconstruction."
                       << std::endl;
         }
         //initialize holder matrices
@@ -772,11 +772,11 @@ void FVMGmsh2D::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
 }
 
 void FVMGmsh2D::constructDensityField(Job* job, FiniteVolumeDriver* driver){
-    if (driver->order == 1){
+    if (driver->ORDER == 1){
         driver->fluid_body->rho_x.setZero(); //let density be constant within an element
-    } if (driver->order >= 2){
-        if (driver->order > 2) {
-            std::cout << "ERROR: FVMCartesian does not currently implement higher order momentum reconstruction."
+    } if (driver->ORDER >= 2){
+        if (driver->ORDER > 2) {
+            std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER momentum reconstruction."
                       << std::endl;
         }
         //initialize least squares fields
@@ -931,8 +931,8 @@ Eigen::VectorXd FVMGmsh2D::calculateElementFluxIntegrals(Job* job, FiniteVolumeD
     //vector of quad point positions relative to face center
     std::array<double,2> quad_points = {-1.0/std::sqrt(3), 1.0/std::sqrt(3)};
 
-    //different flux calculation for different order approximations
-    if (driver->order == 1){
+    //different flux calculation for different ORDER approximations
+    if (driver->ORDER == 1){
         //rho, u, value constant within element
         //loop over faces
         u_plus = KinematicVector(job->JOB_TYPE);
@@ -1028,9 +1028,9 @@ Eigen::VectorXd FVMGmsh2D::calculateElementFluxIntegrals(Job* job, FiniteVolumeD
                 }
             }
         }
-    } else if (driver->order >= 2){
-        if (driver->order > 2) {
-            std::cout << "ERROR: FVMGmsh2D does not currently implement higher order flux reconstruction."
+    } else if (driver->ORDER >= 2){
+        if (driver->ORDER > 2) {
+            std::cout << "ERROR: FVMGmsh2D does not currently implement higher ORDER flux reconstruction."
                       << std::endl;
         }
 
@@ -1257,8 +1257,8 @@ Eigen::VectorXd FVMGmsh2D::calculateElementMassFluxes(Job* job, FiniteVolumeDriv
     //vector of quad point positions relative to face center
     std::array<double,2> quad_points = {-1.0/std::sqrt(3), 1.0/std::sqrt(3)};
 
-    //different flux calculation for different order approximations
-    if (driver->order == 1){
+    //different flux calculation for different ORDER approximations
+    if (driver->ORDER == 1){
         //rho, u, value constant within element
         //loop over faces
         u_plus = KinematicVector(job->JOB_TYPE);
@@ -1366,9 +1366,9 @@ Eigen::VectorXd FVMGmsh2D::calculateElementMassFluxes(Job* job, FiniteVolumeDriv
                 }
             }
         }
-    } else if (driver->order >= 2){
-        if (driver->order > 2) {
-            std::cout << "ERROR: FVMGmsh2D does not currently implement higher order flux reconstruction."
+    } else if (driver->ORDER >= 2){
+        if (driver->ORDER > 2) {
+            std::cout << "ERROR: FVMGmsh2D does not currently implement higher ORDER flux reconstruction."
                       << std::endl;
         }
 
@@ -1572,8 +1572,8 @@ KinematicVectorArray FVMGmsh2D::calculateElementMomentumFluxes(Job* job, FiniteV
     //vector of quad point positions relative to face center
     std::array<double,2> quad_points = {-1.0/std::sqrt(3), 1.0/std::sqrt(3)};
 
-    //different flux calculation for different order approximations
-    if (driver->order == 1){
+    //different flux calculation for different ORDER approximations
+    if (driver->ORDER == 1){
         //rho, u, value constant within element
         //loop over faces
         u_plus = KinematicVector(job->JOB_TYPE);
@@ -1807,13 +1807,13 @@ KinematicVectorArray FVMGmsh2D::calculateElementMomentumFluxes(Job* job, FiniteV
 
                     //add traction directly to flux integral
                     result(e_plus) += flux + lambda*area*P_plus*normal;
-                    result(e_minus) += (1.0 - lambda)*area*bc_values[f];
+                    result(e_plus) += (1.0 - lambda)*area*bc_values[f];
                 }
             }
         }
-    } else if (driver->order >= 2){
-        if (driver->order > 2) {
-            std::cout << "ERROR: FVMCartesian does not currently implement higher order flux reconstruction."
+    } else if (driver->ORDER >= 2){
+        if (driver->ORDER > 2) {
+            std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER flux reconstruction."
                       << std::endl;
         }
 

@@ -34,7 +34,7 @@ void FVMRungeKuttaSolver::init(Job* job, FiniteVolumeDriver* driver){
             order = 4;
         }
     }
-    std::cout << "FiniteVolumeSolver properties: (order = " << order << ")" << std::endl;
+    std::cout << "FiniteVolumeSolver properties: (ORDER = " << order << ")" << std::endl;
 
     //size flux containers
     density_fluxes = Eigen::VectorXd(driver->fluid_grid->element_count);

@@ -61,8 +61,8 @@ public:
     KinematicVector gravity;
     std::string file;
 
-    //order of finite volume reconstruction
-    int order = 2;
+    //ORDER of finite volume reconstruction
+    int ORDER = 2;
 };
  */
 
@@ -80,8 +80,8 @@ namespace FVM_TEST{
             job->JOB_TYPE = job->JOB_3D;
             GRID_DIM = 3;
 
-            //set simulation order
-            order = 2;
+            //set simulation ORDER
+            ORDER = 2;
 
             //set gravity
             gravity = KinematicVector(job->JOB_TYPE);

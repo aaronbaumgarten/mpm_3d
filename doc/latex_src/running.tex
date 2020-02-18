@@ -213,7 +213,7 @@ The final objects defined in the configuration file are the `\texttt{contact}' o
         str-properties = {"block_0","block_1"}
     }
 \end{lstlisting}
-The `\texttt{contact}' object, here set to `\texttt{ContactHuang}', defines the kinematic constraints on bodies due to their interactions with other bodies in the simulation. The `\texttt{ContactHuang}' contact class implements the constraints given in \cite{huang2011} and takes in a single floating point property and two string properties (the coefficient of friction between the two bodies and the `\texttt{name}' of the bodies). If more than one contact rule is given (required if there are more than two bodies in a simulation), then the constraints will be applied in the order they appear in the configuration file. A full list of contact options can be found in section \ref{scn:contacts}.
+The `\texttt{contact}' object, here set to `\texttt{ContactHuang}', defines the kinematic constraints on bodies due to their interactions with other bodies in the simulation. The `\texttt{ContactHuang}' contact class implements the constraints given in \cite{huang2011} and takes in a single floating point property and two string properties (the coefficient of friction between the two bodies and the `\texttt{name}' of the bodies). If more than one contact rule is given (required if there are more than two bodies in a simulation), then the constraints will be applied in the ORDER they appear in the configuration file. A full list of contact options can be found in section \ref{scn:contacts}.
 
 If everything has been written correctly (including the points files), then the simulation should be ready to run!
 

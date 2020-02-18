@@ -42,11 +42,27 @@ class FiniteVolumeGrid: public MPMObject{
 public:
 
     //boundary condition types
+    /*
     static const int DIRICHLET = 0;
     static const int NEUMANN = 1;
     static const int PERIODIC = 2;
     static const int NEUMANN_DAMPING = 3;
     static const int SUPERSONIC_INLET = 4;
+     */
+
+    //boundary conditions
+    static const int VELOCITY_INLET         = 0;    //dirichlet
+    static const int VELOCITY_TEMP_INLET    = 1;    //dirichlet
+    static const int VELOCITY_DENSITY_INLET = 2;    //dirichlet
+    static const int PRESSURE_INLET         = 3;
+    static const int PRESSURE_OUTLET        = 4;
+    static const int DAMPED_OUTLET          = 5;
+    static const int ADIABATIC_WALL         = 6;    //dirichlet
+    static const int THERMAL_WALL           = 7;    //dirichlet
+    static const int SYMMETRIC_WALL         = 8;    //dirichlet
+    static const int SUPERSONIC_INLET       = 9;    //dirichlet
+    static const int SUPERSONIC_OUTLET      = 10;
+    static const int PERIODIC               = 11;
 
     //Harten entropy correction scale
     static constexpr double delta = 0.1;
@@ -55,11 +71,15 @@ public:
     int face_count;      //number of faces which define grid
     int node_count;      //number of nodes which define grid
     int element_count;   //number of elements in grid
+    int int_quad_count;  //number of interior quadrature points
+    int ext_quad_count;  //number of boundary/face quadrature points
+    int qpe, qpf;        //number of quadrature points per element/face
 
     int GRID_DIM = -1; //dimension of grid (might be different than simulation dimension)
 
     MPMScalarSparseMatrix M = MPMScalarSparseMatrix(0,0); //M_ji maps jth element to ith mpm node
-    KinematicVectorSparseMatrix gradM = KinematicVectorSparseMatrix(0,0); //gradM_ji maps jth element to ith node gradient
+    MPMScalarSparseMatrix Q = MPMScalarSparseMatrix(0,0); //Q_ji maps ith mpm node to jth quadrature point
+    KinematicVectorSparseMatrix gradQ = KinematicVectorSparseMatrix(0,0); //gradQ_ji maps ith node gradient to jth quadrature point
 
     virtual void init(Job*, FiniteVolumeDriver*) = 0; //initialize from mpm Job
 
@@ -71,29 +91,32 @@ public:
     virtual int getFaceTag(int) = 0;               //return 'tag of face id
     virtual KinematicVector getFaceNormal(Job*, int) = 0; //return normal vector associated with given id
 
+    virtual std::vector<int> getElementQuadraturePoints(int e) = 0; //return vector with global quadrature indices
+    virtual std::vector<int> getFaceQuadraturePoints(int f) = 0;    //return vector with global quadrature indices
+
     virtual std::vector<int> getElementFaces(int) = 0; //return faces associated with given element id
     virtual std::array<int,2> getOrientedElementsByFace(int) = 0; //return elements associated with given face id A -|-> B
     virtual std::vector<int> getElementNeighbors(int) = 0; //return list of elements in neighborhood
     virtual KinematicVector getElementCentroid(Job*, int) = 0; //return element centroid
     virtual KinematicVector getFaceCentroid(Job*, int) = 0;
+    virtual KinematicVector getQuadraturePosition(Job* job, int q) = 0;
+    virtual double getQuadratureWeight(int q) = 0;
 
-    virtual void generateMappings(Job*, FiniteVolumeDriver*) = 0; //generate M_ji and gradM_ji maps
+    virtual void generateMappings(Job*, FiniteVolumeDriver*) = 0; //generate M, Q, gradQ maps
+    virtual void mapMixturePropertiesToQuadraturePoints(Job*, FiniteVolumeDriver*) = 0; //map porosity and solid velocity to quadrature points
     virtual void constructMomentumField(Job*, FiniteVolumeDriver*) = 0; //construct momentum from FV body
     virtual void constructDensityField(Job*, FiniteVolumeDriver*) = 0; //construct momentum from FV body
+    virtual void constructEnergyField(Job*, FiniteVolumeDriver*) = 0; //construct energy field from FV body
     virtual KinematicTensorArray getVelocityGradients(Job*, FiniteVolumeDriver*) = 0; //return velocity gradient in each element
-
-    //functions to compute element-wise fluxes of field variables using reconstructed velocity field
-    virtual Eigen::VectorXd calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, Eigen::VectorXd&) = 0;
-    //virtual KinematicVectorArray calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, KinematicVectorArray&, int) = 0;
-    //virtual KinematicTensorArray calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, KinematicTensorArray&, int) = 0;
-    //virtual MaterialVectorArray calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, MaterialVectorArray&, int) = 0;
-    //virtual MaterialTensorArray calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, MaterialTensorArray&, int) = 0;
 
     //functions to compute element mass flux
     virtual Eigen::VectorXd calculateElementMassFluxes(Job* job, FiniteVolumeDriver* driver) = 0;
 
     //functions to compute element momentum fluxes
     virtual KinematicVectorArray calculateElementMomentumFluxes(Job* job, FiniteVolumeDriver* driver) = 0;
+
+    //function to compute element energy fluxes
+    virtual Eigen::VectorXd calculateElementEnergyFluxes(Job* job, FiniteVolumeDriver* driver) = 0;
 };
 
 
@@ -107,9 +130,13 @@ public:
 
     //container for fluid fields
     KinematicTensorArray p_x;      //momentum gradient
-    KinematicVectorArray p, rho_x; //momentum and density gradient
-    Eigen::VectorXd rho, P, theta; //density, pressure, and temperature
+    KinematicVectorArray p, rho_x, rhoE_x; //momentum and density gradient
+    Eigen::VectorXd rho, rhoE, P, theta; //density, pressure, and temperature
     MaterialTensorArray tau;       //shear stress
+
+    //container for solid phase fields in mixture
+    KinematicVectorArray v_s;   //solid phase velocity field (defined on MPM grid)
+    Eigen::VectorXd n;          //mixture porosity field (defined on MPM grid)
 };
 
 /*----------------------------------------------------------------------------*/
@@ -121,13 +148,23 @@ public:
     virtual void init(Job*, FiniteVolumeDriver*) = 0;
 
     //functions to calculate fluid fields
-    virtual MaterialTensor getStress(Job*, FiniteVolumeDriver*, KinematicVector x, KinematicTensor L, double rho, double theta) = 0;
-    virtual MaterialTensor getShearStress(Job*, FiniteVolumeDriver*, KinematicVector x, KinematicTensor L, double rho, double theta) = 0;
-    virtual double getPressure(Job*, FiniteVolumeDriver*, KinematicVector x, double rho, double theta) = 0;
-    virtual double getSpeedOfSound(Job*, FiniteVolumeDriver*, KinematicVector x, double rho, double theta) = 0;
+    virtual MaterialTensor getStress(Job*, FiniteVolumeDriver*, KinematicTensor L, double rho, KinematicVector p, double rhoE, double n) = 0;
+    virtual MaterialTensor getShearStress(Job*, FiniteVolumeDriver*, KinematicTensor L, double rho, KinematicVector p, double rhoE, double n) = 0;
+    virtual double getPressure(Job*, FiniteVolumeDriver*, double rho, KinematicVector p, double rhoE, double n) = 0;
+    virtual double getSpeedOfSound(Job*, FiniteVolumeDriver*, double rho, KinematicVector p, double rhoE, double n) = 0;
     virtual void calculateElementPressures(Job*, FiniteVolumeDriver*) = 0;
     virtual void calculateElementShearStresses(Job*, FiniteVolumeDriver*) = 0;
-    virtual void solveMaterialEquations(Job*, FiniteVolumeDriver*) = 0;
+
+    //fluid equations of state
+    virtual double getDensityFromPressureAndTemperature(Job*, FiniteVolumeDriver*, double pressure, double theta, double n) = 0;
+    virtual double getInternalEnergyFromPressureAndTemperature(Job*, FiniteVolumeDriver*, double pressure, double theta, double n) = 0;
+    virtual double getPressureFromDensityAndTemperature(Job*, FiniteVolumeDriver*, double rho, double theta, double n) = 0;
+    virtual double getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, KinematicVector theta_x, double n) = 0;
+
+    //mixture model functions
+    virtual int calculatePorosity(Job*, FiniteVolumeDriver*) = 0; //return 1 if mixture problem, return 0 if FVM problem only
+    virtual int updateSolidPhaseVelocity(Job*, FiniteVolumeDriver*) = 0; //return 1 if mixture problem, return 0 if FVM problem only
+    virtual KinematicVector getInterphaseDrag(Job*, FiniteVolumeDriver*, double rho, KinematicVector v_f, KinematicVector v_s, double n) = 0;
 };
 
 /*------------------------------------------------------------------------*/
@@ -170,8 +207,6 @@ public:
         object_name = "FiniteVolumeDriver"; //set object name here
     }
 
-    int GRID_DIM = 3;
-
     //functions which must be implemented by every driver
     virtual void init(Job*);                                        //initialize from Job
     virtual std::string saveState(Job*, Serializer*, std::string);  //save to file (in given directory) and return filename
@@ -195,8 +230,15 @@ public:
     KinematicVector gravity;
     std::string file;
 
-    //order of finite volume reconstruction
-    int order = 2;
+    //ORDER of finite volume reconstruction
+    int ORDER = 2;
+
+    //TYPE of finite volume method
+    static const int THERMAL = 0;
+    static const int ISOTHERMAL = 1;
+    static const int INCOMPRESSIBLE = 2;
+    int TYPE = 1;
+
 };
 
 /*------------------------------------------------------------------------*/
