@@ -116,6 +116,80 @@ namespace FiniteVolumeMethod {
     };
 }
 
+class FVMGridBase : public FiniteVolumeGrid{
+public:
+    FVMGridBase(){
+        object_name = "FVMGridBase";
+    }
+
+    //damping coefficient
+    double damping_coefficient = 0.999;
+
+    //grid definitions
+    Eigen::VectorXd face_areas;
+    KinematicVectorArray face_normals; //x,y,z only
+
+    KinematicVectorArray x_e, x_f, x_q;  //element centroids, face_centroid
+    Eigen::VectorXd w_q;            //quadrature weights
+    Eigen::VectorXd v_e;            //element volumes
+    std::vector<bool> q_b;          //flag for bounding quadrature point or interior quadrature point
+
+    //quadrature point porosity and solid velocity
+    Eigen::VectorXd n_q;
+    KinematicVectorArray gradn_q, v_sq;
+
+    //boundary conditions
+    std::vector<FiniteVolumeMethod::BCContainer> bc_info;
+
+    //grid definitions
+    std::vector<std::array<int,2>> face_elements;   //oriented face list (A -|-> B)
+    std::vector<std::vector<int>> element_faces;    //unordered list of faces
+    std::vector<std::vector<int>> element_neighbors; //list of nearest neighbors
+
+    //gradient reconstruction vectors for solving least squares problem
+    std::vector<Eigen::MatrixXd> A_e;
+    std::vector<Eigen::MatrixXd> A_inv; //psuedo inverse
+    std::vector<Eigen::VectorXd> b_e;
+
+    virtual void init(Job* job, FiniteVolumeDriver* driver) = 0;
+
+    virtual void writeHeader(std::ofstream& file, int TYPE) = 0;
+
+    virtual void generateMappings(Job* job, FiniteVolumeDriver* driver) = 0;
+
+    virtual double getElementVolume(int e);
+    virtual int getElementTag(int e);
+    virtual double getFaceArea(int f);
+    virtual int getFaceTag(int f);
+    virtual KinematicVector getFaceNormal(Job* job, int f);
+
+    virtual std::vector<int> getElementQuadraturePoints(int e);
+    virtual std::vector<int> getFaceQuadraturePoints(int f);
+
+    virtual std::vector<int> getElementFaces(int e);
+    virtual std::array<int,2> getOrientedElementsByFace(int e);
+    virtual std::vector<int> getElementNeighbors(int e);
+    virtual KinematicVector getElementCentroid(Job* job, int e); //return element centroid
+    virtual KinematicVector getFaceCentroid(Job* job, int f);
+    virtual KinematicVector getQuadraturePosition(Job* job, int q);
+    virtual double getQuadratureWeight(int q);
+
+    virtual void mapMixturePropertiesToQuadraturePoints(Job* job, FiniteVolumeDriver* driver);
+    virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver);
+    virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver);
+    virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver);
+    virtual KinematicTensorArray getVelocityGradients(Job* job, FiniteVolumeDriver* driver);
+
+    //functions to compute element mass flux
+    virtual Eigen::VectorXd calculateElementMassFluxes(Job* job, FiniteVolumeDriver* driver);
+
+    //functions to compute element momentum fluxes
+    virtual KinematicVectorArray calculateElementMomentumFluxes(Job* job, FiniteVolumeDriver* driver);
+
+    //function to comput element energy fluxes
+    virtual Eigen::VectorXd calculateElementEnergyFluxes(Job* job, FiniteVolumeDriver* driver);
+};
+
 class FVMCartesian : public FiniteVolumeGrid{
 public:
     FVMCartesian(){

@@ -151,15 +151,17 @@ public:
     virtual MaterialTensor getStress(Job*, FiniteVolumeDriver*, KinematicTensor L, double rho, KinematicVector p, double rhoE, double n) = 0;
     virtual MaterialTensor getShearStress(Job*, FiniteVolumeDriver*, KinematicTensor L, double rho, KinematicVector p, double rhoE, double n) = 0;
     virtual double getPressure(Job*, FiniteVolumeDriver*, double rho, KinematicVector p, double rhoE, double n) = 0;
+    virtual double getTemperature(Job*, FiniteVolumeDriver*, double rho, KinematicVector p, double rhoE, double n) = 0;
     virtual double getSpeedOfSound(Job*, FiniteVolumeDriver*, double rho, KinematicVector p, double rhoE, double n) = 0;
     virtual void calculateElementPressures(Job*, FiniteVolumeDriver*) = 0;
     virtual void calculateElementShearStresses(Job*, FiniteVolumeDriver*) = 0;
+    virtual void calculateElementTemperatures(Job*, FiniteVolumeDriver*) = 0;
 
     //fluid equations of state
     virtual double getDensityFromPressureAndTemperature(Job*, FiniteVolumeDriver*, double pressure, double theta, double n) = 0;
     virtual double getInternalEnergyFromPressureAndTemperature(Job*, FiniteVolumeDriver*, double pressure, double theta, double n) = 0;
     virtual double getPressureFromDensityAndTemperature(Job*, FiniteVolumeDriver*, double rho, double theta, double n) = 0;
-    virtual double getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, KinematicVector theta_x, double n) = 0;
+    virtual KinematicVector getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, KinematicVector theta_x, double n) = 0;
 
     //mixture model functions
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*) = 0; //return 1 if mixture problem, return 0 if FVM problem only
