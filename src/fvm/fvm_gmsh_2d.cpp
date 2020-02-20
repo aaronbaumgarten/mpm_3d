@@ -42,63 +42,287 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
         filename = str_props[0];
     }
 
+    //initialize tags and values vectors;
+    std::vector<FiniteVolumeMethod::BCContainer> tmp_bc_info;
+
+
     //if integers are passed, they define boundary conditions
-    std::vector<int> tmp_bc_tags = std::vector<int>(0);
-    std::vector<KinematicVector> tmp_bc_values = std::vector<KinematicVector>(0);
-    std::vector<double> tmp_bc_density = std::vector<double>(0);                    //for supersonic inlet
-    int supersonic_props = 0;
-    if (int_props.size() >= 1){
-        tmp_bc_tags.resize(int_props.size());
-        tmp_bc_values.resize(int_props.size());
-        tmp_bc_density.resize(int_props.size());
+    if (int_props.size() == 0){
+        //no bc tags given
+        tmp_bc_info = std::vector<FiniteVolumeMethod::BCContainer>(0);
+    } else if (int_props.size() >= 1) {
+        //counter to avoid overflow error
+        int fp64_iterator = 0; //already read in GRID_DIM properties
 
-        if (fp64_props.size() < int_props.size()*GRID_DIM){
-            std::cerr << "ERROR: FVMGmsh2D passed mismatched integer (" << int_props.size() << ") and double (" << fp64_props.size() << ") properties!" << std::endl;
-            exit(0);
-        }
+        //initialize tmp container
+        tmp_bc_info = std::vector<FiniteVolumeMethod::BCContainer>(int_props.size());
 
-        for (int i = 0; i<int_props.size(); i++){
-            tmp_bc_tags[i] = int_props[i];
-
-            //check for supersonic inlet
-            if (tmp_bc_tags[i] == SUPERSONIC_INLET){
-                //need to have another floating point inlet property
-                supersonic_props++;
-                if (fp64_props.size() < int_props.size()*GRID_DIM + supersonic_props){
-                    std::cerr << "ERROR: FVMGmsh2D passed mismatched integer ("
-                              << int_props.size() << ") and double ("
-                              << fp64_props.size() << ") properties with "
-                              << supersonic_props << " additional properties required!" << std::endl;
-                    exit(0);
-                }
-                tmp_bc_density[i] = fp64_props[2*i + supersonic_props - 1];
-            } else {
-                tmp_bc_density[i] = -1; //this should never actually be used
-            }
-
-            tmp_bc_values[i][0] = fp64_props[2*i + supersonic_props];
-            tmp_bc_values[i][1] = fp64_props[2*i + 1 + supersonic_props];
-
+        //bc_tags given
+        for (int i=0; i<tmp_bc_info.size(); i++){
+            tmp_bc_info[i].tag = int_props[i+GRID_DIM];
+            tmp_bc_info[i].values = std::array<double, 2>();
+            tmp_bc_info[i].values[0] = 0; tmp_bc_info[i].values[1] = 0;
+            tmp_bc_info[i].vector = KinematicVector(job->JOB_TYPE);
             //check that bc tag is in coded list
-            if (tmp_bc_tags[i] != DIRICHLET
-                && tmp_bc_tags[i] != NEUMANN
-                && tmp_bc_tags[i] != PERIODIC
-                && tmp_bc_tags[i] != NEUMANN_DAMPING
-                && tmp_bc_tags[i] != SUPERSONIC_INLET){
-                std::cerr << "ERROR: Boundary tag " << tmp_bc_tags[i] << " not defined for FVMGmsh2D grid object! Exiting." << std::endl;
+            if (tmp_bc_info[i].tag != VELOCITY_INLET &&
+                tmp_bc_info[i].tag != VELOCITY_TEMP_INLET &&
+                tmp_bc_info[i].tag != VELOCITY_DENSITY_INLET &&
+                tmp_bc_info[i].tag != PRESSURE_INLET &&
+                tmp_bc_info[i].tag != PRESSURE_OUTLET &&
+                tmp_bc_info[i].tag != DAMPED_OUTLET &&
+                tmp_bc_info[i].tag != ADIABATIC_WALL &&
+                tmp_bc_info[i].tag != THERMAL_WALL &&
+                tmp_bc_info[i].tag != SYMMETRIC_WALL &&
+                tmp_bc_info[i].tag != SUPERSONIC_INLET &&
+                tmp_bc_info[i].tag != SUPERSONIC_OUTLET &&
+                tmp_bc_info[i].tag != PERIODIC){
+                std::cerr << "ERROR: Boundary tag " << tmp_bc_info[i].tag << " not defined for FVMCartesian grid object! Exiting." << std::endl;
                 exit(0);
             }
+
+            //add required input parameters for boundary type
+            switch (tmp_bc_info[i].tag){
+                case VELOCITY_INLET:
+                    //check that boundary condition is valid for this simulation type
+                    if (driver->TYPE != FiniteVolumeDriver::ISOTHERMAL){
+                        std::cerr << "ERROR: VELOCITY_INLET boundary condition requires ISOTHERMAL simulation type for stability. Exiting.";
+                    } else {
+                        //first GRID_DIM properties are the components of velocity at boundary
+                        for (int pos=0; pos<GRID_DIM; pos++){
+                            if (fp64_props.size() > fp64_iterator) {
+                                tmp_bc_info[i].vector[pos] = fp64_props[fp64_iterator];
+                                fp64_iterator++;
+                            } else {
+                                std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                                exit(0);
+                            }
+                        }
+                    }
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : VELOCITY_INLET : u = ";
+                    std::cout << EIGEN_MAP_OF_KINEMATIC_VECTOR(tmp_bc_info[i].vector).transpose() << std::endl;
+                    break;
+
+                case VELOCITY_TEMP_INLET:
+                    //check that boundary condition is valid for this simulation type
+                    if (driver->TYPE != FiniteVolumeDriver::THERMAL){
+                        std::cerr << "ERROR: VELOCITY_TEMP_INLET boundary condition requires THERMAL simulation type. Exiting.";
+                    } else {
+                        //first GRID_DIM properties are the components of velocity at boundary
+                        for (int pos=0; pos<GRID_DIM; pos++){
+                            if (fp64_props.size() > fp64_iterator) {
+                                tmp_bc_info[i].vector[pos] = fp64_props[fp64_iterator];
+                                fp64_iterator++;
+                            } else {
+                                std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                                exit(0);
+                            }
+                        }
+                        //next property is temperature
+                        if (fp64_props.size() > fp64_iterator) {
+                            tmp_bc_info[i].values[0] = fp64_props[fp64_iterator];
+                            fp64_iterator++;
+                        } else {
+                            std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                            exit(0);
+                        }
+                    }
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : VELOCITY_TEMP_INLET : u = ";
+                    std::cout << EIGEN_MAP_OF_KINEMATIC_VECTOR(tmp_bc_info[i].vector).transpose();
+                    std::cout << ", T = " << tmp_bc_info[i].values[0] << std::endl;
+                    break;
+
+                case VELOCITY_DENSITY_INLET:
+                    //first GRID_DIM properties are the components of velocity at boundary
+                    for (int pos=0; pos<GRID_DIM; pos++){
+                        if (fp64_props.size() > fp64_iterator) {
+                            tmp_bc_info[i].vector[pos] = fp64_props[fp64_iterator];
+                            fp64_iterator++;
+                        } else {
+                            std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                            exit(0);
+                        }
+                    }
+                    //next property is density
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[0] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : VELOCITY_DENSITY_INLET : u = ";
+                    std::cout << EIGEN_MAP_OF_KINEMATIC_VECTOR(tmp_bc_info[i].vector).transpose();
+                    std::cout << ", rho = " << tmp_bc_info[i].values[0] << std::endl;
+                    break;
+
+                case PRESSURE_INLET:
+                    //first property is density
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[0] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+                    //second property is temperature
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[1] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : PRESSURE_INLET : P = " << tmp_bc_info[i].values[0];
+                    std::cout << ", T = " << tmp_bc_info[i].values[1] << std::endl;
+                    break;
+
+                case PRESSURE_OUTLET:
+                    //first property is density
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[0] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+                    //second property is temperature
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[1] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : PRESSURE_OUTLET : P = " << tmp_bc_info[i].values[0];
+                    std::cout << ", T* = " << tmp_bc_info[i].values[1] << std::endl;
+                    break;
+
+                case DAMPED_OUTLET:
+                    //first property is density
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[0] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+                    //second property is temperature
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[1] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : DAMPED_OUTLET : P = " << tmp_bc_info[i].values[0];
+                    std::cout << ", T* = " << tmp_bc_info[i].values[1] << std::endl;
+                    break;
+
+                case ADIABATIC_WALL:
+                    //for readability, take in one unused property
+                    fp64_iterator++;
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : ADIABATIC_WALL" << std::endl;
+                    break;
+
+                case THERMAL_WALL:
+                    //one property, temperature
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[0] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : DAMPED_OUTLET : T = " << tmp_bc_info[i].values[0];
+                    break;
+
+                case SYMMETRIC_WALL:
+                    //for readability, take in one unused property
+                    fp64_iterator++;
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : SYMMETRIC_WALL" << std::endl;
+                    break;
+
+                case SUPERSONIC_INLET:
+                    //first GRID_DIM properties are the components of velocity at boundary
+                    for (int pos=0; pos<GRID_DIM; pos++){
+                        if (fp64_props.size() > fp64_iterator) {
+                            tmp_bc_info[i].vector[pos] = fp64_props[fp64_iterator];
+                            fp64_iterator++;
+                        } else {
+                            std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                            exit(0);
+                        }
+                    }
+                    //next property is density
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[0] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+                    //final property is temperature
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[1] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : VELOCITY_DENSITY_INLET : u = ";
+                    std::cout << EIGEN_MAP_OF_KINEMATIC_VECTOR(tmp_bc_info[i].vector).transpose();
+                    std::cout << ", rho = " << tmp_bc_info[i].values[0];
+                    std::cout << ", T = " << tmp_bc_info[i].values[1] << std::endl;
+                    break;
+
+                case SUPERSONIC_OUTLET:
+                    //for readability, take in one unused property
+                    fp64_iterator++;
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : SUPERSONIC_OUTLET" << std::endl;
+                    break;
+
+                case PERIODIC:
+                    //for readability, take in one unused property
+                    fp64_iterator++;
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : PERIODIC" << std::endl;
+                    std::cerr << "ERROR: FVMGmsh2D does not allow PERIODIC boundaries! Exiting." << std::endl;
+                    exit(0);
+                    break;
+
+                default:
+                    //do nothing
+                    break;
+            }
+
         }
     }
-
 
     if (job->JOB_TYPE != 2){
         std::cerr << "WARNING: Cannot use FVMGmsh2D with JOB_TYPE of " << job->JOB_TYPE << "!" << std::endl;
-    }
-
-    std::cout << "FiniteVolumeGrid properties: (filename = " << filename << ")" << std::endl;
-    for (int i=0; i<tmp_bc_tags.size(); i++){
-        std::cout << "    " << i << " : " << tmp_bc_tags[i] << " : " << tmp_bc_density[i] << " - <" << tmp_bc_values[i][0] << ", " << tmp_bc_values[i][1] << ">" << std::endl;
     }
 
     //temporary vector listing faces on boundary
@@ -486,13 +710,17 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
         }
     }
 
-    //define boundary conditions
-    bc_tags = Eigen::VectorXi(face_count);
-    bc_tags.setConstant(-1);                                        //by default, interior faces are set to -1
-    bc_values = KinematicVectorArray(face_count, job->JOB_TYPE);
-    bc_values.setZero();                                            //by default, boundary conditions are zero
-    bc_density = Eigen::VectorXd(face_count);
-    bc_density.setZero();
+    //define which boundary is associated with each face
+    bc_info = std::vector<FiniteVolumeMethod::BCContainer>(face_count);
+    //initalize bc_info
+    for (int f=0; f<face_count; f++){
+        bc_info[f].tag = -1;
+        bc_info[f].values = std::array<double,2>();
+        bc_info[f].values[0] = 0;
+        bc_info[f].values[1] = 0;
+        bc_info[f].vector = KinematicVector(job->JOB_TYPE);
+        bc_info[f].vector.setZero();
+    }
 
     //loop over stored boundary faces
     int which_boundary;
@@ -501,24 +729,43 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
         n0 = bounding_faces[i][1];
         n1 = bounding_faces[i][2];
         //check faces associated with n0 for n1 from node to face map create earlier
-        for (int i=0; i<tmp_node_to_face_map[n0].size(); i++){
-            if (n1 == tmp_node_to_face_map[n0][i][0]){
+        for (int ii=0; ii<tmp_node_to_face_map[n0].size(); ii++){
+            if (n1 == tmp_node_to_face_map[n0][ii][0]){
                 //found face
-                f_tmp = tmp_node_to_face_map[n0][i][1];
+                f_tmp = tmp_node_to_face_map[n0][ii][1];
                 break;
             }
         }
-        if (which_boundary >= tmp_bc_tags.size()){
+        if (which_boundary > tmp_bc_info.size()){
             //if no bc defined by input file, assume dirichlet
-            bc_tags[f_tmp] = DIRICHLET;
+            //no bc tags given
+            tmp_bc_info = std::vector<FiniteVolumeMethod::BCContainer>(1);
+            //set to zero dirichlet
+            if (driver->TYPE == FiniteVolumeDriver::ISOTHERMAL) {
+                for (int ii = 0; ii < tmp_bc_info.size(); ii++) {
+                    tmp_bc_info[ii].tag = FiniteVolumeGrid::VELOCITY_INLET;
+                    tmp_bc_info[ii].values = std::array<double, 2>();
+                    tmp_bc_info[ii].vector = KinematicVector(job->JOB_TYPE);
+                    tmp_bc_info[ii].vector.setZero();
+                }
+            } else if (driver->TYPE == FiniteVolumeDriver::THERMAL) {
+                for (int ii = 0; ii < tmp_bc_info.size(); ii++) {
+                    tmp_bc_info[ii].tag = FiniteVolumeGrid::ADIABATIC_WALL;
+                    tmp_bc_info[ii].values = std::array<double, 2>();
+                    tmp_bc_info[ii].vector = KinematicVector(job->JOB_TYPE);
+                    tmp_bc_info[ii].vector.setZero();
+                }
+            } else {
+                std::cerr << "ERROR: FVMGmsh2D is not implemented for FiniteVolumeDriver TYPE " << driver->TYPE << "! Exiting.";
+                exit(0);
+            }
         } else {
-            bc_tags[f_tmp] = tmp_bc_tags[which_boundary];
-            bc_values[f_tmp] = tmp_bc_values[which_boundary];
-            bc_density[f_tmp] = tmp_bc_density[which_boundary];
+            //copy associated input bc info to face vector
+            bc_info[f_tmp] = tmp_bc_info[which_boundary];
         }
     }
 
-    //lastly, need to form least squares system of equations
+    //penultimately, need to form least squares system of equations
     //construct A and b for least squares calculations
     A_e = std::vector<Eigen::MatrixXd>(element_count);
     A_inv = std::vector<Eigen::MatrixXd>(element_count);
@@ -530,13 +777,6 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
     for (int e = 0; e<element_count; e++) {
         //size A and b for element based on number of neighboring cells and dirichlet faces
         length_of_A = element_neighbors[e].size();
-        for (int j = 0; j < element_faces[e].size(); j++) {
-            //only add BCs for dirichlet conditions
-            int f = element_faces[e][j];
-            if (bc_tags[f] == DIRICHLET || bc_tags[f] == SUPERSONIC_INLET) {
-                length_of_A++; //add dirichlet conditions to A
-            }
-        }
 
         //get element centroid
         x_0 = getElementCentroid(job, e);
@@ -548,22 +788,6 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
             for (int pos = 0; pos < GRID_DIM; pos++) {
                 tmp_dif = x[pos] - x_0[pos];
                 A_e[e](ii, pos) = x[pos] - x_0[pos];
-            }
-        }
-
-        //add dirichlet boundary conditions
-        int i = element_neighbors[e].size();
-        for (int j = 0; j < element_faces[e].size(); j++) {
-            //only add BCs for dirichlet conditions
-            int f = element_faces[e][j];
-            if (bc_tags[f] == DIRICHLET || bc_tags[f] == SUPERSONIC_INLET) {
-                x = getFaceCentroid(job, f);
-                for (int pos = 0; pos < GRID_DIM; pos++) {
-                    tmp_dif = x[pos] - x_0[pos];
-                    A_e[e](i, pos) = x[pos] - x_0[pos];
-                }
-                //increment counter
-                i++;
             }
         }
 
@@ -583,6 +807,82 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
             }
         }
         A_inv[e] = AtA_inv*A_e[e].transpose();
+    }
+
+    //lastly, quadrature rule
+    if (driver->ORDER == 1){
+        qpe = 1; //quad points per element
+        qpf = 1; //quad points per face
+    } else if (driver->ORDER == 2){
+        qpe = 3;
+        qpf = 2;
+    } else {
+        std::cerr << "ERROR: FVMCartesian not defined for simulation ORDER > 2." << std::endl;
+        qpe = 3;
+        qpf = 2;
+    }
+    ext_quad_count = face_count*qpf;
+    int_quad_count = element_count*qpe;
+
+    //define face, element, and quadrature centroids
+    x_q = KinematicVectorArray(job->JOB_TYPE, int_quad_count + ext_quad_count); //volume integrals first, then surface
+    w_q = Eigen::VectorXd(int_quad_count + ext_quad_count);
+    q_b = std::vector<bool>(int_quad_count + ext_quad_count);
+
+    //initialize porosity and solid velocity fields
+    n_q = Eigen::VectorXd(int_quad_count + ext_quad_count);
+    n_q.setConstant(1.0);
+    gradn_q = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE);
+    gradn_q.setZero();
+    v_sq = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE);
+    v_sq.setZero();
+
+    //quadrature points are default NOT on boundary
+    for (int i=0; i<int_quad_count+ext_quad_count; i++){
+        q_b[i] = false;
+    }
+
+    //quadrature points
+    double offset_factor = 1.0/sqrt(3.0);
+    KinematicVector x1, x2, x3;
+
+    //internal quadrature rule
+    for (int e=0; e<element_count; e++){
+        if (qpe == 1){
+            //quad point collocated with element centroid
+            x_q[e*qpe] = x_e[e];
+            w_q(e*qpe) = v_e[e];
+        } else if (qpe == 3){
+            //quad points offset from center
+            x_q[e*qpe + 0] = 0.5*(x_e[e] + x_n[nodeIDs(e,0)]);
+            w_q(e*qpe + 0) = v_e[e]/qpe;
+            x_q[e*qpe + 1] = 0.5*(x_e[e] + x_n[nodeIDs(e,1)]);
+            w_q(e*qpe + 1) = v_e[e]/qpe;
+            x_q[e*qpe + 2] = 0.5*(x_e[e] + x_n[nodeIDs(e,2)]);
+            w_q(e*qpe + 2) = v_e[e]/qpe;
+        }
+    }
+
+    //external quadrature rule
+    for (int f=0; f<face_count; f++){
+        for (int q=0; q<qpf; q++){
+            if (bc_info[f].tag > -1 && bc_info[f].tag != PERIODIC) {
+                //face is bounding face and quadrature point should be included in boundary integrals
+                q_b[int_quad_count + f * qpf + q] = true;
+            }
+        }
+
+        if (qpf == 1){
+            //quad point collocated with face centroid
+            x_q[int_quad_count + f * qpf] = x_f[f];
+            w_q[int_quad_count + f * qpf] = face_areas(f);
+        } else if (qpf == 2){
+            //quad points offset from center
+            x_q[int_quad_count + f*qpf + 0] = x_f[f] + offset_factor*(x_n[face_nodes[f][0]] - x_f[f]);
+            w_q(int_quad_count + f*qpf + 0) = getFaceArea(f)/qpf;
+            x_q[int_quad_count + f*qpf + 1] = x_f[f] + offset_factor*(x_n[face_nodes[f][1]] - x_f[f]);
+            w_q(int_quad_count + f*qpf + 1) = getFaceArea(f)/qpf;
+        }
     }
 
     std::cout << "FiniteVolumeGrid initialized." << std::endl;
@@ -617,49 +917,6 @@ void FVMGmsh2D::writeHeader(std::ofstream& file, int SPEC){
     }
     file << "CELL_DATA " << element_count << "\n";
     return;
-}
-
-/*----------------------------------------------------------------------------*/
-//helper functions
-double FVMGmsh2D::getElementVolume(int e){
-    return v_e(e);
-}
-
-int FVMGmsh2D::getElementTag(int e){
-    //elements are not tagged
-    return -1;
-}
-
-double FVMGmsh2D::getFaceArea(int f){
-    return face_areas(f);
-}
-
-int FVMGmsh2D::getFaceTag(int f){
-    return bc_tags(f);
-}
-
-KinematicVector FVMGmsh2D::getFaceNormal(Job* job, int f){
-    return face_normals[f];
-}
-
-std::vector<int> FVMGmsh2D::getElementFaces(int e){
-    return element_faces[e];
-}
-
-std::array<int,2> FVMGmsh2D::getOrientedElementsByFace(int f){
-    return face_elements[f];
-}
-
-std::vector<int> FVMGmsh2D::getElementNeighbors(int e){
-    return element_neighbors[e];
-}
-
-KinematicVector FVMGmsh2D::getElementCentroid(Job* job, int e){
-    return x_e[e];
-}
-
-KinematicVector FVMGmsh2D::getFaceCentroid(Job* job, int f){
-    return x_f[f];
 }
 
 /*----------------------------------------------------------------------------*/
@@ -702,40 +959,6 @@ void FVMGmsh2D::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                         p_max[mom_index] = p[mom_index];
                     } else if (p[mom_index] < p_min[mom_index]){
                         p_min[mom_index] = p[mom_index];
-                    }
-                }
-
-                //add boundary conditions where applicable
-                int i=element_neighbors[e].size();
-                for (int j = 0; j<element_faces[e].size(); j++){
-                    //only add BCs for dirichlet conditions
-                    int f = element_faces[e][j];
-                    if (bc_tags[f] == FiniteVolumeGrid::DIRICHLET) {
-                        //fill in b vector
-                        p = rho_0 * bc_values[f];
-                        b_e[e](i) = p[mom_index] - p_0[mom_index];
-
-                        //update maximum and minimum velocities
-                        if (p[mom_index] > p_max[mom_index]) {
-                            p_max[mom_index] = p[mom_index];
-                        } else if (p[mom_index] < p_min[mom_index]) {
-                            p_min[mom_index] = p[mom_index];
-                        }
-                        //increment i
-                        i++;
-                    } else if (bc_tags[f] == SUPERSONIC_INLET) {
-                        //fill in b vector
-                        p = bc_density[f] * bc_values[f];
-                        b_e[e](i) = p[mom_index] - p_0[mom_index];
-
-                        //update maximum and minimum velocities
-                        if (p[mom_index] > p_max[mom_index]) {
-                            p_max[mom_index] = p[mom_index];
-                        } else if (p[mom_index] < p_min[mom_index]) {
-                            p_min[mom_index] = p[mom_index];
-                        }
-                        //increment i
-                        i++;
                     }
                 }
 
@@ -805,24 +1028,6 @@ void FVMGmsh2D::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                 }
             }
 
-            //add boundary conditions where applicable (total number of eq'ns still less than rows of A)
-            int i=element_neighbors[e].size();
-            for (int j = 0; j<element_faces[e].size(); j++){
-                //only add BCs for dirichlet conditions
-                int f = element_faces[e][j];
-                if (bc_tags[f] == FiniteVolumeGrid::DIRICHLET) {
-                    b_e[e](i) = 0;
-
-                    //increment i
-                    i++;
-                } else if (bc_tags[f] == SUPERSONIC_INLET) {
-                    b_e[e](i) = bc_density[f] - rho_0;
-
-                    //increment i
-                    i++;
-                }
-            }
-
             //solve for components of gradient
             sol = A_inv[e]*b_e[e];
             for (int pos = 0; pos<GRID_DIM; pos++){
@@ -852,1301 +1057,66 @@ void FVMGmsh2D::constructDensityField(Job* job, FiniteVolumeDriver* driver){
     return;
 }
 
-KinematicTensorArray FVMGmsh2D::getVelocityGradients(Job* job, FiniteVolumeDriver* driver){
-    //reconstruct velocity field
-    KinematicTensorArray u_x = KinematicTensorArray(element_count, job->JOB_TYPE);
-    KinematicVector u = KinematicVector(job->JOB_TYPE);
-    KinematicVector p = KinematicVector(job->JOB_TYPE);
-    double rho, rho_0, tmp_dif;
 
-    //initialize least squares fitting variables
-    Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
-    KinematicVector x_0, x;
-    KinematicVector u_0;
-
-    for (int e=0; e<element_count; e++){
-        p = driver->fluid_body->p[e];
-        rho_0 = driver->fluid_body->rho(e);
-        u_0 = p/rho_0;
-
-        //least squares fit of u_x to neighbors of element e
-        x_0 = getElementCentroid(job, e);
-        for (int dir = 0; dir<GRID_DIM; dir++){
-            //create system of equations
-            for (int ii=0; ii<element_neighbors[e].size(); ii++){
-                rho = driver->fluid_body->rho(element_neighbors[e][ii]);
-                p = driver->fluid_body->p[element_neighbors[e][ii]];
-                b_e[e](ii) = p[dir]/rho - u_0[dir];
-            }
-
-            //add boundary conditions where applicable (total number of eq'ns still less than rows of A)
-            int i=element_neighbors[e].size();
-            for (int j = 0; j<element_faces[e].size(); j++){
-                //only add BCs for dirichlet conditions
-                int f = element_faces[e][j];
-                if (bc_tags[f] == DIRICHLET || bc_tags[f] == SUPERSONIC_INLET) {
-                    u = bc_values[f];
-                    b_e[e](i) = u[dir] - u_0[dir];
-
-                    //increment i
-                    i++;
-                }
-            }
-
-            //solve for u_pos component of gradient
-            sol = A_inv[e]*b_e[e];
-            for (int pos = 0; pos<GRID_DIM; pos++){
-                u_x(e, dir, pos) = sol(pos);
-            }
-        }
-
-    }
-    return u_x;
-}
-
-/*----------------------------------------------------------------------------*/
-//functions to compute element-wise fluxes of field variables using reconstructed velocity field
-Eigen::VectorXd FVMGmsh2D::calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, Eigen::VectorXd& phi){
-    if (phi.rows() != element_count){
-        std::cerr << "ERROR! Length of vector passed to calculateElementFluxIntegrals is wrong size! ";
-        std::cerr << phi.rows() << " != " << element_count << std::endl;
-        exit(0);
-    }
-
-    //flux rates
-    Eigen::VectorXd result = Eigen::VectorXd(element_count);
-    result.setZero();
-
-    double v_plus, v_minus; //value
-    KinematicVector u_plus, u_minus, normal, u_bar; //velocity
-    int e_plus, e_minus;    //elements
-    double rho_plus, rho_minus;
-    double flux, area;
-    double a_1, a_2, a_6, c, rho_bar, phi_bar, theta_bar;
-    double lambda_1, lambda_2;
-
-    //number of quadrature points per face
-    int num_quad = 2;
-
-    //vector of quad point positions relative to face center
-    std::array<double,2> quad_points = {-1.0/std::sqrt(3), 1.0/std::sqrt(3)};
-
-    //different flux calculation for different ORDER approximations
+void FVMGmsh2D::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
     if (driver->ORDER == 1){
-        //rho, u, value constant within element
-        //loop over faces
-        u_plus = KinematicVector(job->JOB_TYPE);
-        u_minus = KinematicVector(job->JOB_TYPE);
-        KinematicVector x;
-
-        for (int f=0; f<face_count; f++){
-            //face dimensions
-            area = getFaceArea(f);
-            normal = getFaceNormal(job, f);
-            x = getFaceCentroid(job, f);
-
-            //flux calculation depends on whether face is on boundary
-            if (bc_tags[f] == -1){
-                //face is interior to domain; no BCs (or periodic)
-                e_minus = face_elements[f][0];
-                e_plus  = face_elements[f][1];
-                v_minus = phi(e_minus);
-                v_plus  = phi(e_plus);
-                rho_minus = driver->fluid_body->rho(e_minus);
-                rho_plus = driver->fluid_body->rho(e_plus);
-                u_minus = driver->fluid_body->p[e_minus]/rho_minus; //u = p/rho
-                u_plus  = driver->fluid_body->p[e_plus]/rho_plus;
-
-                //approximate Roe advective rate
-                u_bar = (std::sqrt(rho_plus)*u_plus + std::sqrt(rho_minus)*u_minus)/(std::sqrt(rho_plus) + std::sqrt(rho_minus));
-                rho_bar = std::sqrt(rho_plus*rho_minus);
-                phi_bar = (v_plus*std::sqrt(rho_minus) + v_minus*std::sqrt(rho_plus))/(std::sqrt(rho_minus) + std::sqrt(rho_plus));
-                theta_bar = std::sqrt(driver->fluid_body->theta(e_plus) * driver->fluid_body->theta(e_minus));
-                c = driver->fluid_material->getSpeedOfSound(job, driver, x, rho_bar, theta_bar);
-
-                //roe eigenvalues
-                lambda_1 = std::abs(u_bar.dot(normal) - c);
-                lambda_2 = std::abs(u_bar.dot(normal) + c);
-                if (lambda_1 < delta*c){
-                    lambda_1 = 0.5*((lambda_1*lambda_1)/(delta*c) + (delta*c));
-                }
-                if (lambda_2 < delta*c){
-                    lambda_2 = 0.5*((lambda_2*lambda_2)/(delta*c) + (delta*c));
-                }
-
-                //calculate Roe eigenvector coefficients
-                a_1 = 0.5*(rho_plus - rho_minus) - 1.0/(2.0*c)*(rho_plus*u_plus - rho_minus*u_minus - (rho_plus-rho_minus)*u_bar).dot(normal);
-                a_2 = (rho_plus - rho_minus) - a_1;
-                a_6 = v_plus - v_minus - (rho_plus - rho_minus)*phi_bar/rho_bar;
-
-                //flux in n direction
-                flux = area*0.5*(v_plus*u_plus.dot(normal) + v_minus*u_minus.dot(normal)
-                                 - a_1*lambda_1*phi_bar/rho_bar
-                                 - a_2*lambda_2*phi_bar/rho_bar
-                                 - a_6*std::abs(u_bar.dot(normal)));
-
-                //add flux to element integrals
-                result(e_minus) -= flux;
-                result(e_plus) += flux;
-            } else if (bc_tags[f] == DIRICHLET || bc_tags[f] == SUPERSONIC_INLET){
-                //face has prescribed velocity
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                if (e_minus > -1){
-                    //flux defined by cell value and assigned velocity
-                    v_minus = phi(e_minus);
-                    flux = v_minus*area*bc_values[f].dot(normal);
-                    result(e_minus) -= flux;
-                }
-
-                if (e_plus > -1){
-                    //flux defined by cell value and assigned velocity
-                    v_plus = phi(e_plus);
-                    flux = v_plus*area*bc_values[f].dot(normal);
-                    result(e_plus) += flux;
-                }
-            } else if (bc_tags[f] == NEUMANN || bc_tags[f] == NEUMANN_DAMPING){
-                //face has prescribed traction
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                if (e_minus > -1){
-                    //flux defined by cell value and cell velocity
-                    v_minus = phi(e_minus);
-                    u_minus = driver->fluid_body->p[e_minus]/driver->fluid_body->rho(e_minus);
-                    flux = v_minus*area*u_minus.dot(normal);
-                    result(e_minus) -= flux;
-                }
-
-                if (e_plus > -1){
-                    //flux defined by cell value and cell velocity
-                    v_plus = phi(e_plus);
-                    u_plus = driver->fluid_body->p[e_plus]/driver->fluid_body->rho(e_plus);
-                    flux = v_plus*area*u_plus.dot(normal);
-                    result(e_plus) += flux;
-                }
-            }
-        }
-    } else if (driver->ORDER >= 2){
+        driver->fluid_body->rhoE_x.setZero(); //let density be constant within an element
+    } if (driver->ORDER >= 2){
         if (driver->ORDER > 2) {
-            std::cout << "ERROR: FVMGmsh2D does not currently implement higher ORDER flux reconstruction."
+            std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER momentum reconstruction."
                       << std::endl;
         }
-
-        //first reconstruct input field
-        KinematicVectorArray phi_x = KinematicVectorArray(element_count, job->JOB_TYPE);
-
-        //least squares fit
+        //initialize least squares fields
         Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
-        KinematicVector x_0, x, x_face, x_quad;
-        x_quad = KinematicVector(job->JOB_TYPE);
-        double value_0, value, value_max, value_min, min_dif;
-        double tmp_dif, tmp_val;
+        KinematicVector x_0, x;
+        double rhoE_0, rhoE, rhoE_max, rhoE_min, min_dif;
+        double tmp_val;
         for (int e = 0; e<element_count; e++){
-            //least squares fit of phi to neighbors of element e
+            //least squares fit of rho_x to neighbors of element e
             x_0 = getElementCentroid(job, e);
-            value_0 = phi(e);
-            min_dif = 0;
+            rhoE_0 = driver->fluid_body->rhoE(e);
+            rhoE_max = rhoE_0;
+            rhoE_min = rhoE_0;
 
             //create system of equations
             for (int ii=0; ii<element_neighbors[e].size(); ii++){
-                value = phi(element_neighbors[e][ii]);
-                b_e[e](ii) = value - value_0;
+                //fill in b vector
+                rhoE = driver->fluid_body->rhoE(element_neighbors[e][ii]);
+                b_e[e](ii) = rhoE - rhoE_0;
 
                 //update maximum and minimum velocities
-                if (value > value_max){
-                    value_max = value;
-                } else if (value < value_min){
-                    value_min = value;
+                if (rhoE > rhoE_max){
+                    rhoE_max = rhoE;
+                } else if (rhoE < rhoE_min){
+                    rhoE_min = rhoE;
                 }
             }
 
-            //zero remainder of system of eq'ns
-            for (int ii=element_neighbors[e].size(); ii<b_e[e].rows(); ii++){
-                for (int pos=0; pos<GRID_DIM; pos++){
-                    b_e[e](ii) = 0;
-                }
-            }
-
-            //solve for u_pos component of gradient
+            //solve for components of gradient
             sol = A_inv[e]*b_e[e];
             for (int pos = 0; pos<GRID_DIM; pos++){
-                phi_x(e, pos) = sol(pos);
+                driver->fluid_body->rhoE_x(e, pos) = sol(pos);
             }
 
             //limit gradient to ensure monotonicity
             //check max, min at each node
             for (int n=0; n<npe; n++){
                 //p(x) = grad(p) * (x - x_0)
-                tmp_val = phi_x[e].dot(x_n[nodeIDs(e,n)] - x_e[e]);
+                tmp_val = driver->fluid_body->rhoE_x[e].dot(x_n[nodeIDs(e,n)] - x_e[e]);
                 //check for both overshoot and undershoot
-                if (tmp_val > (value_max - value_0)){
+                if (tmp_val > (rhoE_max - rhoE_0)){
                     //limit gradient
                     for (int pos=0; pos<GRID_DIM; pos++) {
-                        phi_x[e] *= (value_max - value_0)/tmp_val;
+                        driver->fluid_body->rhoE_x[e] *= (rhoE_max - rhoE_0)/tmp_val;
                     }
-                } else if (tmp_val < (value_min - value_0)){
+                } else if (tmp_val < (rhoE_min - rhoE_0)){
                     //limit gradient
                     for (int pos=0; pos<GRID_DIM; pos++) {
-                        phi_x[e] *= (value_min - value_0)/tmp_val;
-                    }
-                }
-            }
-        }
-
-        //loop over faces and use quadrature to reconstruct flux integral
-        u_plus = KinematicVector(job->JOB_TYPE);
-        u_minus = KinematicVector(job->JOB_TYPE);
-
-        for (int f=0; f<face_count; f++){
-            //face dimensions
-            area = getFaceArea(f);
-            normal = getFaceNormal(job, f);
-            x_face = getFaceCentroid(job, f);
-
-            //flux calculation depends on whether face is on boundary
-            if (bc_tags[f] == -1){
-                //face is interior to domain; no BCs (or periodic)
-                e_minus = face_elements[f][0];
-                e_plus  = face_elements[f][1];
-
-                //loop over quadrature points
-                for (int q=0; q<num_quad; q++) {
-                    //relative position to centroid of A
-                    x = x_f[f] - x_e[e_minus];
-                    x[0] += -quad_points[q]*normal[1]*area;
-                    x[1] += quad_points[q]*normal[0]*area;
-
-                    //calculate A properties
-                    v_minus = phi(e_minus) + phi_x(e_minus).dot(x);
-                    rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
-                    u_minus = (driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*x)/rho_minus;
-
-                    //relative position to centroid of B
-                    x = x_f[f] - x_e[e_plus];
-                    x[0] += -quad_points[q]*normal[1]*area;
-                    x[1] += quad_points[q]*normal[0]*area;
-
-                    //calculate B properties
-                    v_plus = phi(e_plus) + phi_x(e_plus).dot(x);
-                    rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
-                    u_plus = (driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus]*x)/rho_plus;
-
-                    //approximate Roe advective rate
-                    u_bar = (std::sqrt(rho_plus)*u_plus + std::sqrt(rho_minus)*u_minus)/(std::sqrt(rho_plus) + std::sqrt(rho_minus));
-                    rho_bar = std::sqrt(rho_plus*rho_minus);
-                    phi_bar = (v_plus*std::sqrt(rho_minus) + v_minus*std::sqrt(rho_plus))/(std::sqrt(rho_minus) + std::sqrt(rho_plus));
-                    theta_bar = std::sqrt(driver->fluid_body->theta(e_plus) * driver->fluid_body->theta(e_minus));
-                    c = driver->fluid_material->getSpeedOfSound(job, driver, x_quad, rho_bar, theta_bar);
-
-                    //roe eigenvalues
-                    lambda_1 = std::abs(u_bar.dot(normal) - c);
-                    lambda_2 = std::abs(u_bar.dot(normal) + c);
-                    if (lambda_1 < delta*c){
-                        lambda_1 = 0.5*((lambda_1*lambda_1)/(delta*c) + (delta*c));
-                    }
-                    if (lambda_2 < delta*c){
-                        lambda_2 = 0.5*((lambda_2*lambda_2)/(delta*c) + (delta*c));
-                    }
-
-                    //calculate Roe eigenvector coefficients
-                    a_1 = 0.5*(rho_plus - rho_minus) - 1.0/(2.0*c)*(rho_plus*u_plus - rho_minus*u_minus - (rho_plus-rho_minus)*u_bar).dot(normal);
-                    a_2 = (rho_plus - rho_minus) - a_1;
-                    a_6 = v_plus - v_minus - (rho_plus - rho_minus)*phi_bar/rho_bar;
-
-                    //flux in n direction
-                    flux = area/num_quad * 0.5 * (v_plus*u_plus.dot(normal) + v_minus*u_minus.dot(normal)
-                                                  - a_1*lambda_1*phi_bar/rho_bar
-                                                  - a_2*lambda_2*phi_bar/rho_bar
-                                                  - a_6*std::abs(u_bar.dot(normal)));
-
-                    //add flux to element integrals
-                    result(e_minus) -= flux;
-                    result(e_plus) += flux;
-                }
-            } else if (bc_tags[f] == DIRICHLET || bc_tags[f] == SUPERSONIC_INLET){
-                //face has prescribed velocity
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                //loop over quadrature points
-                for (int q=0; q<num_quad; q++) {
-
-                    if (e_minus > -1) {
-                        //relative position to centroid of A
-                        x = x_f[f] - x_e[e_minus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-
-                        //calculate A properties
-                        v_minus = phi(e_minus) + phi_x(e_minus).dot(x);
-                        flux = v_minus*area/num_quad*bc_values[f].dot(normal);
-                        result(e_minus) -= flux;
-                    }
-
-                    if (e_plus > -1) {
-                        //relative position to centroid of B
-                        x = x_f[f] - x_e[e_plus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-
-                        //calculate B properties
-                        v_plus = phi(e_plus) + phi_x(e_plus).dot(x);
-                        flux = v_plus*area/num_quad*bc_values[f].dot(normal);
-                        result(e_plus) += flux;
-                    }
-                }
-            } else if (bc_tags[f] == NEUMANN || bc_tags[f] == NEUMANN_DAMPING){
-                //face has prescribed traction
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                //loop over quadrature points
-                for (int q=0; q<num_quad; q++) {
-
-                    if (e_minus > -1) {
-                        //relative position to centroid of A
-                        x = x_f[f] - x_e[e_minus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-
-                        //calculate A properties
-                        v_minus = phi(e_minus) + phi_x(e_minus).dot(x);
-                        rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
-                        u_minus = (driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*x)/rho_minus;
-                        flux = v_minus*area/num_quad*u_minus.dot(normal);
-                        result(e_minus) -= flux;
-                    }
-
-                    if (e_plus > -1) {
-                        //relative position to centroid of B
-                        x = x_f[f] - x_e[e_plus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-
-                        //calculate B properties
-                        v_plus = phi(e_plus) + phi_x(e_plus).dot(x);
-                        rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
-                        u_plus = (driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus]*x)/rho_plus;
-                        flux = v_plus*area/num_quad*u_plus.dot(normal);
-                        result(e_plus) += flux;
+                        driver->fluid_body->rhoE_x[e] *= (rhoE_min - rhoE_0)/tmp_val;
                     }
                 }
             }
         }
     }
-    return result;
-}
-
-//functions to compute element mass flux
-Eigen::VectorXd FVMGmsh2D::calculateElementMassFluxes(Job* job, FiniteVolumeDriver* driver){
-    //flux rates
-    Eigen::VectorXd result = Eigen::VectorXd(element_count);
-    result.setZero();
-
-    KinematicVector u_plus, u_minus, normal, u_bar; //velocity
-    int e_plus, e_minus;    //elements
-    double rho_plus, rho_minus;
-    double flux, area;
-    double lambda_1, lambda_2, a_1, a_2, c, rho_bar, theta_bar;
-
-    //number of quadrature points per face
-    int num_quad = 2;
-
-    //vector of quad point positions relative to face center
-    std::array<double,2> quad_points = {-1.0/std::sqrt(3), 1.0/std::sqrt(3)};
-
-    //different flux calculation for different ORDER approximations
-    if (driver->ORDER == 1){
-        //rho, u, value constant within element
-        //loop over faces
-        u_plus = KinematicVector(job->JOB_TYPE);
-        u_minus = KinematicVector(job->JOB_TYPE);
-        KinematicVector x;
-
-        for (int f=0; f<face_count; f++){
-            //face dimensions
-            area = getFaceArea(f);
-            normal = getFaceNormal(job, f);
-            x = getFaceCentroid(job, f);
-
-            //flux calculation depends on whether face is on boundary
-            if (bc_tags[f] == -1){
-                //face is interior to domain; no BCs (or periodic)
-                e_minus = face_elements[f][0];
-                e_plus  = face_elements[f][1];
-                rho_minus = driver->fluid_body->rho(e_minus);
-                rho_plus = driver->fluid_body->rho(e_plus);
-                u_minus = driver->fluid_body->p[e_minus]/rho_minus; //u = p/rho
-                u_plus  = driver->fluid_body->p[e_plus]/rho_plus;
-
-                //approximate Roe advective rate
-                u_bar = (std::sqrt(rho_plus)*u_plus + std::sqrt(rho_minus)*u_minus)/(std::sqrt(rho_plus) + std::sqrt(rho_minus));
-                rho_bar = std::sqrt(rho_plus*rho_minus);
-                theta_bar = std::sqrt(driver->fluid_body->theta(e_plus) * driver->fluid_body->theta(e_minus));
-                c = driver->fluid_material->getSpeedOfSound(job, driver, x, rho_bar, theta_bar);
-
-                //roe eigenvalues
-                lambda_1 = std::abs(u_bar.dot(normal) - c);
-                lambda_2 = std::abs(u_bar.dot(normal) + c);
-                if (lambda_1 < delta*c){
-                    lambda_1 = 0.5*((lambda_1*lambda_1)/(delta*c) + (delta*c));
-                }
-                if (lambda_2 < delta*c){
-                    lambda_2 = 0.5*((lambda_2*lambda_2)/(delta*c) + (delta*c));
-                }
-
-                //calculate Roe eigenvector coefficients
-                a_1 = 0.5*(rho_plus - rho_minus) - 1.0/(2.0*c)*(rho_plus*u_plus - rho_minus*u_minus - (rho_plus-rho_minus)*u_bar).dot(normal);
-                a_2 = (rho_plus - rho_minus) - a_1;
-
-                //flux in n direction
-                flux = area * 0.5 * (rho_plus*u_plus.dot(normal) + rho_minus*u_minus.dot(normal)
-                                     - a_1*lambda_1 - a_2*lambda_2);
-
-                //add flux to element integrals
-                result(e_minus) -= flux;
-                result(e_plus) += flux;
-            } else if (bc_tags[f] == DIRICHLET){
-                //face has prescribed velocity
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                if (e_minus > -1){
-                    //flux defined by cell value and assigned velocity
-                    rho_minus = driver->fluid_body->rho(e_minus);
-                    flux = rho_minus*area*bc_values[f].dot(normal);
-                    result(e_minus) -= flux;
-                }
-
-                if (e_plus > -1){
-                    //flux defined by cell value and assigned velocity
-                    rho_plus = driver->fluid_body->rho(e_plus);
-                    flux = rho_plus*area*bc_values[f].dot(normal);
-                    result(e_plus) += flux;
-                }
-            } else if (bc_tags[f] == SUPERSONIC_INLET){
-                //face has prescribed velocity
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                if (e_minus > -1){
-                    //flux defined by cell value and assigned velocity
-                    rho_minus = bc_density[f];
-                    flux = rho_minus*area*bc_values[f].dot(normal);
-                    result(e_minus) -= flux;
-                }
-
-                if (e_plus > -1){
-                    //flux defined by cell value and assigned velocity
-                    rho_plus = bc_density[f];
-                    flux = rho_plus*area*bc_values[f].dot(normal);
-                    result(e_plus) += flux;
-                }
-            } else if (bc_tags[f] == NEUMANN || bc_tags[f] == NEUMANN_DAMPING){
-                //face has prescribed traction
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                if (e_minus > -1){
-                    //flux defined by cell value and cell velocity
-                    rho_minus = driver->fluid_body->rho(e_minus);
-                    u_minus = driver->fluid_body->p[e_minus]/driver->fluid_body->rho(e_minus);
-                    flux = rho_minus*area*u_minus.dot(normal);
-                    result(e_minus) -= flux;
-                }
-
-                if (e_plus > -1){
-                    //flux defined by cell value and cell velocity
-                    rho_plus = driver->fluid_body->rho(e_plus);
-                    u_plus = driver->fluid_body->p[e_plus]/driver->fluid_body->rho(e_plus);
-                    flux = rho_plus*area*u_plus.dot(normal);
-                    result(e_plus) += flux;
-                }
-            }
-        }
-    } else if (driver->ORDER >= 2){
-        if (driver->ORDER > 2) {
-            std::cout << "ERROR: FVMGmsh2D does not currently implement higher ORDER flux reconstruction."
-                      << std::endl;
-        }
-
-        KinematicVector x = KinematicVector(job->JOB_TYPE);
-        KinematicVector x_face = KinematicVector(job->JOB_TYPE);
-        KinematicVector x_quad = KinematicVector(job->JOB_TYPE);
-
-        //loop over faces and use quadrature to reconstruct flux integral
-        u_plus = KinematicVector(job->JOB_TYPE);
-        u_minus = KinematicVector(job->JOB_TYPE);
-
-        for (int f=0; f<face_count; f++){
-            //face dimensions
-            area = getFaceArea(f);
-            normal = getFaceNormal(job, f);
-            x_face = getFaceCentroid(job, f);
-
-            //flux calculation depends on whether face is on boundary
-            if (bc_tags[f] == -1){
-                //face is interior to domain; no BCs (or periodic)
-                e_minus = face_elements[f][0];
-                e_plus  = face_elements[f][1];
-
-                //loop over quadrature points
-                for (int q=0; q<num_quad; q++) {
-                    //relative position to centroid of A
-                    x = x_f[f] - x_e[e_minus];
-                    x[0] += -quad_points[q]*normal[1]*area;
-                    x[1] += quad_points[q]*normal[0]*area;
-
-                    //calculate A properties
-                    rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
-                    u_minus = (driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*x)/rho_minus;
-
-                    //relative position to centroid of B
-                    x = x_f[f] - x_e[e_plus];
-                    x[0] += -quad_points[q]*normal[1]*area;
-                    x[1] += quad_points[q]*normal[0]*area;
-
-                    //calculate B properties
-                    rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
-                    u_plus = (driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus]*x)/rho_plus;
-
-                    //approximate Roe advective rate
-                    u_bar = (std::sqrt(rho_plus)*u_plus + std::sqrt(rho_minus)*u_minus)/(std::sqrt(rho_plus) + std::sqrt(rho_minus));
-                    rho_bar = std::sqrt(rho_plus*rho_minus);
-                    theta_bar = std::sqrt(driver->fluid_body->theta(e_plus) * driver->fluid_body->theta(e_minus));
-                    c = driver->fluid_material->getSpeedOfSound(job, driver, x_quad, rho_bar, theta_bar);
-
-                    //roe eigenvalues
-                    lambda_1 = std::abs(u_bar.dot(normal) - c);
-                    lambda_2 = std::abs(u_bar.dot(normal) + c);
-                    if (lambda_1 < delta*c){
-                        lambda_1 = 0.5*((lambda_1*lambda_1)/(delta*c) + (delta*c));
-                    }
-                    if (lambda_2 < delta*c){
-                        lambda_2 = 0.5*((lambda_2*lambda_2)/(delta*c) + (delta*c));
-                    }
-
-                    //calculate Roe eigenvector coefficients
-                    a_1 = 0.5*(rho_plus - rho_minus) - 1.0/(2.0*c)*(rho_plus*u_plus - rho_minus*u_minus - (rho_plus-rho_minus)*u_bar).dot(normal);
-                    a_2 = (rho_plus - rho_minus) - a_1;
-
-                    //flux in n direction
-                    flux = area/num_quad * 0.5 * (rho_plus*u_plus.dot(normal) + rho_minus*u_minus.dot(normal)
-                                                  - a_1*lambda_1 - a_2*lambda_2);
-
-                    //add flux to element integrals
-                    result(e_minus) -= flux;
-                    result(e_plus) += flux;
-                }
-            } else if (bc_tags[f] == DIRICHLET){
-                //face has prescribed velocity
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                //loop over quadrature points
-                for (int q=0; q<num_quad; q++) {
-
-                    if (e_minus > -1) {
-                        //relative position to centroid of A
-                        x = x_f[f] - x_e[e_minus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-                        //calculate A properties
-                        rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
-                        flux = rho_minus*area/num_quad*bc_values[f].dot(normal);
-                        result(e_minus) -= flux;
-                    }
-
-                    if (e_plus > -1) {
-                        //relative position to centroid of B
-                        x = x_f[f] - x_e[e_plus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-                        //calculate B properties
-                        rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
-                        flux = rho_plus*area/num_quad*bc_values[f].dot(normal);
-                        result(e_plus) += flux;
-                    }
-                }
-            } else if (bc_tags[f] == SUPERSONIC_INLET){
-                //face has prescribed velocity
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                //loop over quadrature points
-                for (int q=0; q<num_quad; q++) {
-
-                    if (e_minus > -1) {
-                        //relative position to centroid of A
-                        x = x_f[f] - x_e[e_minus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-                        //calculate A properties
-                        rho_minus = bc_density[f];
-                        flux = rho_minus*area/num_quad*bc_values[f].dot(normal);
-                        result(e_minus) -= flux;
-                    }
-
-                    if (e_plus > -1) {
-                        //relative position to centroid of B
-                        x = x_f[f] - x_e[e_plus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-                        //calculate B properties
-                        rho_plus = bc_density[f];
-                        flux = rho_plus*area/num_quad*bc_values[f].dot(normal);
-                        result(e_plus) += flux;
-                    }
-                }
-            } else if (bc_tags[f] == NEUMANN || bc_tags[f] == NEUMANN_DAMPING){
-                //face has prescribed traction
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                //loop over quadrature points
-                for (int q=0; q<num_quad; q++) {
-
-                    if (e_minus > -1) {
-                        //relative position to centroid of A
-                        x = x_f[f] - x_e[e_minus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-
-                        //calculate A properties
-                        rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
-                        u_minus = (driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*x)/rho_minus;
-                        flux = rho_minus*area/num_quad*u_minus.dot(normal);
-                        result(e_minus) -= flux;
-                    }
-
-
-                    if (e_plus > -1) {
-                        //relative position to centroid of B
-                        x = x_f[f] - x_e[e_plus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-
-                        //calculate B properties
-                        rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
-                        u_plus = (driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus]*x)/rho_plus;
-                        flux = rho_plus*area/num_quad*u_plus.dot(normal);
-                        result(e_plus) += flux;
-                    }
-                }
-            }
-        }
-    }
-    return result;
-}
-
-//functions to compute element momentum fluxes
-KinematicVectorArray FVMGmsh2D::calculateElementMomentumFluxes(Job* job, FiniteVolumeDriver* driver){
-
-    //flux rates
-    KinematicVectorArray result = KinematicVectorArray(element_count, job->JOB_TYPE);
-    result.setZero();
-
-    //intermediate variables
-    KinematicVector u_plus, u_minus, normal, u_bar, flux; //velocity
-    KinematicVector p_plus, p_minus;
-    int e_plus, e_minus;    //elements
-    double rho_plus, rho_minus;
-    double area;
-    double rho_bar, c, a_1, a_2, lambda_1, lambda_2;
-    KinematicVector x_0 = KinematicVector(job->JOB_TYPE);
-    KinematicVector x_face = KinematicVector(job->JOB_TYPE);
-    KinematicVector x_quad = KinematicVector(job->JOB_TYPE);
-    KinematicVector a_3 = KinematicVector(job->JOB_TYPE);
-
-    //traction calculatons
-    KinematicTensorArray L = getVelocityGradients(job, driver);
-    KinematicTensor L_tmp = KinematicTensor(job->JOB_TYPE);
-    MaterialTensor tau_plus, tau_minus;
-    double P_plus, P_minus, theta_bar;
-
-    //number of quadrature points per face
-    int num_quad = 2;
-
-    //vector of quad point positions relative to face center
-    std::array<double,2> quad_points = {-1.0/std::sqrt(3), 1.0/std::sqrt(3)};
-
-    //different flux calculation for different ORDER approximations
-    if (driver->ORDER == 1){
-        //rho, u, value constant within element
-        //loop over faces
-        u_plus = KinematicVector(job->JOB_TYPE);
-        u_minus = KinematicVector(job->JOB_TYPE);
-
-        for (int f=0; f<face_count; f++){
-            //face dimensions
-            area = getFaceArea(f);
-            normal = getFaceNormal(job, f);
-            x_face = getFaceCentroid(job, f);
-
-            //flux calculation depends on whether face is on boundary
-            if (bc_tags[f] == -1){
-                //face is interior to domain; no BCs (or periodic)
-                e_minus = face_elements[f][0];
-                e_plus  = face_elements[f][1];
-                rho_minus = driver->fluid_body->rho(e_minus);
-                rho_plus = driver->fluid_body->rho(e_plus);
-                p_minus = driver->fluid_body->p[e_minus];
-                p_plus = driver->fluid_body->p[e_plus];
-                u_minus = p_minus/rho_minus; //u = p/rho
-                u_plus  = p_plus/rho_plus;
-
-                //approximate Roe advective rate
-                u_bar = (std::sqrt(rho_plus)*u_plus + std::sqrt(rho_minus)*u_minus)/(std::sqrt(rho_plus) + std::sqrt(rho_minus));
-                rho_bar = std::sqrt(rho_plus*rho_minus);
-                theta_bar = std::sqrt(driver->fluid_body->theta(e_plus) * driver->fluid_body->theta(e_minus));
-                c = driver->fluid_material->getSpeedOfSound(job, driver, x_face, rho_bar, theta_bar);
-
-                //roe eigenvalues
-                lambda_1 = std::abs(u_bar.dot(normal) - c);
-                lambda_2 = std::abs(u_bar.dot(normal) + c);
-                if (lambda_1 < delta*c){
-                    lambda_1 = 0.5*((lambda_1*lambda_1)/(delta*c) + (delta*c));
-                }
-                if (lambda_2 < delta*c){
-                    lambda_2 = 0.5*((lambda_2*lambda_2)/(delta*c) + (delta*c));
-                }
-
-                //calculate Roe eigenvector coefficients
-                a_1 = 0.5*(rho_plus - rho_minus) - 1.0/(2.0*c)*(rho_plus*u_plus - rho_minus*u_minus - (rho_plus-rho_minus)*u_bar).dot(normal);
-                a_2 = (rho_plus - rho_minus) - a_1;
-                a_3 = p_plus - p_minus - (rho_plus-rho_minus)*u_bar;
-                a_3 = a_3 - a_3.dot(normal)*normal; //remove normal component of a_3 vector
-
-                //flux in n direction
-                flux = area*0.5*(p_plus*u_plus.dot(normal) + p_minus*u_minus.dot(normal)
-                                 - a_1*lambda_1*(u_bar - c*normal)
-                                 - a_2*lambda_2*(u_bar + c*normal)
-                                 - a_3*std::abs(u_bar.dot(normal)));
-
-                //add tractions to momentum flux
-                //for now use simple reconstruction of theta
-                tau_minus = driver->fluid_material->getShearStress(job, driver, x_face, L[e_minus], rho_bar, theta_bar);
-                tau_plus  = driver->fluid_material->getShearStress(job, driver, x_face, L[e_plus], rho_bar, theta_bar);
-                P_plus = c*c*(rho_plus - rho_bar) + driver->fluid_material->getPressure(job, driver, x_face, rho_bar, theta_bar);
-                P_minus = c*c*(rho_minus - rho_plus) + P_plus;
-
-                flux += area * 0.5 * ((P_plus + P_minus)*normal - KinematicVector((tau_plus + tau_minus)*normal, job->JOB_TYPE));
-
-                //add flux to element integrals
-                result(e_minus) -= flux;
-                result(e_plus) += flux;
-            } else if (bc_tags[f] == DIRICHLET){
-                //face has prescribed velocity
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                if (e_minus > -1){
-                    //flux defined by cell value and assigned velocity
-                    p_minus = driver->fluid_body->p[e_minus];
-
-                    //tractions
-                    rho_bar = driver->fluid_body->rho(e_minus);
-                    theta_bar = driver->fluid_body->theta(e_minus);
-
-                    //estimate L
-                    x_0 = getElementCentroid(job, e_minus);
-                    for (int ii=0; ii<GRID_DIM; ii++){
-                        for (int jj=0; jj<GRID_DIM; jj++){
-                            L_tmp(ii,jj) = (bc_values[f][ii] - p_minus[ii]/rho_bar)/(x_face - x_0).dot(normal)*normal[jj];
-                        }
-                    }
-
-                    tau_minus = driver->fluid_material->getShearStress(job, driver, x_face, L_tmp, rho_bar, theta_bar);
-                    P_minus = driver->fluid_material->getPressure(job, driver, x_face, rho_bar, theta_bar);
-
-                    flux = p_minus*area*bc_values[f].dot(normal)
-                           + area*P_minus*normal
-                           - area*KinematicVector(tau_minus*normal, job->JOB_TYPE);
-                    result(e_minus) -= flux;
-                }
-
-                if (e_plus > -1){
-                    //flux defined by cell value and assigned velocity
-                    p_plus = driver->fluid_body->p[e_plus];
-
-                    //tractions
-                    rho_bar = driver->fluid_body->rho(e_plus);
-                    theta_bar = driver->fluid_body->theta(e_plus);
-
-                    //estimate L
-                    x_0 = getElementCentroid(job, e_plus);
-                    for (int ii=0; ii<GRID_DIM; ii++){
-                        for (int jj=0; jj<GRID_DIM; jj++){
-                            L_tmp(ii,jj) = (bc_values[f][ii] - p_plus[ii]/rho_bar)/(x_face - x_0).dot(normal)*normal[jj];
-                        }
-                    }
-
-                    tau_plus = driver->fluid_material->getShearStress(job, driver, x_face, L_tmp, rho_bar, theta_bar);
-                    P_plus = driver->fluid_material->getPressure(job, driver, x_face, rho_bar, theta_bar);
-
-                    flux = p_plus*area*bc_values[f].dot(normal)
-                           + area*P_plus*normal
-                           - area*KinematicVector(tau_plus*normal, job->JOB_TYPE);
-
-                    result(e_plus) += flux;
-                }
-            } else if (bc_tags[f] == SUPERSONIC_INLET){
-                //face has prescribed velocity
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                if (e_minus > -1){
-                    //flux defined by cell value and assigned velocity
-                    p_minus = driver->fluid_body->p[e_minus];
-
-                    //tractions
-                    rho_bar = driver->fluid_body->rho(e_minus);
-                    theta_bar = driver->fluid_body->theta(e_minus);
-
-                    //estimate L
-                    x_0 = getElementCentroid(job, e_minus);
-                    for (int ii=0; ii<GRID_DIM; ii++){
-                        for (int jj=0; jj<GRID_DIM; jj++){
-                            L_tmp(ii,jj) = (bc_values[f][ii] - p_minus[ii]/rho_bar)/(x_face - x_0).dot(normal)*normal[jj];
-                        }
-                    }
-
-                    tau_minus = driver->fluid_material->getShearStress(job, driver, x_face, L_tmp, bc_density[f], theta_bar);
-                    P_minus = driver->fluid_material->getPressure(job, driver, x_face, bc_density[f], theta_bar);
-
-                    flux = bc_density[f]*bc_values[f]*area*bc_values[f].dot(normal)
-                           + area*P_minus*normal
-                           - area*KinematicVector(tau_minus*normal, job->JOB_TYPE);
-                    result(e_minus) -= flux;
-                }
-
-                if (e_plus > -1){
-                    //flux defined by cell value and assigned velocity
-                    p_plus = driver->fluid_body->p[e_plus];
-
-                    //tractions
-                    rho_bar = driver->fluid_body->rho(e_plus);
-                    theta_bar = driver->fluid_body->theta(e_plus);
-
-                    //estimate L
-                    x_0 = getElementCentroid(job, e_plus);
-                    for (int ii=0; ii<GRID_DIM; ii++){
-                        for (int jj=0; jj<GRID_DIM; jj++){
-                            L_tmp(ii,jj) = (bc_values[f][ii] - p_plus[ii]/rho_bar)/(x_face - x_0).dot(normal)*normal[jj];
-                        }
-                    }
-
-                    tau_plus = driver->fluid_material->getShearStress(job, driver, x_face, L_tmp, bc_density[f], theta_bar);
-                    P_plus = driver->fluid_material->getPressure(job, driver, x_face, bc_density[f], theta_bar);
-
-                    flux = bc_density[f]*bc_values[f]*area*bc_values[f].dot(normal)
-                           + area*P_plus*normal
-                           - area*KinematicVector(tau_plus*normal, job->JOB_TYPE);
-
-                    result(e_plus) += flux;
-                }
-            } else if (bc_tags[f] == NEUMANN){
-                //face has prescribed traction
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                if (e_minus > -1){
-                    //flux defined by cell value and cell velocity
-                    rho_minus = driver->fluid_body->rho(e_minus);
-                    p_minus = driver->fluid_body->p[e_minus];
-                    u_minus = p_minus/rho_minus;
-                    flux = p_minus*area*u_minus.dot(normal);
-
-                    //add traction directly to flux integral
-                    result(e_minus) -= flux;
-                    result(e_minus) += area*bc_values[f];
-                }
-
-                if (e_plus > -1){
-                    //flux defined by cell value and cell velocity
-                    rho_plus = driver->fluid_body->rho(e_plus);
-                    p_plus = driver->fluid_body->p[e_plus];
-                    u_plus = p_plus/rho_plus;
-                    flux = p_plus*area*u_plus.dot(normal);
-
-                    //add traction directly to flux integral
-                    result(e_plus) += flux;
-                    result(e_minus) += area*bc_values[f];
-                }
-            } else if (bc_tags[f] == NEUMANN_DAMPING){
-                //face has prescribed traction for weighted average
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                if (e_minus > -1){
-                    //flux defined by cell value and cell velocity
-                    rho_minus = driver->fluid_body->rho(e_minus);
-                    p_minus = driver->fluid_body->p[e_minus];
-                    u_minus = p_minus/rho_minus;
-                    flux = p_minus*area*u_minus.dot(normal);
-
-                    theta_bar = driver->fluid_body->theta(e_minus);
-                    P_minus = driver->fluid_material->getPressure(job, driver, x_face, rho_minus, theta_bar);
-
-                    //add traction directly to flux integral
-                    result(e_minus) -= flux + lambda*area*P_minus*normal;
-                    result(e_minus) += (1.0-lambda)*area*bc_values[f];
-                }
-
-                if (e_plus > -1){
-                    //flux defined by cell value and cell velocity
-                    rho_plus = driver->fluid_body->rho(e_plus);
-                    p_plus = driver->fluid_body->p[e_plus];
-                    u_plus = p_plus/rho_plus;
-                    flux = p_plus*area*u_plus.dot(normal);
-
-                    theta_bar = driver->fluid_body->theta(e_plus);
-                    P_plus = driver->fluid_material->getPressure(job, driver, x_face, rho_plus, theta_bar);
-
-                    //add traction directly to flux integral
-                    result(e_plus) += flux + lambda*area*P_plus*normal;
-                    result(e_plus) += (1.0 - lambda)*area*bc_values[f];
-                }
-            }
-        }
-    } else if (driver->ORDER >= 2){
-        if (driver->ORDER > 2) {
-            std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER flux reconstruction."
-                      << std::endl;
-        }
-
-        KinematicVector x = KinematicVector(job->JOB_TYPE);
-
-        //loop over faces and use quadrature to reconstruct flux integral
-        u_plus = KinematicVector(job->JOB_TYPE);
-        u_minus = KinematicVector(job->JOB_TYPE);
-
-        for (int f=0; f<face_count; f++){
-            //face dimensions
-            area = getFaceArea(f);
-            normal = getFaceNormal(job, f);
-            x_face = getFaceCentroid(job, f);
-
-            //flux calculation depends on whether face is on boundary
-            if (bc_tags[f] == -1){
-                //face is interior to domain; no BCs (or periodic)
-                e_minus = face_elements[f][0];
-                e_plus  = face_elements[f][1];
-
-                //loop over quadrature points
-                for (int q=0; q<num_quad; q++) {
-                    //relative position to centroid of A
-                    x = x_f[f] - x_e[e_minus];
-                    x[0] += -quad_points[q]*normal[1]*area;
-                    x[1] += quad_points[q]*normal[0]*area;
-                    x_quad = x_e[e_minus] + x;                    //also need exact quadrature point location
-
-                    //calculate A properties
-                    rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
-                    p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*x;
-                    u_minus = p_minus/rho_minus;
-
-                    //relative position to centroid of B
-                    x = x_f[f] - x_e[e_plus];
-                    x[0] += -quad_points[q]*normal[1]*area;
-                    x[1] += quad_points[q]*normal[0]*area;
-
-                    //calculate B properties
-                    rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
-                    p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus]*x;
-                    u_plus = p_plus/rho_plus;
-
-                    //approximate Roe advective rate
-                    u_bar = (std::sqrt(rho_plus)*u_plus + std::sqrt(rho_minus)*u_minus)/(std::sqrt(rho_plus) + std::sqrt(rho_minus));
-                    rho_bar = std::sqrt(rho_plus*rho_minus);
-                    theta_bar = std::sqrt(driver->fluid_body->theta(e_plus) * driver->fluid_body->theta(e_minus));
-                    c = driver->fluid_material->getSpeedOfSound(job, driver, x_quad, rho_bar, theta_bar);
-
-                    //roe eigenvalues
-                    lambda_1 = std::abs(u_bar.dot(normal) - c);
-                    lambda_2 = std::abs(u_bar.dot(normal) + c);
-                    if (lambda_1 < delta*c){
-                        lambda_1 = 0.5*((lambda_1*lambda_1)/(delta*c) + (delta*c));
-                    }
-                    if (lambda_2 < delta*c){
-                        lambda_2 = 0.5*((lambda_2*lambda_2)/(delta*c) + (delta*c));
-                    }
-
-                    //calculate Roe eigenvector coefficients
-                    a_1 = 0.5*(rho_plus - rho_minus) - 1.0/(2.0*c)*(rho_plus*u_plus - rho_minus*u_minus - (rho_plus-rho_minus)*u_bar).dot(normal);
-                    a_2 = (rho_plus - rho_minus) - a_1;
-                    a_3 = p_plus - p_minus - (rho_plus-rho_minus)*u_bar;
-                    a_3 = a_3 - a_3.dot(normal)*normal; //remove normal component of a_3 vector
-
-                    /*
-                    std::cout << "alpha_int: " << a_1 << " " << a_2 << std::endl;
-                    std::cout << "quadrature_location: " << x[0] << ", " << x[1] << std::endl;
-                    std::cout << "rho: " << rho_plus << ", " << rho_minus << std::endl;
-                    std::cout << ", u: " << u_plus[0] << ", " << u_minus[0] << std::endl;
-                    std::cout << "u_bar: " << u_bar[0] << ", c_bar: " << c << std::endl;
-                     */
-
-                    //flux in n direction
-                    flux = area/num_quad * 0.5 * (p_plus*u_plus.dot(normal) + p_minus*u_minus.dot(normal)
-                                                  - a_1*lambda_1*(u_bar - c*normal)
-                                                  - a_2*lambda_2*(u_bar + c*normal)
-                                                  - a_3*std::abs(u_bar.dot(normal)));
-
-                    //add tractions to momentum flux
-                    //for now use simple reconstruction of theta
-                    tau_minus = driver->fluid_material->getShearStress(job, driver, x_quad, L[e_minus], rho_bar, theta_bar);
-                    tau_plus  = driver->fluid_material->getShearStress(job, driver, x_quad, L[e_plus], rho_bar, theta_bar);
-                    P_plus = c*c*(rho_plus - rho_bar) + driver->fluid_material->getPressure(job, driver, x_quad, rho_bar, theta_bar);
-                    P_minus = c*c*(rho_minus - rho_plus) + P_plus;
-
-                    flux += area/num_quad * 0.5 * ((P_plus + P_minus)*normal - KinematicVector((tau_plus + tau_minus)*normal, job->JOB_TYPE));
-
-                    //add flux to element integrals
-                    result(e_minus) -= flux;
-                    result(e_plus) += flux;
-                }
-            } else if (bc_tags[f] == DIRICHLET){
-                //face has prescribed velocity
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                //loop over quadrature points
-                for (int q=0; q<num_quad; q++) {
-                    if (e_minus > -1) {
-                        //relative position to centroid of A
-                        x = x_f[f] - x_e[e_minus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-                        x_quad = x_e[e_minus] + x;
-
-                        //calculate A properties
-                        p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*x;
-
-                        //tractions
-                        rho_bar = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
-                        theta_bar = driver->fluid_body->theta(e_minus);
-
-                        //estimate L
-                        x_0 = getElementCentroid(job, e_minus);
-                        for (int ii=0; ii<GRID_DIM; ii++){
-                            for (int jj=0; jj<GRID_DIM; jj++){
-                                L_tmp(ii,jj) = (bc_values[f][ii] - driver->fluid_body->p[e_minus][ii]/rho_bar)
-                                               /(x_face - x_0).dot(normal)*normal[jj];
-                            }
-                        }
-
-                        tau_minus = driver->fluid_material->getShearStress(job, driver, x_quad, L_tmp, rho_bar, theta_bar);
-                        P_minus = driver->fluid_material->getPressure(job, driver, x_quad, rho_bar, theta_bar);
-
-                        flux = p_minus*area/num_quad*bc_values[f].dot(normal)
-                               + area/num_quad*P_minus*normal
-                               - area/num_quad*KinematicVector(tau_minus*normal, job->JOB_TYPE);
-
-                        result(e_minus) -= flux;
-                    }
-
-                    if (e_plus > -1) {
-                        //relative position to centroid of B
-                        x = x_f[f] - x_e[e_plus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-                        x_quad = x_e[e_plus] + x;
-
-                        //calculate B properties
-                        p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus]*x;
-
-                        //tractions
-                        rho_bar = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
-                        theta_bar = driver->fluid_body->theta(e_plus);
-
-                        //estimate L
-                        x_0 = getElementCentroid(job, e_plus);
-                        for (int ii=0; ii<GRID_DIM; ii++){
-                            for (int jj=0; jj<GRID_DIM; jj++){
-                                L_tmp(ii,jj) = (bc_values[f][ii] - driver->fluid_body->p[e_plus][ii]/rho_bar)
-                                               /(x_face - x_0).dot(normal)*normal[jj];
-                            }
-                        }
-
-                        tau_plus = driver->fluid_material->getShearStress(job, driver, x_quad, L_tmp, rho_bar, theta_bar);
-                        P_plus = driver->fluid_material->getPressure(job, driver, x_quad, rho_bar, theta_bar);
-
-                        flux = p_plus*area/num_quad*bc_values[f].dot(normal)
-                               + area/num_quad*P_plus*normal
-                               - area/num_quad*KinematicVector(tau_plus*normal, job->JOB_TYPE);
-
-                        result(e_plus) += flux;
-                    }
-                }
-            } else if (bc_tags[f] == SUPERSONIC_INLET){
-                //face has prescribed velocity
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                //loop over quadrature points
-                for (int q=0; q<num_quad; q++) {
-                    if (e_minus > -1) {
-                        //relative position to centroid of A
-                        x = x_f[f] - x_e[e_minus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-                        x_quad = x_e[e_minus] + x;
-
-                        //calculate A properties
-                        p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*x;
-
-                        //tractions
-                        rho_bar = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
-                        theta_bar = driver->fluid_body->theta(e_minus);
-
-                        //estimate L
-                        x_0 = getElementCentroid(job, e_minus);
-                        for (int ii=0; ii<GRID_DIM; ii++){
-                            for (int jj=0; jj<GRID_DIM; jj++){
-                                L_tmp(ii,jj) = (bc_values[f][ii] - driver->fluid_body->p[e_minus][ii]/rho_bar)
-                                               /(x_face - x_0).dot(normal)*normal[jj];
-                            }
-                        }
-
-                        tau_minus = driver->fluid_material->getShearStress(job, driver, x_quad, L_tmp, bc_density[f], theta_bar);
-                        P_minus = driver->fluid_material->getPressure(job, driver, x_quad, bc_density[f], theta_bar);
-
-                        flux = bc_density[f]*bc_values[f]*area/num_quad*bc_values[f].dot(normal)
-                               + area/num_quad*P_minus*normal
-                               - area/num_quad*KinematicVector(tau_minus*normal, job->JOB_TYPE);
-
-                        result(e_minus) -= flux;
-                    }
-
-                    if (e_plus > -1) {
-                        //relative position to centroid of B
-                        x = x_f[f] - x_e[e_plus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-                        x_quad = x_e[e_plus] + x;
-
-                        //calculate B properties
-                        p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus]*x;
-
-                        //tractions
-                        rho_bar = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
-                        theta_bar = driver->fluid_body->theta(e_plus);
-
-                        //estimate L
-                        x_0 = getElementCentroid(job, e_plus);
-                        for (int ii=0; ii<GRID_DIM; ii++){
-                            for (int jj=0; jj<GRID_DIM; jj++){
-                                L_tmp(ii,jj) = (bc_values[f][ii] - driver->fluid_body->p[e_plus][ii]/rho_bar)
-                                               /(x_face - x_0).dot(normal)*normal[jj];
-                            }
-                        }
-
-                        tau_plus = driver->fluid_material->getShearStress(job, driver, x_quad, L_tmp, bc_density[f], theta_bar);
-                        P_plus = driver->fluid_material->getPressure(job, driver, x_quad, bc_density[f], theta_bar);
-
-                        flux = bc_density[f]*bc_values[f]*area/num_quad*bc_values[f].dot(normal)
-                               + area/num_quad*P_plus*normal
-                               - area/num_quad*KinematicVector(tau_plus*normal, job->JOB_TYPE);
-
-                        result(e_plus) += flux;
-                    }
-                }
-            } else if (bc_tags[f] == NEUMANN){
-                //face has prescribed traction
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                //loop over quadrature points
-                for (int q=0; q<num_quad; q++) {
-                    if (e_minus > -1) {
-                        //relative position to centroid of A
-                        x = x_f[f] - x_e[e_minus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-                        x_quad = x_e[e_minus] + x;
-
-                        //calculate A properties
-                        rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
-                        p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*x;
-                        u_minus = p_minus/rho_minus;
-                        flux = p_minus*area/num_quad*u_minus.dot(normal);
-
-                        //add traction directly
-                        result(e_minus) -= flux;
-                        result(e_minus) += area/num_quad*bc_values[f];
-                    }
-
-                    if (e_plus > -1) {
-                        //relative position to centroid of B
-                        x = x_f[f] - x_e[e_plus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-                        x_quad = x_e[e_plus] + x;
-
-                        //calculate B properties
-                        rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
-                        p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus]*x;
-                        u_plus = p_plus/rho_plus;
-                        flux = p_plus*area/num_quad*u_plus.dot(normal);
-
-                        //add traction directly
-                        result(e_plus) += flux;
-                        result(e_minus) += area/num_quad*bc_values[f];
-                    }
-                }
-            } else if (bc_tags[f] == NEUMANN_DAMPING){
-                //face has prescribed traction
-                e_minus = face_elements[f][0];
-                e_plus = face_elements[f][1];
-
-                //loop over quadrature points
-                for (int q=0; q<num_quad; q++) {
-                    if (e_minus > -1) {
-                        //relative position to centroid of A
-                        x = x_f[f] - x_e[e_minus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-                        x_quad = x_e[e_minus] + x;
-
-                        //calculate A properties
-                        rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
-                        p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*x;
-                        u_minus = p_minus/rho_minus;
-                        flux = p_minus*area/num_quad*u_minus.dot(normal);
-
-                        theta_bar = driver->fluid_body->theta(e_minus);
-                        P_minus = driver->fluid_material->getPressure(job, driver, x_quad, driver->fluid_body->rho(e_minus), theta_bar);
-
-                        //add traction directly
-                        result(e_minus) -= flux + lambda*area/num_quad*P_minus*normal;
-                        result(e_minus) += (1-lambda)*area/num_quad*bc_values[f];
-                    }
-
-                    if (e_plus > -1) {
-                        //relative position to centroid of B
-                        x = x_f[f] - x_e[e_plus];
-                        x[0] += -quad_points[q]*normal[1]*area;
-                        x[1] += quad_points[q]*normal[0]*area;
-                        x_quad = x_e[e_plus] + x;
-
-                        //calculate B properties
-                        rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
-                        p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus]*x;
-                        u_plus = p_plus/rho_plus;
-                        flux = p_plus*area/num_quad*u_plus.dot(normal);
-
-                        theta_bar = driver->fluid_body->theta(e_plus);
-                        P_plus = driver->fluid_material->getPressure(job, driver, x_quad, driver->fluid_body->rho(e_plus), theta_bar);
-
-                        //add traction directly
-                        result(e_plus) += flux + lambda*area/num_quad*P_plus*normal;
-                        result(e_minus) += (1-lambda)*area/num_quad*bc_values[f];
-                    }
-                }
-            }
-        }
-    }
-    return result;
+    return;
 }

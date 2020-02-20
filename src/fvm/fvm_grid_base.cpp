@@ -127,207 +127,6 @@ void FVMGridBase::mapMixturePropertiesToQuadraturePoints(Job* job, FiniteVolumeD
     return;
 }
 
-void FVMGridBase::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
-    if (driver->ORDER == 1){
-        driver->fluid_body->p_x.setZero(); //let momentum be constant within an element
-    } else if (driver->ORDER >= 2){
-        if (driver->ORDER > 2) {
-            std::cout << "ERROR: FVMGridBase does not currently implement higher ORDER momentum reconstruction."
-                      << std::endl;
-        }
-
-        Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
-        KinematicVector x_0, x;
-        KinematicVector p_0, p, p_max, p_min, min_dif;
-        min_dif = KinematicVector(job->JOB_TYPE);
-        double tmp_dif, rho_0;
-        for (int e = 0; e<element_count; e++){
-            //least squares fit of u_x to neighbors of element e
-            x_0 = getElementCentroid(job, e);
-            p_0 = driver->fluid_body->p[e];
-            rho_0 = driver->fluid_body->rho(e);
-            p_max = p_0; p_min = p_0;
-            min_dif.setZero();
-            //loop over components of momentum
-            for (int mom_index = 0; mom_index<GRID_DIM; mom_index++){
-                //create system of equations
-                for (int ii=0; ii<element_neighbors[e].size(); ii++){
-                    //just fill in b vector
-                    p = driver->fluid_body->p[element_neighbors[e][ii]];
-                    b_e[e](ii) = p[mom_index] - p_0[mom_index];
-
-                    //update maximum and minimum velocities
-                    if (p[mom_index] > p_max[mom_index]){
-                        p_max[mom_index] = p[mom_index];
-                    } else if (p[mom_index] < p_min[mom_index]){
-                        p_min[mom_index] = p[mom_index];
-                    }
-                }
-
-                //solve for mom_pos component of gradient
-                sol = A_inv[e]*b_e[e];
-                for (int pos = 0; pos<GRID_DIM; pos++){
-                    driver->fluid_body->p_x(e, mom_index, pos) = sol(pos);
-                }
-
-                //calculate minimum magnitude difference in velocity components
-                min_dif[mom_index] = std::abs(p_0[mom_index] - p_min[mom_index]);
-                if (std::abs(p_0[mom_index] - p_max[mom_index]) < min_dif[mom_index]) {
-                    min_dif[mom_index] = std::abs(p_0[mom_index] - p_max[mom_index]);
-                }
-            }
-
-            //limit gradient to ensure monotonicity
-            for (int mom_index = 0; mom_index<GRID_DIM; mom_index++){
-                //calculate maximum momentum change in cell
-                tmp_dif = 0;
-                for (int pos = 0; pos < GRID_DIM; pos++){
-                    tmp_dif += hx[pos]*std::abs(driver->fluid_body->p_x(e, mom_index, pos)/2.0);
-                }
-
-                if (tmp_dif > min_dif[mom_index]){
-                    //if maximum velocity change in cell is larger than maximum difference b/w neighbors
-                    //need to scale gradient
-                    for (int pos=0; pos<GRID_DIM; pos++){
-                        driver->fluid_body->p_x(e, mom_index, pos) *= min_dif[mom_index]/tmp_dif;
-                    }
-                }
-            }
-        }
-    }
-    return;
-}
-
-void FVMGridBase::constructDensityField(Job* job, FiniteVolumeDriver* driver){
-    if (driver->ORDER == 1){
-        driver->fluid_body->rho_x.setZero(); //let density be constant within an element
-    } if (driver->ORDER >= 2){
-        if (driver->ORDER > 2) {
-            std::cout << "ERROR: FVMGridBase does not currently implement higher ORDER momentum reconstruction."
-                      << std::endl;
-        }
-
-        Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
-        KinematicVector x_0, x;
-        double rho_0, rho, rho_max, rho_min, min_dif;
-        double tmp_dif;
-        for (int e = 0; e<element_count; e++){
-            //least squares fit of u_x to neighbors of element e
-            x_0 = getElementCentroid(job, e);
-            rho_0 = driver->fluid_body->rho(e);
-            rho_max = rho_0;
-            rho_min = rho_0;
-
-            //create system of equations
-            for (int ii=0; ii<element_neighbors[e].size(); ii++){
-                //fill in b vector
-                rho = driver->fluid_body->rho(element_neighbors[e][ii]);
-                b_e[e](ii) = rho - rho_0;
-
-                //update maximum and minimum velocities
-                if (rho > rho_max){
-                    rho_max = rho;
-                } else if (rho < rho_min){
-                    rho_min = rho;
-                }
-            }
-
-            //solve for components of gradient
-            sol = A_inv[e]*b_e[e];
-            for (int pos = 0; pos<GRID_DIM; pos++){
-                driver->fluid_body->rho_x(e, pos) = sol(pos);
-            }
-
-            //calculate minimum magnitude difference in velocity components
-            min_dif = std::abs(rho_0 - rho_min);
-            if (std::abs(rho_0 - rho_max) < min_dif) {
-                min_dif = std::abs(rho_0 - rho_max);
-            }
-
-            //limit gradient to ensure monotonicity
-            //calculate maximum velocity change in cell
-            tmp_dif = 0;
-            for (int pos = 0; pos < GRID_DIM; pos++){
-                tmp_dif += hx[pos]*std::abs(driver->fluid_body->rho_x(e, pos)/2.0);
-            }
-
-            if (tmp_dif > min_dif){
-                //if maximum velocity change in cell is larger than maximum difference b/w neighbors
-                //need to scale gradient
-                for (int pos=0; pos<GRID_DIM; pos++){
-                    driver->fluid_body->rho_x(e, pos) *= min_dif/tmp_dif;
-                }
-            }
-        }
-    }
-    return;
-}
-
-void FVMGridBase::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
-    if (driver->ORDER == 1){
-        driver->fluid_body->rhoE_x.setZero(); //let energy be constant within an element
-    } if (driver->ORDER >= 2){
-        if (driver->ORDER > 2) {
-            std::cout << "ERROR: FVMGridBase does not currently implement higher ORDER momentum reconstruction."
-                      << std::endl;
-        }
-
-        Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
-        KinematicVector x_0, x;
-        double rhoE_0, rhoE, rhoE_max, rhoE_min, min_dif;
-        double tmp_dif;
-        for (int e = 0; e<element_count; e++){
-            //least squares fit of u_x to neighbors of element e
-            x_0 = getElementCentroid(job, e);
-            rhoE_0 = driver->fluid_body->rhoE(e);
-            rhoE_max = rhoE_0;
-            rhoE_min = rhoE_0;
-
-            //create system of equations
-            for (int ii=0; ii<element_neighbors[e].size(); ii++){
-                //fill in b vector
-                rhoE = driver->fluid_body->rhoE(element_neighbors[e][ii]);
-                b_e[e](ii) = rhoE - rhoE_0;
-
-                //update maximum and minimum velocities
-                if (rhoE > rhoE_max){
-                    rhoE_max = rhoE;
-                } else if (rhoE < rhoE_min){
-                    rhoE_min = rhoE;
-                }
-            }
-
-            //solve for components of gradient
-            sol = A_inv[e]*b_e[e];
-            for (int pos = 0; pos<GRID_DIM; pos++){
-                driver->fluid_body->rhoE_x(e, pos) = sol(pos);
-            }
-
-            //calculate minimum magnitude difference in velocity components
-            min_dif = std::abs(rhoE_0 - rhoE_min);
-            if (std::abs(rhoE_0 - rhoE_max) < min_dif) {
-                min_dif = std::abs(rhoE_0 - rhoE_max);
-            }
-
-            //limit gradient to ensure monotonicity
-            //calculate maximum velocity change in cell
-            tmp_dif = 0;
-            for (int pos = 0; pos < GRID_DIM; pos++){
-                tmp_dif += hx[pos]*std::abs(driver->fluid_body->rho_x(e, pos)/2.0);
-            }
-
-            if (tmp_dif > min_dif){
-                //if maximum velocity change in cell is larger than maximum difference b/w neighbors
-                //need to scale gradient
-                for (int pos=0; pos<GRID_DIM; pos++){
-                    driver->fluid_body->rhoE_x(e, pos) *= min_dif/tmp_dif;
-                }
-            }
-        }
-    }
-    return;
-}
-
 KinematicTensorArray FVMGridBase::getVelocityGradients(Job* job, FiniteVolumeDriver* driver){
     //reconstruct velocity field
     KinematicTensorArray u_x = KinematicTensorArray(element_count, job->JOB_TYPE);
@@ -404,11 +203,12 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
         normal = getFaceNormal(job, f);
         q_list = getFaceQuadraturePoints(f);
 
+        e_minus = face_elements[f][0];
+        e_plus = face_elements[f][1];
+
         //flux calculation depends on whether face is on boundary
         if (bc_info[f].tag == -1 || (bc_info[f].tag == PERIODIC && face_elements[f][0] > -1)) {
             //face is interior to domain; no BCs (or periodic)
-            e_minus = face_elements[f][0];
-            e_plus = face_elements[f][1];
 
             //different flux functions for different simulation TYPES
             if (driver->TYPE == FiniteVolumeDriver::INCOMPRESSIBLE){
@@ -501,7 +301,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
                     E_plus = rhoE_plus/rho_plus;
                     P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
-                    H_minus = E_plus + P_plus/rho_plus;
+                    H_plus = E_plus + P_plus/rho_plus;
 
                     //approximate Roe advective rate
                     w_1_bar = (std::sqrt(rho_plus) + std::sqrt(rho_minus))/2.0;
@@ -675,6 +475,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     x = x_q[q_list[q]] - x_e[e_plus];
 
                     //calculate B properties
+                    rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
                     u_plus = driver->fluid_body->p(e_plus) + driver->fluid_body->p_x[e_plus]*x;
                     u_plus /= rho_bar;
                     if (u_plus.dot(normal) > 0){
@@ -785,11 +586,12 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
         normal = getFaceNormal(job, f);
         q_list = getFaceQuadraturePoints(f);
 
+        e_minus = face_elements[f][0];
+        e_plus = face_elements[f][1];
+
         //flux calculation depends on whether face is on boundary
         if (bc_info[f].tag == -1 || (bc_info[f].tag == PERIODIC && face_elements[f][0] > -1)) {
             //face is interior to domain; no BCs (or periodic)
-            e_minus = face_elements[f][0];
-            e_plus = face_elements[f][1];
 
             //different flux functions for different simulation TYPES
             if (driver->TYPE == FiniteVolumeDriver::INCOMPRESSIBLE) {
@@ -900,7 +702,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     E_plus = rhoE_plus / rho_plus;
                     P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus,
                                                                  n_q(q_list[q]));
-                    H_minus = E_plus + P_plus / rho_plus;
+                    H_plus = E_plus + P_plus / rho_plus;
 
                     //approximate Roe advective rate
                     w_1_bar = (std::sqrt(rho_plus) + std::sqrt(rho_minus)) / 2.0;
@@ -1470,11 +1272,13 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
         normal = getFaceNormal(job, f);
         q_list = getFaceQuadraturePoints(f);
 
+        //get oriented faces
+        e_minus = face_elements[f][0];
+        e_plus = face_elements[f][1];
+
         //flux calculation depends on whether face is on boundary
         if (bc_info[f].tag == -1 || (bc_info[f].tag == PERIODIC && face_elements[f][0] > -1)) {
             //face is interior to domain; no BCs (or periodic)
-            e_minus = face_elements[f][0];
-            e_plus = face_elements[f][1];
 
             //different flux functions for different simulation TYPES
             if (driver->TYPE == FiniteVolumeDriver::INCOMPRESSIBLE) {
@@ -1518,7 +1322,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     E_plus = rhoE_plus / rho_plus;
                     P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus,
                                                                  n_q(q_list[q]));
-                    H_minus = E_plus + P_plus / rho_plus;
+                    H_plus = E_plus + P_plus / rho_plus;
                     tau_plus = driver->fluid_material->getShearStress(job, driver, L[e_plus], rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
 
                     //approximate Roe advective rate
@@ -1766,7 +1570,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     //estimate thermal gradient
                     theta_x = (theta_bar - theta_minus)*x/(x.dot(x));
                     //estimate heat flux
-                    heat_flux = driver->fluid_material->getHeatFlux(job, driver, rho_bar, theta_bar, theta_x, n_q(q_list[q]));
+                    heat_flux = driver->fluid_material->getHeatFlux(job, driver, rho_minus, theta_bar, theta_x, n_q(q_list[q]));
                     // add to flux calculation
                     flux += w_q(q_list[q])*heat_flux.dot(normal);
 
@@ -1810,7 +1614,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     //estimate thermal gradient
                     theta_x = (theta_bar - theta_plus)*x/(x.dot(x));
                     //estimate heat flux
-                    heat_flux = driver->fluid_material->getHeatFlux(job, driver, rho_bar, theta_bar, theta_x, n_q(q_list[q]));
+                    heat_flux = driver->fluid_material->getHeatFlux(job, driver, rho_plus, theta_bar, theta_x, n_q(q_list[q]));
                     // add to flux calculation
                     flux += w_q(q_list[q])*heat_flux.dot(normal);
 
@@ -1857,7 +1661,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     //estimate thermal gradient
                     theta_x = (theta_bar - theta_minus)*x/(x.dot(x));
                     //estimate heat flux
-                    heat_flux = driver->fluid_material->getHeatFlux(job, driver, rho_bar, theta_bar, theta_x, n_q(q_list[q]));
+                    heat_flux = driver->fluid_material->getHeatFlux(job, driver, rho_minus, theta_bar, theta_x, n_q(q_list[q]));
                     // add to flux calculation
                     flux += w_q(q_list[q])*heat_flux.dot(normal);
 
@@ -1895,7 +1699,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     //estimate thermal gradient
                     theta_x = (theta_bar - theta_plus)*x/(x.dot(x));
                     //estimate heat flux
-                    heat_flux = driver->fluid_material->getHeatFlux(job, driver, rho_bar, theta_bar, theta_x, n_q(q_list[q]));
+                    heat_flux = driver->fluid_material->getHeatFlux(job, driver, rho_plus, theta_bar, theta_x, n_q(q_list[q]));
                     // add to flux calculation
                     flux += w_q(q_list[q])*heat_flux.dot(normal);
 
@@ -1906,7 +1710,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
             //face has prescribed pressure (and temperature)
             //reconstruct density and velocity (but adjust if flow direction changes)
             for (int q = 0; q < q_list.size(); q++) {
-                rhoE_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
                                                                                        bc_info[f].values[0],
                                                                                        bc_info[f].values[1],
                                                                                        n_q(q_list[q]));
@@ -2010,8 +1814,6 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
 
                     //calculate A properties
                     rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
-                    p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*x;
-                    rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
 
                     //calculate heat flux
                     theta_minus = driver->fluid_material->getTemperature(job, driver,
@@ -2023,9 +1825,9 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     //estimate thermal gradient
                     theta_x = (theta_bar - theta_minus)*x/(x.dot(x));
                     //estimate heat flux
-                    heat_flux = driver->fluid_material->getHeatFlux(job, driver, rho_bar, theta_bar, theta_x, n_q(q_list[q]));
+                    heat_flux = driver->fluid_material->getHeatFlux(job, driver, rho_minus, theta_bar, theta_x, n_q(q_list[q]));
                     // add to flux calculation
-                    flux += w_q(q_list[q])*heat_flux.dot(normal);
+                    flux = w_q(q_list[q])*heat_flux.dot(normal);
 
                     result(e_minus) -= flux;
                 }
@@ -2036,20 +1838,6 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
 
                     //calculate B properties
                     rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
-                    p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus]*x;
-                    u_plus = p_plus/rho_plus;
-
-                    //tau_minus = 0
-                    P_plus = bc_info[f].values[0];
-
-                    rhoE_plus = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver,
-                                                                                                    bc_info[f].values[0],
-                                                                                                    bc_info[f].values[1],
-                                                                                                    n_q(q_list[q]));
-                    rhoE_plus += 0.5*rho_bar*u_plus.dot(u_plus);
-
-                    flux = w_q(q_list[q]) * (rhoE_plus*u_plus.dot(normal)
-                                             + P_plus*u_plus.dot(normal));
 
                     //calculate heat flux
                     theta_plus = driver->fluid_material->getTemperature(job, driver,
@@ -2061,9 +1849,9 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     //estimate thermal gradient
                     theta_x = (theta_bar - theta_plus)*x/(x.dot(x));
                     //estimate heat flux
-                    heat_flux = driver->fluid_material->getHeatFlux(job, driver, rho_bar, theta_bar, theta_x, n_q(q_list[q]));
+                    heat_flux = driver->fluid_material->getHeatFlux(job, driver, rho_plus, theta_bar, theta_x, n_q(q_list[q]));
                     // add to flux calculation
-                    flux += w_q(q_list[q])*heat_flux.dot(normal);
+                    flux = w_q(q_list[q])*heat_flux.dot(normal);
 
                     result(e_plus) += flux;
                 }

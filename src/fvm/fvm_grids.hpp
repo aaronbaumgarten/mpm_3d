@@ -156,6 +156,9 @@ public:
     virtual void writeHeader(std::ofstream& file, int TYPE) = 0;
 
     virtual void generateMappings(Job* job, FiniteVolumeDriver* driver) = 0;
+    virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver) = 0;
+    virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver) = 0;
+    virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver) = 0;
 
     virtual double getElementVolume(int e);
     virtual int getElementTag(int e);
@@ -175,9 +178,6 @@ public:
     virtual double getQuadratureWeight(int q);
 
     virtual void mapMixturePropertiesToQuadraturePoints(Job* job, FiniteVolumeDriver* driver);
-    virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver);
-    virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver);
-    virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver);
     virtual KinematicTensorArray getVelocityGradients(Job* job, FiniteVolumeDriver* driver);
 
     //functions to compute element mass flux
@@ -190,7 +190,7 @@ public:
     virtual Eigen::VectorXd calculateElementEnergyFluxes(Job* job, FiniteVolumeDriver* driver);
 };
 
-class FVMCartesian : public FiniteVolumeGrid{
+class FVMCartesian : public FVMGridBase{
 public:
     FVMCartesian(){
         object_name = "FVMCartesian";
@@ -199,36 +199,6 @@ public:
     //grid dimensions
     std::vector<int> Nx;
     std::vector<double> Lx, hx;
-
-    //damping coefficient
-    double damping_coefficient = 0.999;
-
-    //grid definitions
-    std::string filename;
-    Eigen::VectorXd face_areas;
-    KinematicVectorArray face_normals; //x,y,z only
-
-    KinematicVectorArray x_e, x_f, x_q;  //element centroids, face_centroid
-    Eigen::VectorXd w_q;            //quadrature weights
-    Eigen::VectorXd v_e;            //element volumes
-    std::vector<bool> q_b;          //flag for bounding quadrature point or interior quadrature point
-
-    //quadrature point porosity and solid velocity
-    Eigen::VectorXd n_q;
-    KinematicVectorArray gradn_q, v_sq;
-
-    //boundary conditions
-    std::vector<FiniteVolumeMethod::BCContainer> bc_info;
-
-    //grid definitions
-    std::vector<std::array<int,2>> face_elements;   //oriented face list (A -|-> B)
-    std::vector<std::vector<int>> element_faces;    //unordered list of faces
-    std::vector<std::vector<int>> element_neighbors; //list of nearest neighbors
-
-    //gradient reconstruction vectors for solving least squares problem
-    std::vector<Eigen::MatrixXd> A_e;
-    std::vector<Eigen::MatrixXd> A_inv; //psuedo inverse
-    std::vector<Eigen::VectorXd> b_e;
 
     //mapping functions
     std::vector<int> e_to_ijk(int e); //convert element id to ijk element definition
@@ -240,106 +210,35 @@ public:
 
     virtual void writeHeader(std::ofstream& file, int TYPE);
 
-    virtual double getElementVolume(int e);
-    virtual int getElementTag(int e);
-    virtual double getFaceArea(int f);
-    virtual int getFaceTag(int f);
-    virtual KinematicVector getFaceNormal(Job* job, int f);
-
-    virtual std::vector<int> getElementQuadraturePoints(int e);
-    virtual std::vector<int> getFaceQuadraturePoints(int f);
-
-    virtual std::vector<int> getElementFaces(int e);
-    virtual std::array<int,2> getOrientedElementsByFace(int e);
-    virtual std::vector<int> getElementNeighbors(int e);
-    virtual KinematicVector getElementCentroid(Job* job, int e); //return element centroid
-    virtual KinematicVector getFaceCentroid(Job* job, int f);
-    virtual KinematicVector getQuadraturePosition(Job* job, int q);
-    virtual double getQuadratureWeight(int q);
-
     virtual void generateMappings(Job* job, FiniteVolumeDriver* driver);
-    virtual void mapMixturePropertiesToQuadraturePoints(Job* job, FiniteVolumeDriver* driver);
     virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver);
-    virtual KinematicTensorArray getVelocityGradients(Job* job, FiniteVolumeDriver* driver);
-
-    //functions to compute element mass flux
-    virtual Eigen::VectorXd calculateElementMassFluxes(Job* job, FiniteVolumeDriver* driver);
-
-    //functions to compute element momentum fluxes
-    virtual KinematicVectorArray calculateElementMomentumFluxes(Job* job, FiniteVolumeDriver* driver);
-
-    //function to comput element energy fluxes
-    virtual Eigen::VectorXd calculateElementEnergyFluxes(Job* job, FiniteVolumeDriver* driver);
 };
 
 /*----------------------------------------------------------------------------*/
 
-class FVMGmsh2D : public FiniteVolumeGrid{
+class FVMGmsh2D : public FVMGridBase{
 public:
     FVMGmsh2D(){
         object_name = "FVMGmsh2D";
     }
 
-    //neumann damping coefficient
-    double lambda = 0.999;
-
-    //grid definitions
     std::string filename;
-    Eigen::VectorXd face_areas;
-    KinematicVectorArray face_normals; //x,y,z only
-
     Eigen::MatrixXi nodeIDs;        //element to node map
     int npe = 3;                    //nodes per element
-    KinematicVectorArray x_n, x_e, x_f;  //node positions, element centroids, face_centroid
-    Eigen::VectorXd v_e;            //element volumes
-
-    //boundary conditions
-    Eigen::VectorXi bc_tags;        //tags for each face
-    KinematicVectorArray bc_values; //bc values at each face
-    Eigen::VectorXd bc_density;     //density at supersonic inlets
+    KinematicVectorArray x_n;       //node positions
 
     //grid definitions
     std::vector<std::array<int,2>> face_nodes;      //un-oriented list of nodes a---b
-    std::vector<std::array<int,2>> face_elements;   //oriented face list (A -|-> B)
-    std::vector<std::vector<int>> element_faces;    //unordered list of faces
-    std::vector<std::vector<int>> element_neighbors; //list of nearest neighbors
-
-    //gradient reconstruction vectors for solving least squares problem
-    std::vector<Eigen::MatrixXd> A_e;
-    std::vector<Eigen::MatrixXd> A_inv; //psuedo inverse
-    std::vector<Eigen::VectorXd> b_e;
 
     virtual void init(Job* job, FiniteVolumeDriver* driver);
 
     virtual void writeHeader(std::ofstream& file, int TYPE);
-
-    virtual double getElementVolume(int e);
-    virtual int getElementTag(int e);
-    virtual double getFaceArea(int f);
-    virtual int getFaceTag(int f);
-    virtual KinematicVector getFaceNormal(Job* job, int f);
-
-    virtual std::vector<int> getElementFaces(int e);
-    virtual std::array<int,2> getOrientedElementsByFace(int e);
-    virtual std::vector<int> getElementNeighbors(int e);
-    virtual KinematicVector getElementCentroid(Job* job, int e); //return element centroid
-    virtual KinematicVector getFaceCentroid(Job* job, int f);
-
     virtual void generateMappings(Job* job, FiniteVolumeDriver* driver);
     virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver);
-    virtual KinematicTensorArray getVelocityGradients(Job* job, FiniteVolumeDriver* driver);
-
-    //functions to compute element-wise fluxes of field variables using reconstructed velocity field
-    virtual Eigen::VectorXd calculateElementFluxIntegrals(Job* job, FiniteVolumeDriver* driver, Eigen::VectorXd& values);
-
-    //functions to compute element mass flux
-    virtual Eigen::VectorXd calculateElementMassFluxes(Job* job, FiniteVolumeDriver* driver);
-
-    //functions to compute element momentum fluxes
-    virtual KinematicVectorArray calculateElementMomentumFluxes(Job* job, FiniteVolumeDriver* driver);
+    virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver);
 };
 
 #endif //MPM_V3_FVM_GRIDS_HPP
