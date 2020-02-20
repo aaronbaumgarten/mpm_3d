@@ -801,7 +801,8 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
         for (int ii=0; ii<AtA.rows(); ii++){
             e_vec.setZero();
             e_vec(ii) = 1;
-            a_tmp = AtA.householderQr().solve(e_vec);
+            //a_tmp = AtA.householderQr().solve(e_vec);
+            a_tmp = AtA.fullPivHouseholderQr().solve(e_vec);
             for (int jj=0; jj<GRID_DIM; jj++){
                 AtA_inv(jj,ii) = a_tmp(jj);
             }
@@ -825,7 +826,7 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
     int_quad_count = element_count*qpe;
 
     //define face, element, and quadrature centroids
-    x_q = KinematicVectorArray(job->JOB_TYPE, int_quad_count + ext_quad_count); //volume integrals first, then surface
+    x_q = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE); //volume integrals first, then surface
     w_q = Eigen::VectorXd(int_quad_count + ext_quad_count);
     q_b = std::vector<bool>(int_quad_count + ext_quad_count);
 

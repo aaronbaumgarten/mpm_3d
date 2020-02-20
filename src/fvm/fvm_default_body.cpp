@@ -60,6 +60,14 @@ void FVMDefaultBody::init(Job *job, FiniteVolumeDriver *driver) {
     rho = Eigen::VectorXd(driver->fluid_grid->element_count);
     rho.setConstant(rho_0);
 
+    //energy
+    rhoE = Eigen::VectorXd(driver->fluid_grid->element_count);
+    rhoE.setZero();
+
+    //energy gradient
+    rhoE_x = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+    rhoE_x.setZero();
+
     //pressure
     P = Eigen::VectorXd(driver->fluid_grid->element_count);
     P.setZero();

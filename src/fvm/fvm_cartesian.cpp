@@ -391,7 +391,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         face_areas.setConstant(1.0);
 
         //face normals
-        face_normals = KinematicVectorArray(face_count);
+        face_normals = KinematicVectorArray(face_count, job->JOB_TYPE);
         for (int f=0; f<face_count; f++){
             face_normals(f,0) = 1; //+x
         }
@@ -459,7 +459,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         int_quad_count = element_count*qpe;
 
         //face normals
-        face_normals = KinematicVectorArray(face_count);
+        face_normals = KinematicVectorArray(face_count, job->JOB_TYPE);
         for (int i=0; i<Nx[1]*Nx[0]; i++){
             //-x, -y faces of ith element
             face_normals(2*i,0)   = 1; //+x
@@ -589,7 +589,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         int_quad_count = element_count*qpe;
 
         //face normals
-        face_normals = KinematicVectorArray(face_count);
+        face_normals = KinematicVectorArray(face_count, job->JOB_TYPE);
         for (int i=0; i<Nx[2]*Nx[1]*Nx[0]; i++){
             //-x, -y faces of ith element
             face_normals(3*i,0)   = 1; //+x
@@ -734,9 +734,9 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
     }
 
     //define face, element, and quadrature centroids
-    x_e = KinematicVectorArray(job->JOB_TYPE, element_count);
-    x_f = KinematicVectorArray(job->JOB_TYPE, face_count);
-    x_q = KinematicVectorArray(job->JOB_TYPE, int_quad_count + ext_quad_count); //volume integrals first, then surface
+    x_e = KinematicVectorArray(element_count, job->JOB_TYPE);
+    x_f = KinematicVectorArray(face_count, job->JOB_TYPE);
+    x_q = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE); //volume integrals first, then surface
     w_q = Eigen::VectorXd(int_quad_count + ext_quad_count);
     q_b = std::vector<bool>(int_quad_count + ext_quad_count);
 
@@ -763,7 +763,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
     }
 
     //face centroid
-    for (int f=0; f<element_count; f++) {
+    for (int f=0; f<face_count; f++) {
         if (f < GRID_DIM * element_count) {
             //face is in first set, therefore element B defines location
             int e = face_elements[f][1];
@@ -844,12 +844,13 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
     for (int f=0; f<face_count; f++){
         for (int q=0; q<qpf; q++) {
             x_q[int_quad_count + f * qpf + q] = x_f[f];
-            w_q[int_quad_count + f * qpf + q] = face_areas(f);
+            w_q[int_quad_count + f * qpf + q] = face_areas(f)/qpf;
             if (bc_info[f].tag > -1 && bc_info[f].tag != PERIODIC) {
                 //face is bounding face and quadrature point should be included in boundary integrals
                 q_b[int_quad_count + f * qpf + q] = true;
             }
         }
+
         if (qpf == 1){
             //quadrature point collocated with face center
         } else if (qpf == 2) {
@@ -857,37 +858,29 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
             int q=0;
             for (int ii=-1; ii<2; ii+=2){
                 //one of these is necessarily zero
-                x_q(int_quad_count + f*qpf + q, 0) += ii*offset_factor*hx[0]/2.0 * (1 - face_normals(f,0));
-                x_q(int_quad_count + f*qpf + q, 1) += ii*offset_factor*hx[1]/2.0 * (1 - face_normals(f,1));
+                x_q(int_quad_count + f*qpf + q, 0) += ii*offset_factor*hx[0]/2.0 * (1.0 - face_normals(f,0));
+                x_q(int_quad_count + f*qpf + q, 1) += ii*offset_factor*hx[1]/2.0 * (1.0 - face_normals(f,1));
                 q++;
             }
         } else if (qpf == 4) {
             //quadrature points offset from face center by +/- sqrt(1/3)
             //this list should produce a unique set of points on the correct face with normal component zero'd out
             //regardless of which cardinal direction the normal is pointed in
-            x_q(int_quad_count + f*qpf + 0, 0) -= offset_factor*hx[0]/2.0 * (1 - face_normals(f,0));
-            x_q(int_quad_count + f*qpf + 0, 1) -= offset_factor*hx[1]/2.0 * (1 - face_normals(f,1));
-            x_q(int_quad_count + f*qpf + 0, 2) -= offset_factor*hx[2]/2.0 * (1 - face_normals(f,2));
+            x_q(int_quad_count + f*qpf + 0, 0) -= offset_factor*hx[0]/2.0 * (1.0 - face_normals(f,0));
+            x_q(int_quad_count + f*qpf + 0, 1) -= offset_factor*hx[1]/2.0 * (1.0 - face_normals(f,1));
+            x_q(int_quad_count + f*qpf + 0, 2) -= offset_factor*hx[2]/2.0 * (1.0 - face_normals(f,2));
 
-            x_q(int_quad_count + f*qpf + 1, 0) -= offset_factor*hx[0]/2.0 * (1 - face_normals(f,0));
-            x_q(int_quad_count + f*qpf + 1, 1) += offset_factor*hx[1]/2.0 * (1 - face_normals(f,1));
-            x_q(int_quad_count + f*qpf + 1, 2) += offset_factor*hx[2]/2.0 * (1 - face_normals(f,2));
+            x_q(int_quad_count + f*qpf + 1, 0) -= offset_factor*hx[0]/2.0 * (1.0 - face_normals(f,0));
+            x_q(int_quad_count + f*qpf + 1, 1) += offset_factor*hx[1]/2.0 * (1.0 - face_normals(f,1));
+            x_q(int_quad_count + f*qpf + 1, 2) += offset_factor*hx[2]/2.0 * (1.0 - face_normals(f,2));
 
-            x_q(int_quad_count + f*qpf + 2, 0) += offset_factor*hx[0]/2.0 * (1 - face_normals(f,0));
-            x_q(int_quad_count + f*qpf + 2, 1) += offset_factor*hx[1]/2.0 * (1 - face_normals(f,1));
-            x_q(int_quad_count + f*qpf + 2, 2) -= offset_factor*hx[2]/2.0 * (1 - face_normals(f,2));
+            x_q(int_quad_count + f*qpf + 2, 0) += offset_factor*hx[0]/2.0 * (1.0 - face_normals(f,0));
+            x_q(int_quad_count + f*qpf + 2, 1) += offset_factor*hx[1]/2.0 * (1.0 - face_normals(f,1));
+            x_q(int_quad_count + f*qpf + 2, 2) -= offset_factor*hx[2]/2.0 * (1.0 - face_normals(f,2));
 
-            x_q(int_quad_count + f*qpf + 3, 0) += offset_factor*hx[0]/2.0 * (1 - face_normals(f,0));
-            x_q(int_quad_count + f*qpf + 3, 1) -= offset_factor*hx[1]/2.0 * (1 - face_normals(f,1));
-            x_q(int_quad_count + f*qpf + 3, 2) += offset_factor*hx[2]/2.0 * (1 - face_normals(f,2));
-
-            int q=0;
-            for (int ii=-1; ii<2; ii+=2){
-                //one of these is necessarily zero
-                x_q(int_quad_count + f*qpf + q, 0) += ii*offset_factor*hx[0]/2.0 * (1 - face_normals(f,0));
-                x_q(int_quad_count + f*qpf + q, 1) += ii*offset_factor*hx[1]/2.0 * (1 - face_normals(f,1));
-                q++;
-            }
+            x_q(int_quad_count + f*qpf + 3, 0) += offset_factor*hx[0]/2.0 * (1.0 - face_normals(f,0));
+            x_q(int_quad_count + f*qpf + 3, 1) -= offset_factor*hx[1]/2.0 * (1.0 - face_normals(f,1));
+            x_q(int_quad_count + f*qpf + 3, 2) += offset_factor*hx[2]/2.0 * (1.0 - face_normals(f,2));
         }
     }
 
@@ -1044,7 +1037,8 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         for (int ii=0; ii<AtA.rows(); ii++){
             e_vec.setZero();
             e_vec(ii) = 1;
-            a = AtA.householderQr().solve(e_vec);
+            //a = AtA.householderQr().solve(e_vec);
+            a = AtA.fullPivHouseholderQr().solve(e_vec);
             for (int jj=0; jj<GRID_DIM; jj++){
                 AtA_inv(jj,ii) = a(jj);
             }
@@ -1094,6 +1088,20 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
             }
             std::cout << std::endl;
         }
+    }
+
+    std::cout << "quadrature rules:" << std::endl;
+    for (int q=0; q<ext_quad_count; q++){
+        std::cout << "[" << q << "]: " << w_q(int_quad_count + q) << ", ";
+        std::cout << x_q(int_quad_count + q,0) << ", " << x_q(int_quad_count + q,1) << ", " << x_q(int_quad_count + q,2);
+        std::cout << std::endl;
+    }
+
+    std::cout << "faces:" << std::endl;
+    for (int f=0; f<face_count; f++){
+        std::cout << "[" << f << "]: " << bc_info[f].tag << ", ";
+        std::cout << x_f(f,0) << ", " << x_f(f,1) << ", " << x_f(f,2);
+        std::cout << std::endl;
     }
      */
 }

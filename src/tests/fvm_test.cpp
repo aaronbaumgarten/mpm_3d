@@ -73,6 +73,8 @@ namespace FVM_TEST{
             object_name = "FVMTestDriver"; //set object name here
         }
 
+        int GRID_DIM;
+
         //functions which must be implemented by every driver
         void init(Job* job){
             //force job properties
@@ -82,6 +84,9 @@ namespace FVM_TEST{
 
             //set simulation ORDER
             ORDER = 2;
+
+            //set simulation TYPE
+            TYPE = FiniteVolumeDriver::ISOTHERMAL;
 
             //set gravity
             gravity = KinematicVector(job->JOB_TYPE);

@@ -191,7 +191,6 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
     double lambda_3, a_3;
     double w_1_bar, u_bar_squared;
 
-
     //loop over faces and use quadrature to reconstruct flux integral
     u_plus = KinematicVector(job->JOB_TYPE);
     u_minus = KinematicVector(job->JOB_TYPE);

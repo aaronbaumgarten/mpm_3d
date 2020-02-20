@@ -8,5 +8,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_default_vtk.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_runge_kutta_solver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_gmsh_2d.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_grid_base.cpp
         PARENT_SCOPE
         )
