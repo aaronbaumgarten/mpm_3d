@@ -57,7 +57,7 @@ void FiniteVolumeDriver::checkConfigFile(std::string filename) {
 /*----------------------------------------------------------------------------*/
 
 void FiniteVolumeDriver::init(Job* job){
-    int GRID_DIM;
+    int GRID_DIM = 0;
     //assign grid dimension from job type
     if (job->JOB_TYPE == job->JOB_1D){
         GRID_DIM = 1;
@@ -71,6 +71,7 @@ void FiniteVolumeDriver::init(Job* job){
         GRID_DIM = 2; //this is important, job->DIM =/= job->grid->GRID_DIM
     } else {
         std::cerr << "Job doesn't have defined type for input " << job->JOB_TYPE << "." << std::endl;
+        exit(0);
     }
 
     //check size of properties passed to driver object
@@ -516,6 +517,8 @@ void FiniteVolumeDriver::init(Job* job){
                             }
                             std::cout << "FiniteVolumeSolver Configured: " << solver->object_name << std::endl;
                         }
+                        break;
+                    default:
                         break;
                 }
             }

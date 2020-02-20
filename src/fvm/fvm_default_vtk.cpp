@@ -77,6 +77,10 @@ int FVMDefaultVTK::writeFrame(Job* job, FiniteVolumeDriver* driver){
         //writeVectorArray(driver->fluid_body->rho_x, "density_gradient");
         writeVectorArray(driver->fluid_body->p, "momentum");
         //writeTensorArray(driver->fluid_body->p_x, "momentum_gradient");
+        writeScalarArray(driver->fluid_body->rhoE, "energy");
+        //writeVectorArray(driver->fluid_body->rhoE_x, "enegry_gradient");
+
+        driver->fluid_material->calculateElementTemperatures(job, driver);
         writeScalarArray(driver->fluid_body->theta, "temperature");
 
         driver->fluid_material->calculateElementPressures(job, driver);
@@ -99,9 +103,10 @@ int FVMDefaultVTK::writeFrame(Job* job, FiniteVolumeDriver* driver){
         for (int e=0; e<driver->fluid_grid->element_count; e++){
             mach(e) = u[e].norm()/driver->fluid_material->getSpeedOfSound(job,
                                                                           driver,
-                                                                          driver->fluid_grid->getElementCentroid(job, e),
                                                                           driver->fluid_body->rho(e),
-                                                                          driver->fluid_body->theta(e));
+                                                                          driver->fluid_body->p[e],
+                                                                          driver->fluid_body->rhoE(e),
+                                                                          1.0);                         //porosity of 1 for now
         }
         writeScalarArray(mach, "mach");
 

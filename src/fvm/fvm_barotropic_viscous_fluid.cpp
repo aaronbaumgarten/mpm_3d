@@ -8,6 +8,7 @@
 #include <vector>
 #include <eigen3/Eigen/Core>
 #include <fstream>
+#include <job.hpp>
 
 #include "parser.hpp"
 
@@ -25,6 +26,12 @@
 /*----------------------------------------------------------------------------*/
 //initialize from job and driver
 void FVMBarotropicViscousFluid::init(Job* job, FiniteVolumeDriver* driver){
+    //check that simulation type is ISOTHERMAL
+    if (driver->TYPE != FiniteVolumeDriver::ISOTHERMAL){
+        std::cout << "WARNING! FVMBarotropicViscousFluid is an ISOTHERMAL model. Simulation TYPE "
+                  << driver->TYPE << " != ISOTHERMAL." << std::endl;
+    }
+
     if (fp64_props.size() < 3) {
         std::cout << fp64_props.size() << "\n";
         fprintf(stderr,
@@ -43,61 +50,75 @@ void FVMBarotropicViscousFluid::init(Job* job, FiniteVolumeDriver* driver){
 }
 
 /*----------------------------------------------------------------------------*/
-//get full stress tensor in fluid at given spatial position
+//functions to calculate fluid fields
+//get full stress tensor in fluid
 MaterialTensor FVMBarotropicViscousFluid::getStress(Job* job,
                                                     FiniteVolumeDriver* driver,
-                                                    KinematicVector x,
-                                                    KinematicTensor L,
+                                                    const KinematicTensor& L,
                                                     double rho,
-                                                    double theta){
+                                                    const KinematicVector& p,
+                                                    double rhoE,
+                                                    double n){
     //sigma = tau - p1
     return eta*(L + L.transpose() - 2.0/3.0*L.trace()*MaterialTensor::Identity())
            - kappa*std::log(rho/rho_0)*MaterialTensor::Identity();
 }
 
-//get shear component of fluid stress
+//get shear components of stress tensor
 MaterialTensor FVMBarotropicViscousFluid::getShearStress(Job* job,
                                                          FiniteVolumeDriver* driver,
-                                                         KinematicVector x,
-                                                         KinematicTensor L,
+                                                         const KinematicTensor& L,
                                                          double rho,
-                                                         double theta){
+                                                         const KinematicVector& p,
+                                                         double rhoE,
+                                                         double n){
     //tau = 2*eta*(D - 1/3 trD I)
     return eta*(L + L.transpose() - 2.0/3.0*L.trace()*MaterialTensor::Identity());
 }
 
-//get volumetric component of fluid stress
+//get volumetric component of stress tensor
 double FVMBarotropicViscousFluid::getPressure(Job* job,
                                               FiniteVolumeDriver* driver,
-                                              KinematicVector x,
                                               double rho,
-                                              double theta){
+                                              const KinematicVector& p,
+                                              double rhoE,
+                                              double n){
     //P = kappa*log(rho/rho_0)
     return kappa*std::log(rho/rho_0);
 }
 
-//return speed of sound (dP/drho)
+//get temperature of fluid from state
+double FVMBarotropicViscousFluid::getTemperature(Job* job,
+                                                 FiniteVolumeDriver* driver,
+                                                 double rho,
+                                                 const KinematicVector& p,
+                                                 double rhoE,
+                                                 double n){
+    //isothermal model
+    return 0.0;
+}
+
+//return speed of sound
 double FVMBarotropicViscousFluid::getSpeedOfSound(Job* job,
                                                   FiniteVolumeDriver* driver,
-                                                  KinematicVector x,
                                                   double rho,
-                                                  double theta){
+                                                  const KinematicVector& p,
+                                                  double rhoE,
+                                                  double n){
     //c^2 = kappa/rho
     return std::sqrt(kappa/rho);
 }
 
-//loop over elements and calculate pressure at centroids
-void FVMBarotropicViscousFluid::calculateElementPressures(Job* job,
-                                                          FiniteVolumeDriver* driver){
+//loop over elements and fill in pressures
+void FVMBarotropicViscousFluid::calculateElementPressures(Job* job, FiniteVolumeDriver* driver){
     for (int e=0; e<driver->fluid_grid->element_count; e++){
         driver->fluid_body->P(e) = kappa*std::log(driver->fluid_body->rho(e)/rho_0);
     }
     return;
 }
 
-//loop over elements and calculate shear stresses
-void FVMBarotropicViscousFluid::calculateElementShearStresses(Job* job,
-                                                              FiniteVolumeDriver* driver){
+//loop over elements and fill in shear stresses
+void FVMBarotropicViscousFluid::calculateElementShearStresses(Job* job, FiniteVolumeDriver* driver){
     //get strain rates from grid reconstruction (not flux limited)
     KinematicTensorArray L = driver->fluid_grid->getVelocityGradients(job, driver);
 
@@ -108,8 +129,67 @@ void FVMBarotropicViscousFluid::calculateElementShearStresses(Job* job,
     return;
 }
 
-//advect material properties through domain
-void FVMBarotropicViscousFluid::solveMaterialEquations(Job* job, FiniteVolumeDriver* driver){
-    //do nothing
+//loop over elements and fill in temperatures
+void FVMBarotropicViscousFluid::calculateElementTemperatures(Job* job, FiniteVolumeDriver* driver){
+    for (int e=0; e<driver->fluid_grid->element_count; e++){
+        driver->fluid_body->theta(e) = 0.0;
+    }
     return;
+}
+
+/*----------------------------------------------------------------------------*/
+//fluid equations of state
+double FVMBarotropicViscousFluid::getDensityFromPressureAndTemperature(Job* job,
+                                                                       FiniteVolumeDriver* driver,
+                                                                       double pressure,
+                                                                       double theta,
+                                                                       double n){
+    return rho_0*std::exp(pressure/kappa);
+}
+
+double FVMBarotropicViscousFluid::getInternalEnergyFromPressureAndTemperature(Job* job,
+                                                                              FiniteVolumeDriver* driver,
+                                                                              double pressure,
+                                                                              double theta,
+                                                                              double n){
+    return 0.0;
+}
+
+double FVMBarotropicViscousFluid::getPressureFromDensityAndTemperature(Job* job,
+                                                                       FiniteVolumeDriver* driver,
+                                                                       double rho,
+                                                                       double theta,
+                                                                       double n){
+    //P = kappa*log(rho/rho_0)
+    return kappa*std::log(rho/rho_0);
+}
+
+KinematicVector FVMBarotropicViscousFluid::getHeatFlux(Job* job,
+                                                       FiniteVolumeDriver* driver,
+                                                       double rho,
+                                                       double theta,
+                                                       const KinematicVector& theta_x,
+                                                       double n){
+    //no heat flux for now...
+    return KinematicVector(job->JOB_TYPE);
+}
+
+//mixture model functions
+int FVMBarotropicViscousFluid::calculatePorosity(Job* job, FiniteVolumeDriver* driver){
+    //mixture not implemented
+    return 0;
+} //return 1 if mixture problem, return 0 if FVM problem only
+
+int FVMBarotropicViscousFluid::updateSolidPhaseVelocity(Job* job, FiniteVolumeDriver* driver){
+    //mixture not implemented
+    return 0;
+} //return 1 if mixture problem, return 0 if FVM problem only
+
+KinematicVector FVMBarotropicViscousFluid::getInterphaseDrag(Job* job, FiniteVolumeDriver* driver,
+                                                             double rho,
+                                                             const KinematicVector& v_f,
+                                                             const KinematicVector& v_s,
+                                                             double n){
+    //mixture not implemented
+    return KinematicVector(job->JOB_TYPE);
 }

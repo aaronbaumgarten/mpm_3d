@@ -41,6 +41,7 @@ public:
 
     Eigen::VectorXd density_fluxes;
     KinematicVectorArray momentum_fluxes;
+    Eigen::VectorXd energy_fluxes;
 
     virtual void init(Job* job, FiniteVolumeDriver* driver);                                        //initialize from Job
     virtual void step(Job* job, FiniteVolumeDriver* driver);                                        //perform single mpm step
@@ -56,9 +57,11 @@ public:
 
     Eigen::VectorXd density_fluxes;
     KinematicVectorArray momentum_fluxes;
+    Eigen::VectorXd energy_fluxes;
 
     Eigen::VectorXd rho_k1, rho_k2, rho_k3, rho_k4;
     KinematicVectorArray p_k1, p_k2, p_k3, p_k4;
+    Eigen::VectorXd rhoE_k1, rhoE_k2, rhoE_k3, rhoE_k4;
 
     virtual void init(Job* job, FiniteVolumeDriver* driver);                                        //initialize from Job
     virtual void step(Job* job, FiniteVolumeDriver* driver);                                        //perform single mpm step
