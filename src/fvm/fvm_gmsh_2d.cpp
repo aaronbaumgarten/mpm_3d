@@ -59,7 +59,7 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
 
         //bc_tags given
         for (int i=0; i<tmp_bc_info.size(); i++){
-            tmp_bc_info[i].tag = int_props[i+GRID_DIM];
+            tmp_bc_info[i].tag = int_props[i];
             tmp_bc_info[i].values = std::array<double, 2>();
             tmp_bc_info[i].values[0] = 0; tmp_bc_info[i].values[1] = 0;
             tmp_bc_info[i].vector = KinematicVector(job->JOB_TYPE);
@@ -722,6 +722,13 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
         bc_info[f].vector.setZero();
     }
 
+    /*
+    std::cout << "faces:" << std::endl;
+    for (int i=0; i<bounding_faces.size(); i++){
+        std::cout << "[" << i << "]: " << bounding_faces[i][0] << std::endl;
+    }
+     */
+
     //loop over stored boundary faces
     int which_boundary;
     for (int i=0; i<bounding_faces.size(); i++){
@@ -736,25 +743,19 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
                 break;
             }
         }
-        if (which_boundary > tmp_bc_info.size()){
+        if (which_boundary >= tmp_bc_info.size()){
             //if no bc defined by input file, assume dirichlet
             //no bc tags given
-            tmp_bc_info = std::vector<FiniteVolumeMethod::BCContainer>(1);
-            //set to zero dirichlet
             if (driver->TYPE == FiniteVolumeDriver::ISOTHERMAL) {
-                for (int ii = 0; ii < tmp_bc_info.size(); ii++) {
-                    tmp_bc_info[ii].tag = FiniteVolumeGrid::VELOCITY_INLET;
-                    tmp_bc_info[ii].values = std::array<double, 2>();
-                    tmp_bc_info[ii].vector = KinematicVector(job->JOB_TYPE);
-                    tmp_bc_info[ii].vector.setZero();
-                }
+                bc_info[f_tmp].tag = FiniteVolumeGrid::VELOCITY_INLET;
+                bc_info[f_tmp].values = std::array<double, 2>();
+                bc_info[f_tmp].vector = KinematicVector(job->JOB_TYPE);
+                bc_info[f_tmp].vector.setZero();
             } else if (driver->TYPE == FiniteVolumeDriver::THERMAL) {
-                for (int ii = 0; ii < tmp_bc_info.size(); ii++) {
-                    tmp_bc_info[ii].tag = FiniteVolumeGrid::ADIABATIC_WALL;
-                    tmp_bc_info[ii].values = std::array<double, 2>();
-                    tmp_bc_info[ii].vector = KinematicVector(job->JOB_TYPE);
-                    tmp_bc_info[ii].vector.setZero();
-                }
+                bc_info[f_tmp].tag = FiniteVolumeGrid::ADIABATIC_WALL;
+                bc_info[f_tmp].values = std::array<double, 2>();
+                bc_info[f_tmp].vector = KinematicVector(job->JOB_TYPE);
+                bc_info[f_tmp].vector.setZero();
             } else {
                 std::cerr << "ERROR: FVMGmsh2D is not implemented for FiniteVolumeDriver TYPE " << driver->TYPE << "! Exiting.";
                 exit(0);
