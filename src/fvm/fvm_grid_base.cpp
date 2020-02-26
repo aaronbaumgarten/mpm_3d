@@ -533,6 +533,8 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     result(e_plus) += flux;
                 }
             }
+        } else if (bc_info[f].tag == PERIODIC){
+            //if you get here, this face is ill-defined. do nothing
         } else {
             std::cerr << "ERROR! FVMGridBase does not have flux defined for bc tag " << bc_info[f].tag << "!" << std::endl;
             //don't exit, without flux defined, essentially a wall
@@ -1212,6 +1214,8 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     result(e_plus) += flux;
                 }
             }
+        } else if (bc_info[f].tag == PERIODIC){
+            //if you get here, this face is ill-defined. do nothing
         } else {
             std::cerr << "ERROR! FVMGridBase does not have flux defined for bc tag " << bc_info[f].tag << "!"
                       << std::endl;
@@ -1919,6 +1923,8 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     result(e_plus) += flux;
                 }
             }
+        } else if (bc_info[f].tag == PERIODIC){
+            //if you get here, this face is ill-defined. do nothing
         } else {
             std::cerr << "ERROR! FVMGridBase does not have flux defined for bc tag " << bc_info[f].tag << "!"
                       << std::endl;

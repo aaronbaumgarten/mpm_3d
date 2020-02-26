@@ -67,4 +67,52 @@ public:
     virtual void step(Job* job, FiniteVolumeDriver* driver);                                        //perform single mpm step
 };
 
+
+class FVMSteadyStateSolver : public FiniteVolumeSolver{
+public:
+    FVMSteadyStateSolver(){
+        object_name = "FVMSteadyStateSolver";
+    }
+
+    static const int BICGSTAB = 0;
+    static const int DIRECT = 1;
+
+    Eigen::VectorXd density_fluxes, tmp_df;
+    KinematicVectorArray momentum_fluxes, tmp_mf;
+    Eigen::VectorXd energy_fluxes, tmp_ef;
+
+    Eigen::VectorXd u_0; //state vector for sth psuedo-transient continuation
+    Eigen::VectorXd u_n; //state vector for nth newton step
+    Eigen::VectorXd r_n; //residual vector for nth newton step
+    double h = 1e-5;     //step length for numerical derivatives
+    double nu = 0;     //iterative regularizaton
+    double REL_TOL = 1e-10;
+    double ABS_TOL = 1e-7;
+    int max_i = 100;
+    int max_n = 100;
+    int max_s = 1;
+    int INNER_SOLVER = 0;
+
+    int vector_size = 0;
+
+    virtual void init(Job* job, FiniteVolumeDriver* driver);                                        //initialize from Job
+    virtual void step(Job* job, FiniteVolumeDriver* driver);                                        //perform single step
+
+    Eigen::VectorXd F(Job* job, FiniteVolumeDriver* driver, const Eigen::VectorXd& u, double nu_i);          //calculate flux function value
+    Eigen::VectorXd DF(Job* job, FiniteVolumeDriver* driver, const Eigen::VectorXd& x_i, double h_i);        //calculate flux derivative in x direction
+
+    void convertVectorToStateSpace(Job* job, FiniteVolumeDriver* driver,
+                                   const Eigen::VectorXd& v,
+                                   Eigen::VectorXd& rho,
+                                   KinematicVectorArray& p,
+                                   Eigen::VectorXd& rhoE);
+
+
+    void convertStateSpaceToVector(Job* job, FiniteVolumeDriver* driver,
+                                   Eigen::VectorXd& v,
+                                   const Eigen::VectorXd& rho,
+                                   const KinematicVectorArray& p,
+                                   const Eigen::VectorXd& rhoE);
+};
+
 #endif //MPM_V3_FVM_SOLVERS_HPP
