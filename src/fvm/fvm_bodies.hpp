@@ -37,6 +37,10 @@ public:
     KinematicVectorArray p, rho_x; //momentum and density gradient
     Eigen::VectorXd rho, P, theta; //density, pressure, and temperature
     MaterialTensorArray tau;       //shear stress
+
+    //container for solid phase fields in mixture
+    KinematicVectorArray v_s;   //solid phase velocity field (defined on MPM grid)
+    Eigen::VectorXd n;          //mixture porosity field (defined on MPM grid)
 };
  */
 
@@ -45,6 +49,8 @@ public:
     FVMDefaultBody(){
         object_name = "FVMDefaultBody"; //set object name here
     }
+
+    bool HYDROSTATIC_INITIALIZATION = false;
 
     //initialize from job and driver
     virtual void init(Job* job, FiniteVolumeDriver* driver);

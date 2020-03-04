@@ -99,6 +99,73 @@ double FVMGridBase::getQuadratureWeight(int q){
 }
 
 /*----------------------------------------------------------------------------*/
+//function to generate mapping matrices
+void FVMGridBase::generateMappings(Job* job, FiniteVolumeDriver* driver){
+    //temporary containers
+    std::vector<int> nvec(0);
+    std::vector<double> valvec(0);
+    KinematicVectorArray gradvec(0,job->JOB_TYPE);
+    KinematicVector tmpGrad(job->JOB_TYPE);
+    KinematicVector tmpVec(job->JOB_TYPE);
+
+    //generate Q matrix [N_i(x_q)]
+    Q = MPMScalarSparseMatrix(job->grid->node_count, int_quad_count + ext_quad_count);
+
+    //loop over quadartature points
+    for (int q = 0; q < int_quad_count+ext_quad_count; q++) {
+        nvec.resize(0);
+        valvec.resize(0);
+
+        //for each quadrature point, get MPM basis function values
+        tmpVec = x_q[q];
+        job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
+
+        //add basis functions to sparse matrix map
+        for (int j = 0; j < nvec.size(); j++) {
+            Q.push_back(nvec[j], q, valvec[j]); //node, point, value
+        }
+    }
+
+    //generate gradQ matrix [gradN_i(x_q)]
+    gradQ = KinematicVectorSparseMatrix(job->grid->node_count, int_quad_count + ext_quad_count, job->JOB_TYPE);
+
+    //loop over quadrature points
+    for (int q = 0; q < int_quad_count+ext_quad_count; q++) {
+        nvec.resize(0);
+        gradvec.resize(0);
+
+        //for each quadrature point, get MPM basis function gradients
+        tmpVec = x_q[q];
+        job->grid->evaluateBasisFnGradient(job, tmpVec, nvec, gradvec);
+        for (int j = 0; j < nvec.size(); j++) {
+            gradQ.push_back(nvec[j], q, gradvec[j]); //node, point, value
+        }
+    }
+
+    //generate M_ei matrix [int{M_e(x)N_i(x)]
+    M = MPMScalarSparseMatrix(element_count, job->grid->node_count);
+
+    //loop over elements
+    for (int e=0; e<element_count; e++){
+        for (int q=0; q<qpe; q++){
+            nvec.resize(0);
+            valvec.resize(0);
+
+            //for each interior quadrature point, get MPM basis function value
+            tmpVec = x_q[e*qpe + q];
+            job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
+
+            //add all weighted MPM function values to matrix
+            for (int j = 0; j < nvec.size(); j++) {
+                M.push_back(e, nvec[j], w_q(e*qpe + q)*valvec[j]); //element, node, quad weight
+            }
+        }
+    }
+
+    return;
+}
+
+/*----------------------------------------------------------------------------*/
 //functions for solving system of equations
 
 void FVMGridBase::mapMixturePropertiesToQuadraturePoints(Job* job, FiniteVolumeDriver* driver){
@@ -1931,5 +1998,106 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
             //don't exit, without flux defined, essentially a wall
         }
     }
+    return result;
+}
+
+/*----------------------------------------------------------------------------*/
+//function to calculate interphase force
+KinematicVectorArray FVMGridBase::calculateInterphaseForces(Job* job, FiniteVolumeDriver* driver){
+
+    //result defines force on solid by fluid
+    KinematicVectorArray result = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+
+    //declare temporary containers for quadrature point fields
+    Eigen::VectorXd P_q = Eigen::VectorXd(int_quad_count + ext_quad_count); //pressure
+    KinematicVectorArray f_d = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE); //drag
+    KinematicVectorArray n_b = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE); //outward pointing normals
+    KinematicVectorArray tmpVecArray = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE);
+    Eigen::VectorXd tmpArray = Eigen::VectorXd(int_quad_count + ext_quad_count, job->JOB_TYPE);
+
+    P_q.setZero();
+    f_d.setZero();
+    tmpVecArray.setZero();
+    tmpArray.setZero();
+
+    double rho, rhoE;
+    KinematicVector p, normal;
+
+    //loop over elements
+    for (int e=0; e<element_count; e++){
+        for (int q=0; q<qpe; q++){
+            //approximate local density, momentum, and energy
+            rho = driver->fluid_body->rho(e) + driver->fluid_body->rho_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+            rhoE = driver->fluid_body->rhoE(e) + driver->fluid_body->rhoE_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+            p = driver->fluid_body->p[e] + driver->fluid_body->p_x[e]*(x_q[e*qpe + q] - x_e[e]);
+
+            //fill in drag force
+            f_d[e * qpe + q] = driver->fluid_material->getInterphaseDrag(job,
+                                                                         driver,
+                                                                         rho,
+                                                                         (p/rho),
+                                                                         v_sq[e*qpe + q],
+                                                                         n_q(e*qpe + q));
+
+            //fill in pressure
+            P_q(e * qpe + q) = driver->fluid_material->getPressure(job,
+                                                                   driver,
+                                                                   rho,
+                                                                   p,
+                                                                   rhoE,
+                                                                   n_q(e*qpe + q));
+
+            //fill in tmpVecArray and tmpArray
+            tmpVecArray[e*qpe + q] = -f_d[e*qpe + q] - P_q(e*qpe + q)*gradn_q[e*qpe+q] * getQuadratureWeight(e*qpe + q);
+            tmpArray(e*qpe + q) = P_q(e*qpe + q) * (1.0 - n_q(e*qpe+q)) * getQuadratureWeight(e*qpe + q);
+        }
+    }
+
+    int tmp_e = -1;
+    int tmp_q = -1;
+    //loop over faces
+    for (int f=0; f<face_count; f++){
+        for (int q=0; q<qpf; q++){
+            //only add contributions from domain boundaries
+            if (q_b[int_quad_count + f*qpf + q]){
+                //get normal
+                normal = getFaceNormal(job, f);
+                if (face_elements[f][0] > -1){
+                    //A is interior to domain
+                    tmp_e = face_elements[f][0];
+                } else {
+                    //B is interior to domain
+                    normal *= -1.0;
+                    tmp_e = face_elements[f][1];
+                }
+
+                //approximate local density, momentum, and energy
+                tmp_q = int_quad_count + f*qpf + q;
+                rho = driver->fluid_body->rho(tmp_e) + driver->fluid_body->rho_x[tmp_e].dot(x_q[tmp_q] - x_e[tmp_e]);
+                rhoE = driver->fluid_body->rhoE(tmp_e) + driver->fluid_body->rhoE_x[tmp_e].dot(x_q[tmp_q] - x_e[tmp_e]);
+                p = driver->fluid_body->p[tmp_e] + driver->fluid_body->p_x[tmp_e]*(x_q[tmp_q] - x_e[tmp_e]);
+
+                //fill in pressure
+                P_q(int_quad_count + f * qpf + q) = driver->fluid_material->getPressure(job,
+                                                                                       driver,
+                                                                                       rho,
+                                                                                       p,
+                                                                                       rhoE,
+                                                                                       n_q(tmp_q));
+
+                //fill in tmpArray
+                tmpVecArray[tmp_q] = -P_q(tmp_q) * (1.0 - n_q(tmp_q)) * normal * getQuadratureWeight(tmp_q);
+            }
+        }
+    }
+
+    //integrate expression (pg 116, nb 6)
+    result = Q*tmpVecArray + gradQ*tmpArray;
+
+    //divide result by associated nodal volumes
+    for (int i=0; i<job->grid->node_count; i++){
+        result /= job->grid->nodeVolume(job, i);
+    }
+
     return result;
 }

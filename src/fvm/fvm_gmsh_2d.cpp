@@ -887,6 +887,9 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
         }
     }
 
+    //initialize grid mappings
+    generateMappings(job, driver);
+
     std::cout << "FiniteVolumeGrid initialized." << std::endl;
 
     return;
@@ -918,13 +921,6 @@ void FVMGmsh2D::writeHeader(std::ofstream& file, int SPEC){
         file << "5\n";
     }
     file << "CELL_DATA " << element_count << "\n";
-    return;
-}
-
-/*----------------------------------------------------------------------------*/
-//generate mapping matrix between MPM grid and FVM grid
-void FVMGmsh2D::generateMappings(Job* job, FiniteVolumeDriver* driver){
-    //for now do nothing
     return;
 }
 

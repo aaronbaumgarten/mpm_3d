@@ -65,11 +65,24 @@ void FVMSteadyStateSolver::init(Job* job, FiniteVolumeDriver* driver){
         ABS_TOL = fp64_props[3];
     }
 
+    //LineSearch_TOL
+    if (fp64_props.size() > 4){
+        LineSearch_TOL = fp64_props[4];
+    } else {
+        LineSearch_TOL = REL_TOL;
+    }
+
+    //BiCGSTAB_TOL
+    if (fp64_props.size() > 5){
+        BiCGSTAB_TOL = fp64_props[5];
+    }
+
     //INNER_SOLVER
     if (int_props.size() > 0){
         INNER_SOLVER = int_props[0];
         if (INNER_SOLVER != BICGSTAB &&
-            INNER_SOLVER != DIRECT){
+            INNER_SOLVER != DIRECT &&
+            INNER_SOLVER != JACOBI){
             std::cerr << "ERROR! FVMSteadyStateSolver does not have INNER_SOLVER defined for input " << INNER_SOLVER << "! Exiting." << std::endl;
             exit(0);
         }
@@ -114,6 +127,8 @@ void FVMSteadyStateSolver::init(Job* job, FiniteVolumeDriver* driver){
     std::cout << "   h       = " << h << std::endl;
     std::cout << "   REL_TOL = " << REL_TOL << std::endl;
     std::cout << "   ABS_TOL = " << ABS_TOL << std::endl;
+    std::cout << "   LineSearch_TOL = " << LineSearch_TOL << std::endl;
+    std::cout << "   BiCGSTAB_TOL   = " << BiCGSTAB_TOL << std::endl;
     std::cout << "   max_i   = " << max_i << std::endl;
     std::cout << "   max_n   = " << max_n << std::endl;
     std::cout << "   max_s   = " << max_s << std::endl;
@@ -278,6 +293,12 @@ void FVMSteadyStateSolver::step(Job* job, FiniteVolumeDriver* driver){
     Eigen::VectorXd s = Eigen::VectorXd(vector_size);
     Eigen::VectorXd t = Eigen::VectorXd(vector_size);
 
+    //jacobi iteration vectors
+    Eigen::VectorXd k_1 = Eigen::VectorXd(vector_size);
+    Eigen::VectorXd k_2 = Eigen::VectorXd(vector_size);
+    Eigen::VectorXd k_3 = Eigen::VectorXd(vector_size);
+    Eigen::VectorXd k_4 = Eigen::VectorXd(vector_size);
+
     //continuation step
     int step_count = 0;
     do {
@@ -410,6 +431,9 @@ void FVMSteadyStateSolver::step(Job* job, FiniteVolumeDriver* driver){
                     if (r_i.norm() < ABS_TOL || r_i.norm() < REL_TOL * r_norm) {
                         //converged
                         break;
+                    } else if (r_i.norm() > BiCGSTAB_TOL * r_norm){
+                        //probably not going to converge
+                        break;
                     }
 
                     //advance residual
@@ -425,6 +449,8 @@ void FVMSteadyStateSolver::step(Job* job, FiniteVolumeDriver* driver){
                 //if i exceeds maximum, print statement
                 if (i >= max_i) {
                     std::cout << "        Exceeded max iterations! Exiting BiCGSTAB loop." << std::endl;
+                } else if (r_i.norm() > BiCGSTAB_TOL * r_norm){
+                    std::cout << "        Residual not shrinking! Exiting BiCGSTAB loop." << std::endl;
                 }
 
             } else if (INNER_SOLVER == DIRECT) {
@@ -473,6 +499,18 @@ void FVMSteadyStateSolver::step(Job* job, FiniteVolumeDriver* driver){
                     std::cerr << "ERROR! Eigen::SparseLU failed to solver dFdU*x = r. Exiting." << std::endl;
                     exit(0);
                 }
+            } else if (INNER_SOLVER == JACOBI){
+                //essentially explicit time marching
+                k_1 = F(job, driver, u_n, 0.0)/nu;
+                k_2 = F(job, driver, (u_n + k_1/2.0), 0.0)/nu;
+                k_3 = F(job, driver, (u_n + k_2/2.0), 0.0)/nu;
+                k_4 = F(job, driver, (u_n + k_3), 0.0)/nu;
+
+                //adjust u_n
+                u_n = u_n + (k_1 + 2.0*k_2 + 2.0*k_3 + k_4)/6.0;
+
+                //need to break out of newton loop, too
+                break;
             }
 
             /*
@@ -483,23 +521,26 @@ void FVMSteadyStateSolver::step(Job* job, FiniteVolumeDriver* driver){
             //search along x for best fit
             //u_n = u_n - x_i;
             r_0 = r_n;
-            do {
+            r_n = F(job, driver, (u_n - x_i), nu);
+            while (r_n.norm() > r_0.norm() || !std::isfinite(r_n.norm())){
+                //drawback
+                x_i = 0.5 * x_i;
+
                 //check residual
                 r_n = F(job, driver, (u_n - x_i), nu);
-                x_i = 0.5 * x_i;
 
                 std::cout << "        Line Search Residual: " << r_n.norm() << "\r";
 
-            } while (r_n.norm() > r_0.norm() || !std::isfinite(r_n.norm()));
+            }
             std::cout << std::endl;
 
-            u_n = u_n - 2.0 * x_i;
+            u_n = u_n - x_i;
 
             /*
             //first, ensure initial guess is finite
             do {
                 //check residual
-                r_0 = F(job, driver, (u_n - x_i));
+                r_0 = F(job, driver, (u_n - x_i), nu);
                 x_i = 0.5*x_i;
 
             } while (!std::isfinite(r_0.norm()));
@@ -511,13 +552,13 @@ void FVMSteadyStateSolver::step(Job* job, FiniteVolumeDriver* driver){
             double lambda_max = 1.0;
             double lambda_min = 0.0;
 
-            drdl_max = (F(job, driver, (u_n - h*x_i)).norm() - F(job, driver, (u_n + h*x_i)).norm())/(2.0*h); //gradient at lambda = 0
-            drdl_min = (F(job, driver, (u_n - (1.0 + h)*x_i)).norm() - F(job, driver, (u_n - (1.0 - h)*x_i)).norm())/(2.0*h); //gradient at lambda = 1
+            drdl_max = (F(job, driver, (u_n - h*x_i),nu).norm() - F(job, driver, (u_n + h*x_i),nu).norm())/(2.0*h); //gradient at lambda = 0
+            drdl_min = (F(job, driver, (u_n - (1.0 + h)*x_i),nu).norm() - F(job, driver, (u_n - (1.0 - h)*x_i),nu).norm())/(2.0*h); //gradient at lambda = 1
 
             int ii=0;
             do {
                 lambda = 0.5*(lambda_max + lambda_min);
-                drdl = (F(job, driver, (u_n - (lambda + h)*x_i)).norm() - F(job, driver, (u_n - (lambda - h)*x_i)).norm())/(2.0*h);
+                drdl = (F(job, driver, (u_n - (lambda + h)*x_i),nu).norm() - F(job, driver, (u_n - (lambda - h)*x_i),nu).norm())/(2.0*h);
 
                 //check sign
                 if (drdl*drdl_min > 0){
@@ -529,7 +570,7 @@ void FVMSteadyStateSolver::step(Job* job, FiniteVolumeDriver* driver){
                 }
 
                 std::cout << "    Line Search Iteration: " << ii << std::endl;
-                std::cout << "        Error:             " << F(job, driver, (u_n - (lambda)*x_i)).norm() << std::endl;
+                std::cout << "        Error:             " << F(job, driver, (u_n - (lambda)*x_i),nu).norm() << std::endl;
                 std::cout << "        Gradient:          " << drdl << std::endl;
 
                 ii++;
@@ -540,6 +581,7 @@ void FVMSteadyStateSolver::step(Job* job, FiniteVolumeDriver* driver){
 
             u_n = u_n - x_i;
             */
+
 
             convertVectorToStateSpace(job, driver,
                                       u_n,
@@ -552,15 +594,16 @@ void FVMSteadyStateSolver::step(Job* job, FiniteVolumeDriver* driver){
 
             if (n >= max_n) {
                 std::cout << "    Exceeded max iterations! Exiting Newton-Raphson solver." << std::endl;
-            } else if (x_i.norm() < ABS_TOL || (r_0.norm() - r_n.norm())/(r_0.norm()) < REL_TOL){
+            } else if (x_i.norm() < ABS_TOL || (r_0.norm() - r_n.norm())/(r_0.norm()) < LineSearch_TOL){
                 //singular jacobian
                 std::cout << "    Singular Jacobian! Exiting Newton-Raphson solver." << std::endl;
                 n = max_n;
+                break;
             }
 
         } while (n < max_n);
 
-        if (n < max_n) {
+        if (n < max_n && INNER_SOLVER != JACOBI) {
             //converged
             //be more aggresive
             nu /= 10.0;
@@ -571,9 +614,8 @@ void FVMSteadyStateSolver::step(Job* job, FiniteVolumeDriver* driver){
             //iterate step count
             step_count++;
 
-        } else if (F(job, driver, u_n, nu).norm() < step_norm){
-            //did not converge, but still an ok guess
-            nu *= 2.0;
+        } else if (INNER_SOLVER == JACOBI){
+            //do not change nu
             u_0 = u_n;
 
             //iterate step count
@@ -586,6 +628,16 @@ void FVMSteadyStateSolver::step(Job* job, FiniteVolumeDriver* driver){
             //try again
             //u_0 unchanged
         }
+
+        /*
+        else if (F(job, driver, u_n, 0.0).norm() < F(job, driver, u_0, 0.0).norm()){
+            //did not converge, but still an ok guess
+            nu *= 2.0;
+            u_0 = u_n;
+
+            //iterate step count
+            step_count++;
+        }*/
 
         convertVectorToStateSpace(job, driver,
                                   u_0,

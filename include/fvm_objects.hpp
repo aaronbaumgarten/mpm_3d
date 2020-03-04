@@ -117,6 +117,9 @@ public:
 
     //function to compute element energy fluxes
     virtual Eigen::VectorXd calculateElementEnergyFluxes(Job* job, FiniteVolumeDriver* driver) = 0;
+
+    //function to calculate interphase force
+    virtual KinematicVectorArray calculateInterphaseForces(Job* job, FiniteVolumeDriver* driver) = 0;
 };
 
 

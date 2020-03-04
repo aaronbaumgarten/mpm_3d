@@ -76,6 +76,7 @@ public:
 
     static const int BICGSTAB = 0;
     static const int DIRECT = 1;
+    static const int JACOBI = 2;
 
     Eigen::VectorXd density_fluxes, tmp_df;
     KinematicVectorArray momentum_fluxes, tmp_mf;
@@ -92,6 +93,9 @@ public:
     int max_n = 100;
     int max_s = 1;
     int INNER_SOLVER = 0;
+
+    double BiCGSTAB_TOL = 100;
+    double LineSearch_TOL = 1e-3;
 
     int vector_size = 0;
 
@@ -113,6 +117,20 @@ public:
                                    const Eigen::VectorXd& rho,
                                    const KinematicVectorArray& p,
                                    const Eigen::VectorXd& rhoE);
+};
+
+class FVMMixtureSolver : public FiniteVolumeSolver{
+public:
+    FVMMixtureSolver(){
+        object_name = "FVMMixtureSolver";
+    }
+
+    Eigen::VectorXd density_fluxes;
+    KinematicVectorArray momentum_fluxes;
+    Eigen::VectorXd energy_fluxes;
+
+    virtual void init(Job* job, FiniteVolumeDriver* driver);                                        //initialize from Job
+    virtual void step(Job* job, FiniteVolumeDriver* driver);                                        //perform single mpm step
 };
 
 #endif //MPM_V3_FVM_SOLVERS_HPP

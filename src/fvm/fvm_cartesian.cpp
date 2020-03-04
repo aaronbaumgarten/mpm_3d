@@ -914,6 +914,88 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
     int tmp_e;
     for (int e=0; e<element_count; e++){
         ijk = e_to_ijk(e);
+        tmp = ijk;
+        //loop over i
+        for (int i=-1; i<2; i+=2){
+            tmp[0] = ijk[0] + i;
+            //check for periodic BC
+            for (int f=0; f<element_faces[e].size(); f++){
+                //loop -x
+                if (face_normals(f,0) == 1 && bc_info[f].tag == PERIODIC){
+                    if (ijk[0] == 0 && i==-1) {
+                        tmp[0] = Nx[0] - 1;
+                    } else if (ijk[0] == Nx[0]-1 && i==1){
+                        tmp[0] = 0;
+                    }
+                }
+            }
+
+            tmp_e = ijk_to_e(tmp);
+            if (tmp_e >= 0 && tmp_e != e && tmp_e < element_count){
+                element_neighbors[e].push_back(tmp_e);
+            }
+        }
+
+        if (GRID_DIM > 1) {
+            tmp = ijk;
+            //loop over j
+            for (int j = -1; j < 2; j += 2) {
+                tmp[1] = ijk[1] + j;
+                //check for periodic BC
+                for (int f = 0; f < element_faces[e].size(); f++) {
+                    //loop -y
+                    if (face_normals(f, 1) == 1 && bc_info[f].tag == PERIODIC) {
+                        if (ijk[1] == 0 && j == -1) {
+                            tmp[1] = Nx[1] - 1;
+                        } else if (ijk[1] == Nx[1] - 1 && j == 1) {
+                            tmp[1] = 0;
+                        }
+                    }
+                }
+
+                tmp_e = ijk_to_e(tmp);
+                if (tmp_e >= 0 && tmp_e != e && tmp_e < element_count) {
+                    element_neighbors[e].push_back(tmp_e);
+                }
+            }
+        }
+
+        if (GRID_DIM > 2){
+            tmp = ijk;
+            for (int k=-1; k<2; k+=2){
+                //loop over k
+                tmp[2] = ijk[2] + k;
+                //check for periodic BC
+                for (int f=0; f<element_faces[e].size(); f++){
+                    //loop -z
+                    if (face_normals(f,2) == 1 && bc_info[f].tag == PERIODIC){
+                        if (ijk[2] == 0 && k == -1) {
+                            tmp[2] = Nx[2] - 1;
+                        } else if (ijk[2] == Nx[2] - 1 && k == 1) {
+                            tmp[2] = 0;
+                        }
+                    }
+                }
+
+                tmp_e = ijk_to_e(tmp);
+                if (tmp_e >= 0 && tmp_e != e && tmp_e < element_count){
+                    element_neighbors[e].push_back(tmp_e);
+                }
+            }
+        }
+
+        /*
+        std::cout << "[" << e << "] : ";
+        for (int ii=0; ii<element_neighbors[e].size(); ii++){
+            std::cout << element_neighbors[e][ii] << ", ";
+        }
+        std::cout << std::endl;
+         */
+    }
+
+    /*
+    for (int e=0; e<element_count; e++){
+        ijk = e_to_ijk(e);
         //loop over i
         for (int i=-1; i<2; i++){
             tmp[0] = ijk[0] + i;
@@ -979,7 +1061,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
             }
         }
     }
-
+    */
 
     //consistency check!!!
     int num_neighbors = 3;
@@ -1045,6 +1127,9 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         }
         A_inv[e] = AtA_inv*A_e[e].transpose();
     }
+
+    //initialize grid mappings
+    generateMappings(job, driver);
 
     //print grid properties
     std::cout << "FiniteVolumeGrid properties:" << std::endl;
@@ -1242,13 +1327,6 @@ void FVMCartesian::writeHeader(std::ofstream& file, int SPEC){
 }
 
 /*----------------------------------------------------------------------------*/
-//functions for solving system of equations
-void FVMCartesian::generateMappings(Job* job, FiniteVolumeDriver* driver){
-    //for now do nothing
-    std::cout << "WARNING: generateMappings function not implemented in FVMCartesian." << std::endl;
-    return;
-}
-
 void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
     if (driver->ORDER == 1){
         driver->fluid_body->p_x.setZero(); //let momentum be constant within an element

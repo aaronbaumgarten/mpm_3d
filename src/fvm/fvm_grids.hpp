@@ -105,6 +105,9 @@ public:
 
     //function to compute element energy fluxes
     virtual Eigen::VectorXd calculateElementEnergyFluxes(Job* job, FiniteVolumeDriver* driver) = 0;
+
+    //function to calculate interphase force
+    virtual KinematicVectorArray calculateInterphaseForces(Job* job, FiniteVolumeDriver* driver) = 0;
 }
 */
 
@@ -155,7 +158,7 @@ public:
 
     virtual void writeHeader(std::ofstream& file, int TYPE) = 0;
 
-    virtual void generateMappings(Job* job, FiniteVolumeDriver* driver) = 0;
+    virtual void generateMappings(Job* job, FiniteVolumeDriver* driver);
     virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver) = 0;
     virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver) = 0;
     virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver) = 0;
@@ -188,6 +191,9 @@ public:
 
     //function to comput element energy fluxes
     virtual Eigen::VectorXd calculateElementEnergyFluxes(Job* job, FiniteVolumeDriver* driver);
+
+    //function to calculate interphase force
+    virtual KinematicVectorArray calculateInterphaseForces(Job* job, FiniteVolumeDriver* driver);
 };
 
 class FVMCartesian : public FVMGridBase{
@@ -210,7 +216,6 @@ public:
 
     virtual void writeHeader(std::ofstream& file, int TYPE);
 
-    virtual void generateMappings(Job* job, FiniteVolumeDriver* driver);
     virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver);
@@ -235,7 +240,6 @@ public:
     virtual void init(Job* job, FiniteVolumeDriver* driver);
 
     virtual void writeHeader(std::ofstream& file, int TYPE);
-    virtual void generateMappings(Job* job, FiniteVolumeDriver* driver);
     virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver);

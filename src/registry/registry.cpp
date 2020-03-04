@@ -187,6 +187,7 @@ Registry<FiniteVolumeBody>::Registry() {
 template<>
 Registry<FiniteVolumeMaterial>::Registry() {
     object["FVMBarotropicViscousFluid"] = &createInstance<FiniteVolumeMaterial,FVMBarotropicViscousFluid>;
+    object["FVMSlurryFluidPhase"] = &createInstance<FiniteVolumeMaterial,FVMSlurryFluidPhase>;
 }
 
 template<>

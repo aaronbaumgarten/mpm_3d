@@ -39,6 +39,13 @@ void FVMDefaultBody::init(Job *job, FiniteVolumeDriver *driver) {
         std::cout << "FiniteVolumeBody properties (rho_0 = " << rho_0 << ", theta_0 = " << theta_0 << ")." << std::endl;
     }
 
+    if (int_props.size() > 0) {
+        if (int_props[0] == 1) {
+            HYDROSTATIC_INITIALIZATION = true;
+            std::cout << "Initializing FiniteVolumeBody as hydrostatic." << std::endl;
+        }
+    }
+
     //size vectors using grid (which should be initialized first)
     //momentum gradient
     p_x = KinematicTensorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
@@ -60,21 +67,70 @@ void FVMDefaultBody::init(Job *job, FiniteVolumeDriver *driver) {
     rho = Eigen::VectorXd(driver->fluid_grid->element_count);
     rho.setConstant(rho_0);
 
+    //porosity field
+    n = Eigen::VectorXd(job->grid->node_count);
+    n.setConstant(1.0);
+
+    //adjust density and porosity fields
+    if (driver->fluid_material->calculatePorosity(job, driver) == 1){
+        //if 1 is returned, then this is a mixture problem
+
+        //integrate porosity field over element volumes
+        Eigen::VectorXd n_e = driver->fluid_grid->M * driver->fluid_body->n;
+
+        double tmp_n = 1.0;
+        //adjust density accordingly
+        for (int e=0; e<driver->fluid_grid->element_count; e++) {
+            //average porosity over element volume
+            tmp_n = n_e(e) / driver->fluid_grid->getElementVolume(e);
+
+            //\bar{\rho} = n*rho
+            rho(e) *= tmp_n;
+        }
+    }
+
+    //temperature
+    theta = Eigen::VectorXd(driver->fluid_grid->element_count);
+    theta.setConstant(theta_0);
+
+    //pressure
+    P = Eigen::VectorXd(driver->fluid_grid->element_count);
+    double P_0 = driver->fluid_material->getPressureFromDensityAndTemperature(job, driver, rho_0, theta_0, 1.0);
+    P.setConstant(P_0);
+
+    //create hydrostatic pressure distribution
+    if (HYDROSTATIC_INITIALIZATION){
+        //find approximate centroid of domain
+        double domain_volume = 0;
+        KinematicVector x_centroid = KinematicVector(job->JOB_TYPE);
+        for (int e=0; e<driver->fluid_grid->element_count; e++){
+            domain_volume += driver->fluid_grid->getElementVolume(e);
+            x_centroid += driver->fluid_grid->getElementCentroid(job, e) * driver->fluid_grid->getElementVolume(e);
+        }
+        x_centroid /= domain_volume;
+
+        //define pressure gradient
+        KinematicVector P_grad = rho_0*driver->gravity;
+
+        //assign pressure based on location relative to centroid
+        for (int e=0; e<driver->fluid_grid->element_count; e++){
+            P(e) = P_0 + P_grad.dot(driver->fluid_grid->getElementCentroid(job, e) - x_centroid);
+        }
+    }
+
     //energy
     rhoE = Eigen::VectorXd(driver->fluid_grid->element_count);
-    rhoE.setZero();
+    for (int e=0; e<driver->fluid_grid->element_count; e++){
+        rhoE(e) = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver, P(e), theta_0, rho(e)/rho_0);
+    }
 
     //energy gradient
     rhoE_x = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
     rhoE_x.setZero();
 
-    //pressure
-    P = Eigen::VectorXd(driver->fluid_grid->element_count);
-    P.setZero();
-
-    //temperature
-    theta = Eigen::VectorXd(driver->fluid_grid->element_count);
-    theta.setConstant(theta_0);
+    //solid phase velocity
+    v_s = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+    v_s.setZero();
 
     std::cout << "FiniteVolumeBody initialized." << std::endl;
 }
