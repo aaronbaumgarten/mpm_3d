@@ -69,6 +69,7 @@ void FVMRungeKuttaSolver::step(Job* job, FiniteVolumeDriver* driver){
         //call grid to reconstruct conserved fields
         driver->fluid_grid->constructDensityField(job, driver);
         driver->fluid_grid->constructMomentumField(job, driver);
+        driver->fluid_grid->constructPorosityField(job, driver);
 
         //k1 = f(y_0)
         //fluid fluxes associated with each volume
@@ -91,6 +92,7 @@ void FVMRungeKuttaSolver::step(Job* job, FiniteVolumeDriver* driver){
         //k2 = f(y_0 + k1*dt/2)
         driver->fluid_grid->constructDensityField(job, driver);
         driver->fluid_grid->constructMomentumField(job, driver);
+        driver->fluid_grid->constructPorosityField(job, driver);
         rho_k2 = driver->fluid_grid->calculateElementMassFluxes(job, driver);       //kg/s
         p_k2 = driver->fluid_grid->calculateElementMomentumFluxes(job, driver);  //kg m/s^2
 
@@ -109,6 +111,7 @@ void FVMRungeKuttaSolver::step(Job* job, FiniteVolumeDriver* driver){
         //k3 = f(y_0 + k2*dt/2)
         driver->fluid_grid->constructDensityField(job, driver);
         driver->fluid_grid->constructMomentumField(job, driver);
+        driver->fluid_grid->constructPorosityField(job, driver);
         rho_k3 = driver->fluid_grid->calculateElementMassFluxes(job, driver);       //kg/s
         p_k3 = driver->fluid_grid->calculateElementMomentumFluxes(job, driver);  //kg m/s^2
 
@@ -128,6 +131,7 @@ void FVMRungeKuttaSolver::step(Job* job, FiniteVolumeDriver* driver){
         //k4 = f(y_0 + k3*dt)
         driver->fluid_grid->constructDensityField(job, driver);
         driver->fluid_grid->constructMomentumField(job, driver);
+        driver->fluid_grid->constructPorosityField(job, driver);
         rho_k4 = driver->fluid_grid->calculateElementMassFluxes(job, driver);       //kg/s
         p_k4 = driver->fluid_grid->calculateElementMomentumFluxes(job, driver);  //kg m/s^2
 
@@ -150,6 +154,7 @@ void FVMRungeKuttaSolver::step(Job* job, FiniteVolumeDriver* driver){
         driver->fluid_grid->constructDensityField(job, driver);
         driver->fluid_grid->constructMomentumField(job, driver);
         driver->fluid_grid->constructEnergyField(job, driver);
+        driver->fluid_grid->constructPorosityField(job, driver);
 
         //k1 = f(y_0)
         //fluid fluxes associated with each volume
@@ -175,6 +180,7 @@ void FVMRungeKuttaSolver::step(Job* job, FiniteVolumeDriver* driver){
         driver->fluid_grid->constructDensityField(job, driver);
         driver->fluid_grid->constructMomentumField(job, driver);
         driver->fluid_grid->constructEnergyField(job, driver);
+        driver->fluid_grid->constructPorosityField(job, driver);
         rho_k2 = driver->fluid_grid->calculateElementMassFluxes(job, driver);       //kg/s
         p_k2 = driver->fluid_grid->calculateElementMomentumFluxes(job, driver);  //kg m/s^2
         rhoE_k2 = driver->fluid_grid->calculateElementEnergyFluxes(job, driver);
@@ -196,6 +202,7 @@ void FVMRungeKuttaSolver::step(Job* job, FiniteVolumeDriver* driver){
         driver->fluid_grid->constructDensityField(job, driver);
         driver->fluid_grid->constructMomentumField(job, driver);
         driver->fluid_grid->constructEnergyField(job, driver);
+        driver->fluid_grid->constructPorosityField(job, driver);
         rho_k3 = driver->fluid_grid->calculateElementMassFluxes(job, driver);       //kg/s
         p_k3 = driver->fluid_grid->calculateElementMomentumFluxes(job, driver);  //kg m/s^2
         rhoE_k3 = driver->fluid_grid->calculateElementEnergyFluxes(job, driver);
@@ -218,6 +225,7 @@ void FVMRungeKuttaSolver::step(Job* job, FiniteVolumeDriver* driver){
         driver->fluid_grid->constructDensityField(job, driver);
         driver->fluid_grid->constructMomentumField(job, driver);
         driver->fluid_grid->constructEnergyField(job, driver);
+        driver->fluid_grid->constructPorosityField(job, driver);
         rho_k4 = driver->fluid_grid->calculateElementMassFluxes(job, driver);       //kg/s
         p_k4 = driver->fluid_grid->calculateElementMomentumFluxes(job, driver);  //kg m/s^2
         rhoE_k4 = driver->fluid_grid->calculateElementEnergyFluxes(job, driver);

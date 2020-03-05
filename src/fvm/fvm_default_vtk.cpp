@@ -79,6 +79,7 @@ int FVMDefaultVTK::writeFrame(Job* job, FiniteVolumeDriver* driver){
         //writeTensorArray(driver->fluid_body->p_x, "momentum_gradient");
         writeScalarArray(driver->fluid_body->rhoE, "energy");
         //writeVectorArray(driver->fluid_body->rhoE_x, "enegry_gradient");
+        writeScalarArray(driver->fluid_body->n_e, "porosity");
 
         driver->fluid_material->calculateElementTemperatures(job, driver);
         writeScalarArray(driver->fluid_body->theta, "temperature");
@@ -97,6 +98,13 @@ int FVMDefaultVTK::writeFrame(Job* job, FiniteVolumeDriver* driver){
         }
         writeVectorArray(u, "velocity");
         writeTensorArray(u_x, "velocity_gradient");
+
+        //pore density
+        Eigen::VectorXd rho_f = driver->fluid_body->rho;
+        for (int e=0; e<driver->fluid_grid->element_count; e++){
+            rho_f(e) /= driver->fluid_body->n_e(e);
+        }
+        writeScalarArray(rho_f, "true_density");
 
         //mach number
         Eigen::VectorXd mach = Eigen::VectorXd(driver->fluid_grid->element_count);

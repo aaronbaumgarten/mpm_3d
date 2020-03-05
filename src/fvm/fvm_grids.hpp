@@ -162,6 +162,7 @@ public:
     virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver) = 0;
     virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver) = 0;
     virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver) = 0;
+    virtual void constructPorosityField(Job*, FiniteVolumeDriver*) = 0;
 
     virtual double getElementVolume(int e);
     virtual int getElementTag(int e);
@@ -219,6 +220,7 @@ public:
     virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver);
+    virtual void constructPorosityField(Job* job, FiniteVolumeDriver* driver);
 };
 
 /*----------------------------------------------------------------------------*/
@@ -243,6 +245,7 @@ public:
     virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver);
+    virtual void constructPorosityField(Job* job, FiniteVolumeDriver* driver);
 };
 
 #endif //MPM_V3_FVM_GRIDS_HPP

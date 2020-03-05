@@ -39,6 +39,7 @@ void FVMDefaultSolver::step(Job* job, FiniteVolumeDriver* driver){
         //call grid to reconstruct conserved fields
         driver->fluid_grid->constructDensityField(job, driver);
         driver->fluid_grid->constructMomentumField(job, driver);
+        driver->fluid_grid->constructPorosityField(job, driver);
 
         //fluid fluxes associated with each volume
         density_fluxes = driver->fluid_grid->calculateElementMassFluxes(job, driver);       //kg/s
@@ -59,6 +60,7 @@ void FVMDefaultSolver::step(Job* job, FiniteVolumeDriver* driver){
         driver->fluid_grid->constructDensityField(job, driver);
         driver->fluid_grid->constructMomentumField(job, driver);
         driver->fluid_grid->constructEnergyField(job, driver);
+        driver->fluid_grid->constructPorosityField(job, driver);
 
         //fluid fluxes associated with each volume
         density_fluxes = driver->fluid_grid->calculateElementMassFluxes(job, driver);       //kg/s

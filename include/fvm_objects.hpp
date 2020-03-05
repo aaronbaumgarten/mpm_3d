@@ -107,6 +107,7 @@ public:
     virtual void constructMomentumField(Job*, FiniteVolumeDriver*) = 0; //construct momentum from FV body
     virtual void constructDensityField(Job*, FiniteVolumeDriver*) = 0; //construct momentum from FV body
     virtual void constructEnergyField(Job*, FiniteVolumeDriver*) = 0; //construct energy field from FV body
+    virtual void constructPorosityField(Job*, FiniteVolumeDriver*) = 0; //construct porosity field from FV body
     virtual KinematicTensorArray getVelocityGradients(Job*, FiniteVolumeDriver*) = 0; //return velocity gradient in each element
 
     //functions to compute element mass flux
@@ -140,6 +141,10 @@ public:
     //container for solid phase fields in mixture
     KinematicVectorArray v_s;   //solid phase velocity field (defined on MPM grid)
     Eigen::VectorXd n;          //mixture porosity field (defined on MPM grid)
+
+    Eigen::VectorXd n_e;        //mixture porosity field (defined on finite volumes)
+    KinematicVectorArray n_e_x; //mixture porosity field gradient
+
 };
 
 /*----------------------------------------------------------------------------*/

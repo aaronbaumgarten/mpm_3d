@@ -109,11 +109,13 @@ void FVMMixtureSolver::step(Job* job, FiniteVolumeDriver* driver){
     generateFluxes(job, driver);
 
     //generate mixture forces (FVM only)
-    generateMixtureForces(job, driver);
+    //generateMixtureForces(job, driver);
 
     //add fluxes and forces (FVM and MPM)
     applyFluxes(job, driver);
-    applyMixtureForces(job, driver);
+    //applyMixtureForces(job, driver);
+
+    return;
 
     /*----------------------*/
     /*     End FVM Step     */
@@ -166,6 +168,7 @@ void FVMMixtureSolver::calculateElementGradients(Job* job, FiniteVolumeDriver* d
         //call grid to reconstruct conserved fields
         driver->fluid_grid->constructDensityField(job, driver);
         driver->fluid_grid->constructMomentumField(job, driver);
+        driver->fluid_grid->constructPorosityField(job, driver);
 
     } else if (driver->TYPE == FiniteVolumeDriver::THERMAL) {
 
@@ -251,7 +254,9 @@ void FVMMixtureSolver::applyMixtureForces(Job* job, FiniteVolumeDriver* driver){
     }
 
     //add force contribution to solid phase
-    job->bodies[solid_body_id]->nodes->f += f_i;
+    for (int i=0; i<job->grid->node_count; i++) {
+        job->bodies[solid_body_id]->nodes->f[i] += f_i[i]*job->grid->nodeVolume(job,i);
+    }
 }
 
 

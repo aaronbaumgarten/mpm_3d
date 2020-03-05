@@ -67,26 +67,53 @@ void FVMDefaultBody::init(Job *job, FiniteVolumeDriver *driver) {
     rho = Eigen::VectorXd(driver->fluid_grid->element_count);
     rho.setConstant(rho_0);
 
-    //porosity field
+    //porosity fields
     n = Eigen::VectorXd(job->grid->node_count);
     n.setConstant(1.0);
+
+    n_e = Eigen::VectorXd(driver->fluid_grid->element_count);
+    n_e.setConstant(1.0);
+    n_e_x = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+    n_e_x.setZero();
 
     //adjust density and porosity fields
     if (driver->fluid_material->calculatePorosity(job, driver) == 1){
         //if 1 is returned, then this is a mixture problem
 
         //integrate porosity field over element volumes
-        Eigen::VectorXd n_e = driver->fluid_grid->M * driver->fluid_body->n;
+        n_e = driver->fluid_grid->M * driver->fluid_body->n;
 
-        double tmp_n = 1.0;
         //adjust density accordingly
         for (int e=0; e<driver->fluid_grid->element_count; e++) {
             //average porosity over element volume
-            tmp_n = n_e(e) / driver->fluid_grid->getElementVolume(e);
+            n_e(e) /= driver->fluid_grid->getElementVolume(e);
+
+            //\bar{\rho} = n*rho
+            rho(e) *= n_e(e);
+        }
+
+
+        /*
+        //use centroid value of porosity
+        double tmp_n = 1;
+        std::vector<int> nvec(0);
+        std::vector<double> valvec(0);
+        for (int e=0; e<driver->fluid_grid->element_count; e++) {
+            nvec.resize(0);
+            valvec.resize(0);
+
+            KinematicVector tmp_x = driver->fluid_grid->getElementCentroid(job, e);
+            job->grid->evaluateBasisFnValue(job,tmp_x,nvec,valvec);
+
+            tmp_n = 0;
+            for (int i=0; i<nvec.size(); i++){
+                tmp_n += n(nvec[i])*valvec[i];
+            }
 
             //\bar{\rho} = n*rho
             rho(e) *= tmp_n;
         }
+         */
     }
 
     //temperature
@@ -116,12 +143,17 @@ void FVMDefaultBody::init(Job *job, FiniteVolumeDriver *driver) {
         for (int e=0; e<driver->fluid_grid->element_count; e++){
             P(e) = P_0 + P_grad.dot(driver->fluid_grid->getElementCentroid(job, e) - x_centroid);
         }
+
+        //adjust densities
+        for (int e=0; e<driver->fluid_grid->element_count; e++){
+            rho(e) = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver, P(e), theta_0, n_e(e));
+        }
     }
 
     //energy
     rhoE = Eigen::VectorXd(driver->fluid_grid->element_count);
     for (int e=0; e<driver->fluid_grid->element_count; e++){
-        rhoE(e) = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver, P(e), theta_0, rho(e)/rho_0);
+        rhoE(e) = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver, P(e), theta_0, n_e(e));
     }
 
     //energy gradient

@@ -9,6 +9,7 @@
 #include <eigen3/Eigen/Core>
 #include <fstream>
 #include <job.hpp>
+#include <objects/bodies/bodies.hpp>
 
 #include "parser.hpp"
 
@@ -69,10 +70,13 @@ void FVMSlurryFluidPhase::init(Job* job, FiniteVolumeDriver* driver){
         }
     }
 
-    std::cout << "FiniteVolumeMaterial properties (kappa = " << kappa << " Pa, eta = " << eta << " Pa*s, rho_0 = " << rho_0;
-    std::cout << " kg/m^3, solid_rho = " << solid_rho << "kg/m^3, solid_body_id = " << solid_body_id << ")." << std::endl;
-    std::cout << "FiniteVolumeMaterial initialized." << std::endl;
+    //ask MPM to map properties to grid for FVM initialization
+    job->bodies[solid_body_id]->generateMap(job, DefaultBody::CPDI_OFF);
+    job->bodies[solid_body_id]->nodes->m = job->bodies[solid_body_id]->S * job->bodies[solid_body_id]->points->m;
 
+    std::cout << "FiniteVolumeMaterial properties (kappa = " << kappa << " Pa, eta = " << eta << " Pa*s, rho_0 = " << rho_0;
+    std::cout << " kg/m^3, solid_rho = " << solid_rho << "kg/m^3, grain_diam = " << grain_diam << " m, solid_body_id = " << solid_body_id << ")." << std::endl;
+    std::cout << "FiniteVolumeMaterial initialized." << std::endl;
 
     return;
 }
@@ -229,6 +233,7 @@ int FVMSlurryFluidPhase::calculatePorosity(Job* job, FiniteVolumeDriver* driver)
         m1 = job->bodies[solid_body_id]->nodes->m[i];
         if (m1 > 0){
             driver->fluid_body->n(i) = 1.0 - (m1 / (job->grid->nodeVolume(job,i)*solid_rho));
+
             if (driver->fluid_body->n(i) < 0.2){
                 //if porosity drops below 0.2, non-physical
                 std::cout << "WARNING: Porosity over-estimate!" << std::endl;
@@ -257,9 +262,9 @@ KinematicVector FVMSlurryFluidPhase::getInterphaseDrag(Job* job, FiniteVolumeDri
     double Re = (v_s - v_f).norm() * rho * grain_diam / eta;
     double C = 0;
     //Beetstra
-    if (n == 0){
+    if (n < 1e-10 || ((1-n) < 1e-10)){
         C = 0;
-    } else if (Re == 0){
+    } else if (Re < 1e-10){
         C = 18.0 * (1 - n) * eta / (grain_diam * grain_diam) *
             (10.0 * (1 - n) / n + n * n * n * (1.0 + 1.5 * std::sqrt(1 - n)));
     } else {
@@ -270,6 +275,5 @@ KinematicVector FVMSlurryFluidPhase::getInterphaseDrag(Job* job, FiniteVolumeDri
              (1 + std::pow(10.0, 3 * (1 - n)) * std::pow(Re, -0.5 * (1 + 4 * (1 - n)))));
     }
 
-    //fsfi = (mv1i / m1 - mv2i / m2)*C;
     return C * (v_s - v_f);
 }

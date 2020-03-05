@@ -1118,3 +1118,66 @@ void FVMGmsh2D::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
     }
     return;
 }
+
+void FVMGmsh2D::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
+    if (driver->ORDER == 1){
+        driver->fluid_body->rhoE_x.setZero(); //let density be constant within an element
+    } if (driver->ORDER >= 2){
+        if (driver->ORDER > 2) {
+            std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER momentum reconstruction."
+                      << std::endl;
+        }
+        //initialize least squares fields
+        Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
+        KinematicVector x_0, x;
+        double n_0, n, n_max, n_min, min_dif;
+        double tmp_val;
+        for (int e = 0; e<element_count; e++){
+            //least squares fit of rho_x to neighbors of element e
+            x_0 = getElementCentroid(job, e);
+            n_0 = driver->fluid_body->n_e(e);
+            n_max = n_0;
+            n_min = n_0;
+
+            //create system of equations
+            for (int ii=0; ii<element_neighbors[e].size(); ii++){
+                //fill in b vector
+                n = driver->fluid_body->n_e(element_neighbors[e][ii]);
+                b_e[e](ii) = n - n_0;
+
+                //update maximum and minimum velocities
+                if (n > n_max){
+                    n_max = n;
+                } else if (n < n_min){
+                    n_min = n;
+                }
+            }
+
+            //solve for components of gradient
+            sol = A_inv[e]*b_e[e];
+            for (int pos = 0; pos<GRID_DIM; pos++){
+                driver->fluid_body->n_e_x(e, pos) = sol(pos);
+            }
+
+            //limit gradient to ensure monotonicity
+            //check max, min at each node
+            for (int j=0; j<npe; j++){
+                //p(x) = grad(p) * (x - x_0)
+                tmp_val = driver->fluid_body->n_e_x[e].dot(x_n[nodeIDs(e,j)] - x_e[e]);
+                //check for both overshoot and undershoot
+                if (tmp_val > (n_max - n_0)){
+                    //limit gradient
+                    for (int pos=0; pos<GRID_DIM; pos++) {
+                        driver->fluid_body->n_e_x[e] *= (n_max - n_0)/tmp_val;
+                    }
+                } else if (tmp_val < (n_min - n_0)){
+                    //limit gradient
+                    for (int pos=0; pos<GRID_DIM; pos++) {
+                        driver->fluid_body->n_e_x[e] *= (n_min - n_0)/tmp_val;
+                    }
+                }
+            }
+        }
+    }
+    return;
+}

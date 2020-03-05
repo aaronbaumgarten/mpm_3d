@@ -30,6 +30,7 @@
 #include "fvm/fvm_materials.hpp"
 #include "fvm/fvm_solvers.hpp"
 #include "fvm/fvm_serializers.hpp"
+#include "objects/grids/grids.hpp"
 
 /*
 class FiniteVolumeDriver: public Driver {
@@ -80,6 +81,10 @@ namespace FVM_TEST{
             //force job properties
             job->t = 0;
             job->JOB_TYPE = job->JOB_3D;
+
+            job->grid = std::unique_ptr<Grid>(new CartesianLinear);
+            job->grid->node_count = 1;
+
             GRID_DIM = 3;
 
             //set simulation ORDER
@@ -180,10 +185,16 @@ namespace FVM_TEST{
             double a_2 = rho_2 - rho_1 - a_1;
             double dm_dt = 0.5*(p_1[0] + p_2[0] - a_1*std::abs(u_bar - 10.0/std::sqrt(rho_bar))
                                                 - a_2*std::abs(u_bar + 10.0/std::sqrt(rho_bar))) - p_0[0];
+            /*
             double dp_dt = 0.5*(p_1[0]*p_1[0]/rho_1 + p_2[0]*p_2[0]/rho_2)
                            + 100.0*std::log(rho_bar/1.0) + 0.5*(100.0/rho_bar*(rho_1 + rho_2 - 2*rho_bar))
                             - 0.5*(a_1*std::abs(u_bar - 10.0/std::sqrt(rho_bar))*(u_bar - 10.0/std::sqrt(rho_bar))
                                     + a_2*std::abs(u_bar + 10.0/std::sqrt(rho_bar))*(u_bar + 10.0/std::sqrt(rho_bar)));
+                                    */
+            double dp_dt = 0.5*(p_1[0]*p_1[0]/rho_1 + p_2[0]*p_2[0]/rho_2)
+                           + 50.0*std::log(rho_1/1.0) + 50.0*std::log(rho_2/1.0)
+                           - 0.5*(a_1*std::abs(u_bar - 10.0/std::sqrt(rho_bar))*(u_bar - 10.0/std::sqrt(rho_bar))
+                                  + a_2*std::abs(u_bar + 10.0/std::sqrt(rho_bar))*(u_bar + 10.0/std::sqrt(rho_bar)));
 
             //std::cout << "alpha_ext: " << a_1 << " " << a_2 << std::endl;
 
@@ -259,8 +270,13 @@ namespace FVM_TEST{
             a_2 = rho_plus - rho_minus - a_1;
 
             dm_dt = 0.5*(p_plus + p_minus - a_1*std::abs(u_bar - c_bar) - a_2*std::abs(u_bar+c_bar));
+            /*
             dp_dt = 0.5*(p_plus*p_plus/rho_plus + p_minus*p_minus/rho_minus) + 100.0*std::log(rho_bar)
                     + 0.5*(100.0/rho_bar*(rho_plus + rho_minus - 2*rho_bar))
+                    - 0.5*(a_1*std::abs(u_bar - c_bar)*(u_bar - c_bar) + a_2*std::abs(u_bar+c_bar)*(u_bar+c_bar))
+                    - 100.0*std::log(rho_0);
+                    */
+            dp_dt = 0.5*(p_plus*p_plus/rho_plus + p_minus*p_minus/rho_minus) + 50.0*std::log(rho_plus) + 50.0*std::log(rho_minus)
                     - 0.5*(a_1*std::abs(u_bar - c_bar)*(u_bar - c_bar) + a_2*std::abs(u_bar+c_bar)*(u_bar+c_bar))
                     - 100.0*std::log(rho_0);
 

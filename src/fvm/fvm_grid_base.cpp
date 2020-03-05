@@ -118,6 +118,13 @@ void FVMGridBase::generateMappings(Job* job, FiniteVolumeDriver* driver){
 
         //for each quadrature point, get MPM basis function values
         tmpVec = x_q[q];
+
+        if (job->grid->whichElement(job, tmpVec) > -1){
+            //do nothing
+        } else {
+            tmpVec *= (1.0 - 1e-14); //adjust tmpVec slightly
+        }
+
         job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
 
         //add basis functions to sparse matrix map
@@ -136,6 +143,13 @@ void FVMGridBase::generateMappings(Job* job, FiniteVolumeDriver* driver){
 
         //for each quadrature point, get MPM basis function gradients
         tmpVec = x_q[q];
+
+        if (job->grid->whichElement(job, tmpVec) > -1){
+            //do nothing
+        } else {
+            tmpVec *= (1.0 - 1e-14); //adjust tmpVec slightly
+        }
+
         job->grid->evaluateBasisFnGradient(job, tmpVec, nvec, gradvec);
         for (int j = 0; j < nvec.size(); j++) {
             gradQ.push_back(nvec[j], q, gradvec[j]); //node, point, value
@@ -153,6 +167,13 @@ void FVMGridBase::generateMappings(Job* job, FiniteVolumeDriver* driver){
 
             //for each interior quadrature point, get MPM basis function value
             tmpVec = x_q[e*qpe + q];
+
+            if (job->grid->whichElement(job, tmpVec) > -1){
+                //do nothing
+            } else {
+                tmpVec *= (1.0 - 1e-14); //adjust tmpVec slightly
+            }
+
             job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
 
             //add all weighted MPM function values to matrix
@@ -174,8 +195,15 @@ void FVMGridBase::mapMixturePropertiesToQuadraturePoints(Job* job, FiniteVolumeD
     //ask material to update body porosity field
     if (driver->fluid_material->calculatePorosity(job, driver) == 1){
         //successful calculation of porosity
-        n_q = Q*driver->fluid_body->n;          //n_q = Q_iq * n_i
-        gradn_q = gradQ*driver->fluid_body->n;  //gradn_q = gradQ_iq * n_i
+        n_q = Q.operate(driver->fluid_body->n, MPMSparseMatrixBase::TRANSPOSED);          //n_q = Q_iq * n_i
+        gradn_q = gradQ.operate(driver->fluid_body->n, MPMSparseMatrixBase::TRANSPOSED);  //gradn_q = gradQ_iq * n_i
+
+        //integrate porosity field over element volumes
+        driver->fluid_body->n_e = driver->fluid_grid->M * driver->fluid_body->n;
+        for (int e=0; e<driver->fluid_grid->element_count; e++) {
+            //average porosity over element volume
+            driver->fluid_body->n_e(e) /= driver->fluid_grid->getElementVolume(e);
+        }
     } else {
         //no porosity calculation performed
         //n_q.setConstant(1.0);
@@ -185,7 +213,7 @@ void FVMGridBase::mapMixturePropertiesToQuadraturePoints(Job* job, FiniteVolumeD
     //ask material to update solid velocity field
     if (driver->fluid_material->updateSolidPhaseVelocity(job, driver) == 1){
         //successful update of solid velocity
-        v_sq = Q*driver->fluid_body->v_s;       //v_sq = Q_iq * v_si
+        v_sq = Q.operate(driver->fluid_body->v_s, MPMSparseMatrixBase::TRANSPOSED);       //v_sq = Q_iq * v_si
     } else {
         //no porosity calculation performed
         //v_sq.setZero();
@@ -251,6 +279,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
     KinematicVector u_plus, u_minus, normal, u_bar; //velocity
     double rho_plus, rho_minus, rho_bar;
     double lambda_1, lambda_2, a_1, a_2, c;
+    double n_plus, n_minus, n_bar;
 
     //thermal flux function
     double rhoE_plus, rhoE_minus;
@@ -296,6 +325,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     //calculate A properties
                     rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
                     u_minus = (driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus] * x) / rho_minus;
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
 
                     //relative position to centroid of B
                     x = x_q[q_list[q]] - x_e[e_plus];
@@ -303,14 +333,17 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     //calculate B properties
                     rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
                     u_plus = (driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus] * x) / rho_plus;
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
 
                     //approximate Roe advective rate
                     u_bar = (std::sqrt(rho_plus) * u_plus + std::sqrt(rho_minus) * u_minus) /
                             (std::sqrt(rho_plus) + std::sqrt(rho_minus));
                     rho_bar = std::sqrt(rho_plus * rho_minus);
                     rhoE_minus = driver->fluid_body->rhoE(e_minus);
+                    //c = driver->fluid_material->getSpeedOfSound(job, driver, rho_bar, rho_bar * u_bar, rhoE_minus,
+                    //                                            n_q(q_list[q]));
                     c = driver->fluid_material->getSpeedOfSound(job, driver, rho_bar, rho_bar * u_bar, rhoE_minus,
-                                                                n_q(q_list[q]));
+                                                                std::sqrt(n_minus * n_plus));
 
                     //roe eigenvalues
                     lambda_1 = std::abs(u_bar.dot(normal) - c);
@@ -354,7 +387,8 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     u_minus = p_minus / rho_minus;
                     rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
                     E_minus = rhoE_minus/rho_minus;
-                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
+                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_minus); //n_q(q_list[q]));
                     H_minus = E_minus + P_minus/rho_minus;
 
                     //relative position to centroid of B
@@ -366,7 +400,8 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     u_plus = p_plus / rho_plus;
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
                     E_plus = rhoE_plus/rho_plus;
-                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
+                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_plus); //n_q(q_list[q]));
                     H_plus = E_plus + P_plus/rho_plus;
 
                     //approximate Roe advective rate
@@ -375,8 +410,9 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     u_bar = (std::sqrt(rho_plus) * u_plus + std::sqrt(rho_minus) * u_minus) / (2.0 * w_1_bar);
                     u_bar_squared = u_bar.dot(u_bar);
                     H_bar = (std::sqrt(rho_plus) * H_plus + std::sqrt(rho_minus) * H_minus) / (2.0 * w_1_bar);
+                    n_bar = (std::sqrt(rho_plus) * n_plus + std::sqrt(rho_minus) * n_minus) / (2.0 * w_1_bar);
                     c = driver->fluid_material->getSpeedOfSound(job, driver, rho_bar, rho_bar * u_bar, rhoE_minus,
-                                                                n_q(q_list[q]));
+                                                                n_bar);  //n_q(q_list[q]));
 
                     //roe eigenvalues
                     lambda_1 = std::abs(u_bar.dot(normal) - c);
@@ -485,7 +521,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                 rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
                                                                                        bc_info[f].values[0],
                                                                                        bc_info[f].values[1],
-                                                                                       n_q(q_list[q]));
+                                                                                       n_q(q_list[q]));         //use quadrature porosity here
                 if (e_minus > -1) {
                     //relative position from centroid of A
                     x = x_q[q_list[q]] - x_e[e_minus];
@@ -517,7 +553,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                 rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
                                                                                        bc_info[f].values[0],
                                                                                        bc_info[f].values[1],
-                                                                                       n_q(q_list[q]));
+                                                                                       n_q(q_list[q]));      //use quadrature porosity
                 if (e_minus > -1) {
                     //relative position from centroid of A
                     x = x_q[q_list[q]] - x_e[e_minus];
@@ -628,6 +664,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
     KinematicVector p_plus, p_minus;
     KinematicVector u_plus, u_minus, normal, u_bar; //velocity
     double rho_plus, rho_minus, rho_bar;
+    double n_plus, n_minus, n_bar;
     double lambda_1, lambda_2, a_1, a_2, lambda_4, c;
     KinematicVector a_4;
 
@@ -683,6 +720,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
                     p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus] * x;
                     u_minus = p_minus / rho_minus;
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
 
                     //relative position to centroid of B
                     x = x_q[q_list[q]] - x_e[e_plus];
@@ -691,14 +729,16 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
                     p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus] * x;
                     u_plus = p_plus / rho_plus;
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
 
                     //approximate Roe advective rate
                     u_bar = (std::sqrt(rho_plus) * u_plus + std::sqrt(rho_minus) * u_minus) /
                             (std::sqrt(rho_plus) + std::sqrt(rho_minus));
                     rho_bar = std::sqrt(rho_plus * rho_minus);
                     rhoE_minus = driver->fluid_body->rhoE(e_minus);
+                    n_bar = std::sqrt(n_plus*n_minus);
                     c = driver->fluid_material->getSpeedOfSound(job, driver, rho_bar, rho_bar * u_bar, rhoE_minus,
-                                                                n_q(q_list[q]));
+                                                                n_bar); //n_q(q_list[q]));
 
                     //roe eigenvalues
                     lambda_1 = std::abs(u_bar.dot(normal) - c);
@@ -727,8 +767,10 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     //for now use simple reconstruction of theta
                     tau_minus = driver->fluid_material->getShearStress(job, driver, L[e_minus], rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
                     tau_plus = driver->fluid_material->getShearStress(job, driver, L[e_plus], rho_plus, p_plus, rhoE_minus, n_q(q_list[q]));
-                    P_plus = c*c*(rho_plus - rho_bar) + driver->fluid_material->getPressure(job, driver, rho_bar, p_minus, rhoE_minus, n_q(q_list[q]));
-                    P_minus = c*c*(rho_minus - rho_plus) + P_plus;
+                    //P_plus = c*c*(rho_plus - rho_bar) + driver->fluid_material->getPressure(job, driver, rho_bar, p_minus, rhoE_minus, n_q(q_list[q]));
+                    //P_minus = c*c*(rho_minus - rho_plus) + P_plus;
+                    P_plus = driver->fluid_material->getPressure(job, driver, rho_bar, p_plus, rhoE_minus, n_plus);
+                    P_minus = driver->fluid_material->getPressure(job, driver, rho_bar, p_minus, rhoE_minus, n_minus);
 
                     flux += w_q(q_list[q]) * 0.5 * ((P_plus + P_minus)*normal - KinematicVector((tau_plus + tau_minus)*normal, job->JOB_TYPE));
 
@@ -755,8 +797,9 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     u_minus = p_minus / rho_minus;
                     rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
                     E_minus = rhoE_minus / rho_minus;
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
                     P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus,
-                                                                  n_q(q_list[q]));
+                                                                  n_minus); //n_q(q_list[q]));
                     H_minus = E_minus + P_minus / rho_minus;
 
                     //relative position to centroid of B
@@ -768,8 +811,9 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     u_plus = p_plus / rho_plus;
                     rhoE_plus = driver->fluid_body->rhoE(e_plus)  + driver->fluid_body->rhoE_x[e_plus].dot(x);
                     E_plus = rhoE_plus / rho_plus;
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
                     P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus,
-                                                                 n_q(q_list[q]));
+                                                                 n_plus); //n_q(q_list[q]));
                     H_plus = E_plus + P_plus / rho_plus;
 
                     //approximate Roe advective rate
@@ -778,8 +822,9 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     u_bar = (std::sqrt(rho_plus) * u_plus + std::sqrt(rho_minus) * u_minus) / (2.0 * w_1_bar);
                     u_bar_squared = u_bar.dot(u_bar);
                     H_bar = (std::sqrt(rho_plus) * H_plus + std::sqrt(rho_minus) * H_minus) / (2.0 * w_1_bar);
+                    n_bar = (std::sqrt(rho_plus) * n_plus + std::sqrt(rho_minus) * n_minus) / (2.0 * w_1_bar);
                     c = driver->fluid_material->getSpeedOfSound(job, driver, rho_bar, rho_bar * u_bar, rhoE_minus,
-                                                                n_q(q_list[q]));
+                                                                n_bar); //n_q(q_list[q]));
 
                     //roe eigenvalues
                     lambda_1 = std::abs(u_bar.dot(normal) - c);
@@ -843,6 +888,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
                     p_minus = bc_info[f].vector * rho_minus;
                     rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
 
                     //estimate L
                     for (int ii=0; ii<GRID_DIM; ii++){
@@ -853,7 +899,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     }
 
                     tau_minus = driver->fluid_material->getShearStress(job, driver, L_tmp, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
-                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
+                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_minus); //n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (rho_minus*bc_info[f].vector*bc_info[f].vector.dot(normal)
                                              + P_minus*normal
@@ -870,6 +916,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
                     p_plus = bc_info[f].vector*rho_plus;
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
 
                     //estimate L
                     for (int ii=0; ii<GRID_DIM; ii++){
@@ -880,7 +927,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     }
 
                     tau_plus = driver->fluid_material->getShearStress(job, driver, L_tmp, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
-                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
+                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_plus); //n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (rho_plus*bc_info[f].vector*bc_info[f].vector.dot(normal)
                                              + P_plus*normal
@@ -901,6 +948,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     p_minus = bc_info[f].vector*bc_info[f].values[0]; //p = u * rho
                     rho_minus = bc_info[f].values[0];
                     rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
 
                     //estimate L
                     for (int ii=0; ii<GRID_DIM; ii++){
@@ -911,7 +959,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     }
 
                     tau_minus = driver->fluid_material->getShearStress(job, driver, L_tmp, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
-                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
+                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_minus); //n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (p_minus*bc_info[f].vector.dot(normal)
                                              + P_minus*normal
@@ -928,6 +976,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     p_plus = bc_info[f].vector * bc_info[f].values[0]; //p = rho * u
                     rho_plus = bc_info[f].values[0];
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
+                    n_plus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_plus].dot(x);
 
                     //estimate L
                     for (int ii=0; ii<GRID_DIM; ii++){
@@ -938,7 +987,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     }
 
                     tau_plus = driver->fluid_material->getShearStress(job, driver, L_tmp, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
-                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
+                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_plus); //n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (p_plus*bc_info[f].vector.dot(normal)
                                              + P_plus*normal
@@ -958,10 +1007,19 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     //calculate A properties
                     rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
                     p_minus = rho_minus * bc_info[f].vector;
-                    P_minus = driver->fluid_material->getPressureFromDensityAndTemperature(job, driver, rho_minus, bc_info[f].values[0], n_q(q_list[q]));
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
+                    P_minus = driver->fluid_material->getPressureFromDensityAndTemperature(job,
+                                                                                           driver,
+                                                                                           rho_minus,
+                                                                                           bc_info[f].values[0],
+                                                                                           n_minus); //n_q(q_list[q]));
 
                     //rhoE = rho * eps + 0.5*rho*u^2
-                    rhoE_minus = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver, P_minus, bc_info[f].values[0], n_q(q_list[q]));
+                    rhoE_minus = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job,
+                                                                                                     driver,
+                                                                                                     P_minus,
+                                                                                                     bc_info[f].values[0],
+                                                                                                     n_minus); //n_q(q_list[q]));
                     rhoE_minus += 0.5*rho_minus*bc_info[f].vector.dot(bc_info[f].vector);
 
                     //estimate L
@@ -988,10 +1046,19 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     //calculate B properties
                     rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
                     p_plus = rho_plus * bc_info[f].vector;
-                    P_plus = driver->fluid_material->getPressureFromDensityAndTemperature(job, driver, rho_plus, bc_info[f].values[0], n_q(q_list[q]));
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
+                    P_plus = driver->fluid_material->getPressureFromDensityAndTemperature(job,
+                                                                                          driver,
+                                                                                          rho_plus,
+                                                                                          bc_info[f].values[0],
+                                                                                          n_plus); //n_q(q_list[q]));
 
                     //rhoE = rho * eps + 0.5*rho*u^2
-                    rhoE_plus = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver, P_plus, bc_info[f].values[0], n_q(q_list[q]));
+                    rhoE_plus = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job,
+                                                                                                    driver,
+                                                                                                    P_plus,
+                                                                                                    bc_info[f].values[0],
+                                                                                                    n_plus); //n_q(q_list[q]));
                     rhoE_plus += 0.5*rho_plus*bc_info[f].vector.dot(bc_info[f].vector);
 
                     //estimate L
@@ -1018,7 +1085,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                 rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
                                                                                        bc_info[f].values[0],
                                                                                        bc_info[f].values[1],
-                                                                                       n_q(q_list[q]));
+                                                                                       n_q(q_list[q]));         //ok to use quad value here
 
                 if (e_minus > -1) {
                     //relative position from centroid of A
@@ -1063,7 +1130,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                 rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
                                                                                        bc_info[f].values[0],
                                                                                        bc_info[f].values[1],
-                                                                                       n_q(q_list[q]));
+                                                                                       n_q(q_list[q]));         //ok to use quad value here
 
                 if (e_minus > -1) {
                     //relative position from centroid of A
@@ -1078,12 +1145,13 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     P_minus = bc_info[f].values[0];
                     if (bc_info[f].tag == DAMPED_OUTLET){
                         rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x(e_minus).dot(x);
+                        n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
 
                         P_minus = (1.0 - damping_coefficient)*P_minus
                                  + damping_coefficient*driver->fluid_material->getPressure(job,driver,
                                                                                            rho_minus,
                                                                                            p_minus,
-                                                                                           rhoE_minus,n_q(q_list[q]));
+                                                                                           rhoE_minus, n_minus); //n_q(q_list[q])); //ok to use quad value here
                     }
 
                     if (u_minus.dot(normal) > 0) {
@@ -1113,12 +1181,13 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     P_plus = bc_info[f].values[0];
                     if (bc_info[f].tag == DAMPED_OUTLET){
                         rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x(e_plus).dot(x);
+                        n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
 
                         P_plus = (1.0 - damping_coefficient)*P_plus
                                  + damping_coefficient*driver->fluid_material->getPressure(job,driver,
                                                                                            rho_plus,
                                                                                            p_plus,
-                                                                                           rhoE_plus,n_q(q_list[q]));
+                                                                                           rhoE_plus, n_plus); //n_q(q_list[q])); //ok to use porosity at quad point
                     }
 
                     if (u_plus.dot(normal) < 0) {
@@ -1146,6 +1215,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
                     p_minus = bc_info[f].vector * rho_minus;
                     rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
 
                     //estimate L
                     for (int ii=0; ii<GRID_DIM; ii++){
@@ -1156,7 +1226,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     }
 
                     tau_minus = driver->fluid_material->getShearStress(job, driver, L_tmp, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
-                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
+                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_minus); //n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (P_minus*normal
                                              - KinematicVector(tau_minus*normal, job->JOB_TYPE));
@@ -1172,6 +1242,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
                     p_plus = bc_info[f].vector*rho_plus;
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
 
                     //estimate L
                     for (int ii=0; ii<GRID_DIM; ii++){
@@ -1182,7 +1253,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     }
 
                     tau_plus = driver->fluid_material->getShearStress(job, driver, L_tmp, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
-                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
+                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_plus); // n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (P_plus*normal
                                              - KinematicVector(tau_plus*normal, job->JOB_TYPE));
@@ -1201,8 +1272,9 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
                     p_minus = bc_info[f].vector * rho_minus;
                     rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
 
-                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
+                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_minus); // n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (P_minus*normal);
 
@@ -1217,8 +1289,9 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
                     p_plus = bc_info[f].vector*rho_plus;
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
 
-                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
+                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_plus); //n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (P_plus*normal);
 
@@ -1232,7 +1305,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                 P_minus = driver->fluid_material->getPressureFromDensityAndTemperature(job, driver,
                                                                                        bc_info[f].values[0],
                                                                                        bc_info[f].values[1],
-                                                                                       n_q(q_list[q]));
+                                                                                       1.0); //n_q(q_list[q]));
 
                 flux = w_q(q_list[q]) * (bc_info[f].values[0] * bc_info[f].vector * bc_info[f].vector.dot(normal)
                                          + P_minus * normal);
@@ -1258,7 +1331,8 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     p_minus = driver->fluid_body->p(e_minus) + driver->fluid_body->p_x[e_minus] * x;
                     u_minus = p_minus/rho_minus;
                     rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
-                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
+                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_minus); //n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (p_minus * u_minus.dot(normal)
                                              + P_minus * normal);
@@ -1274,7 +1348,8 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     p_plus = driver->fluid_body->p(e_plus) + driver->fluid_body->p_x[e_plus] * x;
                     u_plus = p_plus/rho_plus;
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
-                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
+                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_plus); //n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (p_plus * u_plus.dot(normal)
                                              + P_plus * normal);
@@ -1315,6 +1390,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
     KinematicVector p_plus, p_minus;
     KinematicVector u_plus, u_minus, normal, u_bar; //velocity
     double rho_plus, rho_minus, rho_bar;
+    double n_plus, n_minus, n_bar;
     double lambda_1, lambda_2, a_1, a_2, lambda_4, c;
     KinematicVector a_4, s;
 
@@ -1375,9 +1451,10 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus] * x;
                     u_minus = p_minus / rho_minus;
                     rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
                     E_minus = rhoE_minus / rho_minus;
                     P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus,
-                                                                  n_q(q_list[q]));
+                                                                  n_minus); //n_q(q_list[q]));
                     H_minus = E_minus + P_minus / rho_minus;
                     tau_minus = driver->fluid_material->getShearStress(job, driver, L[e_minus], rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
 
@@ -1389,9 +1466,10 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus] * x;
                     u_plus = p_plus / rho_plus;
                     rhoE_plus = driver->fluid_body->rhoE(e_plus)  + driver->fluid_body->rhoE_x[e_plus].dot(x);
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
                     E_plus = rhoE_plus / rho_plus;
                     P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus,
-                                                                 n_q(q_list[q]));
+                                                                 n_plus); //n_q(q_list[q]));
                     H_plus = E_plus + P_plus / rho_plus;
                     tau_plus = driver->fluid_material->getShearStress(job, driver, L[e_plus], rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
 
@@ -1401,8 +1479,9 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     u_bar = (std::sqrt(rho_plus) * u_plus + std::sqrt(rho_minus) * u_minus) / (2.0 * w_1_bar);
                     u_bar_squared = u_bar.dot(u_bar);
                     H_bar = (std::sqrt(rho_plus) * H_plus + std::sqrt(rho_minus) * H_minus) / (2.0 * w_1_bar);
+                    n_bar = (std::sqrt(rho_plus) * n_plus + std::sqrt(rho_minus) * n_minus) / (2.0 * w_1_bar);
                     c = driver->fluid_material->getSpeedOfSound(job, driver, rho_bar, rho_bar * u_bar, rhoE_minus,
-                                                                n_q(q_list[q]));
+                                                                n_bar); //n_q(q_list[q]));
 
                     //roe eigenvalues
                     lambda_1 = std::abs(u_bar.dot(normal) - c);
@@ -1494,6 +1573,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
                     p_minus = bc_info[f].vector * rho_minus;
                     rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
 
                     //estimate L
                     for (int ii=0; ii<GRID_DIM; ii++){
@@ -1504,7 +1584,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     }
 
                     tau_minus = driver->fluid_material->getShearStress(job, driver, L_tmp, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
-                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
+                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_minus); //n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (rhoE_minus*bc_info[f].vector.dot(normal)
                                              + P_minus*bc_info[f].vector.dot(normal)
@@ -1521,6 +1601,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
                     p_plus = bc_info[f].vector*rho_plus;
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
 
                     //estimate L
                     for (int ii=0; ii<GRID_DIM; ii++){
@@ -1531,7 +1612,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     }
 
                     tau_plus = driver->fluid_material->getShearStress(job, driver, L_tmp, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
-                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
+                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_plus); //n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (rhoE_plus*bc_info[f].vector.dot(normal)
                                              + P_plus*bc_info[f].vector.dot(normal)
@@ -1553,6 +1634,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     p_minus = bc_info[f].vector*bc_info[f].values[0]; //p = u * rho
                     rho_minus = bc_info[f].values[0];
                     rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
 
                     //estimate L
                     for (int ii=0; ii<GRID_DIM; ii++){
@@ -1563,7 +1645,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     }
 
                     tau_minus = driver->fluid_material->getShearStress(job, driver, L_tmp, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
-                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
+                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_minus); //n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (rhoE_minus*bc_info[f].vector.dot(normal)
                                              + P_minus*bc_info[f].vector.dot(normal)
@@ -1580,6 +1662,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     p_plus = bc_info[f].vector * bc_info[f].values[0]; //p = rho * u
                     rho_plus = bc_info[f].values[0];
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
 
                     //estimate L
                     for (int ii=0; ii<GRID_DIM; ii++){
@@ -1590,7 +1673,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     }
 
                     tau_plus = driver->fluid_material->getShearStress(job, driver, L_tmp, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
-                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
+                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_plus); //n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (rhoE_plus*bc_info[f].vector.dot(normal)
                                              + P_plus*bc_info[f].vector.dot(normal)
@@ -1610,10 +1693,20 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     //calculate A properties
                     rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
                     p_minus = rho_minus * bc_info[f].vector;
-                    P_minus = driver->fluid_material->getPressureFromDensityAndTemperature(job, driver, rho_minus, bc_info[f].values[0], n_q(q_list[q]));
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
+                    P_minus = driver->fluid_material->getPressureFromDensityAndTemperature(job,
+                                                                                           driver,
+                                                                                           rho_minus,
+                                                                                           bc_info[f].values[0],
+                                                                                           n_minus); //n_q(q_list[q]));
 
                     //rhoE = rho * eps + 0.5*rho*u^2
-                    rhoE_minus = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver, P_minus, bc_info[f].values[0], n_q(q_list[q]));
+                    rhoE_minus = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job,
+                                                                                                     driver,
+                                                                                                     P_minus,
+                                                                                                     bc_info[f].values[0],
+                                                                                                     n_minus); //n_q(q_list[q]));
+
                     rhoE_minus += 0.5*rho_minus*bc_info[f].vector.dot(bc_info[f].vector);
 
                     //estimate L
@@ -1635,7 +1728,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                          driver->fluid_body->rho(e_minus),
                                                                          driver->fluid_body->p[e_minus],
                                                                          driver->fluid_body->rhoE(e_minus),
-                                                                         n_q(q_list[q]));
+                                                                         driver->fluid_body->n_e(e_minus));
                     theta_bar = bc_info[f].values[0];
                     //estimate thermal gradient
                     theta_x = (theta_bar - theta_minus)*x/(x.dot(x));
@@ -1654,10 +1747,19 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     //calculate B properties
                     rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
                     p_plus = rho_plus * bc_info[f].vector;
-                    P_plus = driver->fluid_material->getPressureFromDensityAndTemperature(job, driver, rho_plus, bc_info[f].values[0], n_q(q_list[q]));
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
+                    P_plus = driver->fluid_material->getPressureFromDensityAndTemperature(job,
+                                                                                          driver,
+                                                                                          rho_plus,
+                                                                                          bc_info[f].values[0],
+                                                                                          n_plus); //n_q(q_list[q]));
 
                     //rhoE = rho * eps + 0.5*rho*u^2
-                    rhoE_plus = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver, P_plus, bc_info[f].values[0], n_q(q_list[q]));
+                    rhoE_plus = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job,
+                                                                                                    driver,
+                                                                                                    P_plus,
+                                                                                                    bc_info[f].values[0],
+                                                                                                    n_plus); //n_q(q_list[q]));
                     rhoE_plus += 0.5*rho_plus*bc_info[f].vector.dot(bc_info[f].vector);
 
                     //estimate L
@@ -1679,7 +1781,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                         driver->fluid_body->rho(e_plus),
                                                                         driver->fluid_body->p[e_plus],
                                                                         driver->fluid_body->rhoE(e_plus),
-                                                                        n_q(q_list[q]));
+                                                                        driver->fluid_body->n_e(e_plus));
                     theta_bar = bc_info[f].values[0];
                     //estimate thermal gradient
                     theta_x = (theta_bar - theta_plus)*x/(x.dot(x));
@@ -1708,6 +1810,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
                     p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*x;
                     u_minus = p_minus/rho_minus;
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
 
                     //tau_minus = 0
                     P_minus = bc_info[f].values[0];
@@ -1715,7 +1818,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     rhoE_minus = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver,
                                                                                                      bc_info[f].values[0],
                                                                                                      bc_info[f].values[1],
-                                                                                                     n_q(q_list[q]));
+                                                                                                     n_minus); //n_q(q_list[q]));
                     rhoE_minus += 0.5*rho_bar*u_minus.dot(u_minus);
 
                     flux = w_q(q_list[q]) * (rhoE_minus*u_minus.dot(normal)
@@ -1726,7 +1829,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                          driver->fluid_body->rho(e_minus),
                                                                          driver->fluid_body->p[e_minus],
                                                                          driver->fluid_body->rhoE(e_minus),
-                                                                         n_q(q_list[q]));
+                                                                         driver->fluid_body->n_e(e_minus));
                     theta_bar = bc_info[f].values[1];
                     //estimate thermal gradient
                     theta_x = (theta_bar - theta_minus)*x/(x.dot(x));
@@ -1746,6 +1849,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
                     p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus]*x;
                     u_plus = p_plus/rho_plus;
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
 
                     //tau_minus = 0
                     P_plus = bc_info[f].values[0];
@@ -1753,7 +1857,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     rhoE_plus = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver,
                                                                                                      bc_info[f].values[0],
                                                                                                      bc_info[f].values[1],
-                                                                                                     n_q(q_list[q]));
+                                                                                                     n_plus); //n_q(q_list[q]));
                     rhoE_plus += 0.5*rho_bar*u_plus.dot(u_plus);
 
                     flux = w_q(q_list[q]) * (rhoE_plus*u_plus.dot(normal)
@@ -1764,7 +1868,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                         driver->fluid_body->rho(e_plus),
                                                                         driver->fluid_body->p[e_plus],
                                                                         driver->fluid_body->rhoE(e_plus),
-                                                                        n_q(q_list[q]));
+                                                                        driver->fluid_body->n_e(e_plus));
                     theta_bar = bc_info[f].values[1];
                     //estimate thermal gradient
                     theta_x = (theta_bar - theta_plus)*x/(x.dot(x));
@@ -1793,6 +1897,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
                     p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus] * x;
                     u_minus = p_minus / rho_minus;
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
 
                     //reconstruct energy for outflow
                     rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x(e_minus).dot(x);
@@ -1805,14 +1910,14 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                                             rho_minus,
                                                                                             p_minus,
                                                                                             rhoE_minus,
-                                                                                            n_q(q_list[q]));
+                                                                                            n_minus); //n_q(q_list[q]));
                     }
 
                     //calculate energy for inflow
                     rhoE_bar = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver,
                                                                                                    P_minus,
                                                                                                    bc_info[f].values[1],
-                                                                                                   n_q(q_list[q]));
+                                                                                                   n_minus); //n_q(q_list[q]));
                     rhoE_bar += 0.5*rho_bar*u_minus.dot(u_minus);
 
                     if (u_minus.dot(normal) > 0) {
@@ -1837,6 +1942,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
                     p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus] * x;
                     u_plus = p_plus / rho_plus;
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
 
                     //reconstruct energy for outflow
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x(e_plus).dot(x);
@@ -1849,14 +1955,14 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                                             rho_plus,
                                                                                             p_plus,
                                                                                             rhoE_plus,
-                                                                                            n_q(q_list[q]));
+                                                                                            n_plus); //n_q(q_list[q]));
                     }
 
                     //calculate energy for inflow
                     rhoE_bar = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver,
                                                                                                    P_plus,
                                                                                                    bc_info[f].values[1],
-                                                                                                   n_q(q_list[q]));
+                                                                                                   n_plus); //n_q(q_list[q]));
                     rhoE_bar += 0.5*rho_bar*u_plus.dot(u_plus);
 
                     if (u_plus.dot(normal) < 0) {
@@ -1890,7 +1996,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                          driver->fluid_body->rho(e_minus),
                                                                          driver->fluid_body->p[e_minus],
                                                                          driver->fluid_body->rhoE(e_minus),
-                                                                         n_q(q_list[q]));
+                                                                         driver->fluid_body->n_e(e_minus));
                     theta_bar = bc_info[f].values[0];
                     //estimate thermal gradient
                     theta_x = (theta_bar - theta_minus)*x/(x.dot(x));
@@ -1914,7 +2020,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                          driver->fluid_body->rho(e_plus),
                                                                          driver->fluid_body->p[e_plus],
                                                                          driver->fluid_body->rhoE(e_plus),
-                                                                         n_q(q_list[q]));
+                                                                         driver->fluid_body->n_e(e_plus));
                     theta_bar = bc_info[f].values[0];
                     //estimate thermal gradient
                     theta_x = (theta_bar - theta_plus)*x/(x.dot(x));
@@ -1934,12 +2040,12 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                 P_minus = driver->fluid_material->getPressureFromDensityAndTemperature(job, driver,
                                                                                        bc_info[f].values[0],
                                                                                        bc_info[f].values[1],
-                                                                                       n_q(q_list[q]));
+                                                                                       1.0);
 
                 rhoE_bar = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver,
                                                                                                P_minus,
                                                                                                bc_info[f].values[1],
-                                                                                               n_q(q_list[q]));
+                                                                                               1.0);
                 rhoE_bar += 0.5*bc_info[f].values[0]*bc_info[f].vector.dot(bc_info[f].vector);
 
 
@@ -1967,7 +2073,8 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     p_minus = driver->fluid_body->p(e_minus) + driver->fluid_body->p_x[e_minus] * x;
                     u_minus = p_minus/rho_minus;
                     rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
-                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
+                    n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
+                    P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_minus); //n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (rhoE_minus * u_minus.dot(normal)
                                              + P_minus * u_minus.dot(normal));
@@ -1983,7 +2090,8 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     p_plus = driver->fluid_body->p(e_plus) + driver->fluid_body->p_x[e_plus] * x;
                     u_plus = p_plus/rho_plus;
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
-                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
+                    n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
+                    P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_plus); //n_q(q_list[q]));
 
                     flux = w_q(q_list[q]) * (rhoE_plus * u_plus.dot(normal)
                                              + P_plus * u_plus.dot(normal));
@@ -2007,13 +2115,14 @@ KinematicVectorArray FVMGridBase::calculateInterphaseForces(Job* job, FiniteVolu
 
     //result defines force on solid by fluid
     KinematicVectorArray result = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+    KinematicVectorArray tmp_result = result;
 
     //declare temporary containers for quadrature point fields
     Eigen::VectorXd P_q = Eigen::VectorXd(int_quad_count + ext_quad_count); //pressure
     KinematicVectorArray f_d = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE); //drag
     KinematicVectorArray n_b = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE); //outward pointing normals
     KinematicVectorArray tmpVecArray = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE);
-    Eigen::VectorXd tmpArray = Eigen::VectorXd(int_quad_count + ext_quad_count, job->JOB_TYPE);
+    Eigen::VectorXd tmpArray = Eigen::VectorXd(int_quad_count + ext_quad_count);
 
     P_q.setZero();
     f_d.setZero();
@@ -2048,10 +2157,23 @@ KinematicVectorArray FVMGridBase::calculateInterphaseForces(Job* job, FiniteVolu
                                                                    n_q(e*qpe + q));
 
             //fill in tmpVecArray and tmpArray
-            tmpVecArray[e*qpe + q] = -f_d[e*qpe + q] - P_q(e*qpe + q)*gradn_q[e*qpe+q] * getQuadratureWeight(e*qpe + q);
-            tmpArray(e*qpe + q) = P_q(e*qpe + q) * (1.0 - n_q(e*qpe+q)) * getQuadratureWeight(e*qpe + q);
+            //tmpVecArray[e*qpe + q] = (-f_d[e*qpe + q] - P_q(e*qpe + q)*gradn_q[e*qpe+q]) * getQuadratureWeight(e*qpe + q);
+            //tmpArray(e*qpe + q) = P_q(e*qpe + q) * (1.0 - n_q(e*qpe+q)) * getQuadratureWeight(e*qpe + q);
+            tmpVecArray[e*qpe + q] = -f_d[e*qpe + q] * getQuadratureWeight(e*qpe + q);
+            tmpArray(e*qpe + q) = P_q(e*qpe + q) * getQuadratureWeight(e*qpe + q);
         }
     }
+
+    //integrate expression (pg 117, nb 6)
+    result = Q*tmpVecArray;
+    tmp_result = gradQ*tmpArray;
+    for (int i=0; i<result.size(); i++){
+        result[i] += (1.0 - driver->fluid_body->n(i))*tmp_result(i);
+    }
+
+    //zero temporary vectors
+    tmp_result.setZero();
+    tmpVecArray.setZero();
 
     int tmp_e = -1;
     int tmp_q = -1;
@@ -2086,17 +2208,21 @@ KinematicVectorArray FVMGridBase::calculateInterphaseForces(Job* job, FiniteVolu
                                                                                        n_q(tmp_q));
 
                 //fill in tmpArray
-                tmpVecArray[tmp_q] = -P_q(tmp_q) * (1.0 - n_q(tmp_q)) * normal * getQuadratureWeight(tmp_q);
+                //tmpVecArray[tmp_q] = -P_q(tmp_q) * (1.0 - n_q(tmp_q)) * normal * getQuadratureWeight(tmp_q);
+                tmpVecArray[tmp_q] = -P_q(tmp_q) * normal * getQuadratureWeight(tmp_q);
             }
         }
     }
 
-    //integrate expression (pg 116, nb 6)
-    result = Q*tmpVecArray + gradQ*tmpArray;
+    //integrate expression (pg 117, nb 6)
+    tmp_result = Q*tmpVecArray;
+    for (int i=0; i<result.size(); i++){
+        result[i] += (1.0 - driver->fluid_body->n(i))*tmp_result(i);
+    }
 
     //divide result by associated nodal volumes
     for (int i=0; i<job->grid->node_count; i++){
-        result /= job->grid->nodeVolume(job, i);
+        result(i) /= job->grid->nodeVolume(job, i);
     }
 
     return result;
