@@ -11,5 +11,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_grid_base.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_steady_state_solver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_slurry_fluid_phase.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_mixture_solver.cpp
         PARENT_SCOPE
         )

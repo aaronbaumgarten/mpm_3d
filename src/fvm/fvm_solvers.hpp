@@ -125,12 +125,39 @@ public:
         object_name = "FVMMixtureSolver";
     }
 
+    int cpdi_spec = 1;
+    int contact_spec = Contact::IMPLICIT;
+    int solid_body_id = -1;
+
     Eigen::VectorXd density_fluxes;
     KinematicVectorArray momentum_fluxes;
     Eigen::VectorXd energy_fluxes;
 
+    KinematicVectorArray f_i;
+    KinematicVectorArray f_e;
+
     virtual void init(Job* job, FiniteVolumeDriver* driver);                                        //initialize from Job
     virtual void step(Job* job, FiniteVolumeDriver* driver);                                        //perform single mpm step
+
+    virtual void createMappings(Job *job);
+    virtual void mapPointsToNodes(Job* job);
+    virtual void calculateElementGradients(Job* job, FiniteVolumeDriver* driver);
+    virtual void mapMixturePropertiesToElements(Job* job, FiniteVolumeDriver* driver);
+    virtual void generateFluxes(Job* job, FiniteVolumeDriver* driver);
+    virtual void applyFluxes(Job* job, FiniteVolumeDriver* driver);
+    virtual void generateMixtureForces(Job* job, FiniteVolumeDriver* driver);
+    virtual void applyMixtureForces(Job* job, FiniteVolumeDriver* driver);
+    virtual void generateContacts(Job* job);
+    virtual void addContacts(Job* job);
+    virtual void generateBoundaryConditions(Job* job);
+    virtual void addBoundaryConditions(Job* job);
+    virtual void moveGrid(Job* job);
+    virtual void movePoints(Job* job);
+    virtual void calculateStrainRate(Job* job);
+    virtual void updateDensity(Job* job);
+    virtual void updateStress(Job* job);
+    virtual void generateLoads(Job* job);
+    virtual void applyLoads(Job* job);
 };
 
 #endif //MPM_V3_FVM_SOLVERS_HPP
