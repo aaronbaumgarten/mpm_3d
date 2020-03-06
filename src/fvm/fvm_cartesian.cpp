@@ -1517,7 +1517,7 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
             //calculate maximum velocity change in cell
             tmp_dif = 0;
             for (int pos = 0; pos < GRID_DIM; pos++){
-                tmp_dif += hx[pos]*std::abs(driver->fluid_body->rho_x(e, pos)/2.0);
+                tmp_dif += hx[pos]*std::abs(driver->fluid_body->rhoE_x(e, pos)/2.0);
             }
 
             if (tmp_dif > min_dif){
@@ -1535,7 +1535,7 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
 
 void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
     if (driver->ORDER == 1){
-        driver->fluid_body->rhoE_x.setZero(); //let energy be constant within an element
+        driver->fluid_body->true_density_x.setZero(); //let energy be constant within an element
     } if (driver->ORDER >= 2){
         if (driver->ORDER > 2) {
             std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER momentum reconstruction."
@@ -1544,53 +1544,53 @@ void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
 
         Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
         KinematicVector x_0, x;
-        double n_0, n, n_max, n_min, min_dif;
+        double rho_0, rho, rho_max, rho_min, min_dif;
         double tmp_dif;
         for (int e = 0; e<element_count; e++){
             //least squares fit of u_x to neighbors of element e
             x_0 = getElementCentroid(job, e);
-            n_0 = driver->fluid_body->n_e(e);
-            n_max = n_0;
-            n_min = n_0;
+            rho_0 = driver->fluid_body->rho(e) / driver->fluid_body->n_e(e);
+            rho_max = rho_0;
+            rho_min = rho_0;
 
             //create system of equations
             for (int ii=0; ii<element_neighbors[e].size(); ii++){
                 //fill in b vector
-                n = driver->fluid_body->n_e(element_neighbors[e][ii]);
-                b_e[e](ii) = n - n_0;
+                rho = driver->fluid_body->rho(element_neighbors[e][ii]) / driver->fluid_body->n_e(element_neighbors[e][ii]);
+                b_e[e](ii) = rho - rho_0;
 
                 //update maximum and minimum velocities
-                if (n > n_max){
-                    n_max = n;
-                } else if (n < n_min){
-                    n_min = n;
+                if (rho > rho_max){
+                    rho_max = rho;
+                } else if (rho < rho_min){
+                    rho_min = rho;
                 }
             }
 
             //solve for components of gradient
             sol = A_inv[e]*b_e[e];
             for (int pos = 0; pos<GRID_DIM; pos++){
-                driver->fluid_body->n_e_x(e, pos) = sol(pos);
+                driver->fluid_body->true_density_x(e, pos) = sol(pos);
             }
 
             //calculate minimum magnitude difference in velocity components
-            min_dif = std::abs(n_0 - n_min);
-            if (std::abs(n_0 - n_max) < min_dif) {
-                min_dif = std::abs(n_0 - n_max);
+            min_dif = std::abs(rho_0 - rho_min);
+            if (std::abs(rho_0 - rho_max) < min_dif) {
+                min_dif = std::abs(rho_0 - rho_max);
             }
 
             //limit gradient to ensure monotonicity
             //calculate maximum velocity change in cell
             tmp_dif = 0;
             for (int pos = 0; pos < GRID_DIM; pos++){
-                tmp_dif += hx[pos]*std::abs(driver->fluid_body->rho_x(e, pos)/2.0);
+                tmp_dif += hx[pos]*std::abs(driver->fluid_body->true_density_x(e, pos)/2.0);
             }
 
             if (tmp_dif > min_dif){
                 //if maximum velocity change in cell is larger than maximum difference b/w neighbors
                 //need to scale gradient
                 for (int pos=0; pos<GRID_DIM; pos++){
-                    driver->fluid_body->n_e_x(e, pos) *= min_dif/tmp_dif;
+                    driver->fluid_body->true_density_x(e, pos) *= min_dif/tmp_dif;
                 }
             }
         }

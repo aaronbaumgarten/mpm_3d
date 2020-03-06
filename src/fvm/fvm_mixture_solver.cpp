@@ -109,13 +109,11 @@ void FVMMixtureSolver::step(Job* job, FiniteVolumeDriver* driver){
     generateFluxes(job, driver);
 
     //generate mixture forces (FVM only)
-    //generateMixtureForces(job, driver);
+    generateMixtureForces(job, driver);
 
     //add fluxes and forces (FVM and MPM)
     applyFluxes(job, driver);
-    //applyMixtureForces(job, driver);
-
-    return;
+    applyMixtureForces(job, driver);
 
     /*----------------------*/
     /*     End FVM Step     */

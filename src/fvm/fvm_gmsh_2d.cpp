@@ -1121,7 +1121,7 @@ void FVMGmsh2D::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
 
 void FVMGmsh2D::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
     if (driver->ORDER == 1){
-        driver->fluid_body->rhoE_x.setZero(); //let density be constant within an element
+        driver->fluid_body->true_density_x.setZero(); //let density be constant within an element
     } if (driver->ORDER >= 2){
         if (driver->ORDER > 2) {
             std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER momentum reconstruction."
@@ -1130,50 +1130,50 @@ void FVMGmsh2D::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
         //initialize least squares fields
         Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
         KinematicVector x_0, x;
-        double n_0, n, n_max, n_min, min_dif;
+        double rho_0, rho, rho_max, rho_min, min_dif;
         double tmp_val;
         for (int e = 0; e<element_count; e++){
             //least squares fit of rho_x to neighbors of element e
             x_0 = getElementCentroid(job, e);
-            n_0 = driver->fluid_body->n_e(e);
-            n_max = n_0;
-            n_min = n_0;
+            rho_0 = driver->fluid_body->rho(e) / driver->fluid_body->n_e(e);
+            rho_max = rho_0;
+            rho_min = rho_0;
 
             //create system of equations
             for (int ii=0; ii<element_neighbors[e].size(); ii++){
                 //fill in b vector
-                n = driver->fluid_body->n_e(element_neighbors[e][ii]);
-                b_e[e](ii) = n - n_0;
+                rho = driver->fluid_body->rho(element_neighbors[e][ii]) / driver->fluid_body->n_e(element_neighbors[e][ii]);
+                b_e[e](ii) = rho - rho_0;
 
                 //update maximum and minimum velocities
-                if (n > n_max){
-                    n_max = n;
-                } else if (n < n_min){
-                    n_min = n;
+                if (rho > rho_max){
+                    rho_max = rho;
+                } else if (rho < rho_min){
+                    rho_min = rho;
                 }
             }
 
             //solve for components of gradient
             sol = A_inv[e]*b_e[e];
             for (int pos = 0; pos<GRID_DIM; pos++){
-                driver->fluid_body->n_e_x(e, pos) = sol(pos);
+                driver->fluid_body->true_density_x(e, pos) = sol(pos);
             }
 
             //limit gradient to ensure monotonicity
             //check max, min at each node
             for (int j=0; j<npe; j++){
                 //p(x) = grad(p) * (x - x_0)
-                tmp_val = driver->fluid_body->n_e_x[e].dot(x_n[nodeIDs(e,j)] - x_e[e]);
+                tmp_val = driver->fluid_body->true_density_x[e].dot(x_n[nodeIDs(e,j)] - x_e[e]);
                 //check for both overshoot and undershoot
-                if (tmp_val > (n_max - n_0)){
+                if (tmp_val > (rho_max - rho_0)){
                     //limit gradient
                     for (int pos=0; pos<GRID_DIM; pos++) {
-                        driver->fluid_body->n_e_x[e] *= (n_max - n_0)/tmp_val;
+                        driver->fluid_body->true_density_x[e] *= (rho_max - rho_0)/tmp_val;
                     }
-                } else if (tmp_val < (n_min - n_0)){
+                } else if (tmp_val < (rho_min - rho_0)){
                     //limit gradient
                     for (int pos=0; pos<GRID_DIM; pos++) {
-                        driver->fluid_body->n_e_x[e] *= (n_min - n_0)/tmp_val;
+                        driver->fluid_body->true_density_x[e] *= (rho_min - rho_0)/tmp_val;
                     }
                 }
             }

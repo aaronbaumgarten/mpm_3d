@@ -73,8 +73,8 @@ void FVMDefaultBody::init(Job *job, FiniteVolumeDriver *driver) {
 
     n_e = Eigen::VectorXd(driver->fluid_grid->element_count);
     n_e.setConstant(1.0);
-    n_e_x = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
-    n_e_x.setZero();
+    true_density_x = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+    true_density_x.setZero();
 
     //adjust density and porosity fields
     if (driver->fluid_material->calculatePorosity(job, driver) == 1){
