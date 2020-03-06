@@ -20,7 +20,7 @@
 
 #include "materials.hpp"
 
-bool SLURRY_MU_IM_DEBUG = false;
+bool SLURRY_MU_IM_DEBUG = true;
 
 /*----------------------------------------------------------------------------*/
 //
