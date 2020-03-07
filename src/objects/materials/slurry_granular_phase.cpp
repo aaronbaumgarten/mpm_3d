@@ -20,7 +20,7 @@
 
 #include "materials.hpp"
 
-bool SLURRY_MU_IM_DEBUG = true;
+bool SLURRY_MU_IM_DEBUG = false;
 
 /*----------------------------------------------------------------------------*/
 //
@@ -322,6 +322,8 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                 if (k > 50 && SLURRY_MU_IM_DEBUG){
                     std::cout << "f1 weak: " << p_k << ", " << r_p << std::endl;
                     break; //machine tolerance with bisection
+                } else if (k > 50){
+                    break;
                 }
 
                 //binary search
@@ -398,6 +400,8 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                     std::cout << "f1: " << p_k << ", " << tau_bar_k << ", " << r(0) << ", " << r(1) << std::endl;
                     std::cout << rt_min << ", " << rt_max << std::endl;
                     break; //after 50 bisections, answer is not changing
+                } else if (k>50){
+                    break;
                 }
 
                 //set up initial residual
@@ -446,6 +450,8 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                     if (j > 50 && SLURRY_MU_IM_DEBUG){
                         std::cout << "f1 internal: " << p_k << ", " << r_p << ", " << b_p << std::endl;
                         break; //after 50 bisections, answer is not changing
+                    } else if (j > 50){
+                        break;
                     }
 
                     //binary search
@@ -553,6 +559,8 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                 if (k > 50 && SLURRY_MU_IM_DEBUG){
                     std::cout << "f1, f3: " << p_k << ", " << r_p << std::endl;
                     break; //after 50 iterations, bisection is not changing
+                } else if (k>50){
+                    break;
                 }
 
                 //binary search
@@ -641,6 +649,8 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                     std::cout << "       " << r(0) << ", " << r(1) << std::endl;
                     //after 50 iterations bisection isn't changing
                     break;
+                } else if (k>50){
+                    break;
                 }
 
                 //set tau_k
@@ -684,6 +694,8 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                     if (j > 50 && SLURRY_MU_IM_DEBUG){
                         std::cout << "f1, f3: " << p_k << ", " << r_p << std::endl;
                         break; //bisection at machine precision
+                    } else if (j > 50){
+                        break;
                     }
 
                     //binary search
