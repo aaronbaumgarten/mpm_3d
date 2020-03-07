@@ -105,7 +105,7 @@ public:
     }
 
     //residual tolerance
-    double ABS_TOL = 1e-3;
+    double ABS_TOL = 1e-6;
     double REL_TOL = 1e-6;
     double h = 1e-5;
 

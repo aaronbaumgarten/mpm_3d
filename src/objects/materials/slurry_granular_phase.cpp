@@ -192,9 +192,17 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
     Eigen::Matrix2d dr;
 
     double p_tmp, tau_bar_tmp, lambda_tmp, gammap_dot_tmp;
+    double p_max, p_min, tau_max, tau_min;
+    double rp_max, rp_min, rt_max, rt_min;
+    double p_zero_strength_f1;
+    double p_zero_strength_f1f3;
+
+    bool tau_too_large = false;
+
+    double A, B, C;
 
     bool is_solved;
-    int k;
+    int k, j;
 
     //calculate packing fraction
     for (int i=0;i<body->points->x.size();i++){
@@ -245,6 +253,8 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
 
         //state determined?
         is_solved = false;
+        tau_bar = tau_bar_tr;
+        p = p_tr;
 
         //check admissibility ****************************************************************************************//
         if (!is_solved){
@@ -274,22 +284,48 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
         if (!is_solved){
             beta = getBeta(phi(i), phi_m); //high pressure limit
 
-            //setup newton method to find pressure
+            //setup bisection method to find pressure
             r_p = std::max(std::abs(p_tr),std::abs(p_tr + (K*tau_bar_tr/G)*beta));
             b_p = r_p;
             tau_bar_k = 0;
             p_k = 0;
             k = 0;
 
-            //newton method
+
+            //use bisection
+            beta = getBeta(phi(i), 0.0); //low pressure limit
+            p_max = p_tr + (K*tau_bar_tr/G)*beta; tau_max = tau_bar_tr;
+            p_min = 0.0;  tau_min = 0.0;
+
+            //calculate gammap_dot for tau going to zero
+            gammap_dot_tr = tau_bar_tr / (G*job->dt);
+
+            //calculate state for p_max
+            calcState(gammap_dot_tr,p_max,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+            //calculate residual for p_max
+            rp_max = p_max - p_tr - K*job->dt*beta*gammap_dot_tr;
+
+            //calculate state for p_min
+            calcState(gammap_dot_tr,p_min,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+            //calculate residual for r_min
+            rp_min = p_min - p_tr - K*job->dt*beta*gammap_dot_tr;
+
+            if (rp_min * rp_max > 0){
+                std::cout << "ERROR: Residuals in binary search have same sign! That's bad!" << std::endl;
+            }
+
+            //bisection method
             while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
                 k += 1;
-                if (k > 100 && SLURRY_MU_IM_DEBUG){
-                    std::cout << "f1 weak: " << p_k << ", " << r_p << ", " << dr_dp << std::endl;
+                if (k > 50 && SLURRY_MU_IM_DEBUG){
+                    std::cout << "f1 weak: " << p_k << ", " << r_p << std::endl;
+                    break; //machine tolerance with bisection
                 }
 
-                //calculate gammap_dot
-                gammap_dot_tr = tau_bar_tr / (G*job->dt);
+                //binary search
+                p_k = 0.5*(p_max + p_min);
 
                 //calculate state for step
                 calcState(gammap_dot_tr,p_k,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
@@ -297,48 +333,20 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                 //calculate residual
                 r_p = p_k - p_tr - K*job->dt*beta*gammap_dot_tr;
 
-                //approx gradients
-                p_tmp = getStep(p_k,NAN,0.0);
-                calcState(gammap_dot_tr,p_tmp,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
-                dr_dp = (p_tmp - p_tr - K*job->dt*beta*gammap_dot_tr - r_p)/(p_tmp - p_k);
-
-                //limit step length
-                lambda_tmp = 1.0;
-                r_p_tr = r_p;
-                do{
-
-                    //update guess
-                    p_kplus = p_k - lambda_tmp * r_p / dr_dp;
-
-                    if (p_kplus < 0){
-                        p_kplus = 0;
-                    }
-
-                    //calculate new state
-                    calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
-
-                    //test residual
-                    r_p_tr = p_kplus - p_tr - K*job->dt*beta*gammap_dot_tr;
-
-                    //set new lambda
-                    lambda_tmp *= 0.5;
-
-                } while(std::abs(r_p_tr) >= std::abs(r_p) && lambda_tmp > REL_TOL);
-
-                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL){
-                    if (SLURRY_MU_IM_DEBUG) {
-                        std::cout
-                                << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. "
-                                << r_p_tr << std::endl;
-                    }
-                    p_k = p_kplus;
-                    r_p = r_p_tr;
-                    break;
+                //check residual sign
+                if (r_p * rp_min > 0){
+                    //r_p replaces r_min
+                    rp_min = r_p;
+                    p_min = p_k;
+                } else {
+                    //r_p replaces r_max
+                    rp_max = r_p;
+                    p_max = p_k;
                 }
-
-                p_k = p_kplus;
-                r_p = r_p_tr;
             }
+
+            //save value for next check
+            p_zero_strength_f1 = p_k;
 
             //check that zero strength assumption is true and admissible
             gammap_dot_tr = tau_bar_tr / (G*job->dt);
@@ -360,87 +368,132 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
             r(1) = -p_tr - (K*tau_bar_tr/G)*beta;
             b = r;
 
+            //use bisection
+            beta = getBeta(phi(i), 0.0); //low pressure limit
+            p_max = p_tr + (K*tau_bar_tr/G)*beta;
+            p_min = 0.0;
+            tau_max = tau_bar_tr;
+            tau_min = 0.0;
+
+            //tau = tau_max -> gdp = 0 -> p = p_tr
+            gammap_dot_tr = 0.0;
+            calcState(gammap_dot_tr, p_tr, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+            rt_max = tau_max - (mu + beta)*p_tr;
+
+            //tau = tau_min -> p = p_zero_strenght
+            gammap_dot_tr = tau_bar_tr/(G*job->dt);
+            calcState(gammap_dot_tr, p_zero_strength_f1, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+            rt_min = tau_min - (mu + beta)*p_zero_strength_f1;
+
+            if (rt_min * rt_max > 0){
+                std::cout << "ERROR: Residuals in binary search have same sign! That's bad!" << std::endl;
+            }
+
+            tau_too_large = false;
             k = 0;
-            //newton method
-            while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
+            //bisection method
+            while (r(0) > b(0) * REL_TOL && r.norm() > ABS_TOL) {
                 k+=1;
-                if (k>100 && SLURRY_MU_IM_DEBUG){
-                    std::cout << "f1: " << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << dr.norm() << std::endl;
+                if (k>50 && SLURRY_MU_IM_DEBUG){
+                    std::cout << "f1: " << p_k << ", " << tau_bar_k << ", " << r(0) << ", " << r(1) << std::endl;
+                    std::cout << rt_min << ", " << rt_max << std::endl;
+                    break; //after 50 bisections, answer is not changing
                 }
-                //calculate equiv shear rate
-                gammap_dot_tr = (tau_bar_tr - tau_bar_k)/(G*job->dt);
 
-                //calculate state
-                calcState(gammap_dot_tr, p_k, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+                //set up initial residual
+                beta = getBeta(phi(i), phi_m); //high pressure limit
+                r_p = std::max(std::abs(p_tr),std::abs(p_tr + (K*tau_bar_tr/G)*beta)); //reference
+                b_p = r_p;
 
-                //calculate residual
-                r(0) = tau_bar_k - (mu + beta)*p_k;
-                r(1) = p_k - p_tr - K*job->dt*beta*gammap_dot_tr;
+                //set tau_bar_k
+                tau_bar_k = 0.5*(tau_max + tau_min);
 
-                //approx gradients
-                tau_bar_tmp = getStep(tau_bar_k, tau_bar_tr, 0.0);
-                gammap_dot_tmp = (tau_bar_tr - tau_bar_tmp)/(G*job->dt);
-                calcState(gammap_dot_tmp,p_k,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
-                dr1_dtau = (tau_bar_tmp - (mu + beta)*p_k - r(0))/(tau_bar_tmp - tau_bar_k);
-                dr2_dtau = (p_k - p_tr - K*job->dt*beta*gammap_dot_tmp - r(1))/(tau_bar_tmp - tau_bar_k);
+                //find p_j
+                //use bisection
+                beta = getBeta(phi(i), 0.0); //low pressure limit
+                p_max = p_tr + (K*tau_bar_tr/G)*beta;
+                p_min = 0.0;
 
-                p_tmp = getStep(p_k, NAN, 0.0);
-                calcState(gammap_dot_tr, p_tmp, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
-                dr1_dp = (tau_bar_k - (mu+beta)*p_tmp - r(0))/(p_tmp - p_k);
-                dr2_dp = (p_tmp - p_tr - K*job->dt*beta*gammap_dot_tr - r(1))/(p_tmp - p_k);
+                //calculate gammap_dot for tau going to zero
+                gammap_dot_tr = (tau_bar_tr - tau_bar_k) / (G*job->dt);
 
-                //form jacobian
-                dr(0,0) = dr1_dtau;
-                dr(0,1) = dr1_dp;
-                dr(1,0) = dr2_dtau;
-                dr(1,1) = dr2_dp;
+                //calculate state for p_max
+                calcState(gammap_dot_tr,p_max,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
 
-                //calculate update and limit newton step
-                upd = dr.inverse()*r;
-                lambda_tmp = 1.0;
-                do {
-                    //update variables
-                    tau_bar_kplus = tau_bar_k - lambda_tmp*upd(0);
-                    p_kplus = p_k - lambda_tmp*upd(1);
+                //calculate residual for p_max
+                rp_max = p_max - p_tr - K*job->dt*beta*gammap_dot_tr;
 
-                    if (p_kplus < 0){
-                        p_kplus = 0;
+                //calculate state for p_min
+                calcState(gammap_dot_tr,p_min,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+                //calculate residual for r_min
+                rp_min = p_min - p_tr - K*job->dt*beta*gammap_dot_tr;
+
+                if (rp_min * rp_max > 0){
+                    //std::cout << "ERROR: Residuals in binary search have same sign! That's bad!" << std::endl;
+                    //this likely means that tau_bar_k is too large (gdp too small, beta too small)
+                    tau_max = tau_bar_k;
+                    tau_too_large = true;
+                    break;
+                    //std::cout << p_tr << " : " << p_max << " : " << p_min << std::endl;
+                    //exit(0);
+                }
+
+                //bisection method
+                j = 0;
+                while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
+                    j += 1;
+                    if (j > 50 && SLURRY_MU_IM_DEBUG){
+                        std::cout << "f1 internal: " << p_k << ", " << r_p << ", " << b_p << std::endl;
+                        break; //after 50 bisections, answer is not changing
                     }
 
-                    if (tau_bar_kplus > tau_bar_tr){
-                        tau_bar_kplus = tau_bar_tr;
-                    }
+                    //binary search
+                    p_k = 0.5*(p_max + p_min);
 
-                    //calculate strain rate
-                    gammap_dot_tr = (tau_bar_tr - tau_bar_kplus)/(G*job->dt);
+                    //calculate state for step
+                    calcState(gammap_dot_tr,p_k,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+                    //calculate residual
+                    r_p = p_k - p_tr - K*job->dt*beta*gammap_dot_tr;
+
+                    //check residual sign
+                    if (r_p * rp_min > 0){
+                        //r_p replaces r_min
+                        rp_min = r_p;
+                        p_min = p_k;
+                    } else {
+                        //r_p replaces r_max
+                        rp_max = r_p;
+                        p_max = p_k;
+                    }
+                }
+
+                if (!tau_too_large) {
+                    //calculate equiv shear rate
+                    gammap_dot_tr = (tau_bar_tr - tau_bar_k) / (G * job->dt);
 
                     //calculate state
-                    calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+                    calcState(gammap_dot_tr, p_k, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
 
-                    r_tr(0) = tau_bar_kplus - (mu+beta)*p_kplus;
-                    r_tr(1) = p_kplus - p_tr - K*job->dt*beta*gammap_dot_tr;
+                    //calculate residual
+                    r(0) = tau_bar_k - (mu + beta) * p_k;
+                    r(1) = p_k - p_tr - K * job->dt * beta * gammap_dot_tr;
 
-                    lambda_tmp *= 0.5;
-                } while (r_tr.norm() >= r.norm() && lambda_tmp > REL_TOL);
-
-                //std::cout << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << r_tr.norm() << std::endl;
-
-                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
-                    if (SLURRY_MU_IM_DEBUG) {
-                        std::cout
-                                << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. "
-                                << r_tr.norm() << std::endl;
+                    //check sign of residual
+                    if (r(0) * rt_min > 0) {
+                        //r(0) replaces rt_min
+                        rt_min = r(0);
+                        tau_min = tau_bar_k;
+                    } else {
+                        rt_max = r(0);
+                        tau_max = tau_bar_k;
                     }
-                    p_k = p_kplus;
-                    tau_bar_k = tau_bar_kplus;
-                    r = r_tr;
-                    break;
                 }
-
-                p_k = p_kplus;
-                tau_bar_k = tau_bar_kplus;
-                r = r_tr;
             }
+            //should now have solution
+
+
             //std::cout << gammap_dot_tr << ", " << p_kplus << ", " << eta(i) << ", " << phi(i) << std::endl;
             //std::cout << mu << ", " << beta << ", " << p_k << ", " << tau_bar_k << std::endl;
 
@@ -457,21 +510,53 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
         //check zero strength f1,f3 yield condition ******************************************************************//
         if (!is_solved){
             //setup newton method to find pressure
+            beta = getBeta(phi(i), phi_m); //high pressure limit
             r_p = std::max(std::abs(p_tr),std::abs(p_tr + (K*tau_bar_tr/G)*beta));
             b_p = r_p;
             tau_bar_k = 0;
             p_k = 0;
 
+            //use bisection
+            beta = getBeta(phi(i), 0.0); //low pressure limit
+            p_max = p_tr + (K*tau_bar_tr/G)*beta; tau_max = tau_bar_tr;
+            p_min = 0.0;  tau_min = 0.0;
+
+            //calculate gammap_dot for tau going to zero
+            gammap_dot_tr = tau_bar_tr / (G*job->dt);
+
+            //calculate state for p_max
+            calcState(gammap_dot_tr,p_max,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+            //calculate xi_dot_2
+            xi_dot_2 = (p_max - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
+
+            //calculate residual
+            rp_max = p_max - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
+
+            //calculate state for p_min
+            calcState(gammap_dot_tr,p_min,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+            //calculate xi_dot_2
+            xi_dot_2 = (p_min - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
+
+            //calculate residual
+            rp_min = p_min - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
+
+            if (rp_min * rp_max > 0){
+                std::cout << "ERROR: Residuals in binary search have same sign! That's bad!" << std::endl;
+            }
+
             k = 0;
-            //newton method
+            //bisection method
             while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
                 k += 1;
-                if (k > 100 && SLURRY_MU_IM_DEBUG){
-                    std::cout << "f1,f3 weak: " << p_k << ", " << r_p << ", " << dr_dp << std::endl;
+                if (k > 50 && SLURRY_MU_IM_DEBUG){
+                    std::cout << "f1, f3: " << p_k << ", " << r_p << std::endl;
+                    break; //after 50 iterations, bisection is not changing
                 }
 
-                //calculate gammap_dot
-                gammap_dot_tr = tau_bar_tr / (G*job->dt);
+                //binary search
+                p_k = 0.5*(p_max + p_min);
 
                 //calculate state for step
                 calcState(gammap_dot_tr,p_k,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
@@ -482,49 +567,20 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                 //calculate residual
                 r_p = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
 
-
-                //approx gradients
-                p_tmp = getStep(p_k, NAN, 0.0);
-                calcState(gammap_dot_tr,p_tmp,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
-                xi_dot_2 = (p_tmp - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
-                dr_dp = (p_tmp - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2)) - r_p)/(p_tmp - p_k);
-
-                //limit step length
-                lambda_tmp = 1.0;
-                r_p_tr = r_p;
-                do{
-                    //update guess
-                    p_kplus = p_k - lambda_tmp * r_p / dr_dp;
-
-                    if (p_kplus < 0){
-                        p_kplus = 0;
-                    }
-
-                    //calculate new state
-                    calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
-
-                    //test residual
-                    r_p_tr = p_kplus - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
-
-                    //set new lambda
-                    lambda_tmp *= 0.5;
-
-                } while(std::abs(r_p_tr) >= std::abs(r_p) && lambda_tmp > REL_TOL);
-
-                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL) {
-                    if (SLURRY_MU_IM_DEBUG) {
-                        std::cout
-                                << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. "
-                                << r_p_tr << std::endl;
-                    }
-                    p_k = p_kplus;
-                    r_p = r_p_tr;
-                    break;
+                //check residual sign
+                if (r_p * rp_min > 0){
+                    //r_p replaces r_min
+                    rp_min = r_p;
+                    p_min = p_k;
+                } else {
+                    //r_p replaces r_max
+                    rp_max = r_p;
+                    p_max = p_k;
                 }
-
-                p_k = p_kplus;
-                r_p = r_p_tr;
             }
+
+            //save value for next check
+            p_zero_strength_f1f3 = p_k;
 
             //check that zero strength assumption is true
             gammap_dot_tr = tau_bar_tr / (G*job->dt);
@@ -546,23 +602,113 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
             r(1) = p_tr;
             b = r;
 
+            //use bisection
+            beta = getBeta(phi(i), 0.0); //low pressure limit
+            p_max = p_tr + (K*tau_bar_tr/G)*beta; tau_max = tau_bar_tr;
+            p_min = 0.0;  tau_min = 0.0;
+
+            //tau = tau_max -> gdp = 0 -> p = ?
+            gammap_dot_tr = 0.0;
+            A = - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((K_4)*(K_4)*grains_d*grains_d*grains_rho);
+            B = (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*(2.0*eta(i)*(K_4)) + K*job->dt;
+            C = p_tr;
+            if (K_4 < 1e-10){
+                p_max = 0.0;
+            } else {
+                xi_dot_2 = (-B - std::sqrt(B*B - 4*A*C))/(2*A);
+                p_max = p_tr - K*xi_dot_2*job->dt;
+            }
+            calcState(gammap_dot_tr, p_max, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+            rt_max = tau_max - (mu + beta)*p_max;
+
+            //tau = tau_min -> p = p_zero_strength
+            gammap_dot_tr = tau_bar_tr/(G*job->dt);
+            calcState(gammap_dot_tr, p_zero_strength_f1f3, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+            rt_min = tau_min - (mu + beta)*p_zero_strength_f1f3;
+
+            if (rt_min * rt_max > 0){
+                std::cout << "ERROR: Residuals in binary search have same sign! That's bad!" << std::endl;
+            }
+
             k = 0;
 
-            //newton method
+            //bisection method
             while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
                 k+=1;
-                if (k>100 && SLURRY_MU_IM_DEBUG){
+                if (k>50 && SLURRY_MU_IM_DEBUG){
                     //std::cout << "f1,f3: " << p_k << ", " << tau_bar_k << ", " << r.norm() << ", " << dr.norm() << std::endl;
                     std::cout << "f1,f3: " << p_k << ", " << tau_bar_k << std::endl;
                     std::cout << "       " << r(0) << ", " << r(1) << std::endl;
-                    std::cout << "       " << dr(0,0) << ", " << dr(0,1) << std::endl;
-                    std::cout << "       " << dr(1,0) << ", " << dr(1,1) << std::endl;
-                    std::cout << "       " << i << ", " << phi(i) << ", " << ", " << p_tr << ", " << tau_bar_tr << std::endl;
-                    std::cout << "       " << lambda_tmp << ", " << upd(0) << ", " << upd(1) << std::endl << std::endl;
-
+                    //after 50 iterations bisection isn't changing
+                    break;
                 }
+
+                //set tau_k
+                tau_bar_k = 0.5*(tau_max + tau_min);
+
                 //calculate equiv shear rate
                 gammap_dot_tr = (tau_bar_tr - tau_bar_k)/(G*job->dt);
+
+                //use bisection
+                beta = getBeta(phi(i), 0.0); //low pressure limit
+                p_max = p_tr + (K*tau_bar_tr/G)*beta;
+                p_min = 0.0;
+
+                //calculate state for p_max
+                calcState(gammap_dot_tr,p_max,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+                //calculate xi_dot_2
+                xi_dot_2 = (p_max - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
+
+                //calculate residual
+                rp_max = p_max - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
+
+                //calculate state for p_min
+                calcState(gammap_dot_tr,p_min,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+                //calculate xi_dot_2
+                xi_dot_2 = (p_min - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
+
+                //calculate residual
+                rp_min = p_min - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
+
+                if (rp_min * rp_max > 0){
+                    std::cout << "ERROR: Residuals in binary search have same sign! That's bad!" << std::endl;
+                }
+
+                j = 0;
+                r_p = rp_max; b_p = r_p;
+                //bisection method
+                while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
+                    j += 1;
+                    if (j > 50 && SLURRY_MU_IM_DEBUG){
+                        std::cout << "f1, f3: " << p_k << ", " << r_p << std::endl;
+                        break; //bisection at machine precision
+                    }
+
+                    //binary search
+                    p_k = 0.5*(p_max + p_min);
+
+                    //calculate state for step
+                    calcState(gammap_dot_tr,p_k,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+
+                    //calculate xi_dot_2
+                    xi_dot_2 = (p_k - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
+
+                    //calculate residual
+                    r_p = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
+
+                    //check residual sign
+                    if (r_p * rp_min > 0){
+                        //r_p replaces r_min
+                        rp_min = r_p;
+                        p_min = p_k;
+                    } else {
+                        //r_p replaces r_max
+                        rp_max = r_p;
+                        p_max = p_k;
+                    }
+                }
 
                 //calculate state
                 calcState(gammap_dot_tr, p_k, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
@@ -574,70 +720,16 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                 r(0) = tau_bar_k - (mu + beta)*p_k;
                 r(1) = p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
 
-                //approx gradients
-                tau_bar_tmp = getStep(tau_bar_k, tau_bar_tr, 0.0);
-                gammap_dot_tmp = (tau_bar_tr - tau_bar_tmp)/(G*job->dt);
-                calcState(gammap_dot_tmp,p_k,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
-                xi_dot_2 = (p_k - p_tr)/(K*job->dt) - beta*gammap_dot_tmp;
-                dr1_dtau = (tau_bar_tmp - (mu + beta)*p_k - r(0))/(tau_bar_tmp - tau_bar_k);
-                dr2_dtau = (p_k - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tmp - K_4*xi_dot_2)*(gammap_dot_tmp - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tmp - K_4*xi_dot_2)) - r(1))/(tau_bar_tmp - tau_bar_k);
 
-                p_tmp = getStep(p_k, NAN, 0.0);
-                calcState(gammap_dot_tr, p_tmp, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
-                xi_dot_2 = (p_tmp - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
-                dr1_dp = (tau_bar_k - (mu+beta)*p_tmp - r(0))/(p_tmp - p_k);
-                dr2_dp = (p_tmp - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2)) - r(1))/(p_tmp - p_k);
-
-                //form jacobian
-                dr(0,0) = dr1_dtau;
-                dr(0,1) = dr1_dp;
-                dr(1,0) = dr2_dtau;
-                dr(1,1) = dr2_dp;
-
-                //calculate update and limit newton step
-                upd = dr.inverse()*r;
-                lambda_tmp = 1.0;
-                do {
-                    //update variables
-                    tau_bar_kplus = tau_bar_k - lambda_tmp*upd(0);
-                    p_kplus = p_k - lambda_tmp*upd(1);
-
-                    if (p_kplus < 0){
-                        p_kplus = 0;
-                    }
-                    if (tau_bar_kplus > tau_bar_tr){
-                        tau_bar_kplus = tau_bar_tr;
-                    }
-
-                    //calculate strain rate
-                    gammap_dot_tr = (tau_bar_tr - tau_bar_kplus)/(G*job->dt);
-
-                    //calculate state
-                    calcState(gammap_dot_tr,p_kplus,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
-                    xi_dot_2 = (p_kplus - p_tr)/(K*job->dt) - beta*gammap_dot_tr;
-
-                    //calculate residual
-                    r_tr(0) = tau_bar_kplus - (mu + beta)*p_kplus;
-                    r_tr(1) = p_kplus - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
-
-                    lambda_tmp *= 0.5;
-                } while (r_tr.norm() >= r.norm() && lambda_tmp > REL_TOL);
-
-                if (k > 100 && std::abs(p_k - p_kplus) < ABS_TOL && std::abs(tau_bar_k - tau_bar_kplus) < ABS_TOL){
-                    if (SLURRY_MU_IM_DEBUG) {
-                        std::cout
-                                << "Maximum iterations exceeded; Newton scheme appears to have stagnated. Exiting loop. "
-                                << r_tr.norm() << std::endl;
-                    }
-                    p_k = p_kplus;
-                    tau_bar_k = tau_bar_kplus;
-                    r = r_tr;
-                    break;
+                //check sign of residual
+                if (r(0) * rt_min > 0){
+                    //r(1) replaces rt_min
+                    rt_min = r(0);
+                    tau_min = tau_bar_k;
+                } else {
+                    rt_max = r(0);
+                    tau_max = tau_bar_k;
                 }
-
-                p_k = p_kplus;
-                tau_bar_k = tau_bar_kplus;
-                r = r_tr;
             }
 
             //this is the last possible case, if we got here then this is the answer

@@ -2317,12 +2317,14 @@ KinematicVectorArray FVMGridBase::calculateInterphaseForces(Job* job, FiniteVolu
                        + driver->fluid_body->true_density_x[e].dot(x_q[e*qpe + q] - x_e[e]));
 
             //fill in drag force
+
             f_d[e * qpe + q] = driver->fluid_material->getInterphaseDrag(job,
                                                                          driver,
                                                                          rho,
                                                                          (p/rho),
                                                                          v_sq[e*qpe + q],
                                                                          n); //n_q(e*qpe + q));
+
 
             //fill in pressure
             P_q(e * qpe + q) = driver->fluid_material->getPressure(job,
@@ -2335,13 +2337,24 @@ KinematicVectorArray FVMGridBase::calculateInterphaseForces(Job* job, FiniteVolu
             //fill in tmpVecArray and tmpArray
             //tmpVecArray[e*qpe + q] = (-f_d[e*qpe + q] - P_q(e*qpe + q)*gradn_q[e*qpe+q]) * getQuadratureWeight(e*qpe + q);
             //tmpArray(e*qpe + q) = P_q(e*qpe + q) * (1.0 - n_q(e*qpe+q)) * getQuadratureWeight(e*qpe + q);
-            tmpVecArray[e*qpe + q] = -f_d[e*qpe + q] * getQuadratureWeight(e*qpe + q);
+
+            //tmpVecArray[e*qpe + q] = -f_d[e*qpe + q] * getQuadratureWeight(e*qpe + q);
+            if ((1.0 - n) > 1e-10) {
+                //ensures nodes with zero porosity have zero force
+                tmpVecArray[e * qpe + q] = -f_d[e * qpe + q] * getQuadratureWeight(e * qpe + q) / (1.0 - n);
+            } else {
+                //zero
+            }
             tmpArray(e*qpe + q) = P_q(e*qpe + q) * getQuadratureWeight(e*qpe + q);
         }
     }
 
     //integrate expression (pg 117, nb 6)
-    result = Q*tmpVecArray;
+    //result = Q*tmpVecArray;
+    tmp_result = Q*tmpVecArray;
+    for (int i=0; i<result.size(); i++){
+        result[i] += (1.0 - driver->fluid_body->n(i))*tmp_result(i); //ensures nodes with zero porosity have zero force
+    }
     tmp_result = gradQ*tmpArray;
     for (int i=0; i<result.size(); i++){
         result[i] += (1.0 - driver->fluid_body->n(i))*tmp_result(i);
