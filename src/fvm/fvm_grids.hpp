@@ -23,6 +23,8 @@
 #include "mpm_objects.hpp"
 #include "fvm_objects.hpp"
 
+#include "threadpool.hpp"
+
 /*
 //finite volume grid class
 //responsible for tracking element, face definitions and cross integrals with mpm grid
@@ -125,6 +127,23 @@ public:
         object_name = "FVMGridBase";
     }
 
+    //counter for number of threads
+    int num_threads = 1;
+
+    //pointer to job->threadPool
+    ThreadPool* jobThreadPool;
+
+    //memory container for parallel operations
+    struct parallelMemoryUnit {
+        std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>> s;
+        std::vector<KinematicVectorArray> kv;
+        std::vector<MaterialVectorArray> mv;
+        std::vector<KinematicTensorArray> kt;
+    };
+
+    //instantiate
+    std::vector<parallelMemoryUnit> memoryUnits;
+
     //damping coefficient
     double damping_coefficient = 0.999;
 
@@ -195,6 +214,12 @@ public:
 
     //function to calculate interphase force
     virtual KinematicVectorArray calculateInterphaseForces(Job* job, FiniteVolumeDriver* driver);
+
+    //parallel functions
+    virtual void parallelMultiply(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC, bool clear = true, int memUnitID = 0);
+    virtual void parallelMultiply(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC, bool clear = true, int memUnitID = 0);
+    virtual void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const Eigen::VectorXd &x, KinematicVectorArray &lhs, int SPEC, bool clear = true, int memUnitID = 0);
+
 };
 
 class FVMCartesian : public FVMGridBase{

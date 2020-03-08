@@ -21,6 +21,7 @@
 #include "mpm_objects.hpp"
 #include "fvm_objects.hpp"
 #include "fvm_grids.hpp"
+#include "threadpool.hpp"
 
 void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
     //assign grid dimension
@@ -41,6 +42,16 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
     } else {
         filename = str_props[0];
     }
+
+    //get pointer to job->threadPool
+    jobThreadPool = &job->threadPool;
+
+    //get number of threads
+    num_threads = job->thread_count;
+
+    //initialize memory unit
+    memoryUnits.push_back(parallelMemoryUnit());
+
 
     //initialize tags and values vectors;
     std::vector<FiniteVolumeMethod::BCContainer> tmp_bc_info;
@@ -249,7 +260,7 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
                     }
 
                     //print boundary condition info
-                    std::cout << " - " << i << " : DAMPED_OUTLET : T = " << tmp_bc_info[i].values[0];
+                    std::cout << " - " << i << " : THERMAL_WALL : T = " << tmp_bc_info[i].values[0];
                     break;
 
                 case SYMMETRIC_WALL:

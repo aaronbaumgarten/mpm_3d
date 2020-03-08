@@ -116,6 +116,28 @@ void ParallelExplicitUSL::kvsmTensorProductT(const KinematicVectorSparseMatrix &
     return;
 }
 
+//kinematic vecotr sparse matrix multiplying scalar vector
+void ParallelExplicitUSL::kvsmOperateStoV(const KinematicVectorSparseMatrix &gradS,
+                                             const Eigen::VectorXd &x,
+                                             KinematicVectorArray &lhs,
+                                             int SPEC,
+                                             int k_begin, int k_end){
+    assert(x.rows() == gradS.cols(SPEC) && lhs.VECTOR_TYPE == gradS.VECTOR_TYPE && "Vector sparse matrix multiplication (matrix multiplication) failed.");
+    lhs.setZero();
+
+    int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = gradS.get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = gradS.get_j_index_ref(SPEC);
+
+    for (int k=k_begin;k<=k_end;k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        lhs[i_tmp] += gradS.buffer[k] * x(j_tmp);
+    }
+
+    return;
+}
+
 /*----------------------------------------------------------------------------*/
 //
 //method for adding list of scalar vectors

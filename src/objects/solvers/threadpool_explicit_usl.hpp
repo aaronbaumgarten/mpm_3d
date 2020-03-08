@@ -52,6 +52,17 @@ void ThreadPoolExplicitUSL::ssmOperateVtoVwithFlag(const MPMScalarSparseMatrix &
     return;
 }
 
+void ThreadPoolExplicitUSL::kvsmOperateStoVwithFlag(const KinematicVectorSparseMatrix &gradS, const Eigen::VectorXd &x,
+                                                    KinematicVectorArray &lhs,
+                                                   int SPEC, int k_begin, int k_end,
+                                                   volatile bool& done){
+    //do job
+    ParallelExplicitUSL::kvsmOperateStoV(gradS,x,lhs,SPEC,k_begin,k_end);
+    //let everyone know it's done
+    done = true;
+    return;
+}
+
 //kinematic vector sparse matrix operations
 void ThreadPoolExplicitUSL::kvsmLeftMultiplywithFlag(const KinematicVectorSparseMatrix &gradS,
                                              const MaterialTensorArray &T,

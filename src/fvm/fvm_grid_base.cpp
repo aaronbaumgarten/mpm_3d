@@ -23,6 +23,8 @@
 #include "fvm_objects.hpp"
 #include "fvm_grids.hpp"
 
+#include "objects/solvers/solvers.hpp"
+
 /*----------------------------------------------------------------------------*/
 
 double FVMGridBase::getElementVolume(int e){
@@ -2351,14 +2353,46 @@ KinematicVectorArray FVMGridBase::calculateInterphaseForces(Job* job, FiniteVolu
 
     //integrate expression (pg 117, nb 6)
     //result = Q*tmpVecArray;
-    tmp_result = Q*tmpVecArray;
-    for (int i=0; i<result.size(); i++){
-        result[i] += (1.0 - driver->fluid_body->n(i))*tmp_result(i); //ensures nodes with zero porosity have zero force
+    if (num_threads > 1){
+        //add components to result vector
+        parallelMultiply(Q, tmpVecArray, result, Q.NORMAL, false);
+        parallelMultiply(gradQ, tmpArray, result, gradQ.NORMAL, false);
+    } else {
+        tmp_result = Q * tmpVecArray;
+        for (int i = 0; i < result.size(); i++) {
+            result[i] += (1.0 - driver->fluid_body->n(i)) * tmp_result(i); //ensures nodes with zero porosity have zero force
+        }
+        tmp_result = gradQ * tmpArray;
+        for (int i = 0; i < result.size(); i++) {
+            result[i] += (1.0 - driver->fluid_body->n(i)) * tmp_result(i);
+        }
     }
-    tmp_result = gradQ*tmpArray;
-    for (int i=0; i<result.size(); i++){
-        result[i] += (1.0 - driver->fluid_body->n(i))*tmp_result(i);
+
+    /*
+    int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = Q.get_i_index_ref(Q.NORMAL);
+    const std::vector<int>& j_ref = Q.get_j_index_ref(Q.NORMAL);
+    double phi;
+    for (int k=0;k<Q.size();k++) {
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        phi = (1.0 - driver->fluid_body->n(i_tmp));
+        if (phi > 1e-10) {
+            result[i_tmp] += phi * Q.buffer[k] * tmpVecArray[j_tmp];
+        }
     }
+
+    const std::vector<int>& i_grad_ref = gradQ.get_i_index_ref(Q.NORMAL);
+    const std::vector<int>& j_grad_ref = gradQ.get_j_index_ref(Q.NORMAL);
+    for (int k=0;k<gradQ.size();k++) {
+        i_tmp = i_grad_ref[k];
+        j_tmp = j_grad_ref[k];
+        phi = (1.0 - driver->fluid_body->n(i_tmp));
+        if (phi > 1e-10) {
+            result[i_tmp] += phi * gradQ.buffer[k] * tmpArray(j_tmp);
+        }
+    }
+     */
 
     //zero temporary vectors
     tmp_result.setZero();
@@ -2407,10 +2441,30 @@ KinematicVectorArray FVMGridBase::calculateInterphaseForces(Job* job, FiniteVolu
     }
 
     //integrate expression (pg 117, nb 6)
-    tmp_result = Q*tmpVecArray;
-    for (int i=0; i<result.size(); i++){
-        result[i] += (1.0 - driver->fluid_body->n(i))*tmp_result(i);
+    if (num_threads > 1){
+        //add final component to result vector
+        parallelMultiply(Q, tmpVecArray, result, Q.NORMAL, false);
+        //scale result vector
+        for (int i = 0; i < result.size(); i++) {
+            result[i] *= (1.0 - driver->fluid_body->n(i));
+        }
+    } else {
+        tmp_result = Q * tmpVecArray;
+        for (int i = 0; i < result.size(); i++) {
+            result[i] += (1.0 - driver->fluid_body->n(i)) * tmp_result(i);
+        }
     }
+
+    /*
+    for (int k=0;k<Q.size();k++) {
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        phi = (1.0 - driver->fluid_body->n(i_tmp));
+        if (phi > 1e-10) {
+            result[i_tmp] += phi * Q.buffer[k] * tmpVecArray[j_tmp];
+        }
+    }
+     */
 
     //divide result by associated nodal volumes
     for (int i=0; i<job->grid->node_count; i++){
@@ -2419,3 +2473,376 @@ KinematicVectorArray FVMGridBase::calculateInterphaseForces(Job* job, FiniteVolu
 
     return result;
 }
+
+
+/*----------------------------------------------------------------------------*/
+//parallel functions
+void FVMGridBase::parallelMultiply(const MPMScalarSparseMatrix &S,
+                                   const Eigen::VectorXd &x,
+                                   Eigen::VectorXd &lhs,
+                                   int SPEC,
+                                   bool clear,
+                                   int memUnitID){
+    //get length of sparse matrix storage
+    int k_max = S.size() - 1;
+
+    //get length of output vector
+    int i_max = lhs.rows() - 1;
+
+    //determine number of threads for matrix vector mult
+    int thread_count;
+    if (S.size() >= num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = S.size();
+    }
+
+    //intermediate storage vector
+    //check that memUnitID is valid
+    if (memUnitID >= memoryUnits.size()){
+        std::cerr << "ERROR! Invalid memUnitID passed to parallelMultiply! " << memUnitID << " >= " << memoryUnits.size() << std::endl;
+    }
+    if (memoryUnits[memUnitID].s.size() != thread_count){
+        memoryUnits[memUnitID].s.resize(thread_count);
+    }
+
+    //boolean of completion status
+    volatile bool firstTaskComplete[thread_count] = {false};
+
+    //choose interval size
+    int k_interval = (S.size()/thread_count) + 1;
+    int k_begin, k_end;
+
+    for (int t=0; t<thread_count; t++) {
+        //initialize lhs
+        if (memoryUnits[memUnitID].s[t].rows() != lhs.rows()){
+            memoryUnits[memUnitID].s[t] = Eigen::VectorXd(lhs.rows());
+        }
+
+        //set interval
+        k_begin = t * k_interval;
+        k_end = k_begin + k_interval - 1;
+        if (k_end > k_max){
+            k_end = k_max;
+        }
+        //send job to threadpool
+        jobThreadPool->doJob(std::bind(ThreadPoolExplicitUSL::ssmOperateStoSwithFlag,
+                                       std::ref(S),
+                                       std::ref(x),
+                                       std::ref(memoryUnits[memUnitID].s[t]),
+                                       SPEC,
+                                       k_begin,
+                                       k_end,
+                                       std::ref(firstTaskComplete[t])));
+    }
+
+    bool taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            //std::cout << firstTaskComplete[t] << "?" << std::endl;
+            if (!firstTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
+    }
+
+    //determine number of threads for addition
+    if (lhs.rows() > num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = lhs.rows();
+    }
+
+    volatile bool secondTaskComplete[thread_count] = {false};
+
+    //choose interval size
+    int i_interval = (lhs.rows()/thread_count) + 1;
+    int i_begin, i_end;
+
+    for (int t=0; t<thread_count; t++){
+        //set interval
+        i_begin = t*i_interval;
+        i_end = i_begin + i_interval-1;
+        if (i_end > i_max){
+            i_end = i_max;
+        }
+        //send job to threadpool
+        jobThreadPool->doJob(std::bind(ThreadPoolExplicitUSL::scalarAddwithFlag,
+                                       std::ref(memoryUnits[memUnitID].s),
+                                       std::ref(lhs),
+                                       i_begin,
+                                       i_end,
+                                       clear,
+                                       std::ref(secondTaskComplete[t])));
+    }
+
+    //join threads
+    taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!secondTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
+    }
+
+    //should be all done
+    return;
+}
+
+void FVMGridBase::parallelMultiply(const MPMScalarSparseMatrix &S,
+                                   const KinematicVectorArray &x,
+                                   KinematicVectorArray &lhs,
+                                   int SPEC, bool clear, int memUnitID){
+    //get length of sparse matrix storage
+    int k_max = S.size() - 1;
+
+    //get length of output vector
+    int i_max = lhs.size() - 1;
+
+    //determine number of threads for matrix vector mult
+    int thread_count;
+    if (S.size() >= num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = S.size();
+    }
+
+    //intermediate storage vector
+    //check that memUnitID is valid
+    if (memUnitID >= memoryUnits.size()){
+        std::cerr << "ERROR! Invalid memUnitID passed to parallelMultiply! " << memUnitID << " >= " << memoryUnits.size() << std::endl;
+    }
+    if (memoryUnits[memUnitID].kv.size() != thread_count){
+        memoryUnits[memUnitID].kv.resize(thread_count);
+    }
+
+    //boolean of completion status
+    volatile bool firstTaskComplete[thread_count] = {false};
+
+    //choose interval size
+    int k_interval = (S.size()/thread_count) + 1;
+    int k_begin, k_end;
+
+    for (int t=0; t<thread_count; t++) {
+        //initialize lhs
+        //lhs_vec[t] = KinematicVectorArray(lhs.size(),lhs.VECTOR_TYPE);
+        if (memoryUnits[memUnitID].kv[t].size() != lhs.size()){
+            memoryUnits[memUnitID].kv[t] = KinematicVectorArray(lhs.size(),lhs.VECTOR_TYPE);
+        }
+
+        //set interval
+        k_begin = t * k_interval;
+        k_end = k_begin + k_interval - 1;
+        if (k_end > k_max){
+            k_end = k_max;
+        }
+        //send job to threadpool
+        jobThreadPool->doJob(std::bind(ThreadPoolExplicitUSL::ssmOperateVtoVwithFlag,
+                                       std::ref(S),
+                                       std::ref(x),
+                                       std::ref(memoryUnits[memUnitID].kv[t]),
+                                       SPEC,
+                                       k_begin,
+                                       k_end,
+                                       std::ref(firstTaskComplete[t])));
+    }
+
+    //join threads
+    bool taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!firstTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
+    }
+
+    //determine number of threads for addition
+    if (lhs.size() > num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = lhs.size();
+    }
+
+    //boolean of completion status
+    volatile bool secondTaskComplete[thread_count] = {false};
+
+    //choose interval size
+    int i_interval = (lhs.size()/thread_count) + 1;
+    int i_begin, i_end;
+
+    for (int t=0; t<thread_count; t++){
+        //set interval
+        i_begin = t*i_interval;
+        i_end = i_begin + i_interval-1;
+        if (i_end > i_max){
+            i_end = i_max;
+        }
+        //send job to thread pool
+        jobThreadPool->doJob(std::bind(ThreadPoolExplicitUSL::vectorAddKwithFlag,
+                                       std::ref(memoryUnits[memUnitID].kv),
+                                       std::ref(lhs),
+                                       i_begin,
+                                       i_end,
+                                       clear,
+                                       std::ref(secondTaskComplete[t])));
+    }
+
+    //join threads
+    taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!secondTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
+    }
+
+    //should be all done
+    return;
+}
+
+void FVMGridBase::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
+                                   const Eigen::VectorXd &x,
+                                   KinematicVectorArray &lhs,
+                                   int SPEC, bool clear, int memUnitID){
+    //get length of sparse matrix storage
+    int k_max = gradS.size() - 1;
+
+    //get length of output vector
+    int i_max = lhs.size() - 1;
+
+    //determine number of threads for matrix vector mult
+    int thread_count;
+    if (gradS.size() >= num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = gradS.size();
+    }
+
+    //intermediate storage vector
+    //check that memUnitID is valid
+    if (memUnitID >= memoryUnits.size()){
+        std::cerr << "ERROR! Invalid memUnitID passed to parallelMultiply! " << memUnitID << " >= " << memoryUnits.size() << std::endl;
+    }
+    if (memoryUnits[memUnitID].kv.size() != thread_count){
+        memoryUnits[memUnitID].kv.resize(thread_count);
+    }
+
+    //boolean of completion status
+    volatile bool firstTaskComplete[thread_count] = {false};
+
+    //choose interval size
+    int k_interval = (gradS.size()/thread_count) + 1;
+    int k_begin, k_end;
+
+    for (int t=0; t<thread_count; t++) {
+        //initialize lhs
+        //lhs_vec[t] = KinematicVectorArray(lhs.size(),lhs.VECTOR_TYPE);
+        if (memoryUnits[memUnitID].kv[t].size() != lhs.size()){
+            memoryUnits[memUnitID].kv[t] = KinematicVectorArray(lhs.size(),lhs.VECTOR_TYPE);
+        }
+
+        //set interval
+        k_begin = t * k_interval;
+        k_end = k_begin + k_interval - 1;
+        if (k_end > k_max){
+            k_end = k_max;
+        }
+        //send job to threadpool
+        jobThreadPool->doJob(std::bind(ThreadPoolExplicitUSL::kvsmOperateStoVwithFlag,
+                                       std::ref(gradS),
+                                       std::ref(x),
+                                       std::ref(memoryUnits[memUnitID].kv[t]),
+                                       SPEC,
+                                       k_begin,
+                                       k_end,
+                                       std::ref(firstTaskComplete[t])));
+    }
+
+    //join threads
+    bool taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!firstTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
+    }
+
+    //determine number of threads for addition
+    if (lhs.size() > num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = lhs.size();
+    }
+
+    //boolean of completion status
+    volatile bool secondTaskComplete[thread_count] = {false};
+
+    //choose interval size
+    int i_interval = (lhs.size()/thread_count) + 1;
+    int i_begin, i_end;
+
+    for (int t=0; t<thread_count; t++){
+        //set interval
+        i_begin = t*i_interval;
+        i_end = i_begin + i_interval-1;
+        if (i_end > i_max){
+            i_end = i_max;
+        }
+        //send job to thread pool
+        jobThreadPool->doJob(std::bind(ThreadPoolExplicitUSL::vectorAddKwithFlag,
+                                       std::ref(memoryUnits[memUnitID].kv),
+                                       std::ref(lhs),
+                                       i_begin,
+                                       i_end,
+                                       clear,
+                                       std::ref(secondTaskComplete[t])));
+    }
+
+    //join threads
+    taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!secondTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
+    }
+
+    //should be all done
+    return;
+}
+

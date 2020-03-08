@@ -22,6 +22,7 @@
 #include "mpm_objects.hpp"
 #include "fvm_objects.hpp"
 #include "fvm_grids.hpp"
+#include "threadpool.hpp"
 
 void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
     //assign grid dimension from job type
@@ -38,6 +39,17 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
     } else {
         std::cerr << "FiniteVolumeGrid doesn't have defined type for JOB_TYPE " << job->JOB_TYPE << "." << std::endl;
     }
+
+
+    //get pointer to job->threadPool
+    jobThreadPool = &job->threadPool;
+
+    //get number of threads
+    num_threads = job->thread_count;
+
+    //initialize memory units (should only need 1)
+    memoryUnits.push_back(parallelMemoryUnit());
+
 
     //check size of properties passed to grid object
     if (fp64_props.size() < GRID_DIM || int_props.size() < GRID_DIM) {
@@ -282,7 +294,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
                     }
 
                     //print boundary condition info
-                    std::cout << " - " << i << " : DAMPED_OUTLET : T = " << tmp_bc_info[i].values[0];
+                    std::cout << " - " << i << " : THERMAL_WALL : T = " << tmp_bc_info[i].values[0];
                     break;
 
                 case SYMMETRIC_WALL:
