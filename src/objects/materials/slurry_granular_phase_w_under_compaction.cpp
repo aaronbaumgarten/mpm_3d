@@ -70,6 +70,7 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
     double p_zero_strength_f1f3;
 
     bool tau_too_large = false;
+    bool tau_too_small = false;
 
     double A, B, C;
 
@@ -132,7 +133,7 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
         if (!is_solved){
             beta = getBeta(phi(i), phi_m); //zero plastic flow limit
 
-            if ((p_tr >= 0) && (tau_bar_tr <= ((mu_1 + beta)*p_tr))){
+            if ((p_tr >= 0) && (tau_bar_tr <= ((mu_1 + beta)*p_tr)) && (phi(i) >= phi_c)){
                 gammap_dot_tr = 0;
                 p = p_tr;
                 tau_bar = tau_bar_tr;
@@ -185,14 +186,14 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
             rp_min = p_min - p_tr - K*job->dt*beta*gammap_dot_tr;
 
             if (rp_min * rp_max > 0){
-                std::cout << "ERROR: Residuals in binary search have same sign! That's bad!" << std::endl;
+                std::cout << "ERROR: f1 weak residuals in binary search have same sign! That's bad!" << std::endl;
             }
 
             //bisection method
             while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
                 k += 1;
                 if (k > 50){
-                    break; //machine precision p
+                    break;
                 }
 
                 //binary search
@@ -256,122 +257,136 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
             calcState(gammap_dot_tr, p_zero_strength_f1, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
             rt_min = tau_min - (mu + beta)*p_zero_strength_f1;
 
-            if (rt_min * rt_max > 0){
-                std::cout << "ERROR: Residuals in binary search have same sign! That's bad!" << std::endl;
-            }
+            //if on f1 only and (phi(i) < phi_m) then beta >= 0
+            //as tau decreases, p increases. If both rt_min and rt_max are less than zero,
+            //then we must also be on f3
+            if (rt_min*rt_max > 0){ //(rt_min < 0 && rt_max < 0){
+                //do nothing
+            } else {
+                //solve for f1
 
-            tau_too_large = false;
-            k = 0;
-            //bisection method
-            while (r(0) > b(0) * REL_TOL && r.norm() > ABS_TOL) {
-                k+=1;
-                if (k>50){
-                    break; //machine precision bisection
+                if (rt_min * rt_max > 0) {
+                    std::cout << "ERROR: f1 residuals in binary search have same sign! That's bad!" << std::endl;
+                    std::cout << rt_min << ", " << rt_max << ", " << phi(i) << " <? " << phi_m << std::endl;
                 }
 
-                //set up initial residual
-                beta = getBeta(phi(i), phi_m); //high pressure limit
-                r_p = std::max(std::abs(p_tr),std::abs(p_tr + (K*tau_bar_tr/G)*beta)); //reference
-                b_p = r_p;
-
-                //set tau_bar_k
-                tau_bar_k = 0.5*(tau_max + tau_min);
-
-                //find p_j
-                //use bisection
-                beta = getBeta(phi(i), 0.0); //low pressure limit
-                p_max = p_tr + (K*tau_bar_tr/G)*beta;
-                p_min = 0.0;
-
-                //calculate gammap_dot for tau going to zero
-                gammap_dot_tr = (tau_bar_tr - tau_bar_k) / (G*job->dt);
-
-                //calculate state for p_max
-                calcState(gammap_dot_tr,p_max,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
-
-                //calculate residual for p_max
-                rp_max = p_max - p_tr - K*job->dt*beta*gammap_dot_tr;
-
-                //calculate state for p_min
-                calcState(gammap_dot_tr,p_min,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
-
-                //calculate residual for r_min
-                rp_min = p_min - p_tr - K*job->dt*beta*gammap_dot_tr;
-
-                if (rp_min * rp_max > 0){
-                    //std::cout << "ERROR: Residuals in binary search have same sign! That's bad!" << std::endl;
-                    //this likely means that tau_bar_k is too large (gdp too small, beta too small)
-                    tau_max = tau_bar_k;
-                    tau_too_large = true;
-                    break;
-                    //std::cout << p_tr << " : " << p_max << " : " << p_min << std::endl;
-                    //exit(0);
-                }
-
+                tau_too_large = false;
+                k = 0;
                 //bisection method
-                j = 0;
-                while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
-                    j += 1;
-                    if (j > 50){
-                        break; //machine precision bisection
+                while (r(0) > b(0) * REL_TOL && r.norm() > ABS_TOL) {
+                    k += 1;
+                    if (k > 50) {
+                        break;
                     }
 
-                    //binary search
-                    p_k = 0.5*(p_max + p_min);
+                    //set up initial residual
+                    beta = getBeta(phi(i), phi_m); //high pressure limit
+                    r_p = std::max(std::abs(p_tr), std::abs(p_tr + (K * tau_bar_tr / G) * beta)); //reference
+                    b_p = r_p;
 
-                    //calculate state for step
-                    calcState(gammap_dot_tr,p_k,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
+                    //set tau_bar_k
+                    tau_bar_k = 0.5 * (tau_max + tau_min);
 
-                    //calculate residual
-                    r_p = p_k - p_tr - K*job->dt*beta*gammap_dot_tr;
+                    //find p_j
+                    //use bisection
+                    beta = getBeta(phi(i), 0.0); //low pressure limit
+                    p_max = p_tr + (K * tau_bar_tr / G) * beta;
+                    p_min = 0.0;
 
-                    //check residual sign
-                    if (r_p * rp_min > 0){
-                        //r_p replaces r_min
-                        rp_min = r_p;
-                        p_min = p_k;
-                    } else {
-                        //r_p replaces r_max
-                        rp_max = r_p;
-                        p_max = p_k;
-                    }
-                }
-
-                if (!tau_too_large) {
-                    //calculate equiv shear rate
+                    //calculate gammap_dot for tau going to zero
                     gammap_dot_tr = (tau_bar_tr - tau_bar_k) / (G * job->dt);
 
-                    //calculate state
-                    calcState(gammap_dot_tr, p_k, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+                    //calculate state for p_max
+                    calcState(gammap_dot_tr, p_max, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
 
-                    //calculate residual
-                    r(0) = tau_bar_k - (mu + beta) * p_k;
-                    r(1) = p_k - p_tr - K * job->dt * beta * gammap_dot_tr;
+                    //calculate residual for p_max
+                    rp_max = p_max - p_tr - K * job->dt * beta * gammap_dot_tr;
 
-                    //check sign of residual
-                    if (r(0) * rt_min > 0) {
-                        //r(0) replaces rt_min
-                        rt_min = r(0);
-                        tau_min = tau_bar_k;
-                    } else {
-                        rt_max = r(0);
+                    //calculate state for p_min
+                    calcState(gammap_dot_tr, p_min, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+
+                    //calculate residual for r_min
+                    rp_min = p_min - p_tr - K * job->dt * beta * gammap_dot_tr;
+
+                    if (rp_min * rp_max > 0) {
+                        //std::cout << "ERROR: Residuals in binary search have same sign! That's bad!" << std::endl;
+                        //this likely means that tau_bar_k is too large (gdp too small, beta too small)
                         tau_max = tau_bar_k;
+                        tau_too_large = true;
+                        r_p = 0;
+                        //std::cout << p_tr << " : " << p_max << " : " << p_min << std::endl;
+                        //exit(0);
+                    } else {
+                        tau_too_large = false;
+                    }
+
+                    //bisection method
+                    j = 0;
+                    while (std::abs(r_p) > ABS_TOL and std::abs(r_p) / std::abs(b_p) > REL_TOL) {
+                        j += 1;
+                        if (j > 50) {
+                            break;
+                        }
+
+                        //binary search
+                        p_k = 0.5 * (p_max + p_min);
+
+                        //calculate state for step
+                        calcState(gammap_dot_tr, p_k, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+
+                        //calculate residual
+                        r_p = p_k - p_tr - K * job->dt * beta * gammap_dot_tr;
+
+                        //check residual sign
+                        if (r_p * rp_min > 0) {
+                            //r_p replaces r_min
+                            rp_min = r_p;
+                            p_min = p_k;
+                        } else {
+                            //r_p replaces r_max
+                            rp_max = r_p;
+                            p_max = p_k;
+                        }
+                    }
+
+                    if (!tau_too_large) {
+                        //calculate equiv shear rate
+                        gammap_dot_tr = (tau_bar_tr - tau_bar_k) / (G * job->dt);
+
+                        //calculate state
+                        calcState(gammap_dot_tr, p_k, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
+
+                        //calculate residual
+                        r(0) = tau_bar_k - (mu + beta) * p_k;
+                        r(1) = p_k - p_tr - K * job->dt * beta * gammap_dot_tr;
+
+                        //check sign of residual
+                        if (r(0) * rt_min > 0) {
+                            //r(0) replaces rt_min
+                            rt_min = r(0);
+                            tau_min = tau_bar_k;
+                        } else {
+                            rt_max = r(0);
+                            tau_max = tau_bar_k;
+                        }
                     }
                 }
-            }
-            //should now have solution
+                //should now have solution
 
 
-            //std::cout << gammap_dot_tr << ", " << p_kplus << ", " << eta(i) << ", " << phi(i) << std::endl;
-            //std::cout << mu << ", " << beta << ", " << p_k << ", " << tau_bar_k << std::endl;
+                //std::cout << gammap_dot_tr << ", " << p_kplus << ", " << eta(i) << ", " << phi(i) << std::endl;
+                //std::cout << mu << ", " << beta << ", " << p_k << ", " << tau_bar_k << std::endl;
 
-            //check that solution meets criteria for f1 yield ONLY
-            gammap_dot_tr = (tau_bar_tr - tau_bar_k) / (G*job->dt);
-            if ((phi(i) >= phi_c) or (p_k <= (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*(gammap_dot_tr*gammap_dot_tr*grains_d*grains_d*grains_rho + 2.0*eta(i)*gammap_dot_tr) )){
-                p = p_k;
-                tau_bar = tau_bar_k;
-                is_solved = true;
-                //std::cout << "success ^" << std::endl;
+                //check that solution meets criteria for f1 yield ONLY
+                gammap_dot_tr = (tau_bar_tr - tau_bar_k) / (G * job->dt);
+                if ((phi(i) >= phi_c) or (p_k <= (a * a * phi(i) * phi(i)) / ((phi_m - phi(i)) * (phi_m - phi(i))) *
+                                                 (gammap_dot_tr * gammap_dot_tr * grains_d * grains_d * grains_rho +
+                                                  2.0 * eta(i) * gammap_dot_tr))) {
+                    p = p_k;
+                    tau_bar = tau_bar_k;
+                    is_solved = true;
+                    //std::cout << "success ^" << std::endl;
+                }
             }
         }
 
@@ -400,6 +415,7 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
                 //do nothing
                 p_zero_strength_f1f3 = p_max;
             } else {
+
                 //calculate xi_dot_2
                 xi_dot_2 = (p_max - p_tr) / (K * job->dt) - beta * gammap_dot_tr;
 
@@ -420,15 +436,17 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
                                   grains_d * grains_rho + 2.0 * eta(i) * (gammap_dot_tr - K_4 * xi_dot_2));
 
                 if (rp_min * rp_max > 0) {
-                    std::cout << "ERROR: Residuals in binary search have same sign! That's bad!" << std::endl;
+                    std::cout << "ERROR: f1,f3 weak residuals in binary search have same sign! That's bad!"
+                              << std::endl;
+                    std::cout << p_min << ": " << rp_min << ", " << p_max << ": " << rp_max << std::endl;
                 }
 
                 k = 0;
                 //bisection method
                 while (std::abs(r_p) > ABS_TOL and std::abs(r_p) / std::abs(b_p) > REL_TOL) {
                     k += 1;
-                    if (k > 50) {
-                        break; //machine precision bisection
+                    if  (k > 50) {
+                        break;
                     }
 
                     //binary search
@@ -483,7 +501,7 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
 
             //use bisection
             beta = getBeta(phi(i), 0.0); //low pressure limit
-            p_max = p_tr + (K*tau_bar_tr/G)*beta; tau_max = tau_bar_tr;
+            p_max = p_tr; tau_max = tau_bar_tr;
             p_min = 0.0;  tau_min = 0.0;
 
             //tau = tau_max -> gdp = 0 -> p = ?
@@ -506,17 +524,22 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
             rt_min = tau_min - (mu + beta)*p_zero_strength_f1f3;
 
             if (rt_min * rt_max > 0){
-                std::cout << "ERROR: Residuals in binary search have same sign! That's bad!" << std::endl;
+                std::cout << "ERROR: f1,f3 residuals in binary search have same sign! That's bad!" << std::endl;
+                std::cout << rt_min << ", " << rt_max << std::endl;
+                std::cout << (mu + beta) << ", " << p_zero_strength_f1f3 << std::endl;
+                //tau_max -> gdp=0 -> p_max small -> rt_max big
+                //tau_min -> max gdp -> p_max big -> rt_max small
+                //if rt_min > 0, then (mu + beta) associated with p_zero_strength < 0, shouldn't happen
             }
 
             k = 0;
-            tau_too_large = false;
+            tau_too_small = false;
 
             //bisection method
             while (r.norm() > b.norm() * REL_TOL && r.norm() > ABS_TOL) {
                 k+=1;
                 if (k>50){
-                    break; //machine precision bisection
+                    break;
                 }
 
                 //set tau_k
@@ -532,10 +555,14 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
                 //calculate state for p_max
                 calcState(gammap_dot_tr,p_max,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
 
-                //if beta > 0 at p_max, beta > 0 for all p
+                //if beta is positive at max pressure, then beta will be positive for all admissible pressures
                 if (beta > 0){
-                    tau_max = tau_bar_k;
-                    tau_too_large = true;
+                    //trial tau too small (gdp too large)
+                    tau_min = tau_bar_k;
+                    p_k = p_max;
+                    tau_too_small = true;
+                } else {
+                    tau_too_small = false;
                 }
 
                 //calculate xi_dot_2
@@ -553,12 +580,12 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
                 //calculate residual
                 rp_min = p_min - (a*a*phi(i)*phi(i))/((phi_m - phi(i))*(phi_m - phi(i)))*((gammap_dot_tr - K_4*xi_dot_2)*(gammap_dot_tr - K_4*xi_dot_2)*grains_d*grains_d*grains_rho + 2.0*eta(i)*(gammap_dot_tr - K_4*xi_dot_2));
 
-                if (rp_min * rp_max > 0){
-                    std::cout << "ERROR: Residuals in binary search have same sign! That's bad!" << std::endl;
+                if (rp_min * rp_max > 0 && !tau_too_small){
+                    std::cout << "ERROR: f1,f3 pressure residuals in binary search have same sign! That's bad!" << std::endl;
                 }
 
                 j = 0;
-                if (!tau_too_large) {
+                if (!tau_too_small) {
                     r_p = rp_max;
                     b_p = r_p;
                 } else {
@@ -568,7 +595,7 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
                 while (std::abs(r_p) > ABS_TOL and std::abs(r_p)/std::abs(b_p) > REL_TOL){
                     j += 1;
                     if (j > 50){
-                        break; //machine precision in bisection
+                        break;
                     }
 
                     //binary search
@@ -595,7 +622,7 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
                     }
                 }
 
-                if (!tau_too_large) {
+                if (!tau_too_small) {
                     //calculate state
                     calcState(gammap_dot_tr, p_k, eta(i), phi(i), I_tr, I_v_tr, I_m_tr, mu, phi_eq, beta);
 
@@ -610,13 +637,13 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
 
 
                     //check sign of residual
-                    if (r(0) * rt_min > 0) {
-                        //r(1) replaces rt_min
-                        rt_min = r(0);
-                        tau_min = tau_bar_k;
-                    } else {
+                    if (r(0) * rt_max > 0) {
+                        //r(1) replaces rt_max
                         rt_max = r(0);
                         tau_max = tau_bar_k;
+                    } else {
+                        rt_min = r(0);
+                        tau_min = tau_bar_k;
                     }
                 }
             }

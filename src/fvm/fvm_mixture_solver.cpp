@@ -10,6 +10,7 @@
 #include <eigen3/Eigen/Core>
 #include <fstream>
 #include <job.hpp>
+#include <time.h>
 
 #include "parser.hpp"
 
@@ -24,6 +25,8 @@
 #include "fvm_objects.hpp"
 #include "fvm_solvers.hpp"
 #include "objects/bodies/bodies.hpp"
+
+bool FVM_MIXTURE_SOLVER_DEBUG = false;
 
 void FVMMixtureSolver::init(Job* job, FiniteVolumeDriver* driver){
     //check that contact properties are set
@@ -89,70 +92,208 @@ void FVMMixtureSolver::init(Job* job, FiniteVolumeDriver* driver){
 
 void FVMMixtureSolver::step(Job* job, FiniteVolumeDriver* driver){
 
-    /*----------------------*/
-    /*  Begin FVM-MPM Step  */
-    /*----------------------*/
+    if (!FVM_MIXTURE_SOLVER_DEBUG) {
+        /*----------------------*/
+        /*  Begin FVM-MPM Step  */
+        /*----------------------*/
 
-    //create map
-    createMappings(job);
+        //create map
+        createMappings(job);
 
-    //map particles to grid
-    mapPointsToNodes(job);
+        //map particles to grid
+        mapPointsToNodes(job);
 
-    //construct finite volume gradients
-    calculateElementGradients(job, driver);
+        //map mixture properties to finite volumes
+        mapMixturePropertiesToElements(job, driver);
 
-    //map mixture properties to finite volumes
-    mapMixturePropertiesToElements(job, driver);
+        //construct finite volume gradients
+        calculateElementGradients(job, driver);
 
-    //generate fluxes (don't add yet)
-    generateFluxes(job, driver);
+        //generate fluxes (don't add yet)
+        generateFluxes(job, driver);
 
-    //generate mixture forces (FVM only)
-    generateMixtureForces(job, driver);
+        //generate mixture forces (FVM only)
+        generateMixtureForces(job, driver);
 
-    //add fluxes and forces (FVM and MPM)
-    applyFluxes(job, driver);
-    applyMixtureForces(job, driver);
+        //add fluxes and forces (FVM and MPM)
+        applyFluxes(job, driver);
+        applyMixtureForces(job, driver);
 
-    /*----------------------*/
-    /*     End FVM Step     */
-    /*----------------------*/
+        /*----------------------*/
+        /*     End FVM Step     */
+        /*----------------------*/
 
-    //add arbitrary loading conditions
-    generateLoads(job);
-    applyLoads(job);
+        //add arbitrary loading conditions
+        generateLoads(job);
+        applyLoads(job);
 
-    //add contact forces
-    generateContacts(job);
-    addContacts(job);
+        //add contact forces
+        generateContacts(job);
+        addContacts(job);
 
-    //enforce boundary conditions
-    generateBoundaryConditions(job);
-    addBoundaryConditions(job);
+        //enforce boundary conditions
+        generateBoundaryConditions(job);
+        addBoundaryConditions(job);
 
-    //move grid
-    moveGrid(job);
+        //move grid
+        moveGrid(job);
 
-    //move particles
-    movePoints(job);
+        //move particles
+        movePoints(job);
 
-    //calculate strainrate
-    calculateStrainRate(job);
+        //calculate strainrate
+        calculateStrainRate(job);
 
-    //update density
-    updateDensity(job);
+        //update density
+        updateDensity(job);
 
-    //add body forces
-    job->driver->generateGravity(job);
-    job->driver->applyGravity(job);
+        //add body forces
+        job->driver->generateGravity(job);
+        job->driver->applyGravity(job);
 
-    //update stress
-    updateStress(job);
+        //update stress
+        updateStress(job);
 
-    /*----------------------*/
-    /*     End MPM Step     */
-    /*----------------------*/
+        /*----------------------*/
+        /*     End MPM Step     */
+        /*----------------------*/
+
+    } else {
+
+        struct timespec timeStart, timeStop;
+
+        /*----------------------*/
+        /*  Begin FVM-MPM Step  */
+        /*----------------------*/
+
+        //create map
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        createMappings(job);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "createMappings(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        //map particles to grid
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        mapPointsToNodes(job);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "mapPointsToNodes(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        //map mixture properties to finite volumes
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        mapMixturePropertiesToElements(job, driver);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "mapMixturePropertiesToElements(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        //construct finite volume gradients
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        calculateElementGradients(job, driver);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "calculateElementGradients(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        //generate fluxes (don't add yet)
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        generateFluxes(job, driver);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "generateFluxes(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        //generate mixture forces (FVM only)
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        generateMixtureForces(job, driver);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "generateMixtureForces(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        //add fluxes and forces (FVM and MPM)
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        applyFluxes(job, driver);
+        applyMixtureForces(job, driver);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "applyFluxes/MixtureForces(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        /*----------------------*/
+        /*     End FVM Step     */
+        /*----------------------*/
+
+        //add arbitrary loading conditions
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        generateLoads(job);
+        applyLoads(job);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "generate/applyLoads(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        //add contact forces
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        generateContacts(job);
+        addContacts(job);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "generate/applyContacts(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        //enforce boundary conditions
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        generateBoundaryConditions(job);
+        addBoundaryConditions(job);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "generate/applyBCs(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        //move grid
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        moveGrid(job);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "moveGrid(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        //move particles
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        movePoints(job);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "movePoints(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        //calculate strainrate
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        calculateStrainRate(job);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "calculateStrainRate(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        //update density
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        updateDensity(job);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "updateDensity(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        //add body forces
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        job->driver->generateGravity(job);
+        job->driver->applyGravity(job);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "generate/applyGravity(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        //update stress
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        updateStress(job);
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "updateStress(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+        /*----------------------*/
+        /*     End MPM Step     */
+        /*----------------------*/
+
+        exit(0);
+
+    }
 
     return;
 }

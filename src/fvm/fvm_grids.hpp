@@ -121,9 +121,9 @@ namespace FiniteVolumeMethod {
     };
 }
 
-class FVMGridBase : public FiniteVolumeGrid{
+class FVMGridBase : public FiniteVolumeGrid {
 public:
-    FVMGridBase(){
+    FVMGridBase() {
         object_name = "FVMGridBase";
     }
 
@@ -131,11 +131,11 @@ public:
     int num_threads = 1;
 
     //pointer to job->threadPool
-    ThreadPool* jobThreadPool;
+    ThreadPool *jobThreadPool;
 
     //memory container for parallel operations
     struct parallelMemoryUnit {
-        std::vector<Eigen::VectorXd,Eigen::aligned_allocator<Eigen::VectorXd>> s;
+        std::vector<Eigen::VectorXd, Eigen::aligned_allocator<Eigen::VectorXd>> s;
         std::vector<KinematicVectorArray> kv;
         std::vector<MaterialVectorArray> mv;
         std::vector<KinematicTensorArray> kt;
@@ -164,7 +164,7 @@ public:
     std::vector<FiniteVolumeMethod::BCContainer> bc_info;
 
     //grid definitions
-    std::vector<std::array<int,2>> face_elements;   //oriented face list (A -|-> B)
+    std::vector<std::array<int, 2>> face_elements;   //oriented face list (A -|-> B)
     std::vector<std::vector<int>> element_faces;    //unordered list of faces
     std::vector<std::vector<int>> element_neighbors; //list of nearest neighbors
 
@@ -173,53 +173,128 @@ public:
     std::vector<Eigen::MatrixXd> A_inv; //psuedo inverse
     std::vector<Eigen::VectorXd> b_e;
 
-    virtual void init(Job* job, FiniteVolumeDriver* driver) = 0;
+    virtual void init(Job *job, FiniteVolumeDriver *driver) = 0;
 
-    virtual void writeHeader(std::ofstream& file, int TYPE) = 0;
+    virtual void writeHeader(std::ofstream &file, int TYPE) = 0;
 
-    virtual void generateMappings(Job* job, FiniteVolumeDriver* driver);
-    virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver) = 0;
-    virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver) = 0;
-    virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver) = 0;
-    virtual void constructPorosityField(Job*, FiniteVolumeDriver*) = 0;
+    virtual void generateMappings(Job *job, FiniteVolumeDriver *driver);
+
+    virtual void constructMomentumField(Job *job, FiniteVolumeDriver *driver) = 0;
+
+    virtual void constructDensityField(Job *job, FiniteVolumeDriver *driver) = 0;
+
+    virtual void constructEnergyField(Job *job, FiniteVolumeDriver *driver) = 0;
+
+    virtual void constructPorosityField(Job *, FiniteVolumeDriver *) = 0;
 
     virtual double getElementVolume(int e);
+
     virtual int getElementTag(int e);
+
     virtual double getFaceArea(int f);
+
     virtual int getFaceTag(int f);
-    virtual KinematicVector getFaceNormal(Job* job, int f);
+
+    virtual KinematicVector getFaceNormal(Job *job, int f);
 
     virtual std::vector<int> getElementQuadraturePoints(int e);
+
     virtual std::vector<int> getFaceQuadraturePoints(int f);
 
     virtual std::vector<int> getElementFaces(int e);
-    virtual std::array<int,2> getOrientedElementsByFace(int e);
+
+    virtual std::array<int, 2> getOrientedElementsByFace(int e);
+
     virtual std::vector<int> getElementNeighbors(int e);
-    virtual KinematicVector getElementCentroid(Job* job, int e); //return element centroid
-    virtual KinematicVector getFaceCentroid(Job* job, int f);
-    virtual KinematicVector getQuadraturePosition(Job* job, int q);
+
+    virtual KinematicVector getElementCentroid(Job *job, int e); //return element centroid
+    virtual KinematicVector getFaceCentroid(Job *job, int f);
+
+    virtual KinematicVector getQuadraturePosition(Job *job, int q);
+
     virtual double getQuadratureWeight(int q);
 
-    virtual void mapMixturePropertiesToQuadraturePoints(Job* job, FiniteVolumeDriver* driver);
-    virtual KinematicTensorArray getVelocityGradients(Job* job, FiniteVolumeDriver* driver);
+    virtual void mapMixturePropertiesToQuadraturePoints(Job *job, FiniteVolumeDriver *driver);
+
+    virtual KinematicTensorArray getVelocityGradients(Job *job, FiniteVolumeDriver *driver);
 
     //functions to compute element mass flux
-    virtual Eigen::VectorXd calculateElementMassFluxes(Job* job, FiniteVolumeDriver* driver);
+    virtual Eigen::VectorXd calculateElementMassFluxes(Job *job, FiniteVolumeDriver *driver);
+    virtual Eigen::VectorXd calculateElementMassFluxes(Job *job, FiniteVolumeDriver *driver, int f_start, int f_end);
 
     //functions to compute element momentum fluxes
-    virtual KinematicVectorArray calculateElementMomentumFluxes(Job* job, FiniteVolumeDriver* driver);
+    virtual KinematicVectorArray calculateElementMomentumFluxes(Job *job, FiniteVolumeDriver *driver);
+    virtual KinematicVectorArray calculateElementMomentumFluxes(Job *job, FiniteVolumeDriver *driver, int f_start, int f_end);
 
     //function to comput element energy fluxes
-    virtual Eigen::VectorXd calculateElementEnergyFluxes(Job* job, FiniteVolumeDriver* driver);
+    virtual Eigen::VectorXd calculateElementEnergyFluxes(Job *job, FiniteVolumeDriver *driver);
+    virtual Eigen::VectorXd calculateElementEnergyFluxes(Job *job, FiniteVolumeDriver *driver, int f_start, int f_end);
 
     //function to calculate interphase force
-    virtual KinematicVectorArray calculateInterphaseForces(Job* job, FiniteVolumeDriver* driver);
+    virtual KinematicVectorArray calculateInterphaseForces(Job *job, FiniteVolumeDriver *driver);
+    virtual void calculateElementIntegrandsForInterphaseForce(Job *job,
+                                                         FiniteVolumeDriver *driver,
+                                                         KinematicVectorArray& kv,
+                                                         Eigen::VectorXd& v,
+                                                         int e_start, int e_end);
+
+    virtual void calculateFaceIntegrandsForInterphaseForce(Job *job,
+                                                         FiniteVolumeDriver *driver,
+                                                         KinematicVectorArray& kv,
+                                                         Eigen::VectorXd& v,
+                                                         int f_start, int f_end);
 
     //parallel functions
-    virtual void parallelMultiply(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC, bool clear = true, int memUnitID = 0);
-    virtual void parallelMultiply(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC, bool clear = true, int memUnitID = 0);
-    virtual void parallelMultiply(const KinematicVectorSparseMatrix &gradS, const Eigen::VectorXd &x, KinematicVectorArray &lhs, int SPEC, bool clear = true, int memUnitID = 0);
+    virtual void
+    parallelMultiply(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC,
+                     bool clear = true, int memUnitID = 0);
 
+    virtual void
+    parallelMultiply(const MPMScalarSparseMatrix &S, const KinematicVectorArray &x, KinematicVectorArray &lhs, int SPEC,
+                     bool clear = true, int memUnitID = 0);
+
+    virtual void
+    parallelMultiply(const KinematicVectorSparseMatrix &gradS, const Eigen::VectorXd &x, KinematicVectorArray &lhs,
+                     int SPEC, bool clear = true, int memUnitID = 0);
+
+    //parallel energy flux functions
+    static void calcMassFluxes(Job *job,
+                               FiniteVolumeDriver *driver,
+                               FVMGridBase *grid,
+                               Eigen::VectorXd &lhs,
+                               int k_begin, int k_end,
+                               volatile bool &done);
+
+    static void calcMomentumFluxes(Job *job,
+                               FiniteVolumeDriver *driver,
+                                   FVMGridBase *grid,
+                               KinematicVectorArray &lhs,
+                               int k_begin, int k_end,
+                               volatile bool &done);
+
+    static void calcEnergyFluxes(Job *job,
+                               FiniteVolumeDriver *driver,
+                                 FVMGridBase *grid,
+                               Eigen::VectorXd &lhs,
+                               int k_begin, int k_end,
+                               volatile bool &done);
+
+    static void calcElementIntegrandForInterphaseForces(Job *job,
+                                                        FiniteVolumeDriver *driver,
+                                                        FVMGridBase *grid,
+                                                        KinematicVectorArray &kv,
+                                                        Eigen::VectorXd& v,
+                                                        int k_begin, int k_end,
+                                                        volatile bool &done);
+
+
+    static void calcFaceIntegrandForInterphaseForces(Job *job,
+                                                     FiniteVolumeDriver *driver,
+                                                     FVMGridBase *grid,
+                                                     KinematicVectorArray &kv,
+                                                     Eigen::VectorXd& v,
+                                                     int k_begin, int k_end,
+                                                     volatile bool &done);
 };
 
 class FVMCartesian : public FVMGridBase{

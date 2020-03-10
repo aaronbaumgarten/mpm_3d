@@ -1354,6 +1354,80 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
 
         Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
         KinematicVector x_0, x;
+        KinematicVector p_0, p;
+        double rho_0, dif, max_dif;
+        int e_minus, e_plus;
+        for (int e = 0; e<element_count; e++){
+            //least squares fit of u_x to neighbors of element e
+            x_0 = getElementCentroid(job, e);
+            p_0 = driver->fluid_body->p[e];
+            rho_0 = driver->fluid_body->rho(e);
+
+            //loop over components of momentum
+            for (int mom_index = 0; mom_index<GRID_DIM; mom_index++){
+                //create system of equations
+                for (int ii=0; ii<element_neighbors[e].size(); ii++){
+                    //just fill in b vector
+                    p = driver->fluid_body->p[element_neighbors[e][ii]];
+                    b_e[e](ii) = p[mom_index] - p_0[mom_index];
+                }
+
+                //solve for mom_pos component of gradient
+                sol = A_inv[e]*b_e[e];
+                for (int pos = 0; pos<GRID_DIM; pos++){
+                    driver->fluid_body->p_x(e, mom_index, pos) = sol(pos);
+                }
+            }
+
+            //for each face, apply flux limiter
+            for (int f=0; f<element_faces[e].size(); f++){
+                e_minus = face_elements[element_faces[e][f]][0];
+                e_plus = face_elements[element_faces[e][f]][1];
+                if (e_minus > -1 && e_plus > -1){
+                    //face is interior
+                    for (int q=0; q<qpf; q++){
+                        //get relative position of quad point to element centroid
+                        x = getQuadraturePosition(job, int_quad_count + qpf*element_faces[e][f] + q) - x_e[e];
+
+                        //correct if periodic
+                        if (bc_info[element_faces[e][f]].tag == PERIODIC){
+                            if (e_minus == e){
+                                x = getQuadraturePosition(job, int_quad_count + qpf*element_faces[e][f] + q) - x_e[e_plus];
+                                x -= 2.0 * (x.dot(face_normals[element_faces[e][f]])) * face_normals[element_faces[e][f]];
+                            }
+                        }
+
+                        //determine quadrature momentum value
+                        p = p_0 + driver->fluid_body->p_x[e] * x;
+
+                        //ensure p between p_minus and p_plus
+                        for (int mom_index=0; mom_index<GRID_DIM; mom_index++){
+                            dif = p(mom_index) - p_0(mom_index);
+                            if (e == e_minus) {
+                                max_dif = driver->fluid_body->p(e_plus,mom_index) - p_0(mom_index);
+                            } else {
+                                max_dif = driver->fluid_body->p(e_minus,mom_index) - p_0(mom_index);
+                            }
+
+                            if (dif * max_dif < 0){
+                                //different signs -> set gradient to zero
+                                for (int pos=0; pos<GRID_DIM; pos++){
+                                    driver->fluid_body->p_x(e, mom_index, pos) = 0;
+                                }
+                            } else if (std::abs(dif) > std::abs(max_dif)){
+                                //same sign, but large magnitude -> scale back gradient
+                                for (int pos=0; pos<GRID_DIM; pos++){
+                                    driver->fluid_body->p_x(e, mom_index, pos) *= max_dif/dif;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        /*
+        Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
+        KinematicVector x_0, x;
         KinematicVector p_0, p, p_max, p_min, min_dif;
         min_dif = KinematicVector(job->JOB_TYPE);
         double tmp_dif, rho_0;
@@ -1410,6 +1484,7 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                 }
             }
         }
+         */
     }
     return;
 }
@@ -1423,6 +1498,70 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                       << std::endl;
         }
 
+        Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
+        KinematicVector x_0, x;
+        double rho_0, rho, dif, max_dif;
+        int e_minus, e_plus;
+        for (int e = 0; e<element_count; e++){
+            //least squares fit of u_x to neighbors of element e
+            x_0 = getElementCentroid(job, e);
+            rho_0 = driver->fluid_body->rho(e);
+
+            //create system of equations
+            for (int ii=0; ii<element_neighbors[e].size(); ii++){
+                //just fill in b vector
+                rho = driver->fluid_body->rho[element_neighbors[e][ii]];
+                b_e[e](ii) = rho - rho_0;
+            }
+
+            //solve for components of gradient
+            sol = A_inv[e]*b_e[e];
+            for (int pos = 0; pos<GRID_DIM; pos++){
+                driver->fluid_body->rho_x(e, pos) = sol(pos);
+            }
+
+            //for each face, apply flux limiter
+            for (int f=0; f<element_faces[e].size(); f++){
+                e_minus = face_elements[element_faces[e][f]][0];
+                e_plus = face_elements[element_faces[e][f]][1];
+                if (e_minus > -1 && e_plus > -1){
+                    //face is interior
+                    for (int q=0; q<qpf; q++){
+                        //get relative position of quad point to element centroid
+                        x = getQuadraturePosition(job, int_quad_count + qpf*element_faces[e][f] + q) - x_e[e];
+
+                        //correct if periodic
+                        if (bc_info[element_faces[e][f]].tag == PERIODIC){
+                            if (e_minus == e){
+                                x = getQuadraturePosition(job, int_quad_count + qpf*element_faces[e][f] + q) - x_e[e_plus];
+                                x -= 2.0 * (x.dot(face_normals[element_faces[e][f]])) * face_normals[element_faces[e][f]];
+                            }
+                        }
+
+                        //determine quadrature momentum value
+                        rho = rho_0 + driver->fluid_body->rho_x[e].dot(x);
+
+                        //ensure rho between rho_minus and rho_plus
+                        dif = rho - rho_0;
+                        if (e == e_minus) {
+                            max_dif = driver->fluid_body->rho(e_plus) - rho_0;
+                        } else {
+                            max_dif = driver->fluid_body->rho(e_minus) - rho_0;
+                        }
+
+                        if (dif * max_dif < 0){
+                            //different signs -> set gradient to zero
+                            driver->fluid_body->rho_x[e].setZero();
+                        } else if (std::abs(dif) > std::abs(max_dif)){
+                            //same sign, but large magnitude -> scale back gradient
+                            driver->fluid_body->rho_x[e] *= max_dif/dif;
+                        }
+                    }
+                }
+            }
+        }
+
+        /*
         Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
         KinematicVector x_0, x;
         double rho_0, rho, rho_max, rho_min, min_dif;
@@ -1475,6 +1614,7 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                 }
             }
         }
+         */
     }
     return;
 }
@@ -1488,6 +1628,70 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
                       << std::endl;
         }
 
+        Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
+        KinematicVector x_0, x;
+        double rhoE_0, rhoE, dif, max_dif;
+        int e_minus, e_plus;
+        for (int e = 0; e<element_count; e++){
+            //least squares fit of u_x to neighbors of element e
+            x_0 = getElementCentroid(job, e);
+            rhoE_0 = driver->fluid_body->rhoE(e);
+
+            //create system of equations
+            for (int ii=0; ii<element_neighbors[e].size(); ii++){
+                //just fill in b vector
+                rhoE = driver->fluid_body->rhoE[element_neighbors[e][ii]];
+                b_e[e](ii) = rhoE - rhoE_0;
+            }
+
+            //solve for components of gradient
+            sol = A_inv[e]*b_e[e];
+            for (int pos = 0; pos<GRID_DIM; pos++){
+                driver->fluid_body->rhoE_x(e, pos) = sol(pos);
+            }
+
+            //for each face, apply flux limiter
+            for (int f=0; f<element_faces[e].size(); f++){
+                e_minus = face_elements[element_faces[e][f]][0];
+                e_plus = face_elements[element_faces[e][f]][1];
+                if (e_minus > -1 && e_plus > -1){
+                    //face is interior
+                    for (int q=0; q<qpf; q++){
+                        //get relative position of quad point to element centroid
+                        x = getQuadraturePosition(job, int_quad_count + qpf*element_faces[e][f] + q) - x_e[e];
+
+                        //correct if periodic
+                        if (bc_info[element_faces[e][f]].tag == PERIODIC){
+                            if (e_minus == e){
+                                x = getQuadraturePosition(job, int_quad_count + qpf*element_faces[e][f] + q) - x_e[e_plus];
+                                x -= 2.0 * (x.dot(face_normals[element_faces[e][f]])) * face_normals[element_faces[e][f]];
+                            }
+                        }
+
+                        //determine quadrature momentum value
+                        rhoE = rhoE_0 + driver->fluid_body->rhoE_x[e].dot(x);
+
+                        //ensure rhoE between rho_minus and rho_plus
+                        dif = rhoE - rhoE_0;
+                        if (e == e_minus) {
+                            max_dif = driver->fluid_body->rhoE(e_plus) - rhoE_0;
+                        } else {
+                            max_dif = driver->fluid_body->rhoE(e_minus) - rhoE_0;
+                        }
+
+                        if (dif * max_dif < 0){
+                            //different signs -> set gradient to zero
+                            driver->fluid_body->rhoE_x[e].setZero();
+                        } else if (std::abs(dif) > std::abs(max_dif)){
+                            //same sign, but large magnitude -> scale back gradient
+                            driver->fluid_body->rhoE_x[e] *= max_dif/dif;
+                        }
+                    }
+                }
+            }
+        }
+
+        /*
         Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
         KinematicVector x_0, x;
         double rhoE_0, rhoE, rhoE_max, rhoE_min, min_dif;
@@ -1540,6 +1744,7 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
                 }
             }
         }
+         */
     }
     return;
 }
@@ -1556,27 +1761,19 @@ void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
 
         Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
         KinematicVector x_0, x;
-        double rho_0, rho, rho_max, rho_min, min_dif;
-        double tmp_dif;
+        double rho_0, rho;
+        double dif, max_dif;
+        int e_minus, e_plus;
         for (int e = 0; e<element_count; e++){
             //least squares fit of u_x to neighbors of element e
             x_0 = getElementCentroid(job, e);
             rho_0 = driver->fluid_body->rho(e) / driver->fluid_body->n_e(e);
-            rho_max = rho_0;
-            rho_min = rho_0;
 
             //create system of equations
             for (int ii=0; ii<element_neighbors[e].size(); ii++){
                 //fill in b vector
                 rho = driver->fluid_body->rho(element_neighbors[e][ii]) / driver->fluid_body->n_e(element_neighbors[e][ii]);
                 b_e[e](ii) = rho - rho_0;
-
-                //update maximum and minimum velocities
-                if (rho > rho_max){
-                    rho_max = rho;
-                } else if (rho < rho_min){
-                    rho_min = rho;
-                }
             }
 
             //solve for components of gradient
@@ -1585,24 +1782,43 @@ void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
                 driver->fluid_body->true_density_x(e, pos) = sol(pos);
             }
 
-            //calculate minimum magnitude difference in velocity components
-            min_dif = std::abs(rho_0 - rho_min);
-            if (std::abs(rho_0 - rho_max) < min_dif) {
-                min_dif = std::abs(rho_0 - rho_max);
-            }
+            //for each face, apply flux limiter
+            for (int f=0; f<element_faces[e].size(); f++){
+                e_minus = face_elements[element_faces[e][f]][0];
+                e_plus = face_elements[element_faces[e][f]][1];
+                if (e_minus > -1 && e_plus > -1){
+                    //face is interior
+                    for (int q=0; q<qpf; q++){
+                        //get relative position of quad point to element centroid
+                        x = getQuadraturePosition(job, int_quad_count + qpf*element_faces[e][f] + q) - x_e[e];
 
-            //limit gradient to ensure monotonicity
-            //calculate maximum velocity change in cell
-            tmp_dif = 0;
-            for (int pos = 0; pos < GRID_DIM; pos++){
-                tmp_dif += hx[pos]*std::abs(driver->fluid_body->true_density_x(e, pos)/2.0);
-            }
+                        //correct if periodic
+                        if (bc_info[element_faces[e][f]].tag == PERIODIC){
+                            if (e_minus == e){
+                                x = getQuadraturePosition(job, int_quad_count + qpf*element_faces[e][f] + q) - x_e[e_plus];
+                                x -= 2.0 * (x.dot(face_normals[element_faces[e][f]])) * face_normals[element_faces[e][f]];
+                            }
+                        }
 
-            if (tmp_dif > min_dif){
-                //if maximum velocity change in cell is larger than maximum difference b/w neighbors
-                //need to scale gradient
-                for (int pos=0; pos<GRID_DIM; pos++){
-                    driver->fluid_body->true_density_x(e, pos) *= min_dif/tmp_dif;
+                        //determine quadrature momentum value
+                        rho = rho_0 + driver->fluid_body->true_density_x[e].dot(x);
+
+                        //ensure rhoE between rho_minus and rho_plus
+                        dif = rho - rho_0;
+                        if (e == e_minus) {
+                            max_dif = driver->fluid_body->rho(e_plus)/driver->fluid_body->n_e(e_plus) - rho_0;
+                        } else {
+                            max_dif = driver->fluid_body->rho(e_minus)/driver->fluid_body->n_e(e_minus) - rho_0;
+                        }
+
+                        if (dif * max_dif < 0){
+                            //different signs -> set gradient to zero
+                            driver->fluid_body->true_density_x[e].setZero();
+                        } else if (std::abs(dif) > std::abs(max_dif)){
+                            //same sign, but large magnitude -> scale back gradient
+                            driver->fluid_body->true_density_x[e] *= max_dif/dif;
+                        }
+                    }
                 }
             }
         }

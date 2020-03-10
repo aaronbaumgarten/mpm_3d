@@ -160,4 +160,37 @@ public:
     virtual void applyLoads(Job* job);
 };
 
+class FVMMixtureSolverRK4 : public FVMMixtureSolver{
+public:
+    FVMMixtureSolverRK4(){
+        object_name = "FVMMixtureSolverRK4";
+    }
+
+    int vector_size = 0;
+    Eigen::VectorXd u_0, u_n, k1, k2, k3, k4;
+    KinematicVectorArray f_i1, f_i2, f_i3, f_i4;
+
+    Eigen::VectorXd F(Job* job, FiniteVolumeDriver* driver, const Eigen::VectorXd& u);          //calculate flux function value
+
+    void convertVectorToStateSpace(Job* job, FiniteVolumeDriver* driver,
+                                   const Eigen::VectorXd& v,
+                                   Eigen::VectorXd& rho,
+                                   KinematicVectorArray& p,
+                                   Eigen::VectorXd& rhoE);
+
+
+    void convertStateSpaceToVector(Job* job, FiniteVolumeDriver* driver,
+                                   Eigen::VectorXd& v,
+                                   const Eigen::VectorXd& rho,
+                                   const KinematicVectorArray& p,
+                                   const Eigen::VectorXd& rhoE);
+
+    virtual void init(Job* job, FiniteVolumeDriver* driver);                                        //initialize from Job
+    virtual void step(Job* job, FiniteVolumeDriver* driver);                                        //perform single mpm step
+
+
+    virtual void updateDensity(Job* job, int SPEC); //overload to avoid updating internal state
+    virtual void updateStress(Job* job, int SPEC); //overload function
+};
+
 #endif //MPM_V3_FVM_SOLVERS_HPP

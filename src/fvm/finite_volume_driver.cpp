@@ -547,13 +547,15 @@ void FiniteVolumeDriver::run(Job* job) {
     int stepCount = 0;
     int frameCount = 0;
 
-    struct timespec timeStart, timeFrame, timeFinish;
+    struct timespec timeStart, timeFrame, timeFinish, timeStep;
     clock_gettime(CLOCK_MONOTONIC, &timeStart);
     timeFrame = timeStart;
+    timeStep = timeStart;
     //clock_t clockSim = clock();
     //clock_t clockFrame = clock();
     double tSim = 0;
     double tFrame = 0;
+    double tStep = 0;
 
     //initialize gravity
     generateGravity(job);
@@ -564,7 +566,11 @@ void FiniteVolumeDriver::run(Job* job) {
         //run solver
         solver->step(job,this);
 
-        //std::cout << "Step Completed [" << ++stepCount << "]." << std::flush;
+        //clock_gettime(CLOCK_MONOTONIC, &timeFinish);
+        //tStep = (timeFinish.tv_sec - timeStep.tv_sec) + (timeFinish.tv_nsec - timeStep.tv_nsec)/1000000000.0;
+        //timeStep = timeFinish;
+
+        //std::cout << "Step Completed [" << ++stepCount << "]. Step Time [" << tStep << " s]." << std::flush;
         if (job->serializer->writeFrame(job) == 1) {
             //call fvm serializer to write frame as well:
             serializer->writeFrame(job,this);
