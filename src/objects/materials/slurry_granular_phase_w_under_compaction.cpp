@@ -133,6 +133,11 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
         if (!is_solved){
             beta = getBeta(phi(i), phi_m); //zero plastic flow limit
 
+            /*if (p_tr >= 0 && (tau_bar_tr <= ((mu_1 + beta)*p_tr))){
+                //this would've been admissible in old code
+                std::cout << "[" << i << "]: would've passed!" << std::endl;
+            }*/
+
             if ((p_tr >= 0) && (tau_bar_tr <= ((mu_1 + beta)*p_tr)) && (phi(i) >= phi_c)){
                 gammap_dot_tr = 0;
                 p = p_tr;
@@ -260,7 +265,8 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
             //if on f1 only and (phi(i) < phi_m) then beta >= 0
             //as tau decreases, p increases. If both rt_min and rt_max are less than zero,
             //then we must also be on f3
-            if (rt_min*rt_max > 0){ //(rt_min < 0 && rt_max < 0){
+            //if rt_min > 0 and rt_max > 0, then p_zero_strength_f1 -> mu+beta < 0,  must be on f3, too
+            if (rt_min*rt_max > 0){ //rt_min < 0 && rt_max < 0){
                 //do nothing
             } else {
                 //solve for f1
@@ -308,6 +314,7 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
                     //calculate residual for r_min
                     rp_min = p_min - p_tr - K * job->dt * beta * gammap_dot_tr;
 
+                    tau_too_large = false;
                     if (rp_min * rp_max > 0) {
                         //std::cout << "ERROR: Residuals in binary search have same sign! That's bad!" << std::endl;
                         //this likely means that tau_bar_k is too large (gdp too small, beta too small)
@@ -316,8 +323,6 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
                         r_p = 0;
                         //std::cout << p_tr << " : " << p_max << " : " << p_min << std::endl;
                         //exit(0);
-                    } else {
-                        tau_too_large = false;
                     }
 
                     //bisection method
@@ -445,7 +450,7 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
                 //bisection method
                 while (std::abs(r_p) > ABS_TOL and std::abs(r_p) / std::abs(b_p) > REL_TOL) {
                     k += 1;
-                    if  (k > 50) {
+                    if (k > 50) {
                         break;
                     }
 
@@ -556,13 +561,11 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
                 calcState(gammap_dot_tr,p_max,eta(i),phi(i),I_tr,I_v_tr,I_m_tr,mu,phi_eq,beta);
 
                 //if beta is positive at max pressure, then beta will be positive for all admissible pressures
+                tau_too_small = false;
                 if (beta > 0){
                     //trial tau too small (gdp too large)
                     tau_min = tau_bar_k;
-                    p_k = p_max;
                     tau_too_small = true;
-                } else {
-                    tau_too_small = false;
                 }
 
                 //calculate xi_dot_2
@@ -589,6 +592,7 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
                     r_p = rp_max;
                     b_p = r_p;
                 } else {
+                    p_k = p_max;
                     r_p = 0.0;
                 }
                 //bisection method
