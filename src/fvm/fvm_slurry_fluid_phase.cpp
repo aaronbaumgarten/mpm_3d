@@ -275,11 +275,21 @@ KinematicVector FVMSlurryFluidPhase::getInterphaseDrag(Job* job, FiniteVolumeDri
              (1 + std::pow(10.0, 3 * (1 - n)) * std::pow(Re, -0.5 * (1 + 4 * (1 - n)))));
     }
 
+    /*
+    if (C > 1e-10) {
+        std::cout << "C: " << C;
+    }
+
     //approximate limit for C in explicit simulations
     if (n >= 1e-10 && ((1-n) >= 1e-10)){
         //std::cout << C << ", " << C / (1 + job->dt*C*(1.0/rho + n/(rho * (1.0 - n)))) << std::endl;
         C /= (1 + job->dt*C*(1.0/rho + n/(rho * (1.0 - n))));
     }
+
+    if (C > 1e-10) {
+        std::cout << " ?= " << C << std::endl;
+    }
+     */
 
     return C * (v_s - v_f);
 }

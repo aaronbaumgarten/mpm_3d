@@ -36,10 +36,10 @@ void FVMMixtureSolverRK4::init(Job* job, FiniteVolumeDriver* driver){
 
     //size of vectors
     if (driver->TYPE == FiniteVolumeDriver::ISOTHERMAL){
-        //rho, rho*u
+        //rho, rho*u, mx_t
         vector_size = driver->fluid_grid->element_count*(1 + driver->fluid_grid->GRID_DIM);
     } else if (driver->TYPE == FiniteVolumeDriver::THERMAL){
-        //rho, rho*u, rho*E
+        //rho, rho*u, rho*E, mx_t
         vector_size = driver->fluid_grid->element_count*(2 + driver->fluid_grid->GRID_DIM);
     } else {
         std::cerr << "ERROR! FVMSteadyStateSolver not implemented for simulationg TYPE " << driver->TYPE << "! Exiting." << std::endl;
@@ -91,7 +91,7 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
     f_i4 = f_i;
 
     u_n = u_0 + (k1 + 2.0*k2 + 2.0*k3 + k4)/6.0;
-    f_i = (f_i1 + 2.0*f_i2 + 2.0*f_i3 + f_i4);
+    f_i = (f_i1 + 2.0*f_i2 + 2.0*f_i3 + f_i4)/6.0;
 
     convertVectorToStateSpace(job,
                               driver,
@@ -194,10 +194,10 @@ Eigen::VectorXd FVMMixtureSolverRK4::F(Job* job, FiniteVolumeDriver* driver, con
 }
 
 void FVMMixtureSolverRK4::convertVectorToStateSpace(Job* job, FiniteVolumeDriver* driver,
-                                                   const Eigen::VectorXd& v,
-                                                   Eigen::VectorXd& rho,
-                                                   KinematicVectorArray& p,
-                                                   Eigen::VectorXd& rhoE){
+                                                    const Eigen::VectorXd& v,
+                                                    Eigen::VectorXd& rho,
+                                                    KinematicVectorArray& p,
+                                                    Eigen::VectorXd& rhoE){
     //check vector for correct dimensions
     if (v.rows() != vector_size){
         std::cerr << "ERROR! Input to FVMSteadyStateSolver::convertVectorToStateSpace() has wrong dimensions." << std::endl;
@@ -225,6 +225,7 @@ void FVMMixtureSolverRK4::convertVectorToStateSpace(Job* job, FiniteVolumeDriver
         for (int e=0; e<driver->fluid_grid->element_count; e++){
             rhoE(e) = v(offset + e);
         }
+        offset = driver->fluid_grid->element_count * (2 + GRID_DIM);
     }
 
     return;
@@ -232,10 +233,10 @@ void FVMMixtureSolverRK4::convertVectorToStateSpace(Job* job, FiniteVolumeDriver
 
 
 void FVMMixtureSolverRK4::convertStateSpaceToVector(Job* job, FiniteVolumeDriver* driver,
-                                                   Eigen::VectorXd& v,
-                                                   const Eigen::VectorXd& rho,
-                                                   const KinematicVectorArray& p,
-                                                   const Eigen::VectorXd& rhoE){
+                                                    Eigen::VectorXd& v,
+                                                    const Eigen::VectorXd& rho,
+                                                    const KinematicVectorArray& p,
+                                                    const Eigen::VectorXd& rhoE){
     //check vector for correct dimensions
     if (v.rows() != vector_size){
         v = Eigen::VectorXd(vector_size);
@@ -262,6 +263,7 @@ void FVMMixtureSolverRK4::convertStateSpaceToVector(Job* job, FiniteVolumeDriver
         for (int e=0; e<driver->fluid_grid->element_count; e++){
             v(offset + e) = rhoE(e);
         }
+        offset = driver->fluid_grid->element_count * (2 + GRID_DIM);
     }
 
     return;

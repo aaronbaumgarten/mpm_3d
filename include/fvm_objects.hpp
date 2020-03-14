@@ -63,6 +63,7 @@ public:
     static const int SUPERSONIC_INLET       = 9;    //dirichlet
     static const int SUPERSONIC_OUTLET      = 10;
     static const int PERIODIC               = 11;
+    static const int DAMPED_WALL            = 12;
 
     //Harten entropy correction scale
     static constexpr double delta = 0.1;

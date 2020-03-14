@@ -172,7 +172,7 @@ Registry<FiniteVolumeSolver>::Registry() {
     object["FVMRungeKuttaSolver"] = &createInstance<FiniteVolumeSolver,FVMRungeKuttaSolver>;
     object["FVMSteadyStateSolver"] = &createInstance<FiniteVolumeSolver,FVMSteadyStateSolver>;
     object["FVMMixtureSolver"] = &createInstance<FiniteVolumeSolver, FVMMixtureSolver>;
-    object["FVMMixtureSolverRK4"] = &createInstance<FiniteVolumeSolver, FVMMixtureSolver>;
+    object["FVMMixtureSolverRK4"] = &createInstance<FiniteVolumeSolver, FVMMixtureSolverRK4>;
 }
 
 template<>

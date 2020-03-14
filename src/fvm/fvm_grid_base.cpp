@@ -763,7 +763,8 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
             }
         } else if (bc_info[f].tag == ADIABATIC_WALL ||
                     bc_info[f].tag == THERMAL_WALL ||
-                    bc_info[f].tag == SYMMETRIC_WALL){
+                    bc_info[f].tag == SYMMETRIC_WALL ||
+                    bc_info[f].tag == DAMPED_WALL){
             //do nothing, no flux across this boundary
         } else if (bc_info[f].tag == SUPERSONIC_INLET){
             //density and velocity given
@@ -1507,11 +1508,12 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
 
 
                         P_minus = (1.0 - damping_coefficient)*P_minus
-                                 + damping_coefficient*driver->fluid_material->getPressure(job,driver,
-                                                                                           rho_minus,
-                                                                                           p_minus,
-                                                                                           rhoE_minus,
-                                                                                           n_minus); //n_q(q_list[q])); //ok to use quad value here
+                                 + damping_coefficient*(driver->fluid_material->getPressure(job,driver,
+                                                                                            rho_minus,
+                                                                                            p_minus,
+                                                                                            rhoE_minus,
+                                                                                            n_minus));
+                         //                               + driver->fluid_body->rho(e_minus)*driver->gravity.dot(x));
 
                     }
 
@@ -1568,7 +1570,8 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                 }
             }
         } else if (bc_info[f].tag == ADIABATIC_WALL ||
-                   bc_info[f].tag == THERMAL_WALL){
+                   bc_info[f].tag == THERMAL_WALL ||
+                   bc_info[f].tag == DAMPED_WALL){
             //reconstruct pressure and traction at boundary
             for (int q = 0; q < q_list.size(); q++) {
                 if (e_minus > -1) {
@@ -1594,6 +1597,11 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
 
                     tau_minus = driver->fluid_material->getShearStress(job, driver, L_tmp, rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
                     P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_minus); //n_q(q_list[q]));
+
+                    if (bc_info[f].tag == DAMPED_WALL){
+                        //add damping term to pressure
+                        P_minus -= bc_info[f].values[0]*L_tmp.trace();
+                    }
 
                     flux = w_q(q_list[q]) * (P_minus*normal
                                              - KinematicVector(tau_minus*normal, job->JOB_TYPE));
@@ -1624,6 +1632,11 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
 
                     tau_plus = driver->fluid_material->getShearStress(job, driver, L_tmp, rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
                     P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_plus); // n_q(q_list[q]));
+
+                    if (bc_info[f].tag == DAMPED_WALL){
+                        //add damping term to pressure
+                        P_plus -= bc_info[f].values[0]*L_tmp.trace();
+                    }
 
                     flux = w_q(q_list[q]) * (P_plus*normal
                                              - KinematicVector(tau_plus*normal, job->JOB_TYPE));
@@ -2537,7 +2550,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     result(e_plus) += flux;
                 }
             }
-        } else if (bc_info[f].tag == ADIABATIC_WALL || bc_info[f].tag == SYMMETRIC_WALL){
+        } else if (bc_info[f].tag == ADIABATIC_WALL || bc_info[f].tag == SYMMETRIC_WALL || bc_info[f].tag == DAMPED_WALL){
             //nothing to do right now
         } else if (bc_info[f].tag == THERMAL_WALL){
             //face has prescribed temperature

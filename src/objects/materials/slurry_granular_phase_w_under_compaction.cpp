@@ -279,7 +279,7 @@ void SlurryGranularPhase_wUnderCompaction::calculateStress(Job* job, Body* body,
                 tau_too_large = false;
                 k = 0;
                 //bisection method
-                while (r(0) > b(0) * REL_TOL && r.norm() > ABS_TOL) {
+                while (std::abs(r(0)) > std::abs(b(0)) * REL_TOL && r.norm() > ABS_TOL) {
                     k += 1;
                     if (k > 50) {
                         break;

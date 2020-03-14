@@ -410,7 +410,7 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                 tau_too_large = false;
                 k = 0;
                 //bisection method
-                while (r(0) > b(0) * REL_TOL && r.norm() > ABS_TOL) {
+                while (std::abs(r(0)) > std::abs(b(0)) * REL_TOL && std::abs(r(0)) > ABS_TOL) {
                     k += 1;
                     if (k > 50 && SLURRY_MU_IM_DEBUG) {
                         std::cout << "f1: " << p_k << ", " << tau_bar_k << ", " << r(0) << ", " << r(1) << std::endl;
@@ -741,6 +741,7 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                     b_p = r_p;
                 } else {
                     p_k = p_max;
+                    b_p = rp_max;
                     r_p = 0.0;
                 }
                 //bisection method

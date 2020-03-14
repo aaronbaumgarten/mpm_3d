@@ -86,7 +86,8 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
                 tmp_bc_info[i].tag != SYMMETRIC_WALL &&
                 tmp_bc_info[i].tag != SUPERSONIC_INLET &&
                 tmp_bc_info[i].tag != SUPERSONIC_OUTLET &&
-                tmp_bc_info[i].tag != PERIODIC){
+                tmp_bc_info[i].tag != PERIODIC &&
+                tmp_bc_info[i].tag != DAMPED_WALL){
                 std::cerr << "ERROR: Boundary tag " << tmp_bc_info[i].tag << " not defined for FVMCartesian grid object! Exiting." << std::endl;
                 exit(0);
             }
@@ -260,7 +261,7 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
                     }
 
                     //print boundary condition info
-                    std::cout << " - " << i << " : THERMAL_WALL : T = " << tmp_bc_info[i].values[0];
+                    std::cout << " - " << i << " : THERMAL_WALL : T = " << tmp_bc_info[i].values[0] << std::endl;
                     break;
 
                 case SYMMETRIC_WALL:
@@ -322,6 +323,20 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
                     std::cout << " - " << i << " : PERIODIC" << std::endl;
                     std::cerr << "ERROR: FVMGmsh2D does not allow PERIODIC boundaries! Exiting." << std::endl;
                     exit(0);
+                    break;
+
+                case DAMPED_WALL:
+                    //one property, damping coefficient
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[0] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : DAMPED_WALL : nu = " << tmp_bc_info[i].values[0] << std::endl;
                     break;
 
                 default:
