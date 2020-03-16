@@ -169,8 +169,9 @@ public:
     int vector_size = 0;
     Eigen::VectorXd u_0, u_n, k1, k2, k3, k4;
     KinematicVectorArray f_i1, f_i2, f_i3, f_i4;
+    KinematicVectorArray tmp_mx_t;
 
-    Eigen::VectorXd F(Job* job, FiniteVolumeDriver* driver, const Eigen::VectorXd& u);          //calculate flux function value
+    Eigen::VectorXd F(Job* job, FiniteVolumeDriver* driver, const Eigen::VectorXd& u, const KinematicVectorArray& mx_t);          //calculate flux function value
 
     void convertVectorToStateSpace(Job* job, FiniteVolumeDriver* driver,
                                    const Eigen::VectorXd& v,
