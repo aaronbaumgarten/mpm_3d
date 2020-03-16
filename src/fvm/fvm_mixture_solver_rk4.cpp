@@ -140,6 +140,10 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
     /*   End FVM-RK4 Step   */
     /*----------------------*/
 
+    //enforce boundary conditions AGAIN
+    generateBoundaryConditions(job);
+    addBoundaryConditions(job);
+
     //move grid
     moveGrid(job);
 
