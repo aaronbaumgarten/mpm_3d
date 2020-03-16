@@ -26,6 +26,27 @@
 #include "fvm_solvers.hpp"
 #include "objects/bodies/bodies.hpp"
 
+void FVMMixtureSolverRK4::adjustSolidVelocity(Job* job, FiniteVolumeDriver* driver, double h){
+
+    //assign grid velocity
+    for (int i = 0; i<job->bodies[solid_body_id]->nodes->mx_t.size(); i++){
+        if (job->bodies[solid_body_id]->nodes->m(i) > 0) {
+            job->bodies[solid_body_id]->nodes->x_t(i) =
+                    (job->bodies[solid_body_id]->nodes->mx_t(i) +
+                    job->dt*h*(job->bodies[solid_body_id]->nodes->f(i)
+                               + f_i(i) * job->grid->nodeVolume(job, i)))
+                    / job->bodies[solid_body_id]->nodes->m(i);
+        } else {
+            job->bodies[solid_body_id]->nodes->x_t(i).setZero();
+        }
+    }
+
+    //tell grid to update
+    driver->fluid_grid->mapMixturePropertiesToQuadraturePoints(job, driver);
+
+    return;
+}
+
 void FVMMixtureSolverRK4::init(Job* job, FiniteVolumeDriver* driver){
 
     //call parent initialization f'n
@@ -67,6 +88,10 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
     //map particles to grid
     mapPointsToNodes(job);
 
+    //enforce boundary conditions
+    generateBoundaryConditions(job);
+    addBoundaryConditions(job);
+
     //map mixture properties to finite volumes
     mapMixturePropertiesToElements(job, driver);
 
@@ -83,10 +108,16 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
 
     k1 = job->dt * F(job, driver, u_0);
     f_i1 = f_i;                             //store intermediate drag calculations
+
+    adjustSolidVelocity(job, driver, 0.5);
     k2 = job->dt * F(job, driver, (u_0 + k1/2.0));
     f_i2 = f_i;
+
+    adjustSolidVelocity(job, driver, 0.5);
     k3 = job->dt * F(job, driver, (u_0 + k2/2.0));
     f_i3 = f_i;
+
+    adjustSolidVelocity(job, driver, 1.0);
     k4 = job->dt * F(job, driver, (u_0 + k3));
     f_i4 = f_i;
 

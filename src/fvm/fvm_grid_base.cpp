@@ -2774,6 +2774,15 @@ void FVMGridBase::calculateElementIntegrandsForInterphaseForce(Job *job,
                                                             v_sq[e*qpe + q],
                                                             n); //n_q(e*qpe + q));
 
+            /*
+            if ((e*qpe + q) == 24188){
+                std::cout << "---- : " << job->t << std::endl;
+                std::cout << "     : " << v_sq[e*qpe + q][0] << ", " << v_sq[e*qpe + q][1] << std::endl;
+                std::cout << "     : " << p[0]/rho << ", " << p[1]/rho << std::endl;
+                std::cout << "     : " << f_d[0] << ", " << f_d[1] << std::endl;
+            }
+             */
+
             //fill in pressure
             P = driver->fluid_material->getPressure(job,
                                                     driver,

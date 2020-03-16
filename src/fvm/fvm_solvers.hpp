@@ -170,6 +170,7 @@ public:
     Eigen::VectorXd u_0, u_n, k1, k2, k3, k4;
     KinematicVectorArray f_i1, f_i2, f_i3, f_i4;
 
+    void adjustSolidVelocity(Job* job, FiniteVolumeDriver* driver, double h);
     Eigen::VectorXd F(Job* job, FiniteVolumeDriver* driver, const Eigen::VectorXd& u);          //calculate flux function value
 
     void convertVectorToStateSpace(Job* job, FiniteVolumeDriver* driver,
