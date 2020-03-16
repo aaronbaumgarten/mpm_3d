@@ -95,7 +95,6 @@ public:
 
     virtual void generateMappings(Job*, FiniteVolumeDriver*) = 0; //generate M, Q, gradQ maps
     virtual void mapMixturePropertiesToQuadraturePoints(Job*, FiniteVolumeDriver*) = 0; //map porosity and solid velocity to quadrature points
-    virtual void mapSolidVelocityToQuadraturePoints(Job*, FiniteVolumeDriver*) = 0;
     virtual void constructMomentumField(Job*, FiniteVolumeDriver*) = 0; //construct momentum from FV body
     virtual void constructDensityField(Job*, FiniteVolumeDriver*) = 0; //construct momentum from FV body
     virtual void constructEnergyField(Job*, FiniteVolumeDriver*) = 0; //construct energy field from FV body
@@ -216,7 +215,6 @@ public:
 
     virtual double getQuadratureWeight(int q);
 
-    virtual void mapSolidVelocityToQuadraturePoints(Job* job, FiniteVolumeDriver* driver);
     virtual void mapMixturePropertiesToQuadraturePoints(Job *job, FiniteVolumeDriver *driver);
 
     virtual KinematicTensorArray getVelocityGradients(Job *job, FiniteVolumeDriver *driver);

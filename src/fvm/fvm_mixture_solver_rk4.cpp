@@ -67,18 +67,6 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
     //map particles to grid
     mapPointsToNodes(job);
 
-    //add arbitrary loading conditions
-    generateLoads(job);
-    applyLoads(job);
-
-    //add contact forces
-    generateContacts(job);
-    addContacts(job);
-
-    //enforce boundary conditions
-    generateBoundaryConditions(job);
-    addBoundaryConditions(job);
-
     //map mixture properties to finite volumes
     mapMixturePropertiesToElements(job, driver);
 
@@ -93,32 +81,13 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
                               driver->fluid_body->p,
                               driver->fluid_body->rhoE);
 
-    tmp_mx_t = job->bodies[solid_body_id]->nodes->mx_t;
-    k1 = job->dt * F(job, driver, u_0, tmp_mx_t);
+    k1 = job->dt * F(job, driver, u_0);
     f_i1 = f_i;                             //store intermediate drag calculations
-
-    for (int i=0; i<tmp_mx_t.size(); i++){
-        tmp_mx_t(i) = job->bodies[solid_body_id]->nodes->mx_t[i]
-                      + job->dt*(job->bodies[solid_body_id]->nodes->f[i]
-                                 + f_i[i]*job->grid->nodeVolume(job,i)) / 2.0;
-    }
-    k2 = job->dt * F(job, driver, (u_0 + k1/2.0), tmp_mx_t);
+    k2 = job->dt * F(job, driver, (u_0 + k1/2.0));
     f_i2 = f_i;
-
-    for (int i=0; i<tmp_mx_t.size(); i++){
-        tmp_mx_t(i) = job->bodies[solid_body_id]->nodes->mx_t[i]
-                      + job->dt*(job->bodies[solid_body_id]->nodes->f[i]
-                                 + f_i[i]*job->grid->nodeVolume(job,i)) / 2.0;
-    }
-    k3 = job->dt * F(job, driver, (u_0 + k2/2.0), tmp_mx_t);
+    k3 = job->dt * F(job, driver, (u_0 + k2/2.0));
     f_i3 = f_i;
-
-    for (int i=0; i<tmp_mx_t.size(); i++){
-        tmp_mx_t(i) = job->bodies[solid_body_id]->nodes->mx_t[i]
-                      + job->dt*(job->bodies[solid_body_id]->nodes->f[i]
-                                 + f_i[i]*job->grid->nodeVolume(job,i));
-    }
-    k4 = job->dt * F(job, driver, (u_0 + k3), tmp_mx_t);
+    k4 = job->dt * F(job, driver, (u_0 + k3));
     f_i4 = f_i;
 
     u_n = u_0 + (k1 + 2.0*k2 + 2.0*k3 + k4)/6.0;
@@ -139,6 +108,18 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
     /*----------------------*/
     /*   End FVM-RK4 Step   */
     /*----------------------*/
+
+    //add arbitrary loading conditions
+    generateLoads(job);
+    applyLoads(job);
+
+    //add contact forces
+    generateContacts(job);
+    addContacts(job);
+
+    //enforce boundary conditions
+    generateBoundaryConditions(job);
+    addBoundaryConditions(job);
 
     //move grid
     moveGrid(job);
@@ -169,25 +150,7 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
 
 /*----------------------------------------------------------------------------*/
 //fvm conversion f'ns
-Eigen::VectorXd FVMMixtureSolverRK4::F(Job* job,
-                                       FiniteVolumeDriver* driver,
-                                       const Eigen::VectorXd& u,
-                                       const KinematicVectorArray& mx_t){
-
-    //convert mx_t to x_t
-    double m;
-    for (int i=0; i<mx_t.size(); i++){
-        m = job->bodies[solid_body_id]->nodes->m(i);
-        if (m > 0) {
-            driver->fluid_body->v_s(i) = mx_t(i) / m;
-        } else {
-            driver->fluid_body->v_s(i).setZero();
-        }
-    }
-
-    //map to fvm
-    driver->fluid_grid->mapSolidVelocityToQuadraturePoints(job, driver);
-
+Eigen::VectorXd FVMMixtureSolverRK4::F(Job* job, FiniteVolumeDriver* driver, const Eigen::VectorXd& u){
     //convert input vector into fluid_body state space
     convertVectorToStateSpace(job, driver,
                               u,

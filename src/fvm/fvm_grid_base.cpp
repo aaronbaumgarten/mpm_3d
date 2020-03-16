@@ -233,17 +233,6 @@ void FVMGridBase::mapMixturePropertiesToQuadraturePoints(Job* job, FiniteVolumeD
     return;
 }
 
-void FVMGridBase::mapSolidVelocityToQuadraturePoints(Job* job, FiniteVolumeDriver* driver){
-    //successful update of solid velocity
-    if (num_threads > 1){
-        parallelMultiply(Q, driver->fluid_body->v_s, v_sq, MPMSparseMatrixBase::TRANSPOSED, true);
-    } else {
-        v_sq = Q.operate(driver->fluid_body->v_s, MPMSparseMatrixBase::TRANSPOSED);       //v_sq = Q_iq * v_si
-    }
-
-    return;
-}
-
 KinematicTensorArray FVMGridBase::getVelocityGradients(Job* job, FiniteVolumeDriver* driver){
     //reconstruct velocity field
     KinematicTensorArray u_x = KinematicTensorArray(element_count, job->JOB_TYPE);
