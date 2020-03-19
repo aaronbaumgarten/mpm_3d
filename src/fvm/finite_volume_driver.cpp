@@ -523,6 +523,9 @@ void FiniteVolumeDriver::init(Job* job){
                 }
             }
         }
+    } else {
+        std::cout << "ERROR: Unable to open file: " << file << std::endl;
+        exit(0);
     }
 
     //close file

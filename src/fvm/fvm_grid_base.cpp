@@ -2739,6 +2739,102 @@ KinematicVectorArray FVMGridBase::calculateInterphaseForces(Job* job, FiniteVolu
     return result;
 }
 
+KinematicVectorArray FVMGridBase::calculateBuoyantForces(Job* job, FiniteVolumeDriver* driver){
+
+    //result defines force on solid by fluid
+    KinematicVectorArray result = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+    KinematicVectorArray tmp_result = result;
+
+    //declare temporary containers for quadrature point fields
+    KinematicVectorArray tmpVecArray = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE);
+    Eigen::VectorXd tmpArray = Eigen::VectorXd(int_quad_count + ext_quad_count);
+
+    tmpVecArray.setZero();
+    tmpArray.setZero();
+
+    double rho, rhoE, n;
+    KinematicVector p, normal;
+
+    //loop over elements
+    calculateElementIntegrandsForBuoyantForce(job, driver, tmpArray, 0, element_count-1);
+    calculateFaceIntegrandsForBuoyantForce(job, driver, tmpVecArray, 0, face_count-1);
+
+    //integrate expression (pg 117, nb 6)
+    //result = Q*tmpVecArray;
+    if (num_threads > 1){
+        //add components to result vector
+        parallelMultiply(Q, tmpVecArray, result, Q.NORMAL, false);
+        parallelMultiply(gradQ, tmpArray, result, gradQ.NORMAL, false);
+
+        //scale result vector
+        for (int i = 0; i < result.size(); i++) {
+            result[i] *= (1.0 - driver->fluid_body->n(i));
+        }
+    } else {
+        tmp_result = Q * tmpVecArray;
+        for (int i = 0; i < result.size(); i++) {
+            result[i] += (1.0 - driver->fluid_body->n(i)) * tmp_result(i); //ensures nodes with zero porosity have zero force
+        }
+        tmp_result = gradQ * tmpArray;
+        for (int i = 0; i < result.size(); i++) {
+            result[i] += (1.0 - driver->fluid_body->n(i)) * tmp_result(i);
+        }
+    }
+
+    //divide result by associated nodal volumes
+    for (int i=0; i<job->grid->node_count; i++){
+        result(i) /= job->grid->nodeVolume(job, i);
+    }
+
+    return result;
+}
+
+KinematicVectorArray FVMGridBase::calculateDragForces(Job* job, FiniteVolumeDriver* driver){
+
+    //result defines force on solid by fluid
+    KinematicVectorArray result = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+    KinematicVectorArray tmp_result = result;
+
+    //declare temporary containers for quadrature point fields
+    KinematicVectorArray tmpVecArray = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE);
+    Eigen::VectorXd tmpArray = Eigen::VectorXd(int_quad_count + ext_quad_count);
+
+    tmpVecArray.setZero();
+    tmpArray.setZero();
+
+    double rho, rhoE, n;
+    KinematicVector p, normal;
+
+    //loop over elements
+    calculateElementIntegrandsForDragForce(job, driver, tmpVecArray, 0, element_count-1);
+
+    //integrate expression (pg 117, nb 6)
+    //result = Q*tmpVecArray;
+    if (num_threads > 1){
+        //add components to result vector
+        parallelMultiply(Q, tmpVecArray, result, Q.NORMAL, false);
+
+        //scale result vector
+        for (int i = 0; i < result.size(); i++) {
+            result[i] *= (1.0 - driver->fluid_body->n(i));
+        }
+    } else {
+        tmp_result = Q * tmpVecArray;
+        for (int i = 0; i < result.size(); i++) {
+            result[i] += (1.0 - driver->fluid_body->n(i)) * tmp_result(i); //ensures nodes with zero porosity have zero force
+        }
+    }
+
+    //divide result by associated nodal volumes
+    for (int i=0; i<job->grid->node_count; i++){
+        result(i) /= job->grid->nodeVolume(job, i);
+    }
+
+    return result;
+}
+
+/*----------------------------------------------------------------------------*/
+
 void FVMGridBase::calculateElementIntegrandsForInterphaseForce(Job *job,
                                                      FiniteVolumeDriver *driver,
                                                      KinematicVectorArray& kv,
@@ -2868,6 +2964,271 @@ void FVMGridBase::calculateFaceIntegrandsForInterphaseForce(Job *job,
     return;
 }
 
+void FVMGridBase::calculateElementIntegrandsForBuoyantForce(Job *job,
+                                                               FiniteVolumeDriver *driver,
+                                                               Eigen::VectorXd& v,
+                                                               int e_start, int e_end){
+
+    //check that limits are within acceptable range
+    if (e_start < 0 || e_end >= element_count){
+        std::cerr << "ERROR! Start or end indices out of range! " << e_start << " <? 0, " << e_end << " >=? " << element_count << std::endl;
+    }
+
+    double rho, rhoE, n;
+    KinematicVector p, normal, f_d;
+    double P;
+
+    //loop over elements
+    for (int e=e_start; e<=e_end; e++){
+        for (int q=0; q<qpe; q++){
+            //approximate local density, momentum, and energy
+            rho = driver->fluid_body->rho(e) + driver->fluid_body->rho_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+            rhoE = driver->fluid_body->rhoE(e) + driver->fluid_body->rhoE_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+            p = driver->fluid_body->p[e] + driver->fluid_body->p_x[e]*(x_q[e*qpe + q] - x_e[e]);
+            //n = driver->fluid_body->n_e(e) + driver->fluid_body->n_e_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+            n = rho / ((driver->fluid_body->rho(e) / driver->fluid_body->n_e(e))
+                       + driver->fluid_body->true_density_x[e].dot(x_q[e*qpe + q] - x_e[e]));
+
+            //fill in pressure
+            P = driver->fluid_material->getPressure(job,
+                                                    driver,
+                                                    rho,
+                                                    p,
+                                                    rhoE,
+                                                    n); //n_q(e*qpe + q));
+
+            v(e*qpe + q) = P * getQuadratureWeight(e*qpe + q);
+        }
+    }
+    return;
+}
+
+void FVMGridBase::calculateFaceIntegrandsForBuoyantForce(Job *job,
+                                                            FiniteVolumeDriver *driver,
+                                                            KinematicVectorArray& kv,
+                                                            int f_start, int f_end){
+
+    //check that limits are within acceptable range
+    if (f_start < 0 || f_end >= face_count){
+        std::cerr << "ERROR! Start or end indices out of range! " << f_start << " <? 0, " << f_end << " >=? " << face_count << std::endl;
+    }
+
+    double rho, rhoE, n;
+    KinematicVector p, normal;
+    double P;
+
+    int tmp_e = -1;
+    int tmp_q = -1;
+    //loop over faces
+    for (int f=f_start; f<=f_end; f++){
+        for (int q=0; q<qpf; q++){
+            //only add contributions from domain boundaries
+            if (q_b[int_quad_count + f*qpf + q]){
+                //get normal
+                normal = getFaceNormal(job, f);
+                if (face_elements[f][0] > -1){
+                    //A is interior to domain
+                    tmp_e = face_elements[f][0];
+                } else {
+                    //B is interior to domain
+                    normal *= -1.0;
+                    tmp_e = face_elements[f][1];
+                }
+
+                //approximate local density, momentum, and energy
+                tmp_q = int_quad_count + f*qpf + q;
+                rho = driver->fluid_body->rho(tmp_e) + driver->fluid_body->rho_x[tmp_e].dot(x_q[tmp_q] - x_e[tmp_e]);
+                rhoE = driver->fluid_body->rhoE(tmp_e) + driver->fluid_body->rhoE_x[tmp_e].dot(x_q[tmp_q] - x_e[tmp_e]);
+                p = driver->fluid_body->p[tmp_e] + driver->fluid_body->p_x[tmp_e]*(x_q[tmp_q] - x_e[tmp_e]);
+                //n = driver->fluid_body->n_e(tmp_e) + driver->fluid_body->n_e_x[tmp_e].dot(x_q[tmp_q] - x_e[tmp_e]);
+                n = rho / ((driver->fluid_body->rho(tmp_e) / driver->fluid_body->n_e(tmp_e))
+                           + driver->fluid_body->true_density_x[tmp_e].dot(x_q[tmp_q] - x_e[tmp_e]));
+
+                //fill in pressure
+                P = driver->fluid_material->getPressure(job,
+                                                        driver,
+                                                        rho,
+                                                        p,
+                                                        rhoE,
+                                                        n); //n_q(tmp_q));
+
+                //fill in tmpArray
+                //tmpVecArray[tmp_q] = -P_q(tmp_q) * (1.0 - n_q(tmp_q)) * normal * getQuadratureWeight(tmp_q);
+                kv[tmp_q] = -P * normal * getQuadratureWeight(tmp_q);
+            }
+        }
+    }
+    return;
+}
+
+
+void FVMGridBase::calculateElementIntegrandsForDragForce(Job *job,
+                                                               FiniteVolumeDriver *driver,
+                                                               KinematicVectorArray& kv,
+                                                               int e_start, int e_end){
+
+    //check that limits are within acceptable range
+    if (e_start < 0 || e_end >= element_count){
+        std::cerr << "ERROR! Start or end indices out of range! " << e_start << " <? 0, " << e_end << " >=? " << element_count << std::endl;
+    }
+
+    double rho, rhoE, n;
+    KinematicVector p, normal, f_d;
+    double P;
+
+    //loop over elements
+    for (int e=e_start; e<=e_end; e++){
+        for (int q=0; q<qpe; q++){
+            //approximate local density, momentum, and energy
+            rho = driver->fluid_body->rho(e) + driver->fluid_body->rho_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+            rhoE = driver->fluid_body->rhoE(e) + driver->fluid_body->rhoE_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+            p = driver->fluid_body->p[e] + driver->fluid_body->p_x[e]*(x_q[e*qpe + q] - x_e[e]);
+            //n = driver->fluid_body->n_e(e) + driver->fluid_body->n_e_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+            n = rho / ((driver->fluid_body->rho(e) / driver->fluid_body->n_e(e))
+                       + driver->fluid_body->true_density_x[e].dot(x_q[e*qpe + q] - x_e[e]));
+
+            //fill in drag force
+
+            f_d = driver->fluid_material->getInterphaseDrag(job,
+                                                            driver,
+                                                            rho,
+                                                            (p/rho),
+                                                            v_sq[e*qpe + q],
+                                                            n); //n_q(e*qpe + q));
+
+            //tmpVecArray[e*qpe + q] = -f_d[e*qpe + q] * getQuadratureWeight(e*qpe + q);
+            if ((1.0 - n) > 1e-10) {
+                //ensures nodes with zero porosity have zero force
+                kv[e * qpe + q] = -f_d * getQuadratureWeight(e * qpe + q) / (1.0 - n);
+            } else {
+                //zero
+                kv[e * qpe + q].setZero();
+            }
+        }
+    }
+    return;
+}
+
+/*----------------------------------------------------------------------------*/
+//functions to get drag corrections
+KinematicVectorArray FVMGridBase::calculateCorrectedDragForces(Job* job,
+                                                          FiniteVolumeDriver* driver,
+                                                          const Eigen::VectorXd &K_n){
+
+    //result defines force on solid by fluid
+    KinematicVectorArray result = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+    KinematicVectorArray tmp_result = result;
+
+    //declare temporary containers for quadrature point fields
+    KinematicVectorArray tmpVecArray = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE);
+    Eigen::VectorXd tmpArray = Eigen::VectorXd(int_quad_count + ext_quad_count);
+
+    tmpVecArray.setZero();
+    tmpArray.setZero();
+
+    double rho, rhoE, n;
+    KinematicVector p, normal;
+
+    //loop over elements
+    calculateElementIntegrandsForCorrectedDragForces(job, driver, tmpVecArray, K_n, 0, element_count-1);
+
+    //integrate expression (pg 117, nb 6)
+    //result = Q*tmpVecArray;
+    if (num_threads > 1){
+        //add components to result vector
+        parallelMultiply(Q, tmpVecArray, result, Q.NORMAL, false);
+
+        //scale result vector
+        for (int i = 0; i < result.size(); i++) {
+            result[i] *= (1.0 - driver->fluid_body->n(i));
+        }
+    } else {
+        tmp_result = Q * tmpVecArray;
+        for (int i = 0; i < result.size(); i++) {
+            result[i] += (1.0 - driver->fluid_body->n(i)) * tmp_result(i); //ensures nodes with zero porosity have zero force
+        }
+    }
+
+    //divide result by associated nodal volumes
+    for (int i=0; i<job->grid->node_count; i++){
+        result(i) /= job->grid->nodeVolume(job, i);
+    }
+
+    return result;
+}
+
+Eigen::VectorXd FVMGridBase::getCorrectedDragCoefficients(Job* job, FiniteVolumeDriver* driver){
+    Eigen::VectorXd result = Eigen::VectorXd(int_quad_count); //only interior quadrature points
+
+    double rho, rhoE, n;
+    KinematicVector p, normal, f_d;
+    double P;
+
+    //loop over elements
+    for (int e=0; e<element_count; e++){
+        for (int q=0; q<qpe; q++){
+            //approximate local density, momentum, and energy
+            rho = driver->fluid_body->rho(e) + driver->fluid_body->rho_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+            rhoE = driver->fluid_body->rhoE(e) + driver->fluid_body->rhoE_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+            p = driver->fluid_body->p[e] + driver->fluid_body->p_x[e]*(x_q[e*qpe + q] - x_e[e]);
+            //n = driver->fluid_body->n_e(e) + driver->fluid_body->n_e_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+            n = rho / ((driver->fluid_body->rho(e) / driver->fluid_body->n_e(e))
+                       + driver->fluid_body->true_density_x[e].dot(x_q[e*qpe + q] - x_e[e]));
+
+            //fill in drag coefficient
+            result(e*qpe + q) = driver->fluid_material->getInterphaseDragCoefficient(job,
+                                                                                     driver,
+                                                                                     rho,
+                                                                                     (p/rho),
+                                                                                     v_sq[e*qpe + q],
+                                                                                     n,
+                                                                                     FiniteVolumeMaterial::CORRECTED_DRAG);
+        }
+    }
+    return result;
+}
+
+void FVMGridBase::calculateElementIntegrandsForCorrectedDragForces(Job *job,
+                                                                   FiniteVolumeDriver *driver,
+                                                                   KinematicVectorArray &kv,
+                                                                   const Eigen::VectorXd &K_n,
+                                                                   int e_start, int e_end){
+
+    //check that limits are within acceptable range
+    if (e_start < 0 || e_end >= element_count){
+        std::cerr << "ERROR! Start or end indices out of range! " << e_start << " <? 0, " << e_end << " >=? " << element_count << std::endl;
+    }
+
+    double rho, rhoE, n;
+    KinematicVector p, normal, f_d;
+    double P;
+
+    //loop over elements
+    for (int e=e_start; e<=e_end; e++){
+        for (int q=0; q<qpe; q++){
+            //approximate local density, momentum, and energy
+            rho = driver->fluid_body->rho(e) + driver->fluid_body->rho_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+            rhoE = driver->fluid_body->rhoE(e) + driver->fluid_body->rhoE_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+            p = driver->fluid_body->p[e] + driver->fluid_body->p_x[e]*(x_q[e*qpe + q] - x_e[e]);
+            //n = driver->fluid_body->n_e(e) + driver->fluid_body->n_e_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+            n = rho / ((driver->fluid_body->rho(e) / driver->fluid_body->n_e(e))
+                       + driver->fluid_body->true_density_x[e].dot(x_q[e*qpe + q] - x_e[e]));
+
+            //fill in drag force
+            f_d = K_n(e*qpe + q) * (v_sq[e*qpe + q] - p/rho);
+
+            //tmpVecArray[e*qpe + q] = -f_d[e*qpe + q] * getQuadratureWeight(e*qpe + q);
+            if ((1.0 - n) > 1e-10) {
+                //ensures nodes with zero porosity have zero force
+                kv[e * qpe + q] = -f_d * getQuadratureWeight(e * qpe + q) / (1.0 - n);
+            } else {
+                //zero
+                kv[e * qpe + q].setZero();
+            }
+        }
+    }
+    return;
+}
 
 /*----------------------------------------------------------------------------*/
 //parallel functions

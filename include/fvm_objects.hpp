@@ -122,6 +122,15 @@ public:
 
     //function to calculate interphase force
     virtual KinematicVectorArray calculateInterphaseForces(Job* job, FiniteVolumeDriver* driver) = 0;
+    virtual KinematicVectorArray calculateBuoyantForces(Job* job, FiniteVolumeDriver* driver) = 0;
+    virtual KinematicVectorArray calculateDragForces(Job* job, FiniteVolumeDriver* driver) = 0;
+
+    virtual KinematicVectorArray calculateCorrectedDragForces(Job *job,
+                                                              FiniteVolumeDriver *driver,
+                                                              const Eigen::VectorXd &K_n) = 0; // <- drag coefficient at each quad point
+
+    virtual Eigen::VectorXd getCorrectedDragCoefficients(Job* job, FiniteVolumeDriver* driver) = 0; // <- function to collect those coefficients
+
 };
 
 
@@ -153,6 +162,9 @@ public:
 //represents a single continuum body filling fluid domain
 class FiniteVolumeMaterial : public MPMObject{
 public:
+    static const int REGULAR_DRAG = 0;
+    static const int CORRECTED_DRAG = 1;
+
     //initialize from job and driver
     virtual void init(Job*, FiniteVolumeDriver*) = 0;
 
@@ -176,6 +188,7 @@ public:
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*) = 0; //return 1 if mixture problem, return 0 if FVM problem only
     virtual int updateSolidPhaseVelocity(Job*, FiniteVolumeDriver*) = 0; //return 1 if mixture problem, return 0 if FVM problem only
     virtual KinematicVector getInterphaseDrag(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& v_f, const KinematicVector& v_s, double n) = 0;
+    virtual double getInterphaseDragCoefficient(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& v_f, const KinematicVector& v_s, double n, int SPEC = REGULAR_DRAG) = 0;
 };
 
 /*------------------------------------------------------------------------*/

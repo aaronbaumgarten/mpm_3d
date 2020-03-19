@@ -106,18 +106,20 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
                               driver->fluid_body->p,
                               driver->fluid_body->rhoE);
 
+    //get drag and first correction from initial state
+    f_d = driver->fluid_grid->calculateDragForces(job, driver);
+    K_n = driver->fluid_grid->getCorrectedDragCoefficients(job, driver);
+    first_drag_correction = driver->fluid_grid->calculateCorrectedDragForces(job, driver, K_n);
+
     k1 = job->dt * F(job, driver, u_0);
     f_i1 = f_i;                             //store intermediate drag calculations
 
-    adjustSolidVelocity(job, driver, 0.5);
     k2 = job->dt * F(job, driver, (u_0 + k1/2.0));
     f_i2 = f_i;
 
-    adjustSolidVelocity(job, driver, 0.5);
     k3 = job->dt * F(job, driver, (u_0 + k2/2.0));
     f_i3 = f_i;
 
-    adjustSolidVelocity(job, driver, 1.0);
     k4 = job->dt * F(job, driver, (u_0 + k3));
     f_i4 = f_i;
 
@@ -134,6 +136,45 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
     //add force contribution to solid phase
     for (int i=0; i<job->grid->node_count; i++) {
         job->bodies[solid_body_id]->nodes->f[i] += f_i[i]*job->grid->nodeVolume(job,i);
+    }
+
+
+    //assign v_star grid velocity
+    for (int i = 0; i<job->bodies[solid_body_id]->nodes->mx_t.size(); i++){
+        if (job->bodies[solid_body_id]->nodes->m(i) > 0) {
+            job->bodies[solid_body_id]->nodes->x_t(i) = (job->bodies[solid_body_id]->nodes->mx_t(i) +
+                                                         job->dt*(job->bodies[solid_body_id]->nodes->f(i)
+                                                                  + f_i(i) * job->grid->nodeVolume(job, i)))
+                                                        / job->bodies[solid_body_id]->nodes->m(i);
+        } else {
+            job->bodies[solid_body_id]->nodes->x_t(i).setZero();
+        }
+    }
+
+    //tell fluid grid to update mixture properties
+    driver->fluid_grid->mapMixturePropertiesToQuadraturePoints(job, driver);
+
+    //get second correction term
+    second_drag_correction = driver->fluid_grid->calculateCorrectedDragForces(job, driver, K_n);
+
+    //map corrections to fvm elements
+    f_e = driver->fluid_grid->M * (second_drag_correction - first_drag_correction);
+
+    //subtract correction from fluid momentum
+    double volume;
+    for (int e = 0; e < driver->fluid_grid->element_count; e++) {
+        volume = driver->fluid_grid->getElementVolume(e);
+        driver->fluid_body->p[e] -= job->dt * f_e[e] / volume;
+    }
+
+    //add correction to solid momentum and reset velocity
+    for (int i = 0; i<job->bodies[solid_body_id]->nodes->mx_t.size(); i++){
+        if (job->bodies[solid_body_id]->nodes->m(i) > 0) {
+            job->bodies[solid_body_id]->nodes->x_t(i) = job->bodies[solid_body_id]->nodes->mx_t(i)
+                                                         / job->bodies[solid_body_id]->nodes->m(i);
+        }
+
+        job->bodies[solid_body_id]->nodes->f[i] += (second_drag_correction[i] - first_drag_correction[i])*job->grid->nodeVolume(job,i);
     }
 
     /*----------------------*/
@@ -201,7 +242,9 @@ Eigen::VectorXd FVMMixtureSolverRK4::F(Job* job, FiniteVolumeDriver* driver, con
     energy_fluxes = driver->fluid_grid->calculateElementEnergyFluxes(job, driver);      //J/s?
 
     //get discretized inter-phase force
-    f_i = driver->fluid_grid->calculateInterphaseForces(job, driver);
+    f_b = driver->fluid_grid->calculateBuoyantForces(job, driver);
+    f_i = f_b + f_d;
+    //f_i = driver->fluid_grid->calculateInterphaseForces(job, driver);
 
     //map interphase force to fvm elements
     f_e = driver->fluid_grid->M * f_i;

@@ -233,6 +233,8 @@ public:
 
     //function to calculate interphase force
     virtual KinematicVectorArray calculateInterphaseForces(Job *job, FiniteVolumeDriver *driver);
+    virtual KinematicVectorArray calculateBuoyantForces(Job* job, FiniteVolumeDriver* driver);
+    virtual KinematicVectorArray calculateDragForces(Job* job, FiniteVolumeDriver* driver);
     virtual void calculateElementIntegrandsForInterphaseForce(Job *job,
                                                          FiniteVolumeDriver *driver,
                                                          KinematicVectorArray& kv,
@@ -244,6 +246,35 @@ public:
                                                          KinematicVectorArray& kv,
                                                          Eigen::VectorXd& v,
                                                          int f_start, int f_end);
+
+    virtual void calculateElementIntegrandsForBuoyantForce(Job *job,
+                                                              FiniteVolumeDriver *driver,
+                                                              Eigen::VectorXd& v,
+                                                              int e_start, int e_end);
+
+    virtual void calculateFaceIntegrandsForBuoyantForce(Job *job,
+                                                           FiniteVolumeDriver *driver,
+                                                           KinematicVectorArray& kv,
+                                                           int f_start, int f_end);
+
+    virtual void calculateElementIntegrandsForDragForce(Job *job,
+                                                           FiniteVolumeDriver *driver,
+                                                           KinematicVectorArray& kv,
+                                                           int e_start, int e_end);
+
+
+    virtual KinematicVectorArray calculateCorrectedDragForces(Job *job,
+                                                              FiniteVolumeDriver *driver,
+                                                              const Eigen::VectorXd &K_n); // <- drag coefficient at each quad point
+
+    virtual Eigen::VectorXd getCorrectedDragCoefficients(Job* job, FiniteVolumeDriver* driver); // <- function to collect those coefficients
+
+    virtual void calculateElementIntegrandsForCorrectedDragForces(Job *job,
+                                                                  FiniteVolumeDriver *driver,
+                                                                  KinematicVectorArray &kv,
+                                                                  const Eigen::VectorXd &K_n,
+                                                                  int e_start, int e_end);           // <- integrand calculator
+
 
     //parallel functions
     virtual void

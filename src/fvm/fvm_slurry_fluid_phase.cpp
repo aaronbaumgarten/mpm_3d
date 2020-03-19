@@ -293,3 +293,34 @@ KinematicVector FVMSlurryFluidPhase::getInterphaseDrag(Job* job, FiniteVolumeDri
 
     return C * (v_s - v_f);
 }
+
+double FVMSlurryFluidPhase::getInterphaseDragCoefficient(Job* job, FiniteVolumeDriver* driver,
+                                                         double rho,
+                                                         const KinematicVector& v_f,
+                                                         const KinematicVector& v_s,
+                                                         double n,
+                                                         int SPEC){
+    //permeability
+    double Re = (v_s - v_f).norm() * rho * grain_diam / eta;
+    double C = 0;
+    //Beetstra
+    if (n < 1e-10 || ((1-n) < 1e-10)){
+        C = 0;
+    } else if (Re < 1e-10){
+        C = 18.0 * (1 - n) * eta / (grain_diam * grain_diam) *
+            (10.0 * (1 - n) / n + n * n * n * (1.0 + 1.5 * std::sqrt(1 - n)));
+    } else {
+        C = 18.0 * (1 - n) * eta / (grain_diam * grain_diam) *
+            (10.0 * (1 - n) / n + n * n * n * (1.0 + 1.5 * std::sqrt(1 - n)) +
+             0.413 * Re / (24.0 * n) *
+             (1 / n + 3 * n * (1 - n) + 8.4 * std::pow(Re, -0.343)) /
+             (1 + std::pow(10.0, 3 * (1 - n)) * std::pow(Re, -0.5 * (1 + 4 * (1 - n)))));
+    }
+
+    if (SPEC == REGULAR_DRAG) {
+        return C;
+    } else {
+        double rho_s = solid_rho * (1.0 - n);
+        return C*rho*rho_s / (rho*rho_s + job->dt * C * (rho + rho_s));
+    }
+}

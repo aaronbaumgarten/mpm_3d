@@ -87,6 +87,7 @@ public:
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*); //return 1 if mixture problem, return 0 if FVM problem only
     virtual int updateSolidPhaseVelocity(Job*, FiniteVolumeDriver*); //return 1 if mixture problem, return 0 if FVM problem only
     virtual KinematicVector getInterphaseDrag(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& v_f, const KinematicVector& v_s, double n);
+    virtual double getInterphaseDragCoefficient(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& v_f, const KinematicVector& v_s, double n, int SPEC = REGULAR_DRAG);
 };
 
 class FVMSlurryFluidPhase : public FiniteVolumeMaterial{
@@ -125,6 +126,7 @@ public:
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*); //return 1 if mixture problem, return 0 if FVM problem only
     virtual int updateSolidPhaseVelocity(Job*, FiniteVolumeDriver*); //return 1 if mixture problem, return 0 if FVM problem only
     virtual KinematicVector getInterphaseDrag(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& v_f, const KinematicVector& v_s, double n);
+    virtual double getInterphaseDragCoefficient(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& v_f, const KinematicVector& v_s, double n, int SPEC = REGULAR_DRAG);
 };
 
 #endif //MPM_V3_FVM_MATERIALS_HPP

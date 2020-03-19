@@ -193,3 +193,12 @@ KinematicVector FVMBarotropicViscousFluid::getInterphaseDrag(Job* job, FiniteVol
     //mixture not implemented
     return KinematicVector(job->JOB_TYPE);
 }
+
+double FVMBarotropicViscousFluid::getInterphaseDragCoefficient(Job* job, FiniteVolumeDriver* driver,
+                                                                        double rho,
+                                                                        const KinematicVector& v_f,
+                                                                        const KinematicVector& v_s,
+                                                                        double n,
+                                                                        int SPEC){
+    return 0;
+}
