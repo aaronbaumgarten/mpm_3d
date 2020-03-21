@@ -305,7 +305,7 @@ double FVMSlurryFluidPhase::getInterphaseDragCoefficient(Job* job, FiniteVolumeD
     double C = 0;
     //Beetstra
     if (n < 1e-10 || ((1-n) < 1e-10)){
-        C = 0;
+        return 0;
     } else if (Re < 1e-10){
         C = 18.0 * (1 - n) * eta / (grain_diam * grain_diam) *
             (10.0 * (1 - n) / n + n * n * n * (1.0 + 1.5 * std::sqrt(1 - n)));

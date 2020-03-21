@@ -3215,7 +3215,7 @@ void FVMGridBase::calculateElementIntegrandsForCorrectedDragForces(Job *job,
                        + driver->fluid_body->true_density_x[e].dot(x_q[e*qpe + q] - x_e[e]));
 
             //fill in drag force
-            f_d = K_n(e*qpe + q) * (v_sq[e*qpe + q] - p/rho);
+            f_d = K_n(e*qpe + q) * (v_sq[e*qpe + q] - (p/rho));
 
             //tmpVecArray[e*qpe + q] = -f_d[e*qpe + q] * getQuadratureWeight(e*qpe + q);
             if ((1.0 - n) > 1e-10) {
