@@ -169,7 +169,7 @@ public:
     int vector_size = 0;
     Eigen::VectorXd u_0, u_n, k1, k2, k3, k4;
     KinematicVectorArray f_i1, f_i2, f_i3, f_i4;
-    KinematicVectorArray f_d, f_b;
+    KinematicVectorArray f_d, f_b, f_d_e;
     Eigen::VectorXd K_n; //storage vector for drag coefficients
     KinematicVectorArray first_drag_correction; //drag correction component from t = t_n
     KinematicVectorArray second_drag_correction; //drag correction component form t = t_star;

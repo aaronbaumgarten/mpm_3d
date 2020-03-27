@@ -25,6 +25,8 @@
 
 #include "objects/solvers/solvers.hpp"
 
+static const bool USE_OLD_DRAG_METHOD = false;
+
 /*----------------------------------------------------------------------------*/
 
 double FVMGridBase::getElementVolume(int e){
@@ -2720,6 +2722,36 @@ KinematicVectorArray FVMGridBase::calculateInterphaseForces(Job* job, FiniteVolu
         for (int i = 0; i < result.size(); i++) {
             result[i] *= (1.0 - driver->fluid_body->n(i));
         }
+
+        //new drag calculation
+        if (!USE_OLD_DRAG_METHOD){
+            //calculate volume weighted velocity and mass density
+            KinematicVectorArray u_i = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+            KinematicVectorArray u = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+            Eigen::VectorXd m_i = Eigen::VectorXd(job->grid->node_count);
+            for (int e=0; e<driver->fluid_grid->element_count; e++){
+                u[e] = driver->fluid_body->p(e) / driver->fluid_body->rho(e);
+            }
+            parallelMultiply(M, u, u_i, M.TRANSPOSED, true);
+            for (int i=0; i<job->grid->node_count; i++){
+                u_i[i] /= job->grid->nodeVolume(job, i);
+            }
+            parallelMultiply(M, driver->fluid_body->rho, m_i, M.TRANSPOSED, true);
+
+            //calculate drag contribution
+            double rho_f;
+            for (int i=0; i<job->grid->node_count; i++){
+                rho_f = m_i(i)/job->grid->nodeVolume(job,i);
+                result[i] -= job->grid->nodeVolume(job,i)*
+                             driver->fluid_material->getInterphaseDrag(job,
+                                                                       driver,
+                                                                       rho_f,
+                                                                       u_i[i],
+                                                                       driver->fluid_body->v_s[i],
+                                                                       driver->fluid_body->n(i));
+            }
+        }
+
     } else {
         tmp_result = Q * tmpVecArray;
         for (int i = 0; i < result.size(); i++) {
@@ -2728,6 +2760,35 @@ KinematicVectorArray FVMGridBase::calculateInterphaseForces(Job* job, FiniteVolu
         tmp_result = gradQ * tmpArray;
         for (int i = 0; i < result.size(); i++) {
             result[i] += (1.0 - driver->fluid_body->n(i)) * tmp_result(i);
+        }
+
+        //new drag calculation
+        if (!USE_OLD_DRAG_METHOD){
+            //calculate volume weighted velocity and mass density
+            KinematicVectorArray u_i = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+            KinematicVectorArray u = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+            Eigen::VectorXd m_i = Eigen::VectorXd(job->grid->node_count);
+            for (int e=0; e<driver->fluid_grid->element_count; e++){
+                u[e] = driver->fluid_body->p(e) / driver->fluid_body->rho(e);
+            }
+            u_i = M.operate(u,M.TRANSPOSED);
+            for (int i=0; i<job->grid->node_count; i++){
+                u_i[i] /= job->grid->nodeVolume(job, i);
+            }
+            m_i = M.operate(driver->fluid_body->rho, M.TRANSPOSED);
+
+            //calculate drag contribution
+            double rho_f;
+            for (int i=0; i<job->grid->node_count; i++){
+                rho_f = m_i(i)/job->grid->nodeVolume(job,i);
+                result[i] -= job->grid->nodeVolume(job,i)*
+                             driver->fluid_material->getInterphaseDrag(job,
+                                                                       driver,
+                                                                       rho_f,
+                                                                       u_i[i],
+                                                                       driver->fluid_body->v_s[i],
+                                                                       driver->fluid_body->n(i));
+            }
         }
     }
 
@@ -2805,29 +2866,68 @@ KinematicVectorArray FVMGridBase::calculateDragForces(Job* job, FiniteVolumeDriv
     double rho, rhoE, n;
     KinematicVector p, normal;
 
-    //loop over elements
-    calculateElementIntegrandsForDragForce(job, driver, tmpVecArray, 0, element_count-1);
+    if (USE_OLD_DRAG_METHOD) {
+        //loop over elements
+        calculateElementIntegrandsForDragForce(job, driver, tmpVecArray, 0, element_count - 1);
 
-    //integrate expression (pg 117, nb 6)
-    //result = Q*tmpVecArray;
-    if (num_threads > 1){
-        //add components to result vector
-        parallelMultiply(Q, tmpVecArray, result, Q.NORMAL, false);
+        //integrate expression (pg 117, nb 6)
+        //result = Q*tmpVecArray;
+        if (num_threads > 1) {
+            //add components to result vector
+            parallelMultiply(Q, tmpVecArray, result, Q.NORMAL, false);
 
-        //scale result vector
-        for (int i = 0; i < result.size(); i++) {
-            result[i] *= (1.0 - driver->fluid_body->n(i));
+            //scale result vector
+            for (int i = 0; i < result.size(); i++) {
+                result[i] *= (1.0 - driver->fluid_body->n(i));
+            }
+        } else {
+            tmp_result = Q * tmpVecArray;
+            for (int i = 0; i < result.size(); i++) {
+                result[i] += (1.0 - driver->fluid_body->n(i)) *
+                             tmp_result(i); //ensures nodes with zero porosity have zero force
+            }
         }
+
+        //divide result by associated nodal volumes
+        for (int i=0; i<job->grid->node_count; i++){
+            result(i) /= job->grid->nodeVolume(job, i);
+        }
+
     } else {
-        tmp_result = Q * tmpVecArray;
-        for (int i = 0; i < result.size(); i++) {
-            result[i] += (1.0 - driver->fluid_body->n(i)) * tmp_result(i); //ensures nodes with zero porosity have zero force
+        //new drag calculation
+        //calculate volume weighted velocity and mass density
+        KinematicVectorArray u_i = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+        KinematicVectorArray u = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+        Eigen::VectorXd m_i = Eigen::VectorXd(job->grid->node_count);
+        for (int e=0; e<driver->fluid_grid->element_count; e++){
+            u[e] = driver->fluid_body->p(e) / driver->fluid_body->rho(e);
         }
-    }
+        if (num_threads > 1) {
+            parallelMultiply(M, u, u_i, M.TRANSPOSED, true);
+        } else {
+            u_i = M.operate(u, M.TRANSPOSED);
+        }
+        for (int i=0; i<job->grid->node_count; i++){
+            u_i[i] /= job->grid->nodeVolume(job, i);
+        }
+        if (num_threads > 1) {
+            parallelMultiply(M, driver->fluid_body->rho, m_i, M.TRANSPOSED, true);
+        } else {
+            m_i = M.operate(driver->fluid_body->rho, M.TRANSPOSED);
+        }
 
-    //divide result by associated nodal volumes
-    for (int i=0; i<job->grid->node_count; i++){
-        result(i) /= job->grid->nodeVolume(job, i);
+
+        //calculate drag contribution
+        double rho_f;
+        for (int i=0; i<job->grid->node_count; i++){
+            rho_f = m_i(i)/job->grid->nodeVolume(job,i);
+            result[i] = -1.0 * driver->fluid_material->getInterphaseDrag(job,
+                                                                         driver,
+                                                                         rho_f,
+                                                                         u_i[i],
+                                                                         driver->fluid_body->v_s[i],
+                                                                         driver->fluid_body->n(i));
+        }
     }
 
     return result;
@@ -2863,12 +2963,14 @@ void FVMGridBase::calculateElementIntegrandsForInterphaseForce(Job *job,
 
             //fill in drag force
 
-            f_d = driver->fluid_material->getInterphaseDrag(job,
-                                                            driver,
-                                                            rho,
-                                                            (p/rho),
-                                                            v_sq[e*qpe + q],
-                                                            n); //n_q(e*qpe + q));
+            if (USE_OLD_DRAG_METHOD) {
+                f_d = driver->fluid_material->getInterphaseDrag(job,
+                                                                driver,
+                                                                rho,
+                                                                (p / rho),
+                                                                v_sq[e * qpe + q],
+                                                                n); //n_q(e*qpe + q));
+            }
 
             /*
             if ((e*qpe + q) == 24188){
@@ -2892,7 +2994,7 @@ void FVMGridBase::calculateElementIntegrandsForInterphaseForce(Job *job,
             //tmpArray(e*qpe + q) = P_q(e*qpe + q) * (1.0 - n_q(e*qpe+q)) * getQuadratureWeight(e*qpe + q);
 
             //tmpVecArray[e*qpe + q] = -f_d[e*qpe + q] * getQuadratureWeight(e*qpe + q);
-            if ((1.0 - n) > 1e-10) {
+            if ((1.0 - n) > 1e-10 && USE_OLD_DRAG_METHOD) {
                 //ensures nodes with zero porosity have zero force
                 kv[e * qpe + q] = -f_d * getQuadratureWeight(e * qpe + q) / (1.0 - n);
             } else {
@@ -3076,36 +3178,41 @@ void FVMGridBase::calculateElementIntegrandsForDragForce(Job *job,
     KinematicVector p, normal, f_d;
     double P;
 
-    //loop over elements
-    for (int e=e_start; e<=e_end; e++){
-        for (int q=0; q<qpe; q++){
-            //approximate local density, momentum, and energy
-            rho = driver->fluid_body->rho(e) + driver->fluid_body->rho_x[e].dot(x_q[e*qpe + q] - x_e[e]);
-            rhoE = driver->fluid_body->rhoE(e) + driver->fluid_body->rhoE_x[e].dot(x_q[e*qpe + q] - x_e[e]);
-            p = driver->fluid_body->p[e] + driver->fluid_body->p_x[e]*(x_q[e*qpe + q] - x_e[e]);
-            //n = driver->fluid_body->n_e(e) + driver->fluid_body->n_e_x[e].dot(x_q[e*qpe + q] - x_e[e]);
-            n = rho / ((driver->fluid_body->rho(e) / driver->fluid_body->n_e(e))
-                       + driver->fluid_body->true_density_x[e].dot(x_q[e*qpe + q] - x_e[e]));
+    if (USE_OLD_DRAG_METHOD) {
+        //loop over elements
+        for (int e = e_start; e <= e_end; e++) {
+            for (int q = 0; q < qpe; q++) {
+                //approximate local density, momentum, and energy
+                rho = driver->fluid_body->rho(e) + driver->fluid_body->rho_x[e].dot(x_q[e * qpe + q] - x_e[e]);
+                rhoE = driver->fluid_body->rhoE(e) + driver->fluid_body->rhoE_x[e].dot(x_q[e * qpe + q] - x_e[e]);
+                p = driver->fluid_body->p[e] + driver->fluid_body->p_x[e] * (x_q[e * qpe + q] - x_e[e]);
+                //n = driver->fluid_body->n_e(e) + driver->fluid_body->n_e_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+                n = rho / ((driver->fluid_body->rho(e) / driver->fluid_body->n_e(e))
+                           + driver->fluid_body->true_density_x[e].dot(x_q[e * qpe + q] - x_e[e]));
 
-            //fill in drag force
+                //fill in drag force
 
-            f_d = driver->fluid_material->getInterphaseDrag(job,
-                                                            driver,
-                                                            rho,
-                                                            (p/rho),
-                                                            v_sq[e*qpe + q],
-                                                            n); //n_q(e*qpe + q));
+                f_d = driver->fluid_material->getInterphaseDrag(job,
+                                                                driver,
+                                                                rho,
+                                                                (p / rho),
+                                                                v_sq[e * qpe + q],
+                                                                n); //n_q(e*qpe + q));
 
-            //tmpVecArray[e*qpe + q] = -f_d[e*qpe + q] * getQuadratureWeight(e*qpe + q);
-            if ((1.0 - n) > 1e-10) {
-                //ensures nodes with zero porosity have zero force
-                kv[e * qpe + q] = -f_d * getQuadratureWeight(e * qpe + q) / (1.0 - n);
-            } else {
-                //zero
-                kv[e * qpe + q].setZero();
+                //tmpVecArray[e*qpe + q] = -f_d[e*qpe + q] * getQuadratureWeight(e*qpe + q);
+                if ((1.0 - n) > 1e-10) {
+                    //ensures nodes with zero porosity have zero force
+                    kv[e * qpe + q] = -f_d * getQuadratureWeight(e * qpe + q) / (1.0 - n);
+                } else {
+                    //zero
+                    kv[e * qpe + q].setZero();
+                }
             }
         }
+    } else {
+        kv.setZero();
     }
+
     return;
 }
 
@@ -3129,60 +3236,135 @@ KinematicVectorArray FVMGridBase::calculateCorrectedDragForces(Job* job,
     double rho, rhoE, n;
     KinematicVector p, normal;
 
-    //loop over elements
-    calculateElementIntegrandsForCorrectedDragForces(job, driver, tmpVecArray, K_n, 0, element_count-1);
+    if (USE_OLD_DRAG_METHOD) {
 
-    //integrate expression (pg 117, nb 6)
-    //result = Q*tmpVecArray;
-    if (num_threads > 1){
-        //add components to result vector
-        parallelMultiply(Q, tmpVecArray, result, Q.NORMAL, false);
+        //loop over elements
+        calculateElementIntegrandsForCorrectedDragForces(job, driver, tmpVecArray, K_n, 0, element_count-1);
 
-        //scale result vector
-        for (int i = 0; i < result.size(); i++) {
-            result[i] *= (1.0 - driver->fluid_body->n(i));
+        //integrate expression (pg 117, nb 6)
+        //result = Q*tmpVecArray;
+        if (num_threads > 1){
+            //add components to result vector
+            parallelMultiply(Q, tmpVecArray, result, Q.NORMAL, false);
+
+            //scale result vector
+            for (int i = 0; i < result.size(); i++) {
+                result[i] *= (1.0 - driver->fluid_body->n(i));
+            }
+        } else {
+            tmp_result = Q * tmpVecArray;
+            for (int i = 0; i < result.size(); i++) {
+                result[i] += (1.0 - driver->fluid_body->n(i)) * tmp_result(i); //ensures nodes with zero porosity have zero force
+            }
         }
+
+        //divide result by associated nodal volumes
+        for (int i=0; i<job->grid->node_count; i++){
+            result(i) /= job->grid->nodeVolume(job, i);
+        }
+
     } else {
-        tmp_result = Q * tmpVecArray;
-        for (int i = 0; i < result.size(); i++) {
-            result[i] += (1.0 - driver->fluid_body->n(i)) * tmp_result(i); //ensures nodes with zero porosity have zero force
+        //new drag calculation
+        //calculate volume weighted velocity and mass density
+        KinematicVectorArray u_i = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+        KinematicVectorArray u = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+        Eigen::VectorXd m_i = Eigen::VectorXd(job->grid->node_count);
+        for (int e=0; e<driver->fluid_grid->element_count; e++){
+            u[e] = driver->fluid_body->p(e) / driver->fluid_body->rho(e);
         }
-    }
+        if (num_threads > 1) {
+            parallelMultiply(M, u, u_i, M.TRANSPOSED, true);
+        } else {
+            u_i = M.operate(u, M.TRANSPOSED);
+        }
+        for (int i=0; i<job->grid->node_count; i++){
+            u_i[i] /= job->grid->nodeVolume(job, i);
+        }
+        if (num_threads > 1) {
+            parallelMultiply(M, driver->fluid_body->rho, m_i, M.TRANSPOSED, true);
+        } else {
+            m_i = M.operate(driver->fluid_body->rho, M.TRANSPOSED);
+        }
 
-    //divide result by associated nodal volumes
-    for (int i=0; i<job->grid->node_count; i++){
-        result(i) /= job->grid->nodeVolume(job, i);
+
+        //calculate drag contribution
+        double rho_f;
+        for (int i=0; i<job->grid->node_count; i++){
+            rho_f = m_i(i)/job->grid->nodeVolume(job,i);
+            result[i] = -K_n(i) * (driver->fluid_body->v_s[i] - u_i[i]);
+        }
     }
 
     return result;
 }
 
-Eigen::VectorXd FVMGridBase::getCorrectedDragCoefficients(Job* job, FiniteVolumeDriver* driver){
-    Eigen::VectorXd result = Eigen::VectorXd(int_quad_count); //only interior quadrature points
+Eigen::VectorXd FVMGridBase::getCorrectedDragCoefficients(Job* job, FiniteVolumeDriver* driver) {
+    Eigen::VectorXd result;
 
     double rho, rhoE, n;
     KinematicVector p, normal, f_d;
     double P;
 
-    //loop over elements
-    for (int e=0; e<element_count; e++){
-        for (int q=0; q<qpe; q++){
-            //approximate local density, momentum, and energy
-            rho = driver->fluid_body->rho(e) + driver->fluid_body->rho_x[e].dot(x_q[e*qpe + q] - x_e[e]);
-            rhoE = driver->fluid_body->rhoE(e) + driver->fluid_body->rhoE_x[e].dot(x_q[e*qpe + q] - x_e[e]);
-            p = driver->fluid_body->p[e] + driver->fluid_body->p_x[e]*(x_q[e*qpe + q] - x_e[e]);
-            //n = driver->fluid_body->n_e(e) + driver->fluid_body->n_e_x[e].dot(x_q[e*qpe + q] - x_e[e]);
-            n = rho / ((driver->fluid_body->rho(e) / driver->fluid_body->n_e(e))
-                       + driver->fluid_body->true_density_x[e].dot(x_q[e*qpe + q] - x_e[e]));
+    if (USE_OLD_DRAG_METHOD){
+        result = Eigen::VectorXd(int_quad_count); //only interior quadrature points
 
-            //fill in drag coefficient
-            result(e*qpe + q) = driver->fluid_material->getInterphaseDragCoefficient(job,
-                                                                                     driver,
-                                                                                     rho,
-                                                                                     (p/rho),
-                                                                                     v_sq[e*qpe + q],
-                                                                                     n,
-                                                                                     FiniteVolumeMaterial::CORRECTED_DRAG);
+        //loop over elements
+        for (int e = 0; e < element_count; e++) {
+            for (int q = 0; q < qpe; q++) {
+                //approximate local density, momentum, and energy
+                rho = driver->fluid_body->rho(e) + driver->fluid_body->rho_x[e].dot(x_q[e * qpe + q] - x_e[e]);
+                rhoE = driver->fluid_body->rhoE(e) + driver->fluid_body->rhoE_x[e].dot(x_q[e * qpe + q] - x_e[e]);
+                p = driver->fluid_body->p[e] + driver->fluid_body->p_x[e] * (x_q[e * qpe + q] - x_e[e]);
+                //n = driver->fluid_body->n_e(e) + driver->fluid_body->n_e_x[e].dot(x_q[e*qpe + q] - x_e[e]);
+                n = rho / ((driver->fluid_body->rho(e) / driver->fluid_body->n_e(e))
+                           + driver->fluid_body->true_density_x[e].dot(x_q[e * qpe + q] - x_e[e]));
+
+                //fill in drag coefficient
+                result(e * qpe + q) = driver->fluid_material->getInterphaseDragCoefficient(job,
+                                                                                           driver,
+                                                                                           rho,
+                                                                                           (p / rho),
+                                                                                           v_sq[e * qpe + q],
+                                                                                           n,
+                                                                                           FiniteVolumeMaterial::CORRECTED_DRAG);
+            }
+        }
+    } else {
+        result = Eigen::VectorXd(job->grid->node_count);
+
+        //calculate volume weighted velocity and mass density
+        KinematicVectorArray u_i = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+        KinematicVectorArray u = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+        Eigen::VectorXd m_i = Eigen::VectorXd(job->grid->node_count);
+        for (int e=0; e<driver->fluid_grid->element_count; e++){
+            u[e] = driver->fluid_body->p(e) / driver->fluid_body->rho(e);
+        }
+        if (num_threads > 1) {
+            parallelMultiply(M, u, u_i, M.TRANSPOSED, true);
+        } else {
+            u_i = M.operate(u,M.TRANSPOSED);
+        }
+        for (int i=0; i<job->grid->node_count; i++){
+            u_i[i] /= job->grid->nodeVolume(job, i);
+        }
+        if (num_threads > 1) {
+            parallelMultiply(M, driver->fluid_body->rho, m_i, M.TRANSPOSED, true);
+        } else {
+            m_i = M.operate(driver->fluid_body->rho,M.TRANSPOSED);
+        }
+
+
+        //calculate drag coefficient
+        double rho_f;
+        for (int i=0; i<job->grid->node_count; i++){
+            rho_f = m_i(i)/job->grid->nodeVolume(job,i);
+            result(i) = driver->fluid_material->getInterphaseDragCoefficient(job,
+                                                                             driver,
+                                                                             rho_f,
+                                                                             u_i[i],
+                                                                             driver->fluid_body->v_s[i],
+                                                                             driver->fluid_body->n(i),
+                                                                             FiniteVolumeMaterial::CORRECTED_DRAG);
         }
     }
     return result;
@@ -3218,7 +3400,7 @@ void FVMGridBase::calculateElementIntegrandsForCorrectedDragForces(Job *job,
             f_d = K_n(e*qpe + q) * (v_sq[e*qpe + q] - (p/rho));
 
             //tmpVecArray[e*qpe + q] = -f_d[e*qpe + q] * getQuadratureWeight(e*qpe + q);
-            if ((1.0 - n) > 1e-10) {
+            if ((1.0 - n) > 1e-10 && USE_OLD_DRAG_METHOD) {
                 //ensures nodes with zero porosity have zero force
                 kv[e * qpe + q] = -f_d * getQuadratureWeight(e * qpe + q) / (1.0 - n);
             } else {
