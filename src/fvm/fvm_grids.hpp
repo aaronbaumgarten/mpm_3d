@@ -111,6 +111,28 @@ public:
 
     //function to calculate interphase force
     virtual KinematicVectorArray calculateInterphaseForces(Job* job, FiniteVolumeDriver* driver) = 0;
+
+    //interphase force functions when f_d_e != M*f_d_i
+    virtual void calculateSplitIntegralInterphaseForces(Job* job,
+                                                        FiniteVolumeDriver* driver,
+                                                        KinematicVectorArray& f_i,
+                                                        KinematicVectorArray& f_e) = 0;
+
+    virtual void calculateSplitIntegralBuoyantForces(Job* job,
+                                                     FiniteVolumeDriver* driver,
+                                                     KinematicVectorArray& f_i,
+                                                     KinematicVectorArray& f_e) = 0;
+
+    virtual void calculateSplitIntegralDragForces(Job* job,
+                                                  FiniteVolumeDriver* driver,
+                                                  KinematicVectorArray& f_i,
+                                                  KinematicVectorArray& f_e) = 0;
+
+    virtual void calculateSplitIntegralCorrectedDragForces(Job* job,
+                                                            FiniteVolumeDriver* driver,
+                                                            KinematicVectorArray& f_i,
+                                                            KinematicVectorArray& f_e,
+                                                            const Eigen::VectorXd &K_n) = 0;
 }
 */
 
@@ -141,6 +163,10 @@ public:
         std::vector<MaterialVectorArray> mv;
         std::vector<KinematicTensorArray> kt;
     };
+
+    //booleans for additional simulation options
+    bool USE_REDUCED_QUADRATURE = false;
+    bool USE_LOCAL_GRADIENT_CORRECTION = false;
 
     //instantiate
     std::vector<parallelMemoryUnit> memoryUnits;
@@ -174,7 +200,7 @@ public:
     std::vector<Eigen::MatrixXd> A_inv; //psuedo inverse
     std::vector<Eigen::VectorXd> b_e;
 
-    virtual void init(Job *job, FiniteVolumeDriver *driver) = 0;
+    virtual void init(Job *job, FiniteVolumeDriver *driver);
 
     virtual void writeHeader(std::ofstream &file, int TYPE) = 0;
 
@@ -275,6 +301,28 @@ public:
                                                                   const Eigen::VectorXd &K_n,
                                                                   int e_start, int e_end);           // <- integrand calculator
 
+
+    //interphase force functions when f_d_e != M*f_d_i
+    virtual void calculateSplitIntegralInterphaseForces(Job* job,
+                                                        FiniteVolumeDriver* driver,
+                                                        KinematicVectorArray& f_i,
+                                                        KinematicVectorArray& f_e);
+
+    virtual void calculateSplitIntegralBuoyantForces(Job* job,
+                                                     FiniteVolumeDriver* driver,
+                                                     KinematicVectorArray& f_i,
+                                                     KinematicVectorArray& f_e);
+
+    virtual void calculateSplitIntegralDragForces(Job* job,
+                                                  FiniteVolumeDriver* driver,
+                                                  KinematicVectorArray& f_i,
+                                                  KinematicVectorArray& f_e);
+
+    virtual void calculateSplitIntegralCorrectedDragForces(Job* job,
+                                                           FiniteVolumeDriver* driver,
+                                                           KinematicVectorArray& f_i,
+                                                           KinematicVectorArray& f_e,
+                                                           const Eigen::VectorXd &K_n);
 
     //parallel functions
     virtual void

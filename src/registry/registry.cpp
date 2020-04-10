@@ -43,6 +43,7 @@ Registry<Serializer>::Registry() {
     object["DefaultVTK"] = &createInstance<Serializer,DefaultVTK>;
     object["MinimalVTK"] = &createInstance<Serializer,MinimalVTK>;
     object["SlicePointsVTK"] = &createInstance<Serializer,SlicePointsVTK>;
+    object["DebugVTK"] = &createInstance<Serializer,DebugVTK>;
 }
 
 

@@ -111,4 +111,19 @@ public:
     int writeFrame(Job*);
 };
 
+class DebugVTK : public DefaultVTK {
+public:
+    //default constructor
+    DebugVTK(){
+        object_name = "DebugVTK"; //set this here
+        mainpath = "";              //for now, set to nothing
+    }
+
+    //job writing and sampling
+    double t_debug_start, t_debug_end;
+
+    virtual void init(Job* job);
+    virtual int writeFrame(Job*);
+};
+
 #endif //MPM_V3_SERIALIZERS_HPP

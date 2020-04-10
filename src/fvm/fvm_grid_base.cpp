@@ -28,6 +28,40 @@
 static const bool USE_OLD_DRAG_METHOD = false;
 
 /*----------------------------------------------------------------------------*/
+void FVMGridBase::init(Job* job, FiniteVolumeDriver* driver){
+    //do some basic set-up of parameters
+
+    //get pointer to job->threadPool
+    jobThreadPool = &job->threadPool;
+
+    //get number of threads
+    num_threads = job->thread_count;
+
+    //initialize memory unit
+    memoryUnits.push_back(parallelMemoryUnit());
+
+    //loop over str-props and assign relevant flags
+    std::vector<std::string> options = {"USE_REDUCED_QUADRATURE", "USE_LOCAL_GRADIENT_CORRECTION"};
+    for (int i=0; i<str_props.size(); i++){
+        switch (Parser::findStringID(options, str_props[i])){
+            case 0:
+                //USE_REDUCED_QUADRATURE
+                USE_REDUCED_QUADRATURE = true;
+                break;
+            case 1:
+                //USE_LOCAL_GRADIENT_CORRECTION
+                USE_LOCAL_GRADIENT_CORRECTION = true;
+                break;
+            default:
+                //do nothing
+                break;
+        }
+    }
+
+    return;
+}
+
+/*----------------------------------------------------------------------------*/
 
 double FVMGridBase::getElementVolume(int e){
     return v_e(e);
@@ -978,6 +1012,8 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
     KinematicTensorArray L = getVelocityGradients(job, driver);
     KinematicTensor L_tmp = KinematicTensor(job->JOB_TYPE);
     MaterialTensor tau_plus, tau_minus;
+    KinematicVector dx = x;
+    KinematicVector du = x;
 
 
     //loop over faces and use quadrature to reconstruct flux integral
@@ -1080,18 +1116,74 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                                                 - a_4*lambda_4);
 
                     //add tractions to momentum flux
-                    //for now use simple reconstruction of theta
-                    tau_minus = driver->fluid_material->getShearStress(job, driver, L[e_minus], rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
-                    tau_plus = driver->fluid_material->getShearStress(job, driver, L[e_plus], rho_plus, p_plus, rhoE_minus, n_q(q_list[q]));
-                    P_plus = n_bar*c*c*(rho_plus/n_plus - rho_bar/n_bar) + driver->fluid_material->getPressure(job, driver, rho_bar, p_minus, rhoE_minus, n_bar); //n_q(q_list[q]));
-                    P_minus = n_bar*c*c*(rho_minus/n_minus - rho_plus/n_plus) + P_plus;
-                    //P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_minus, n_plus);
-                    //P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_minus);
+                    if (!USE_LOCAL_GRADIENT_CORRECTION) {
+                        //use standard estimate of traction
+                        tau_minus = driver->fluid_material->getShearStress(job, driver,
+                                                                           L[e_minus],
+                                                                           rho_minus,
+                                                                           p_minus,
+                                                                           rhoE_minus,
+                                                                           n_q(q_list[q]));
+                        tau_plus = driver->fluid_material->getShearStress(job, driver,
+                                                                          L[e_plus],
+                                                                          rho_plus,
+                                                                          p_plus,
+                                                                          rhoE_minus,
+                                                                          n_q(q_list[q]));
 
-                    //std::cout << "[" << f << "]: " << P_plus << ", " << P_minus << std::endl;
-                    //std::cout << "    " << a_1 << ", " << a_2 << std::endl;
+                        P_plus = n_bar * c * c * (rho_plus / n_plus - rho_bar / n_bar) +
+                                 driver->fluid_material->getPressure(job,
+                                                                     driver,
+                                                                     rho_bar,
+                                                                     p_minus,
+                                                                     rhoE_minus,
+                                                                     n_bar); //n_q(q_list[q]));
 
-                    flux += w_q(q_list[q]) * 0.5 * ((P_plus + P_minus)*normal - KinematicVector((tau_plus + tau_minus)*normal, job->JOB_TYPE));
+                        P_minus = n_bar * c * c * (rho_minus / n_minus - rho_plus / n_plus) + P_plus;
+                        //P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_minus, n_plus);
+                        //P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_minus);
+
+                        //std::cout << "[" << f << "]: " << P_plus << ", " << P_minus << std::endl;
+                        //std::cout << "    " << a_1 << ", " << a_2 << std::endl;
+
+                        flux += w_q(q_list[q]) * 0.5 * ((P_plus + P_minus) * normal
+                                                        - KinematicVector((tau_plus + tau_minus) * normal, job->JOB_TYPE));
+                    } else {
+                        P_plus = n_bar * c * c * (rho_plus / n_plus - rho_bar / n_bar) +
+                                 driver->fluid_material->getPressure(job,
+                                                                     driver,
+                                                                     rho_bar,
+                                                                     p_minus,
+                                                                     rhoE_minus,
+                                                                     n_bar); //n_q(q_list[q]));
+
+                        P_minus = n_bar * c * c * (rho_minus / n_minus - rho_plus / n_plus) + P_plus;
+
+                        //use 'corrected' stencil for du/dx
+                        L_tmp = 0.5*(L[e_minus] + L[e_plus]);
+
+                        //find relative position of e_plus and e_minus
+                        dx = x_e[e_plus] - x_e[e_minus];
+
+                        //find change in velocity
+                        du = u_plus - u_minus;
+
+                        //'correct' L using centroid difference
+                        L_tmp += (du - L_tmp*dx).tensor(dx)/(dx.norm()*dx.norm());
+
+                        //calculate tau
+                        tau_plus = driver->fluid_material->getShearStress(job,
+                                                                          driver,
+                                                                          L_tmp,
+                                                                          rho_bar,
+                                                                          p_minus,
+                                                                          rhoE_minus,
+                                                                          n_q(q_list[q]));
+
+
+                        flux += w_q(q_list[q]) * (0.5*(P_plus + P_minus) * normal
+                                                        - KinematicVector(tau_plus * normal, job->JOB_TYPE));
+                    }
 
                     //add flux to element integrals
                     result(e_minus) -= flux;
@@ -1202,8 +1294,32 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                                                 - a_4*lambda_4);
 
                     //add tractions to momentum flux
-                    tau_minus = driver->fluid_material->getShearStress(job, driver, L[e_minus], rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
-                    tau_plus = driver->fluid_material->getShearStress(job, driver, L[e_plus], rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
+                    if(!USE_LOCAL_GRADIENT_CORRECTION) {
+                        tau_minus = driver->fluid_material->getShearStress(job, driver, L[e_minus], rho_minus, p_minus, rhoE_minus, n_q(q_list[q]));
+                        tau_plus = driver->fluid_material->getShearStress(job, driver, L[e_plus], rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
+                    } else {
+                        //use 'corrected' stencil for du/dx
+                        L_tmp = 0.5*(L[e_minus] + L[e_plus]);
+
+                        //find relative position of e_plus and e_minus
+                        dx = x_e[e_plus] - x_e[e_minus];
+
+                        //find change in velocity
+                        du = u_plus - u_minus;
+
+                        //'correct' L using centroid difference
+                        L_tmp += (du - L_tmp*dx).tensor(dx)/(dx.norm()*dx.norm());
+
+                        //calculate tau
+                        tau_plus = driver->fluid_material->getShearStress(job,
+                                                                          driver,
+                                                                          L_tmp,
+                                                                          rho_bar,
+                                                                          (rho_bar*u_bar),
+                                                                          rhoE_bar,
+                                                                          n_q(q_list[q]));
+                        tau_minus = tau_plus;
+                    }
 
                     flux += w_q(q_list[q]) * 0.5 * ((P_plus + P_minus)*normal - KinematicVector((tau_plus + tau_minus)*normal, job->JOB_TYPE));
 
@@ -1929,6 +2045,8 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
     KinematicTensorArray L = getVelocityGradients(job, driver);
     KinematicTensor L_tmp = KinematicTensor(job->JOB_TYPE);
     MaterialTensor tau_plus, tau_minus;
+    KinematicVector dx = x;
+    KinematicVector du = x;
 
     //loop over faces and use quadrature to reconstruct flux integral
     u_plus = KinematicVector(job->JOB_TYPE);
@@ -2057,6 +2175,30 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
 
                     //tangent component of u_bar
                     s = u_bar - u_bar.dot(normal)*normal;
+
+                    if (USE_LOCAL_GRADIENT_CORRECTION){
+                        //use 'corrected' stencil for du/dx
+                        L_tmp = 0.5*(L[e_minus] + L[e_plus]);
+
+                        //find relative position of e_plus and e_minus
+                        dx = x_e[e_plus] - x_e[e_minus];
+
+                        //find change in velocity
+                        du = u_plus - u_minus;
+
+                        //'correct' L using centroid difference
+                        L_tmp += (du - L_tmp*dx).tensor(dx)/(dx.norm()*dx.norm());
+
+                        //calculate tau
+                        tau_plus = driver->fluid_material->getShearStress(job,
+                                                                          driver,
+                                                                          L_tmp,
+                                                                          rho_bar,
+                                                                          (rho_bar * u_bar),
+                                                                          rhoE_bar,
+                                                                          n_q(q_list[q]));
+                        tau_minus = tau_plus;
+                    }
 
                     //flux in n direction
                     flux = w_q(q_list[q]) * 0.5 *((rhoE_plus + P_plus)*u_plus.dot(normal)
@@ -3409,6 +3551,190 @@ void FVMGridBase::calculateElementIntegrandsForCorrectedDragForces(Job *job,
             }
         }
     }
+    return;
+}
+
+void FVMGridBase::calculateSplitIntegralInterphaseForces(Job* job,
+                                                    FiniteVolumeDriver* driver,
+                                                    KinematicVectorArray& f_i,
+                                                    KinematicVectorArray& f_e){
+    KinematicVectorArray tmp_f_i = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+    KinematicVectorArray tmp_f_e = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+
+    //get buoyant force
+    calculateSplitIntegralBuoyantForces(job, driver, f_i, f_e);
+
+    //get drag force
+    calculateSplitIntegralDragForces(job, driver, tmp_f_i, tmp_f_e);
+
+    //add drag to buoyant forces
+    for (int i=0; i<job->grid->node_count; i++){
+        f_i[i] += tmp_f_i[i];
+    }
+
+    for (int e=0; e<driver->fluid_grid->element_count; e++){
+        f_e[e] += tmp_f_e[e];
+    }
+
+    return;
+}
+
+void FVMGridBase::calculateSplitIntegralBuoyantForces(Job* job,
+                                                 FiniteVolumeDriver* driver,
+                                                 KinematicVectorArray& f_i,
+                                                 KinematicVectorArray& f_e){
+    //use old method
+    f_i = calculateBuoyantForces(job, driver);
+
+    //map to elements
+    if (num_threads > 1){
+        parallelMultiply(M, f_i, f_e, M.NORMAL, true);
+    } else {
+        f_e = M*f_i;
+    }
+
+    for (int e=0; e<driver->fluid_grid->element_count; e++){
+        //rescale element force
+        f_e[e] /= driver->fluid_grid->getElementVolume(e);
+    }
+
+    return;
+}
+
+void FVMGridBase::calculateSplitIntegralDragForces(Job* job,
+                                              FiniteVolumeDriver* driver,
+                                              KinematicVectorArray& f_i,
+                                              KinematicVectorArray& f_e){
+    //result defines force on solid by fluid
+    KinematicVectorArray Kvs_i = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+    Eigen::VectorXd K_i = Eigen::VectorXd(job->grid->node_count);
+
+    //new drag calculation
+    //calculate volume weighted velocity and mass density on nodes to estimate K_i
+    KinematicVectorArray u_i = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+    KinematicVectorArray u = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+    Eigen::VectorXd m_i = Eigen::VectorXd(job->grid->node_count);
+    for (int e=0; e<driver->fluid_grid->element_count; e++){
+        u[e] = driver->fluid_body->p(e) / driver->fluid_body->rho(e);
+    }
+    if (num_threads > 1) {
+        parallelMultiply(M, u, u_i, M.TRANSPOSED, true);
+    } else {
+        u_i = M.operate(u, M.TRANSPOSED);
+    }
+    for (int i=0; i<job->grid->node_count; i++){
+        u_i[i] /= job->grid->nodeVolume(job, i);
+    }
+
+    if (num_threads > 1) {
+        parallelMultiply(M, driver->fluid_body->rho, m_i, M.TRANSPOSED, true);
+    } else {
+        m_i = M.operate(driver->fluid_body->rho, M.TRANSPOSED);
+    }
+
+    //calculate drag coefficient associated with each node
+    double rho_f;
+    for (int i=0; i<job->grid->node_count; i++){
+        rho_f = m_i(i)/job->grid->nodeVolume(job,i);
+        K_i(i) = driver->fluid_material->getInterphaseDragCoefficient(job,
+                                                             driver,
+                                                             rho_f,
+                                                             u_i[i],
+                                                             driver->fluid_body->v_s[i],
+                                                             driver->fluid_body->n(i),
+                                                             FiniteVolumeMaterial::REGULAR_DRAG);
+
+        //estimate nodal drag
+        f_i[i] = -K_i(i)*(driver->fluid_body->v_s[i] - u_i[i]);
+        Kvs_i[i] = K_i(i) * driver->fluid_body->v_s[i];
+    }
+
+    //calculate element-wise weighted drag coefficient
+    Eigen::VectorXd K_e = Eigen::VectorXd(driver->fluid_grid->element_count);
+    if (num_threads > 1){
+        parallelMultiply(M, K_i, K_e, M.NORMAL, true);
+    } else {
+        K_e = M*K_i;
+    }
+
+    //calculate element-wise weighted solid drag component velocity
+    KinematicVectorArray Kvs_e = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+    if (num_threads > 1){
+        parallelMultiply(M, Kvs_i, Kvs_e, M.NORMAL, true);
+    } else {
+        Kvs_e = M*Kvs_i;
+    }
+
+    //calculate element estimate for drag
+    for (int e=0; e<driver->fluid_grid->element_count; e++){
+        f_e[e] = -(Kvs_e[e] - K_e(e)*u[e]) / driver->fluid_grid->getElementVolume(e);
+    }
+
+    return;
+}
+
+void FVMGridBase::calculateSplitIntegralCorrectedDragForces(Job* job,
+                                                       FiniteVolumeDriver* driver,
+                                                       KinematicVectorArray& f_i,
+                                                       KinematicVectorArray& f_e,
+                                                       const Eigen::VectorXd &K_n){
+    //result defines force on solid by fluid
+    KinematicVectorArray Kvs_i = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+
+    //new drag calculation
+    //calculate volume weighted velocity and mass density on nodes to estimate K_i
+    KinematicVectorArray u_i = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+    KinematicVectorArray u = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+    Eigen::VectorXd m_i = Eigen::VectorXd(job->grid->node_count);
+    for (int e=0; e<driver->fluid_grid->element_count; e++){
+        u[e] = driver->fluid_body->p(e) / driver->fluid_body->rho(e);
+    }
+    if (num_threads > 1) {
+        parallelMultiply(M, u, u_i, M.TRANSPOSED, true);
+    } else {
+        u_i = M.operate(u, M.TRANSPOSED);
+    }
+    for (int i=0; i<job->grid->node_count; i++){
+        u_i[i] /= job->grid->nodeVolume(job, i);
+    }
+
+    if (num_threads > 1) {
+        parallelMultiply(M, driver->fluid_body->rho, m_i, M.TRANSPOSED, true);
+    } else {
+        m_i = M.operate(driver->fluid_body->rho, M.TRANSPOSED);
+    }
+
+    //calculate drag coefficient associated with each node
+    double rho_f;
+    for (int i=0; i<job->grid->node_count; i++){
+        rho_f = m_i(i)/job->grid->nodeVolume(job,i);
+
+        //estimate nodal drag
+        f_i[i] = -K_n(i)*(driver->fluid_body->v_s[i] - u_i[i]);
+        Kvs_i[i] = K_n(i) * driver->fluid_body->v_s[i];
+    }
+
+    //calculate element-wise weighted drag coefficient
+    Eigen::VectorXd K_e = Eigen::VectorXd(driver->fluid_grid->element_count);
+    if (num_threads > 1){
+        parallelMultiply(M, K_n, K_e, M.NORMAL, true);
+    } else {
+        K_e = M*K_n;
+    }
+
+    //calculate element-wise weighted solid drag component velocity
+    KinematicVectorArray Kvs_e = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+    if (num_threads > 1){
+        parallelMultiply(M, Kvs_i, Kvs_e, M.NORMAL, true);
+    } else {
+        Kvs_e = M*Kvs_i;
+    }
+
+    //calculate element estimate for drag
+    for (int e=0; e<driver->fluid_grid->element_count; e++){
+        f_e[e] = -(Kvs_e[e] - K_e(e)*u[e]) / driver->fluid_grid->getElementVolume(e);
+    }
+
     return;
 }
 

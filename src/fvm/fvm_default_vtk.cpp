@@ -118,6 +118,9 @@ int FVMDefaultVTK::writeFrame(Job* job, FiniteVolumeDriver* driver){
         }
         writeScalarArray(mach, "mach");
 
+        //added this for debugging
+        driver->solver->writeFrame(job, driver);
+
     } else {
         std::cerr << "Could not open frame: " << frameDirectory+filename << " !" << std::endl;
     }

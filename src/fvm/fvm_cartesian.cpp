@@ -40,16 +40,8 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         std::cerr << "FiniteVolumeGrid doesn't have defined type for JOB_TYPE " << job->JOB_TYPE << "." << std::endl;
     }
 
-
-    //get pointer to job->threadPool
-    jobThreadPool = &job->threadPool;
-
-    //get number of threads
-    num_threads = job->thread_count;
-
-    //initialize memory units (should only need 1)
-    memoryUnits.push_back(parallelMemoryUnit());
-
+    //call initializer for base class
+    FVMGridBase::init(job, driver);
 
     //check size of properties passed to grid object
     if (fp64_props.size() < GRID_DIM || int_props.size() < GRID_DIM) {
@@ -397,7 +389,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         face_count = Nx[0] + 1;
 
         //quadrature rule
-        if (driver->ORDER == 1){
+        if (driver->ORDER == 1 || USE_REDUCED_QUADRATURE){
             qpe = 1; //quad points per element
             qpf = 1; //quad points per face
         } else if (driver->ORDER == 2){
@@ -471,7 +463,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         face_areas = Eigen::VectorXd(face_count);
 
         //quadrature rule
-        if (driver->ORDER == 1){
+        if (driver->ORDER == 1 || USE_REDUCED_QUADRATURE){
             qpe = 1; //quad points per element
             qpf = 1; //quad points per face
         } else if (driver->ORDER == 2){
@@ -601,7 +593,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         face_areas = Eigen::VectorXd(face_count);
 
         //quadrature rule
-        if (driver->ORDER == 1){
+        if (driver->ORDER == 1 || USE_REDUCED_QUADRATURE){
             qpe = 1; //quad points per element
             qpf = 1; //quad points per face
         } else if (driver->ORDER == 2){

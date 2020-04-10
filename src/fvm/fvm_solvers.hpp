@@ -196,6 +196,8 @@ public:
 
     virtual void updateDensity(Job* job, int SPEC); //overload to avoid updating internal state
     virtual void updateStress(Job* job, int SPEC); //overload function
+
+    virtual void writeFrame(Job* job, FiniteVolumeDriver* driver);
 };
 
 #endif //MPM_V3_FVM_SOLVERS_HPP

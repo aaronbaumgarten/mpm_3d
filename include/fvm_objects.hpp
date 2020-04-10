@@ -33,6 +33,10 @@ public:
     //functions that must be implemented by every finite volume solver (not many)
     virtual void init(Job*, FiniteVolumeDriver*) = 0;                                        //initialize from Job
     virtual void step(Job*, FiniteVolumeDriver*) = 0;                                        //perform single mpm step
+    virtual void writeFrame(Job* job, FiniteVolumeDriver* driver){
+        //do nothing
+        return;
+    }
 };
 
 /*------------------------------------------------------------------------*/
@@ -131,6 +135,27 @@ public:
 
     virtual Eigen::VectorXd getCorrectedDragCoefficients(Job* job, FiniteVolumeDriver* driver) = 0; // <- function to collect those coefficients
 
+    //interphase force functions when f_d_e != M*f_d_i
+    virtual void calculateSplitIntegralInterphaseForces(Job* job,
+                                                        FiniteVolumeDriver* driver,
+                                                        KinematicVectorArray& f_i,
+                                                        KinematicVectorArray& f_e) = 0;
+
+    virtual void calculateSplitIntegralBuoyantForces(Job* job,
+                                                     FiniteVolumeDriver* driver,
+                                                     KinematicVectorArray& f_i,
+                                                     KinematicVectorArray& f_e) = 0;
+
+    virtual void calculateSplitIntegralDragForces(Job* job,
+                                                  FiniteVolumeDriver* driver,
+                                                  KinematicVectorArray& f_i,
+                                                  KinematicVectorArray& f_e) = 0;
+
+    virtual void calculateSplitIntegralCorrectedDragForces(Job* job,
+                                                            FiniteVolumeDriver* driver,
+                                                            KinematicVectorArray& f_i,
+                                                            KinematicVectorArray& f_e,
+                                                            const Eigen::VectorXd &K_n) = 0;
 };
 
 

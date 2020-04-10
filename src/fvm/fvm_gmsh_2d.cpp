@@ -43,15 +43,8 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
         filename = str_props[0];
     }
 
-    //get pointer to job->threadPool
-    jobThreadPool = &job->threadPool;
-
-    //get number of threads
-    num_threads = job->thread_count;
-
-    //initialize memory unit
-    memoryUnits.push_back(parallelMemoryUnit());
-
+    //call initializer for base class
+    FVMGridBase::init(job, driver);
 
     //initialize tags and values vectors;
     std::vector<FiniteVolumeMethod::BCContainer> tmp_bc_info;
@@ -838,7 +831,7 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
     }
 
     //lastly, quadrature rule
-    if (driver->ORDER == 1){
+    if (driver->ORDER == 1 || USE_REDUCED_QUADRATURE){
         qpe = 1; //quad points per element
         qpf = 1; //quad points per face
     } else if (driver->ORDER == 2){

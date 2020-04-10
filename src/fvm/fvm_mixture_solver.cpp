@@ -381,15 +381,17 @@ void FVMMixtureSolver::applyFluxes(Job* job, FiniteVolumeDriver* driver){
 
 void FVMMixtureSolver::generateMixtureForces(Job* job, FiniteVolumeDriver* driver){
     //get discretized inter-phase force
-    f_i = driver->fluid_grid->calculateInterphaseForces(job, driver);
+    //f_i = driver->fluid_grid->calculateInterphaseForces(job, driver);
+    driver->fluid_grid->calculateSplitIntegralInterphaseForces(job, driver, f_i, f_e);
     return;
 }
 
 void FVMMixtureSolver::applyMixtureForces(Job* job, FiniteVolumeDriver* driver){
     //subtract force contribution from fluid phase
-    f_e = driver->fluid_grid->M * f_i;
+    //f_e = driver->fluid_grid->M * f_i;
     for (int e=0; e<driver->fluid_grid->element_count; e++){
-        driver->fluid_body->p[e] -= f_e[e] / driver->fluid_grid->getElementVolume(e) * job->dt;
+        //driver->fluid_body->p[e] -= f_e[e] / driver->fluid_grid->getElementVolume(e) * job->dt;
+        driver->fluid_body->p[e] -= f_e[e] * job->dt;
     }
 
     //add force contribution to solid phase
