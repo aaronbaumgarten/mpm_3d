@@ -39,7 +39,7 @@ public:
     MPMSparseMatrixBase() {
         i_max = 0;
         j_max = 0;
-        std::cerr << "WARNING: Initializing sparse matrix with zero size!" << std::endl;
+        //std::cerr << "WARNING: Initializing sparse matrix with zero size!" << std::endl;
     }
 
     /*------------------------------------------------------------------------*/

@@ -281,7 +281,8 @@ public:
     virtual void calculateFaceIntegrandsForBuoyantForce(Job *job,
                                                            FiniteVolumeDriver *driver,
                                                            KinematicVectorArray& kv,
-                                                           int f_start, int f_end);
+                                                           int f_start, int f_end,
+                                                           bool BOUNDARY_ONLY = true);
 
     virtual void calculateElementIntegrandsForDragForce(Job *job,
                                                            FiniteVolumeDriver *driver,

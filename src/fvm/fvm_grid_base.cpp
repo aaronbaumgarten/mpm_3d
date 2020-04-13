@@ -47,10 +47,12 @@ void FVMGridBase::init(Job* job, FiniteVolumeDriver* driver){
             case 0:
                 //USE_REDUCED_QUADRATURE
                 USE_REDUCED_QUADRATURE = true;
+                std::cout << "FiniteVolumeGrid using reduced quadrature." << std::endl;
                 break;
             case 1:
                 //USE_LOCAL_GRADIENT_CORRECTION
                 USE_LOCAL_GRADIENT_CORRECTION = true;
+                std::cout << "FiniteVolumeGrid using local gradient correction for shear stresses." << std::endl;
                 break;
             default:
                 //do nothing
@@ -3250,7 +3252,8 @@ void FVMGridBase::calculateElementIntegrandsForBuoyantForce(Job *job,
 void FVMGridBase::calculateFaceIntegrandsForBuoyantForce(Job *job,
                                                             FiniteVolumeDriver *driver,
                                                             KinematicVectorArray& kv,
-                                                            int f_start, int f_end){
+                                                            int f_start, int f_end,
+                                                            bool BOUNDARY_ONLY){
 
     //check that limits are within acceptable range
     if (f_start < 0 || f_end >= face_count){
@@ -3261,12 +3264,18 @@ void FVMGridBase::calculateFaceIntegrandsForBuoyantForce(Job *job,
     KinematicVector p, normal;
     double P;
 
+    double rho_plus, rhoE_plus, rho_minus, rhoE_minus;
+    double true_density_plus, true_density_minus;
+    KinematicVector p_plus, p_minus;
+
     int tmp_e = -1;
     int tmp_q = -1;
+    int e_plus = -1;
+    int e_minus = -1;
     //loop over faces
     for (int f=f_start; f<=f_end; f++){
         for (int q=0; q<qpf; q++){
-            //only add contributions from domain boundaries
+            //only add contributions from domain boundaries (unless BOUNDARY_ONLY flag is false)
             if (q_b[int_quad_count + f*qpf + q]){
                 //get normal
                 normal = getFaceNormal(job, f);
@@ -3287,6 +3296,44 @@ void FVMGridBase::calculateFaceIntegrandsForBuoyantForce(Job *job,
                 //n = driver->fluid_body->n_e(tmp_e) + driver->fluid_body->n_e_x[tmp_e].dot(x_q[tmp_q] - x_e[tmp_e]);
                 n = rho / ((driver->fluid_body->rho(tmp_e) / driver->fluid_body->n_e(tmp_e))
                            + driver->fluid_body->true_density_x[tmp_e].dot(x_q[tmp_q] - x_e[tmp_e]));
+
+                //fill in pressure
+                P = driver->fluid_material->getPressure(job,
+                                                        driver,
+                                                        rho,
+                                                        p,
+                                                        rhoE,
+                                                        n); //n_q(tmp_q));
+
+                //fill in tmpArray
+                //tmpVecArray[tmp_q] = -P_q(tmp_q) * (1.0 - n_q(tmp_q)) * normal * getQuadratureWeight(tmp_q);
+                kv[tmp_q] = -P * normal * getQuadratureWeight(tmp_q);
+            } else if (!BOUNDARY_ONLY && face_elements[f][0] > -1 && face_elements[f][1] > -1) {
+                //not a bounding face and well defined
+                //get normal and element neighbors
+                normal = getFaceNormal(job, f);
+                e_minus = face_elements[f][0];
+                e_plus = face_elements[f][1];
+
+                //approximate local density, momentum, and energy
+                tmp_q = int_quad_count + f*qpf + q;
+
+                rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x_q[tmp_q] - x_e[e_plus]);
+                rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x_q[tmp_q] - x_e[e_plus]);
+                p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus]*(x_q[tmp_q] - x_e[e_plus]);
+                true_density_plus = (driver->fluid_body->rho(e_plus) / driver->fluid_body->n_e(e_plus))
+                                    + driver->fluid_body->true_density_x[e_plus].dot(x_q[tmp_q] - x_e[e_plus]);
+
+                rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x_q[tmp_q] - x_e[e_minus]);
+                rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x_q[tmp_q] - x_e[e_minus]);
+                p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus]*(x_q[tmp_q] - x_e[e_minus]);
+                true_density_minus = (driver->fluid_body->rho(e_minus) / driver->fluid_body->n_e(e_minus))
+                                    + driver->fluid_body->true_density_x[e_minus].dot(x_q[tmp_q] - x_e[e_minus]);
+
+                rho = 0.5*(rho_plus + rho_minus);
+                rhoE = 0.5*(rhoE_plus + rhoE_minus);
+                p = 0.5*(p_plus + p_minus);
+                n = 2.0 * rho / (true_density_plus + true_density_minus);
 
                 //fill in pressure
                 P = driver->fluid_material->getPressure(job,
@@ -3583,20 +3630,104 @@ void FVMGridBase::calculateSplitIntegralBuoyantForces(Job* job,
                                                  FiniteVolumeDriver* driver,
                                                  KinematicVectorArray& f_i,
                                                  KinematicVectorArray& f_e){
-    //use old method
-    f_i = calculateBuoyantForces(job, driver);
 
-    //map to elements
+    //declare temporary containers for quadrature point fields
+    KinematicVectorArray tmpVecArray = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE);
+    Eigen::VectorXd tmpArray = Eigen::VectorXd(int_quad_count + ext_quad_count);
+    KinematicVectorArray tmp_result = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+
+    tmpVecArray.setZero();
+    tmpArray.setZero();
+
+    double rho, rhoE, n;
+    KinematicVector p, normal;
+
+    //get integral values at quadrature points
+    calculateElementIntegrandsForBuoyantForce(job, driver, tmpArray, 0, element_count-1);
+    calculateFaceIntegrandsForBuoyantForce(job, driver, tmpVecArray, 0, face_count-1); //DO NOT include internal faces
+
+    //integrate expression (pg 143, nb 6) by multiplying phi_j, N_j, gradN_j
+    //loop over nodes to find f_i
     if (num_threads > 1){
-        parallelMultiply(M, f_i, f_e, M.NORMAL, true);
+        //add components to result vector
+        parallelMultiply(Q, tmpVecArray, f_i, Q.NORMAL, true);       //clear f_i here
+        parallelMultiply(gradQ, tmpArray, f_i, gradQ.NORMAL, false); //do not clear f_i here
+
+        //scale result vector
+        for (int i = 0; i < f_i.size(); i++) {
+            f_i[i] *= (1.0 - driver->fluid_body->n(i));
+        }
     } else {
-        f_e = M*f_i;
+        tmp_result = Q * tmpVecArray;
+        for (int i = 0; i < f_i.size(); i++) {
+            f_i[i] = (1.0 - driver->fluid_body->n(i)) * tmp_result(i); //ensures nodes with zero porosity have zero force
+        }
+        tmp_result = gradQ * tmpArray;
+        for (int i = 0; i < f_i.size(); i++) {
+            f_i[i] += (1.0 - driver->fluid_body->n(i)) * tmp_result(i);
+        }
     }
 
+    //divide result by associated nodal volumes
+    for (int i=0; i<job->grid->node_count; i++){
+        f_i(i) /= job->grid->nodeVolume(job, i);
+    }
+
+    //redo this calculation but DO include internal faces
+    tmpVecArray.setZero();
+    calculateFaceIntegrandsForBuoyantForce(job, driver, tmpVecArray, 0, face_count-1, false); //DO include internal faces
+
+    //loop over elements to find f_e
+    int tmp_e = -1;
+    int tmp_q = -1;
+    f_e.setZero();
+    for (int e=0; e<element_count; e++){
+        for (int q=0; q<qpe; q++){
+            //for each quadrature point in element, multiply integrand by gradphi
+            // \nabla phi = -\nabla n, requires partition of unity
+            f_e[e] -= tmpArray(e*qpe + q)*gradn_q[e*qpe + q];
+        }
+    }
+    for (int f=0; f<element_count; f++){
+        for (int q=0; q<qpf; q++){
+            //for each quadrature point on face, multiply integrand by phi
+            tmp_q = int_quad_count + f*qpf + q;
+            if (q_b[int_quad_count + f*qpf + q]) {
+                //determine which element is interior
+                if (face_elements[f][0] > -1) {
+                    //A is interior to domain
+                    tmp_e = face_elements[f][0];
+                } else {
+                    //B is interior to domain
+                    tmp_e = face_elements[f][1];
+                }
+                f_e[tmp_e] += tmpVecArray[tmp_q]*(1.0 - n_q(tmp_q));
+            } else if (face_elements[f][0] > -1 && face_elements[f][1] > -1){
+                //subtract face integral from A and add to B (according to normal direction of face)
+                f_e[face_elements[f][0]] += tmpVecArray[tmp_q]*(1.0 - n_q(tmp_q));
+                f_e[face_elements[f][1]] -= tmpVecArray[tmp_q]*(1.0 - n_q(tmp_q));
+            }
+        }
+    }
     for (int e=0; e<driver->fluid_grid->element_count; e++){
         //rescale element force
         f_e[e] /= driver->fluid_grid->getElementVolume(e);
     }
+
+    /*
+    //check that everything is kosher
+    KinematicVector sum_e = KinematicVector(job->JOB_TYPE);
+    KinematicVector sum_j = sum_e;
+    for (int e=0; e<driver->fluid_grid->element_count; e++){
+        sum_e += f_e[e] * driver->fluid_grid->getElementVolume(e);
+    }
+    for (int j=0; j<job->grid->node_count; j++){
+        sum_j += f_i[j] * job->grid->nodeVolume(job, j);
+    }
+    std::cout << "Element Forces: " << sum_e[0] << ", " << sum_e[1] << " ?= Nodal Forces: " << sum_j[0] << ", " << sum_j[1] << std::endl;
+    std::cout << sum_e.norm() / sum_j.norm() << std::endl;
+    */
+
 
     return;
 }
