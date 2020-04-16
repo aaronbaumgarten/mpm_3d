@@ -7,5 +7,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/slurry_fluid_phase.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/cornstarch.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/slurry_granular_phase_w_under_compaction.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fish.cpp
         PARENT_SCOPE
         )

@@ -132,18 +132,23 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
 
     k1 = job->dt * F(job, driver, u_0);
     f_i1 = f_i;                             //store intermediate drag calculations
+    f_b_e = f_e/6.0;                    //store intermediate buoyancy term
 
     k2 = job->dt * F(job, driver, (u_0 + k1/2.0));
     f_i2 = f_i;
+    f_b_e += f_e/3.0;
 
     k3 = job->dt * F(job, driver, (u_0 + k2/2.0));
     f_i3 = f_i;
+    f_b_e += f_e/3.0;
 
     k4 = job->dt * F(job, driver, (u_0 + k3));
     f_i4 = f_i;
+    f_b_e += f_e/6.0;
 
     u_n = u_0 + (k1 + 2.0*k2 + 2.0*k3 + k4)/6.0;
     f_i = (f_i1 + 2.0*f_i2 + 2.0*f_i3 + f_i4)/6.0;
+    f_b_e = f_b_e - f_d_e;
 
     convertVectorToStateSpace(job,
                               driver,
@@ -462,5 +467,6 @@ void FVMMixtureSolverRK4::updateStress(Job* job, int SPEC){
 /*------------------------------------------------------------------------------*/
 void FVMMixtureSolverRK4::writeFrame(Job *job, FiniteVolumeDriver *driver) {
     driver->serializer->writeVectorArray(f_d_e, "drag_force");
+    driver->serializer->writeVectorArray(f_b_e, "buoyant_force");
     return;
 }

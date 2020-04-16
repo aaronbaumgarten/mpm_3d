@@ -6,5 +6,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/contact_slurry_reflected_boundary.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/contact_huang_reflected_boundary.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/contact_rigid_reflected_boundary.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/contact_linked.cpp
         PARENT_SCOPE
         )

@@ -230,5 +230,38 @@ public:
     virtual void calculateStress(Job* job, Body* body, int SPEC);
 };
 
+/*----------------------------------------------------------------------------*/
+//this is the material that defines a fish's body motion (6.883 spring 2020 project)
+class Fish : public Material {
+public:
+    Fish(){
+        object_name = "Fish";
+    }
+
+    static const int STARBOARD_HEAD = 0;
+    static const int STARBOARD_ABDOMEN = 1;
+    static const int STARBOARD_TAIL = 2;
+    static const int PORT_HEAD = 3;
+    static const int PORT_ABDOMEN = 4;
+    static const int PORT_TAIL = 5;
+
+    //material properties
+    double E, nu, G, K, lambda;
+    MaterialTensorArray F, F_e, F_m; //deformation tensors
+    std::vector<int> label;           //label for fish parts
+
+    double alpha_h, alpha_a, alpha_t;
+    double beta_h, beta_a, beta_t;
+    double gamma_h, gamma_a, gamma_t;
+
+    void init(Job* job, Body* body);
+    void calculateStress(Job* job, Body* body, int SPEC);
+    void assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC);
+    void assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
 
 #endif //MPM_V3_MATERIALS_HPP

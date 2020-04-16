@@ -92,6 +92,7 @@ Registry<Contact>::Registry() {
     object["SlurryContact_ReflectedBoundary"] = &createInstance<Contact,SlurryContact_ReflectedBoundary>;
     object["ContactHuang_ReflectedBoundary"] = &createInstance<Contact,ContactHuang_ReflectedBoundary>;
     object["ContactRigid_ReflectedBoundary"] = &createInstance<Contact,ContactRigid_ReflectedBoundary>;
+    object["ContactLinked"] = &createInstance<Contact,ContactLinked>;
 }
 
 
@@ -141,6 +142,7 @@ Registry<Material>::Registry() {
     object["BarotropicViscousFluid"] = &createInstance<Material,BarotropicViscousFluid>;
     object["Cornstarch"] = &createInstance<Material,Cornstarch>;
     object["SlurryGranularPhase_wUnderCompaction"] = &createInstance<Material,SlurryGranularPhase_wUnderCompaction>;
+    object["Fish"] = &createInstance<Material,Fish>;
 }
 
 

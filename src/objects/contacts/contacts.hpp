@@ -159,4 +159,25 @@ public:
 };
 
 
+class ContactLinked : public Contact{
+public:
+    ContactLinked(){
+        object_name = "ContactLinked";
+    }
+
+    bool SLIP = false;
+
+    std::vector<int> bodyIDs = {-1,-1};
+    KinematicVectorArray contact_force;
+    KinematicVectorArray contact_normal;
+
+    void init(Job* job);
+    void generateRules(Job* job);
+    void applyRules(Job* job, int SPEC);
+
+    void writeFrame(Job* job, Serializer* serializer);
+    std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Serializer* serializer, std::string fullpath);
+};
+
 #endif //MPM_V3_CONTACTS_HPP

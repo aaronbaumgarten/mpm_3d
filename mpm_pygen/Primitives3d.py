@@ -256,6 +256,24 @@ class WheelOne:
     ##################################
     ##################################
 
+class NACA00:
+    def __init__(self, leading_edge, chord, t, z_min, z_max):
+        self.leading_edge = leading_edge
+        self.chord = float(chord)
+        self.t     = float(t)
+        self.z_min = z_min
+        self.z_max = z_max
+    def __repr__(self):
+        return '[leading edge: ' + str(self.leading_edge) + ', chord: ' + str(self.chord) + ', thickness %: ' + str(self.t) + ']'
+    def encompasses(self, point):
+        x = -(point.x - self.leading_edge.x)/self.chord
+        y = (point.y - self.leading_edge.y)/self.chord
+        if (x > 0):
+            val = 0.05 * self.t * (0.2969 * math.sqrt(x) - 0.1260*x - 0.3516*x*x + 0.2843*x*x*x - 0.1015*x*x*x*x)
+            return (x >= 0.0 and x <= 1.0 and y <= val and y >= -val and point.z >= self.z_min and point.z <= self.z_max)
+        else:
+            return (0 > 1)
+
 #class ConvexPolygon:
 #    def __init__(self, ccw_vertices):
 #        self.ccw_vertices = ccw_vertices
