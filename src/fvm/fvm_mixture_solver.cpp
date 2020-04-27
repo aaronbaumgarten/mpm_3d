@@ -81,6 +81,9 @@ void FVMMixtureSolver::init(Job* job, FiniteVolumeDriver* driver){
     f_i = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
     f_e = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
 
+    f_d = f_i; f_d_e = f_e;
+    f_b = f_i; f_b_e = f_e;
+
     //done
     std::cout << "FiniteVolumeSolver initialized." << std::endl;
 
@@ -382,7 +385,52 @@ void FVMMixtureSolver::applyFluxes(Job* job, FiniteVolumeDriver* driver){
 void FVMMixtureSolver::generateMixtureForces(Job* job, FiniteVolumeDriver* driver){
     //get discretized inter-phase force
     //f_i = driver->fluid_grid->calculateInterphaseForces(job, driver);
-    driver->fluid_grid->calculateSplitIntegralInterphaseForces(job, driver, f_i, f_e);
+    if (contact_spec == Contact::EXPLICIT) {
+        driver->fluid_grid->calculateSplitIntegralInterphaseForces(job, driver, f_i, f_e);
+    } else {
+        //implicit force calculation
+        driver->fluid_grid->calculateSplitIntegralBuoyantForces(job, driver, f_b, f_b_e);
+        K_n = driver->fluid_grid->getCorrectedDragCoefficients(job, driver);
+
+        //estimate updated velocity with internal forces + buoyancy
+        //assign v_plus grid velocity
+        for (int i = 0; i<job->bodies[solid_body_id]->nodes->mx_t.size(); i++){
+            if (job->bodies[solid_body_id]->nodes->m(i) > 0) {
+                job->bodies[solid_body_id]->nodes->x_t(i) = (job->bodies[solid_body_id]->nodes->mx_t(i) +
+                                                             job->dt*(job->bodies[solid_body_id]->nodes->f(i)
+                                                                      + f_b[i]*job->grid->nodeVolume(job,i)))
+                                                            / job->bodies[solid_body_id]->nodes->m(i);
+            } else {
+                job->bodies[solid_body_id]->nodes->x_t(i).setZero();
+            }
+        }
+
+        //estimate u_plus element velocity
+        for (int e=0; e<driver->fluid_grid->element_count; e++) {
+            driver->fluid_body->p[e] -= job->dt * f_b_e[e];
+        }
+
+        //tell fluid grid to update mixture properties
+        driver->fluid_grid->mapMixturePropertiesToQuadraturePoints(job, driver);
+        //reconstruct fluid fields
+        driver->fluid_grid->constructDensityField(job, driver);
+        driver->fluid_grid->constructMomentumField(job, driver);
+        driver->fluid_grid->constructEnergyField(job, driver);
+        driver->fluid_grid->constructPorosityField(job, driver);
+
+        //get corrected drag estimate
+        driver->fluid_grid->calculateSplitIntegralCorrectedDragForces(job, driver, f_d, f_d_e, K_n);
+
+        //remove buoyancy from u_plus
+        for (int e=0; e<driver->fluid_grid->element_count; e++) {
+            driver->fluid_body->p[e] += job->dt * f_b_e[e];
+        }
+
+        //add contributions together
+        f_i = f_d + f_b;
+        f_e = f_d_e + f_b_e;
+
+    }
     return;
 }
 

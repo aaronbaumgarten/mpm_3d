@@ -238,6 +238,9 @@ public:
         object_name = "Fish";
     }
 
+    bool USE_RIGID_TAIL = false;
+    bool USE_RIGID_HEAD = false;
+
     static const int STARBOARD_HEAD = 0;
     static const int STARBOARD_ABDOMEN = 1;
     static const int STARBOARD_TAIL = 2;

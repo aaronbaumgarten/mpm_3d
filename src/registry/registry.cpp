@@ -57,6 +57,7 @@ Registry<Driver>::Registry() {
     object["CavityFlowDriver"] = &createInstance<Driver,CavityFlowDriver>;
     object["BallisticDriver"] = &createInstance<Driver,BallisticDriver>;
     object["FiniteVolumeDriver"] = &createInstance<Driver,FiniteVolumeDriver>;
+    object["FishRandomSampleDriver"] = &createInstance<Driver,FishRandomSampleDriver>;
 }
 
 

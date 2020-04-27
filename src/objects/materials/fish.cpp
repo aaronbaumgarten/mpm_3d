@@ -55,6 +55,25 @@ void Fish::init(Job* job, Body* body){
         std::cout << "Head:    " << alpha_h << ", " << beta_h << ", " << gamma_h << std::endl;
         std::cout << "Abdomen: " << alpha_a << ", " << beta_a << ", " << gamma_a << std::endl;
         std::cout << "Tail:    " << alpha_t << ", " << beta_t << ", " << gamma_t << std::endl;
+
+        //loop over str-props and assign relevant flags
+        std::vector<std::string> options = {"USE_RIGID_TAIL","USE_RIGID_HEAD"};
+        for (int i=0; i<str_props.size(); i++){
+            switch (Parser::findStringID(options, str_props[i])){
+                case 0:
+                    USE_RIGID_TAIL = true;
+                    std::cout << "Fish using stiff tail." << std::endl;
+                    break;
+                case 1:
+                    USE_RIGID_HEAD = true;
+                    std::cout << "Fish using stiff head." << std::endl;
+                    break;
+                default:
+                    //do nothing
+                    break;
+            }
+        }
+
     }
 
     //initialize material matrices
@@ -92,29 +111,68 @@ void Fish::init(Job* job, Body* body){
         F_e[i].setIdentity();
         F_m[i].setIdentity();
 
-        if (body->points->x(i,1) > x_cm(1)){
-            //port side of fish
-            if (body->points->x(i,0) > (0.25 * x_min + 0.75 * x_max)){
-                //head
-                label[i] = PORT_HEAD;
-            } else if (body->points->x(i,0) > (0.6 * x_min + 0.4 * x_max)){
-                //abdomen
-                label[i] = PORT_ABDOMEN;
+        if (!USE_RIGID_HEAD) {
+            if (body->points->x(i, 1) > x_cm(1)) {
+                //port side of fish
+                if (body->points->x(i, 0) > (0.25 * x_min + 0.75 * x_max)) {
+                    //head
+                    label[i] = PORT_HEAD;
+                } else if (body->points->x(i, 0) > (0.6 * x_min + 0.4 * x_max)) {
+                    //abdomen
+                    label[i] = PORT_ABDOMEN;
+                } else {
+                    //tail
+                    label[i] = PORT_TAIL;
+                }
             } else {
-                //tail
-                label[i] = PORT_TAIL;
+                //starboard side of fish
+                if (body->points->x(i, 0) > (0.25 * x_min + 0.75 * x_max)) {
+                    //head
+                    label[i] = STARBOARD_HEAD;
+                } else if (body->points->x(i, 0) > (0.6 * x_min + 0.4 * x_max)) {
+                    //abdomen
+                    label[i] = STARBOARD_ABDOMEN;
+                } else {
+                    //tail
+                    label[i] = STARBOARD_TAIL;
+                }
+            }
+
+            //for rigid tail, relabel points
+            if (USE_RIGID_TAIL && body->points->x(i, 0) < (0.85 * x_min + 0.15 * x_max)) {
+                label[i] = -1;
             }
         } else {
-            //starboard side of fish
-            if (body->points->x(i,0) > (0.25 * x_min + 0.75 * x_max)){
-                //head
-                label[i] = STARBOARD_HEAD;
-            } else if (body->points->x(i,0) > (0.6 * x_min + 0.4 * x_max)){
-                //abdomen
-                label[i] = STARBOARD_ABDOMEN;
+            if (body->points->x(i, 1) > x_cm(1)) {
+                //port side of fish
+                if (body->points->x(i, 0) > (0.2 * x_min + 0.8 * x_max)) {
+                    //head
+                    label[i] = -1;
+                } else if (body->points->x(i, 0) > (0.55 * x_min + 0.45 * x_max)) {
+                    //abdomen
+                    label[i] = PORT_HEAD;
+                } else if (body->points->x(i, 0) > (0.8 * x_min + 0.2 * x_max)) {
+                    //tail
+                    label[i] = PORT_ABDOMEN;
+                } else {
+                    //tail
+                    label[i] = PORT_TAIL;
+                }
             } else {
-                //tail
-                label[i] = STARBOARD_TAIL;
+                //starboard side of fish
+                if (body->points->x(i, 0) > (0.2 * x_min + 0.8 * x_max)) {
+                    //head
+                    label[i] = -1;
+                } else if (body->points->x(i, 0) > (0.55 * x_min + 0.45 * x_max)) {
+                    //abdomen
+                    label[i] = STARBOARD_HEAD;
+                } else if (body->points->x(i, 0) > (0.8 * x_min + 0.2 * x_max)) {
+                    //tail
+                    label[i] = STARBOARD_ABDOMEN;
+                } else {
+                    //tail
+                    label[i] = STARBOARD_TAIL;
+                }
             }
         }
     }
@@ -168,7 +226,6 @@ void Fish::calculateStress(Job* job, Body* body, int SPEC){
                 F_m(i,0,0) = 1.0/lambda_tail;
                 break;
             default:
-            std::cout << "u";
                 break;
         }
 

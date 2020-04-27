@@ -158,6 +158,8 @@ void ContactLinked::applyRules(Job* job, int SPEC){
                 tmpVec = (m1 * vCMi - mv1i) / job->dt; //force on body 1
                 job->bodies[b1]->nodes->f(i) += tmpVec;
                 job->bodies[b2]->nodes->f(i) -= tmpVec;
+
+                contact_force[i] = tmpVec;
             } else {
                 //determine normal force
                 fn1i = (m1 * vCMi.dot(normal) - mv1i.dot(normal)) / job->dt;
@@ -165,9 +167,9 @@ void ContactLinked::applyRules(Job* job, int SPEC){
                 //set contact forces
                 job->bodies[b1]->nodes->f(i) += fn1i * normal;
                 job->bodies[b2]->nodes->f(i) -= fn1i * normal;
-            }
 
-            contact_force[i] = tmpVec;
+                contact_force[i] = fn1i * normal;
+            }
         } else {
             //zero reported force
             contact_force[i].setZero();
@@ -182,6 +184,7 @@ void ContactLinked::applyRules(Job* job, int SPEC){
 //write to serializer and save/load
 void ContactLinked::writeFrame(Job* job, Serializer* serializer){
     serializer->writeVectorArray(contact_force,("contact_force_by_" + job->bodies[bodyIDs[1]]->name + "_on_" + job->bodies[bodyIDs[0]]->name));
+    serializer->writeVectorArray(contact_normal,("contact_normal_for_force_by_" + job->bodies[bodyIDs[1]]->name + "_on_" + job->bodies[bodyIDs[0]]->name));
     return;
 }
 

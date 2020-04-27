@@ -137,4 +137,32 @@ public:
     void run(Job* job);
 };
 
+/*----------------------------------------------------------------------------*/
+//Fish Random Sampler (6.883 project, spring 2020)
+class FishRandomSampleDriver : public Driver{
+public:
+    FishRandomSampleDriver(){
+        object_name = "FishRandomSampleDriver"; //set object name here
+    }
+
+    int num_samples;
+    std::string output_file;
+    double alpha_min, alpha_max;
+    double beta_min, beta_max;
+    double gamma_min, gamma_max;
+
+    int fish_body;
+
+    double stop_time;
+    KinematicVector gravity;
+
+    virtual void init(Job* job);
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    virtual void run(Job* job);
+    virtual void generateGravity(Job* job);
+    virtual void applyGravity(Job* job);
+};
+
 #endif //MPM_V3_DRIVERS_HPP
