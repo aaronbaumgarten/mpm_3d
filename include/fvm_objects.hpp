@@ -156,6 +156,12 @@ public:
                                                             KinematicVectorArray& f_i,
                                                             KinematicVectorArray& f_e,
                                                             const Eigen::VectorXd &K_n) = 0;
+
+    //functions to calculate interphase energy terms
+    virtual Eigen::VectorXd calculateInterphaseEnergyFlux(Job* job, FiniteVolumeDriver* driver) = 0;
+    virtual Eigen::VectorXd calculateInterphaseEnergyFluxUsingNodeBasedDrag(Job* job,
+                                                                            FiniteVolumeDriver* driver,
+                                                                            const KinematicVectorArray &f_d) = 0;
 };
 
 

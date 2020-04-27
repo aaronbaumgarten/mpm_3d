@@ -133,6 +133,11 @@ public:
                                                             KinematicVectorArray& f_i,
                                                             KinematicVectorArray& f_e,
                                                             const Eigen::VectorXd &K_n) = 0;
+
+    virtual Eigen::VectorXd calculateInterphaseEnergyFlux(Job* job, FiniteVolumeDriver* driver) = 0;
+    virtual Eigen::VectorXd calculateInterphaseEnergyFluxUsingNodeBasedDrag(Job* job,
+                                                                            FiniteVolumeDriver* driver,
+                                                                            const KinematicVectorArray &f_d) = 0;
 }
 */
 
@@ -325,6 +330,23 @@ public:
                                                            KinematicVectorArray& f_e,
                                                            const Eigen::VectorXd &K_n);
 
+
+    //interphase energy flux functions
+    virtual Eigen::VectorXd calculateInterphaseEnergyFlux(Job* job, FiniteVolumeDriver* driver);
+    virtual Eigen::VectorXd calculateInterphaseEnergyFluxUsingNodeBasedDrag(Job* job,
+                                                                            FiniteVolumeDriver* driver,
+                                                                            const KinematicVectorArray &f_d);
+
+    virtual Eigen::VectorXd calculateElementIntegrandsForInterphaseEnergyFlux(Job* job,
+                                                                              FiniteVolumeDriver* driver,
+                                                                              Eigen::VectorXd &result,
+                                                                              int e_begin, int e_end);
+
+    virtual Eigen::VectorXd calculateFaceIntegrandsForInterphaseEnergyFlux(Job* job,
+                                                                           FiniteVolumeDriver* driver,
+                                                                           Eigen::VectorXd &result,
+                                                                           int f_begin, int f_end);
+
     //parallel functions
     virtual void
     parallelMultiply(const MPMScalarSparseMatrix &S, const Eigen::VectorXd &x, Eigen::VectorXd &lhs, int SPEC,
@@ -376,6 +398,21 @@ public:
                                                      Eigen::VectorXd& v,
                                                      int k_begin, int k_end,
                                                      volatile bool &done);
+
+    static void calcElementIntegrandsForInterphaseEnergyFlux(Job* job,
+                                                             FiniteVolumeDriver* driver,
+                                                             FVMGridBase* grid,
+                                                             Eigen::VectorXd& v,
+                                                             int k_begin, int k_end,
+                                                             volatile bool &done);
+
+
+    static void calcFaceIntegrandsForInterphaseEnergyFlux(Job* job,
+                                                             FiniteVolumeDriver* driver,
+                                                             FVMGridBase* grid,
+                                                             Eigen::VectorXd& v,
+                                                             int k_begin, int k_end,
+                                                             volatile bool &done);
 };
 
 class FVMCartesian : public FVMGridBase{

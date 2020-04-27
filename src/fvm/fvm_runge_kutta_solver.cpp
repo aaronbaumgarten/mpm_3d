@@ -169,6 +169,7 @@ void FVMRungeKuttaSolver::step(Job* job, FiniteVolumeDriver* driver){
 
             //update p_k1
             p_k1[e] += driver->fluid_body->rho(e) * driver->gravity * volume;
+            rhoE_k1(e) += driver->gravity.dot(driver->fluid_body->p[e]) * volume;
 
             driver->fluid_body->rho(e) += rho_k1(e) / volume * job->dt / 2.0;     //d(rho dv)/dt   = flux
             driver->fluid_body->p[e] += p_k1[e] / volume * job->dt / 2.0;    //d(rho u dv)/dt = flux
@@ -191,6 +192,7 @@ void FVMRungeKuttaSolver::step(Job* job, FiniteVolumeDriver* driver){
 
             //update p_k2
             p_k2[e] += driver->fluid_body->rho(e) * driver->gravity * volume;
+            rhoE_k2(e) += driver->gravity.dot(driver->fluid_body->p[e]) * volume;
 
             driver->fluid_body->rho(e) += (rho_k2(e) - rho_k1(e)) / volume * job->dt / 2.0;     //d(rho dv)/dt   = flux
             driver->fluid_body->p[e] += (p_k2[e] - p_k1[e]) / volume * job->dt / 2.0;    //d(rho u dv)/dt = flux
@@ -213,6 +215,7 @@ void FVMRungeKuttaSolver::step(Job* job, FiniteVolumeDriver* driver){
 
             //update p_k2
             p_k3[e] += driver->fluid_body->rho(e) * driver->gravity * volume;
+            rhoE_k3(e) += driver->gravity.dot(driver->fluid_body->p[e]) * volume;
 
             driver->fluid_body->rho(e) +=
                     (2.0 * rho_k3(e) - rho_k2(e)) / volume * job->dt / 2.0;     //d(rho dv)/dt   = flux
@@ -236,6 +239,7 @@ void FVMRungeKuttaSolver::step(Job* job, FiniteVolumeDriver* driver){
 
             //update p_k2
             p_k4[e] += driver->fluid_body->rho(e) * driver->gravity * volume;
+            rhoE_k4(e) += driver->gravity.dot(driver->fluid_body->p[e]) * volume;
 
             driver->fluid_body->rho(e) +=
                     (rho_k1(e) / 6.0 + rho_k2(e) / 3.0 - 2.0 * rho_k3(e) / 3.0 + rho_k4(e) / 6.0) / volume *

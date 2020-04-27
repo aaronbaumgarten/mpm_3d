@@ -75,8 +75,9 @@ void FVMDefaultSolver::step(Job* job, FiniteVolumeDriver* driver){
             driver->fluid_body->p[e] += momentum_fluxes[e] / volume * job->dt;    //d(rho u dv)/dt = flux
             driver->fluid_body->rhoE(e) += energy_fluxes(e) / volume * job->dt;
 
-            //add gravitational contribution to momentum update
+            //add gravitational contribution to momentum and energy updates
             driver->fluid_body->p[e] += driver->fluid_body->rho(e) * driver->gravity * job->dt;
+            driver->fluid_body->rhoE(e) += driver->gravity.dot(driver->fluid_body->p[e]) * job->dt;
         }
     } else {
         //shouldn't have another flag...

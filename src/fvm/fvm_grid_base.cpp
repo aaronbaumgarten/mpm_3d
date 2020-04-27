@@ -3263,6 +3263,7 @@ void FVMGridBase::calculateFaceIntegrandsForBuoyantForce(Job *job,
     double rho, rhoE, n;
     KinematicVector p, normal;
     double P;
+    double P_plus, P_minus;
 
     double rho_plus, rhoE_plus, rho_minus, rhoE_minus;
     double true_density_plus, true_density_minus;
@@ -3330,6 +3331,7 @@ void FVMGridBase::calculateFaceIntegrandsForBuoyantForce(Job *job,
                 true_density_minus = (driver->fluid_body->rho(e_minus) / driver->fluid_body->n_e(e_minus))
                                     + driver->fluid_body->true_density_x[e_minus].dot(x_q[tmp_q] - x_e[e_minus]);
 
+                /*
                 rho = 0.5*(rho_plus + rho_minus);
                 rhoE = 0.5*(rhoE_plus + rhoE_minus);
                 p = 0.5*(p_plus + p_minus);
@@ -3342,6 +3344,25 @@ void FVMGridBase::calculateFaceIntegrandsForBuoyantForce(Job *job,
                                                         p,
                                                         rhoE,
                                                         n); //n_q(tmp_q));
+                */
+
+                //for consistency with energy equations, use average pressure
+                P_plus = driver->fluid_material->getPressure(job,
+                                                             driver,
+                                                             rho_plus,
+                                                             p_plus,
+                                                             rhoE_plus,
+                                                             (rho_plus/true_density_plus));
+
+
+                P_minus = driver->fluid_material->getPressure(job,
+                                                              driver,
+                                                              rho_minus,
+                                                              p_minus,
+                                                              rhoE_minus,
+                                                              (rho_minus/true_density_minus));
+
+                P = 0.5*(P_plus + P_minus);
 
                 //fill in tmpArray
                 //tmpVecArray[tmp_q] = -P_q(tmp_q) * (1.0 - n_q(tmp_q)) * normal * getQuadratureWeight(tmp_q);
@@ -3869,6 +3890,413 @@ void FVMGridBase::calculateSplitIntegralCorrectedDragForces(Job* job,
     return;
 }
 
+
+/*----------------------------------------------------------------------------*/
+//energy flux terms due to interphase forces
+Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolumeDriver* driver){
+    //result defines interphase energy flux into fluid elements
+    Eigen::VectorXd result = Eigen::VectorXd(element_count);
+    result.setZero();
+
+    /*-------------------------*/
+    /* BEGIN DRAG CONTRIBUTION */
+    /*-------------------------*/
+
+    KinematicVectorArray Kvs_i = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+    Eigen::VectorXd K_i = Eigen::VectorXd(job->grid->node_count);
+    Eigen::VectorXd Kvsvs_i = Eigen::VectorXd(job->grid->node_count);
+
+    //new drag calculation
+    //calculate volume weighted velocity and mass density on nodes to estimate K_i
+    KinematicVectorArray u_i = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+    KinematicVectorArray u = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+    Eigen::VectorXd m_i = Eigen::VectorXd(job->grid->node_count);
+    for (int e=0; e<driver->fluid_grid->element_count; e++){
+        u[e] = driver->fluid_body->p(e) / driver->fluid_body->rho(e);
+    }
+    if (num_threads > 1) {
+        parallelMultiply(M, u, u_i, M.TRANSPOSED, true);
+    } else {
+        u_i = M.operate(u, M.TRANSPOSED);
+    }
+    for (int i=0; i<job->grid->node_count; i++){
+        u_i[i] /= job->grid->nodeVolume(job, i);
+    }
+
+    if (num_threads > 1) {
+        parallelMultiply(M, driver->fluid_body->rho, m_i, M.TRANSPOSED, true);
+    } else {
+        m_i = M.operate(driver->fluid_body->rho, M.TRANSPOSED);
+    }
+
+    //calculate drag coefficient associated with each node
+    double rho_f;
+    for (int i=0; i<job->grid->node_count; i++){
+        rho_f = m_i(i)/job->grid->nodeVolume(job,i);
+        K_i(i) = driver->fluid_material->getInterphaseDragCoefficient(job,
+                                                                      driver,
+                                                                      rho_f,
+                                                                      u_i[i],
+                                                                      driver->fluid_body->v_s[i],
+                                                                      driver->fluid_body->n(i),
+                                                                      FiniteVolumeMaterial::REGULAR_DRAG);
+
+        //intermediate calculation
+        Kvs_i[i] = K_i(i) * driver->fluid_body->v_s[i];
+        Kvsvs_i(i) = K_i(i) * driver->fluid_body->v_s[i].dot(driver->fluid_body->v_s[i]);
+    }
+
+    //first term in drag component
+    if (num_threads > 1){
+        parallelMultiply(M, Kvsvs_i, result, M.NORMAL, true);
+    } else {
+        result = M*K_i;
+    }
+
+    //calculate element-wise weighted solid drag component velocity
+    KinematicVectorArray Kvs_e = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+    if (num_threads > 1){
+        parallelMultiply(M, Kvs_i, Kvs_e, M.NORMAL, true);
+    } else {
+        Kvs_e = M*Kvs_i;
+    }
+
+    //second term in drag component
+    for (int e=0; e<driver->fluid_grid->element_count; e++){
+        result(e) -= Kvs_e[e].dot(u[e]);
+    }
+
+    /*-----------------------------*/
+    /* BEGIN PRESSURE CONTRIBUTION */
+    /*-----------------------------*/
+
+    if (num_threads > 1) {
+        //determine number of threads for element flux evaluation
+        int thread_count;
+        if (element_count >= num_threads) {
+            thread_count = num_threads;
+        } else {
+            thread_count = element_count;
+        }
+
+        //intermediate storage vector
+        //check that memUnitID is valid
+        if (memoryUnits[0].kv.size() != thread_count) {
+            memoryUnits[0].kv.resize(thread_count);
+        }
+
+        //boolean of completion status
+        volatile bool firstTaskComplete[thread_count] = {false};
+
+        //choose interval size
+        int k_max = element_count - 1;
+        int k_interval = (element_count / thread_count) + 1;
+        int k_begin, k_end;
+
+        for (int t = 0; t < thread_count; t++) {
+            //initialize output vector
+            if (memoryUnits[0].s[t].size() != element_count) {
+                memoryUnits[0].s[t] = Eigen::VectorXd(element_count);
+            }
+
+            //set interval
+            k_begin = t * k_interval;
+            k_end = k_begin + k_interval - 1;
+            if (k_end > k_max) {
+                k_end = k_max;
+            }
+            //send job to threadpool
+            jobThreadPool->doJob(std::bind(calcElementIntegrandsForInterphaseEnergyFlux,
+                                           job,
+                                           driver,
+                                           this,
+                                           std::ref(memoryUnits[0].s[t]),
+                                           k_begin,
+                                           k_end,
+                                           std::ref(firstTaskComplete[t])));
+        }
+
+        //join threads
+        bool taskDone = false;
+        //wait for task to complete
+        while (!taskDone) {
+            //set flag to true
+            taskDone = true;
+            for (int t = 0; t < thread_count; t++) {
+                if (!firstTaskComplete[t]) {
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
+        }
+
+        //determine number of threads for addition
+        if (element_count > num_threads) {
+            thread_count = num_threads;
+        } else {
+            thread_count = element_count;
+        }
+
+        //boolean of completion status
+        volatile bool secondTaskComplete[thread_count] = {false};
+
+        //choose interval size
+        int i_max = element_count - 1;
+        int i_interval = (element_count / thread_count) + 1;
+        int i_begin, i_end;
+
+        for (int t = 0; t < thread_count; t++) {
+            //set interval
+            i_begin = t * i_interval;
+            i_end = i_begin + i_interval - 1;
+            if (i_end > i_max) {
+                i_end = i_max;
+            }
+            //send job to thread pool
+            jobThreadPool->doJob(std::bind(ThreadPoolExplicitUSL::scalarAddwithFlag,
+                                           std::ref(memoryUnits[0].s),
+                                           std::ref(result),
+                                           i_begin,
+                                           i_end,
+                                           false,
+                                           std::ref(secondTaskComplete[t])));
+        }
+
+        //join threads
+        taskDone = false;
+        //wait for task to complete
+        while (!taskDone) {
+            //set flag to true
+            taskDone = true;
+            for (int t = 0; t < thread_count; t++) {
+                if (!secondTaskComplete[t]) {
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
+        }
+
+
+        //determine number of threads for face flux evaluation
+        if (face_count >= num_threads){
+            thread_count = num_threads;
+        } else {
+            thread_count = face_count;
+        }
+
+        //intermediate storage vector
+        //check that memUnitID is valid
+        if (memoryUnits[0].s.size() != thread_count){
+            memoryUnits[0].s.resize(thread_count);
+        }
+
+        //boolean of completion status
+        volatile bool thirdTaskComplete[thread_count] = {false};
+
+        //choose interval size
+        k_max = face_count - 1;
+        k_interval = (face_count/thread_count) + 1;
+
+        for (int t=0; t<thread_count; t++) {
+            //initialize output vector
+            if (memoryUnits[0].s[t].size() != element_count){
+                memoryUnits[0].s[t] = Eigen::VectorXd(element_count);
+            }
+
+            //set interval
+            k_begin = t * k_interval;
+            k_end = k_begin + k_interval - 1;
+            if (k_end > k_max){
+                k_end = k_max;
+            }
+            //send job to threadpool
+            jobThreadPool->doJob(std::bind(calcFaceIntegrandsForInterphaseEnergyFlux,
+                                           job,
+                                           driver,
+                                           this,
+                                           std::ref(memoryUnits[0].s[t]),
+                                           k_begin,
+                                           k_end,
+                                           std::ref(thirdTaskComplete[t])));
+        }
+
+        //join threads
+        taskDone = false;
+        //wait for task to complete
+        while (!taskDone){
+            //set flag to true
+            taskDone = true;
+            for (int t=0; t<thread_count; t++){
+                if (!thirdTaskComplete[t]){
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
+        }
+
+        //determine number of threads for addition
+        if (element_count > num_threads){
+            thread_count = num_threads;
+        } else {
+            thread_count = element_count;
+        }
+
+        //boolean of completion status
+        volatile bool fourthTaskComplete[thread_count] = {false};
+
+        //choose interval size
+        i_max = element_count - 1;
+        i_interval = (element_count/thread_count) + 1;
+
+        for (int t=0; t<thread_count; t++){
+            //set interval
+            i_begin = t*i_interval;
+            i_end = i_begin + i_interval-1;
+            if (i_end > i_max){
+                i_end = i_max;
+            }
+            //send job to thread pool
+            jobThreadPool->doJob(std::bind(ThreadPoolExplicitUSL::scalarAddwithFlag,
+                                           std::ref(memoryUnits[0].s),
+                                           result,
+                                           i_begin,
+                                           i_end,
+                                           false,
+                                           std::ref(secondTaskComplete[t])));
+        }
+
+        //join threads
+        taskDone = false;
+        //wait for task to complete
+        while (!taskDone){
+            //set flag to true
+            taskDone = true;
+            for (int t=0; t<thread_count; t++){
+                if (!fourthTaskComplete[t]){
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
+        }
+    } else {
+        //do calculation serially
+        calculateElementIntegrandsForInterphaseEnergyFlux(job, driver, result, 0, element_count - 1);
+        calculateFaceIntegrandsForInterphaseEnergyFlux(job, driver, result, 0, face_count - 1);
+    }
+
+    return result;
+}
+
+Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFluxUsingNodeBasedDrag(Job* job,
+                                                                             FiniteVolumeDriver* driver,
+                                                                             const KinematicVectorArray &f_d){
+    std::cerr << "ERROR: FVMGridBase::calculateInterphseEnergyFluxUsingNodeBasedDrag() not implemented! Exiting." << std::endl;
+    exit(0);
+
+    return Eigen::VectorXd(0);
+}
+
+Eigen::VectorXd FVMGridBase::calculateElementIntegrandsForInterphaseEnergyFlux(Job* job,
+                                                                                FiniteVolumeDriver* driver,
+                                                                               Eigen::VectorXd &result,
+                                                                                int e_start, int e_end){
+    //check that limits are within acceptable range
+    if (e_start < 0 || e_end >= element_count){
+        std::cerr << "ERROR! Start or end indices out of range! " << e_start << " <? 0, " << e_end << " >=? " << element_count << std::endl;
+    }
+
+    double rho, rhoE, n, P, trL;
+    KinematicVector p, u;
+
+    //loop over elements
+    for (int e = e_start; e <= e_end; e++) {
+        for (int q = 0; q < qpe; q++) {
+            //approximate local density, momentum, and energy
+            rho = driver->fluid_body->rho(e) + driver->fluid_body->rho_x[e].dot(x_q[e * qpe + q] - x_e[e]);
+            rhoE = driver->fluid_body->rhoE(e) + driver->fluid_body->rhoE_x[e].dot(x_q[e * qpe + q] - x_e[e]);
+            p = driver->fluid_body->p[e] + driver->fluid_body->p_x[e] * (x_q[e * qpe + q] - x_e[e]);
+            n = rho / ((driver->fluid_body->rho(e) / driver->fluid_body->n_e(e))
+                       + driver->fluid_body->true_density_x[e].dot(x_q[e * qpe + q] - x_e[e]));
+
+            //estimate velocity and velocity divergence
+            u = p/rho;
+            trL = (driver->fluid_body->p_x[e].trace() - u.dot(driver->fluid_body->rho_x[e]))/rho;
+
+            //estimate local pressure
+            P = driver->fluid_material->getPressure(job, driver, rho, p, rhoE, n);
+
+            //fill in pressure term contribution to energy flux
+            result(e) += getQuadratureWeight(e*qpe + q) * P * (trL * (1.0 - n_q(e*qpe + q))
+                                                               - (v_sq[e*qpe + q] - u).dot(gradn_q[e*qpe + q]));
+        }
+    }
+
+    return result;
+
+}
+
+Eigen::VectorXd FVMGridBase::calculateFaceIntegrandsForInterphaseEnergyFlux(Job* job,
+                                                                            FiniteVolumeDriver* driver,
+                                                                            Eigen::VectorXd &result,
+                                                                            int f_start, int f_end){
+    //check that limits are within acceptable range
+    if (f_start < 0 || f_end >= face_count){
+        std::cerr << "ERROR! Start or end indices out of range! " << f_start << " <? 0, " << f_end << " >=? " << element_count << std::endl;
+    }
+
+    double rho_plus, rhoE_plus, n_plus, P_plus;
+    double rho_minus, rhoE_minus, n_minus, P_minus;
+    KinematicVector p_plus, p_minus, normal;
+    double velocity_jump;
+
+    //loop over elements
+    int tmp_q = -1;
+    int e_plus, e_minus;
+    for (int f = f_start; f <= f_end; f++) {
+        e_minus = face_elements[f][0];
+        e_plus = face_elements[f][1];
+        normal = getFaceNormal(job, f);
+        if (e_minus > -1 && e_plus > -1) {
+            for (int q = 0; q < qpf; q++) {
+                //quadrature point index
+                tmp_q = int_quad_count + f*qpf + q;
+
+                //approximate local density, momentum, and energy
+                rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x_q[tmp_q] - x_e[e_minus]);
+                rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x_q[tmp_q] - x_e[e_minus]);
+                p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus] * (x_q[tmp_q] - x_e[e_minus]);
+                n_minus = rho_minus / ((driver->fluid_body->rho(e_minus) / driver->fluid_body->n_e(e_minus))
+                           + driver->fluid_body->true_density_x[e_minus].dot(x_q[tmp_q] - x_e[e_minus]));
+
+                rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x_q[tmp_q] - x_e[e_plus]);
+                rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x_q[tmp_q] - x_e[e_plus]);
+                p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus] * (x_q[tmp_q] - x_e[e_plus]);
+                n_plus = rho_plus / ((driver->fluid_body->rho(e_plus) / driver->fluid_body->n_e(e_plus))
+                                       + driver->fluid_body->true_density_x[e_plus].dot(x_q[tmp_q] - x_e[e_plus]));
+
+                //estimate local pressures
+                P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_plus);
+                P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_minus);
+
+                //estimate velocity jump term
+                velocity_jump = (p_plus/rho_plus - p_minus/rho_minus).dot(normal);
+
+                //add contribution to energy flux
+                result(e_plus) += 0.5 * getQuadratureWeight(tmp_q) * P_plus * n_q(tmp_q) * velocity_jump;
+                result(e_minus) += 0.5 * getQuadratureWeight(tmp_q) * P_minus * n_q(tmp_q) * velocity_jump;
+            }
+        }
+    }
+
+    return result;
+
+}
+
+
 /*----------------------------------------------------------------------------*/
 //parallel functions
 void FVMGridBase::parallelMultiply(const MPMScalarSparseMatrix &S,
@@ -4325,5 +4753,33 @@ void FVMGridBase::calcFaceIntegrandForInterphaseForces(Job *job,
     done = true;
 
     return;
+}
+
+void FVMGridBase::calcElementIntegrandsForInterphaseEnergyFlux(Job* job,
+                                                         FiniteVolumeDriver* driver,
+                                                         FVMGridBase* grid,
+                                                         Eigen::VectorXd& v,
+                                                         int k_begin, int k_end,
+                                                         volatile bool &done){
+
+    //careful that v is unique!
+    grid->calculateElementIntegrandsForInterphaseEnergyFlux(job, driver, v, k_begin, k_end);
+
+    //let everyone know we are done
+    done = true;
+}
+
+
+void FVMGridBase::calcFaceIntegrandsForInterphaseEnergyFlux(Job* job,
+                                                      FiniteVolumeDriver* driver,
+                                                      FVMGridBase* grid,
+                                                      Eigen::VectorXd& v,
+                                                      int k_begin, int k_end,
+                                                      volatile bool &done){
+    //careful that v is unique!
+    grid->calculateFaceIntegrandsForInterphaseEnergyFlux(job, driver, v, k_begin, k_end);
+
+    //let everyone know we are done
+    done = true;
 }
 
