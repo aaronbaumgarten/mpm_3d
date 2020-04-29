@@ -294,7 +294,7 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
                     }
 
                     //print boundary condition info
-                    std::cout << " - " << i << " : VELOCITY_DENSITY_INLET : u = ";
+                    std::cout << " - " << i << " : SUPERSONIC_INLET : u = ";
                     std::cout << EIGEN_MAP_OF_KINEMATIC_VECTOR(tmp_bc_info[i].vector).transpose();
                     std::cout << ", rho = " << tmp_bc_info[i].values[0];
                     std::cout << ", T = " << tmp_bc_info[i].values[1] << std::endl;

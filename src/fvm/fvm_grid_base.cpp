@@ -2346,8 +2346,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
 
                     flux = w_q(q_list[q]) * (rhoE_minus*bc_info[f].vector.dot(normal)
                                              + P_minus*bc_info[f].vector.dot(normal)
-                                             - KinematicVector(tau_minus*bc_info[f].vector, job->JOB_TYPE)).dot(normal);
-
+                                             - KinematicVector(tau_minus*bc_info[f].vector, job->JOB_TYPE).dot(normal));
                     result(e_minus) -= flux;
                 }
 
@@ -2377,7 +2376,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
 
                     flux = w_q(q_list[q]) * (rhoE_plus*bc_info[f].vector.dot(normal)
                                              + P_plus*bc_info[f].vector.dot(normal)
-                                             - KinematicVector(tau_plus*bc_info[f].vector, job->JOB_TYPE)).dot(normal);
+                                             - KinematicVector(tau_plus*bc_info[f].vector, job->JOB_TYPE).dot(normal));
 
                     result(e_plus) += flux;
                 }

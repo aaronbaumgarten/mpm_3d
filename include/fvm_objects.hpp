@@ -45,15 +45,6 @@ public:
 class FiniteVolumeGrid: public MPMObject{
 public:
 
-    //boundary condition types
-    /*
-    static const int DIRICHLET = 0;
-    static const int NEUMANN = 1;
-    static const int PERIODIC = 2;
-    static const int NEUMANN_DAMPING = 3;
-    static const int SUPERSONIC_INLET = 4;
-     */
-
     //boundary conditions
     static const int VELOCITY_INLET         = 0;    //dirichlet
     static const int VELOCITY_TEMP_INLET    = 1;    //dirichlet

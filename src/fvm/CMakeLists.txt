@@ -13,5 +13,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_slurry_fluid_phase.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_mixture_solver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_mixture_solver_rk4.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_ideal_gas.cpp
         PARENT_SCOPE
         )
