@@ -164,4 +164,43 @@ public:
     virtual double getInterphaseDragCoefficient(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& v_f, const KinematicVector& v_s, double n, int SPEC = REGULAR_DRAG);
 };
 
+class FVMSlurryGasPhase : public FiniteVolumeMaterial{
+public:
+    FVMSlurryGasPhase(){
+        object_name = "FVMSlurryGasPhase";
+    }
+
+    //material properties
+    double heat_capacity_ratio, R, eta, thermal_conductivity;
+
+    //solid properties
+    double solid_rho, grain_diam;
+    int solid_body_id = -1;
+
+    //initialize from job and driver
+    virtual void init(Job* job, FiniteVolumeDriver* driver);
+
+    //functions to calculate fluid fields
+    virtual MaterialTensor getStress(Job*, FiniteVolumeDriver*, const KinematicTensor& L, double rho, const KinematicVector& p, double rhoE, double n);
+    virtual MaterialTensor getShearStress(Job*, FiniteVolumeDriver*, const KinematicTensor& L, double rho, const KinematicVector& p, double rhoE, double n);
+    virtual double getPressure(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& p, double rhoE, double n);
+    virtual double getTemperature(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& p, double rhoE, double n);
+    virtual double getSpeedOfSound(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& p, double rhoE, double n);
+    virtual void calculateElementPressures(Job*, FiniteVolumeDriver*);
+    virtual void calculateElementShearStresses(Job*, FiniteVolumeDriver*);
+    virtual void calculateElementTemperatures(Job*, FiniteVolumeDriver*);
+
+    //fluid equations of state
+    virtual double getDensityFromPressureAndTemperature(Job*, FiniteVolumeDriver*, double pressure, double theta, double n);
+    virtual double getInternalEnergyFromPressureAndTemperature(Job*, FiniteVolumeDriver*, double pressure, double theta, double n);
+    virtual double getPressureFromDensityAndTemperature(Job*, FiniteVolumeDriver*, double rho, double theta, double n);
+    virtual KinematicVector getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, const KinematicVector& theta_x, double n);
+
+    //mixture model functions
+    virtual int calculatePorosity(Job*, FiniteVolumeDriver*); //return 1 if mixture problem, return 0 if FVM problem only
+    virtual int updateSolidPhaseVelocity(Job*, FiniteVolumeDriver*); //return 1 if mixture problem, return 0 if FVM problem only
+    virtual KinematicVector getInterphaseDrag(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& v_f, const KinematicVector& v_s, double n);
+    virtual double getInterphaseDragCoefficient(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& v_f, const KinematicVector& v_s, double n, int SPEC = REGULAR_DRAG);
+};
+
 #endif //MPM_V3_FVM_MATERIALS_HPP

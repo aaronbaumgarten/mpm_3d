@@ -896,7 +896,7 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
         if (qpf == 1){
             //quad point collocated with face centroid
             x_q[int_quad_count + f * qpf] = x_f[f];
-            w_q[int_quad_count + f * qpf] = face_areas(f);
+            w_q(int_quad_count + f * qpf) = face_areas(f);
         } else if (qpf == 2){
             //quad points offset from center
             x_q[int_quad_count + f*qpf + 0] = x_f[f] + offset_factor*(x_n[face_nodes[f][0]] - x_f[f]);

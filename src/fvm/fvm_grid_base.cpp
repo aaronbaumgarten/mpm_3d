@@ -244,7 +244,11 @@ void FVMGridBase::mapMixturePropertiesToQuadraturePoints(Job* job, FiniteVolumeD
         }
 
         //integrate porosity field over element volumes
-        driver->fluid_body->n_e = driver->fluid_grid->M * driver->fluid_body->n;
+        if (num_threads > 1){
+            parallelMultiply(M, driver->fluid_body->n, driver->fluid_body->n_e, MPMSparseMatrixBase::NORMAL, true);
+        } else {
+            driver->fluid_body->n_e = driver->fluid_grid->M * driver->fluid_body->n;
+        }
         for (int e=0; e<driver->fluid_grid->element_count; e++) {
             //average porosity over element volume
             driver->fluid_body->n_e(e) /= driver->fluid_grid->getElementVolume(e);
@@ -642,8 +646,8 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                            - (rhoE_plus/n_plus - rhoE_minus/n_minus)) / (H_bar - 0.5*u_bar_squared);
 
                     a_1 = n_bar*0.5*((rho_plus/n_plus - rho_minus/n_minus)
-                               - a_3
-                               - (p_plus/n_plus - p_minus/n_minus - u_bar*(rho_plus/n_plus - rho_minus/n_minus)).dot(normal) / c);
+                               - (p_plus/n_plus - p_minus/n_minus - u_bar*(rho_plus/n_plus - rho_minus/n_minus)).dot(normal) / c)
+                          - a_3;
 
                     a_2 = n_bar*(rho_plus/n_plus - rho_minus/n_minus) - a_3 - a_1;
 
@@ -1280,8 +1284,8 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                                  - (rhoE_plus/n_plus - rhoE_minus/n_minus)) / (H_bar - 0.5 * u_bar_squared);
 
                     a_1 = n_bar* 0.5 * ((rho_plus/n_plus - rho_minus/n_minus)
-                                        - a_3
-                                        - (p_plus/n_plus - p_minus/n_minus - u_bar * (rho_plus/n_plus - rho_minus/n_minus)).dot(normal) / c);
+                                        - (p_plus/n_plus - p_minus/n_minus - u_bar * (rho_plus/n_plus - rho_minus/n_minus)).dot(normal) / c)
+                          - a_3;
 
                     a_2 = n_bar*(rho_plus/n_plus - rho_minus/n_minus) - a_3 - a_1;
 
@@ -2167,8 +2171,8 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                            - (rhoE_plus/n_plus - rhoE_minus/n_minus)) / (H_bar - 0.5 * u_bar_squared);
 
                     a_1 = n_bar* 0.5 * ((rho_plus/n_plus - rho_minus/n_minus)
-                                 - a_3
-                                 - (p_plus/n_plus - p_minus/n_minus - u_bar * (rho_plus/n_plus - rho_minus/n_minus)).dot(normal) / c);
+                                 - (p_plus/n_plus - p_minus/n_minus - u_bar * (rho_plus/n_plus - rho_minus/n_minus)).dot(normal) / c)
+                          - a_3;
 
                     a_2 = n_bar*(rho_plus/n_plus - rho_minus/n_minus) - a_3 - a_1;
 
@@ -3708,7 +3712,7 @@ void FVMGridBase::calculateSplitIntegralBuoyantForces(Job* job,
             f_e[e] -= tmpArray(e*qpe + q)*gradn_q[e*qpe + q];
         }
     }
-    for (int f=0; f<element_count; f++){
+    for (int f=0; f<face_count; f++){
         for (int q=0; q<qpf; q++){
             //for each quadrature point on face, multiply integrand by phi
             tmp_q = int_quad_count + f*qpf + q;

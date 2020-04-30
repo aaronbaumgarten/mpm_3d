@@ -84,6 +84,10 @@ void FVMMixtureSolver::init(Job* job, FiniteVolumeDriver* driver){
     f_d = f_i; f_d_e = f_e;
     f_b = f_i; f_b_e = f_e;
 
+    //ask MPM to map properties to grid for FVM initialization
+    job->bodies[solid_body_id]->generateMap(job, cpdi_spec);
+    job->bodies[solid_body_id]->nodes->m = job->bodies[solid_body_id]->S * job->bodies[solid_body_id]->points->m;
+
     //done
     std::cout << "FiniteVolumeSolver initialized." << std::endl;
 
@@ -314,9 +318,11 @@ void FVMMixtureSolver::calculateElementGradients(Job* job, FiniteVolumeDriver* d
 
     } else if (driver->TYPE == FiniteVolumeDriver::THERMAL) {
 
-        //will need to implement this later
-        std::cerr << "ERROR! Missing implementation of mixture energy fluxes. Exiting." << std::endl;
-        exit(0);
+        //call grid to reconstruct conserved fields
+        driver->fluid_grid->constructDensityField(job, driver);
+        driver->fluid_grid->constructMomentumField(job, driver);
+        driver->fluid_grid->constructPorosityField(job, driver);
+        driver->fluid_grid->constructEnergyField(job, driver);
 
     } else {
 
@@ -342,9 +348,13 @@ void FVMMixtureSolver::generateFluxes(Job* job, FiniteVolumeDriver* driver){
         momentum_fluxes = driver->fluid_grid->calculateElementMomentumFluxes(job, driver);  //kg m/s^2
 
     } else if (driver->TYPE == FiniteVolumeDriver::THERMAL) {
-        //will need to implement this later
-        std::cerr << "ERROR! Missing implementation of mixture energy fluxes. Exiting." << std::endl;
-        exit(0);
+        //fluid fluxes associated with each volume
+        density_fluxes = driver->fluid_grid->calculateElementMassFluxes(job, driver);       //kg/s
+        momentum_fluxes = driver->fluid_grid->calculateElementMomentumFluxes(job, driver);  //kg m/s^2
+        energy_fluxes = driver->fluid_grid->calculateElementEnergyFluxes(job, driver);      //J/s?
+
+        //interphase fluxes
+        energy_fluxes += driver->fluid_grid->calculateInterphaseEnergyFlux(job, driver);
 
     } else {
         //shouldn't have another flag...
@@ -369,10 +379,19 @@ void FVMMixtureSolver::applyFluxes(Job* job, FiniteVolumeDriver* driver){
         }
 
     } else if (driver->TYPE == FiniteVolumeDriver::THERMAL) {
-        //will need to implement this later
-        std::cerr << "ERROR! Missing implementation of mixture energy fluxes. Exiting." << std::endl;
-        exit(0);
+        //add gravity and scale by element volume
+        //use fluxes to update element-wise average density and momentum (Forward Euler)
+        double volume;
+        for (int e = 0; e < driver->fluid_grid->element_count; e++) {
+            volume = driver->fluid_grid->getElementVolume(e);
+            driver->fluid_body->rho(e) += density_fluxes(e) / volume * job->dt;     //d(rho dv)/dt   = flux
+            driver->fluid_body->p[e] += momentum_fluxes[e] / volume * job->dt;    //d(rho u dv)/dt = flux
+            driver->fluid_body->rhoE(e) += energy_fluxes(e) / volume * job->dt;
 
+            //add gravitational contribution to momentum and energy updates
+            driver->fluid_body->p[e] += driver->fluid_body->rho(e) * driver->gravity * job->dt;
+            driver->fluid_body->rhoE(e) += driver->gravity.dot(driver->fluid_body->p[e]) * job->dt;
+        }
     } else {
         //shouldn't have another flag...
         std::cerr << "ERROR! FVMMixtureSolver does not have simulation TYPE " << driver->TYPE << " implemented! Exiting." << std::endl;
@@ -386,7 +405,13 @@ void FVMMixtureSolver::generateMixtureForces(Job* job, FiniteVolumeDriver* drive
     //get discretized inter-phase force
     //f_i = driver->fluid_grid->calculateInterphaseForces(job, driver);
     if (contact_spec == Contact::EXPLICIT) {
-        driver->fluid_grid->calculateSplitIntegralInterphaseForces(job, driver, f_i, f_e);
+        driver->fluid_grid->calculateSplitIntegralBuoyantForces(job, driver, f_b, f_b_e);
+        driver->fluid_grid->calculateSplitIntegralDragForces(job, driver, f_d, f_d_e);
+
+        //add contributions together
+        f_i = f_d + f_b;
+        f_e = f_d_e + f_b_e;
+
     } else {
         //implicit force calculation
         driver->fluid_grid->calculateSplitIntegralBuoyantForces(job, driver, f_b, f_b_e);
@@ -407,7 +432,9 @@ void FVMMixtureSolver::generateMixtureForces(Job* job, FiniteVolumeDriver* drive
 
         //estimate u_plus element velocity
         for (int e=0; e<driver->fluid_grid->element_count; e++) {
-            driver->fluid_body->p[e] -= job->dt * f_b_e[e];
+            driver->fluid_body->p[e] -= job->dt * (f_b_e[e]
+                                                   - momentum_fluxes[e] / driver->fluid_grid->getElementVolume(e)
+                                                   - driver->fluid_body->rho(e) * driver->gravity);
         }
 
         //tell fluid grid to update mixture properties
@@ -423,7 +450,9 @@ void FVMMixtureSolver::generateMixtureForces(Job* job, FiniteVolumeDriver* drive
 
         //remove buoyancy from u_plus
         for (int e=0; e<driver->fluid_grid->element_count; e++) {
-            driver->fluid_body->p[e] += job->dt * f_b_e[e];
+            driver->fluid_body->p[e] += job->dt * (f_b_e[e]
+                                                   - momentum_fluxes[e] / driver->fluid_grid->getElementVolume(e)
+                                                   - driver->fluid_body->rho(e) * driver->gravity);
         }
 
         //add contributions together
@@ -721,5 +750,12 @@ void FVMMixtureSolver::applyLoads(Job* job){
         }
         job->bodies[b]->applyLoads(job);
     }
+    return;
+}
+
+/*------------------------------------------------------------------------------*/
+void FVMMixtureSolver::writeFrame(Job *job, FiniteVolumeDriver *driver) {
+    driver->serializer->writeVectorArray(f_d_e, "drag_force");
+    driver->serializer->writeVectorArray(f_b_e, "buoyant_force");
     return;
 }

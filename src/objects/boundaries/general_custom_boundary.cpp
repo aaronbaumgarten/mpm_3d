@@ -21,6 +21,7 @@
 
 /* input to this file denotes the type of boundary for each domain face (-x, +x, -y, +y, -z, +z)
  * DO NOT USE WITH AXISYMMETRIC JOBS!
+ * -1 -- FREE_BOUNDARY
  * 0 -- NO-SLIP
  */
 
@@ -42,7 +43,7 @@ void GeneralCustomBoundary::init(Job* job, Body* body){
             if (i < fp64_props.size()/job->grid->GRID_DIM){
                 limit_vals[i] = KinematicVector(job->JOB_TYPE);
                 for (int ii=0; ii < job->grid->GRID_DIM; ii++){
-                    limit_vals[i][ii] = fp64_props[2*i + ii];
+                    limit_vals[i][ii] = fp64_props[job->grid->GRID_DIM*i + ii];
                 }
             } else {
                 limit_vals[i] = KinematicVector(job->JOB_TYPE);

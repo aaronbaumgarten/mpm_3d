@@ -161,6 +161,8 @@ public:
     virtual void updateStress(Job* job);
     virtual void generateLoads(Job* job);
     virtual void applyLoads(Job* job);
+
+    virtual void writeFrame(Job* job, FiniteVolumeDriver* driver);
 };
 
 class FVMMixtureSolverRK4 : public FVMMixtureSolver{

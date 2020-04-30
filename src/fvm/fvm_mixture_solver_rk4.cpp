@@ -74,6 +74,10 @@ void FVMMixtureSolverRK4::init(Job* job, FiniteVolumeDriver* driver){
     second_drag_correction = f_d;
     f_d_e = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
 
+    //ask MPM to map properties to grid for FVM initialization
+    job->bodies[solid_body_id]->generateMap(job, cpdi_spec);
+    job->bodies[solid_body_id]->nodes->m = job->bodies[solid_body_id]->S * job->bodies[solid_body_id]->points->m;
+
     //done
     std::cout << "FiniteVolumeSolver initialized." << std::endl;
 
@@ -220,53 +224,6 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
         }
     }
 
-    /*
-    if (job->t > 0.0225) {
-        double m =  job->bodies[solid_body_id]->nodes->m(6382);
-        std::cout << "[" << job->t << "]: " << f_d[6382][0]/m << std::endl;
-        std::cout << "[       ]: " << first_drag_correction[6382][0]/m << ", " << second_drag_correction[6382][0]/m << std::endl;
-        std::cout << "[       ]: " << job->bodies[solid_body_id]->nodes->f[6382][0] / (job->grid->nodeVolume(job,6382)* m) << std::endl;
-        std::cout << "[      m]: " << job->bodies[solid_body_id]->nodes->m[6382] << ", " << driver->fluid_body->n[6382] << std::endl;
-        std::cout << "[    x_t]: " << job->bodies[solid_body_id]->nodes->x_t[6382][0] << std::endl;
-    }
-     */
-
-    /*
-    for (int i = 0; i<job->bodies[solid_body_id]->nodes->mx_t.size(); i++){
-        if (job->bodies[solid_body_id]->nodes->m(i) > 0) {
-            job->bodies[solid_body_id]->nodes->x_t(i) = (job->bodies[solid_body_id]->nodes->mx_t(i) +
-                                                         job->dt*(job->bodies[solid_body_id]->nodes->f(i)))
-                                                        / job->bodies[solid_body_id]->nodes->m(i);
-        }
-    }
-     */
-
-    /* ERROR CHECKING */
-    /*
-    //tell fluid grid to update mixture properties
-    driver->fluid_grid->mapMixturePropertiesToQuadraturePoints(job, driver);
-    //reconstruct fluid fields
-    driver->fluid_grid->constructDensityField(job, driver);
-    driver->fluid_grid->constructMomentumField(job, driver);
-    driver->fluid_grid->constructEnergyField(job, driver);
-    driver->fluid_grid->constructPorosityField(job, driver);
-
-    //get drag
-    f_d = driver->fluid_grid->calculateDragForces(job, driver);
-
-    if (job->t > 0.0225) {
-        double m =  job->bodies[solid_body_id]->nodes->m(6382);
-        std::cout << "[       ]: " << f_d[6382][0]/m << std::endl;
-    }
-
-    for (int i = 0; i<job->bodies[solid_body_id]->nodes->mx_t.size(); i++){
-        if (job->bodies[solid_body_id]->nodes->m(i) > 0) {
-            job->bodies[solid_body_id]->nodes->x_t(i) = (job->bodies[solid_body_id]->nodes->mx_t(i))
-                                                        / job->bodies[solid_body_id]->nodes->m(i);
-        }
-    }
-     */
-
     /*----------------------*/
     /*   End FVM-RK4 Step   */
     /*----------------------*/
@@ -331,6 +288,9 @@ Eigen::VectorXd FVMMixtureSolverRK4::F(Job* job, FiniteVolumeDriver* driver, con
     momentum_fluxes = driver->fluid_grid->calculateElementMomentumFluxes(job, driver);  //kg m/s^2
     energy_fluxes = driver->fluid_grid->calculateElementEnergyFluxes(job, driver);      //J/s?
 
+    //interphase fluxes
+    energy_fluxes += driver->fluid_grid->calculateInterphaseEnergyFlux(job, driver);
+
     //get discretized inter-phase force
     //f_b = driver->fluid_grid->calculateBuoyantForces(job, driver);
     driver->fluid_grid->calculateSplitIntegralBuoyantForces(job, driver, f_b, f_e);
@@ -349,6 +309,7 @@ Eigen::VectorXd FVMMixtureSolverRK4::F(Job* job, FiniteVolumeDriver* driver, con
         energy_fluxes(e) /= volume;
         momentum_fluxes[e] += driver->fluid_body->rho(e) * driver->gravity;
         momentum_fluxes[e] -= f_e[e];// / volume;
+        energy_fluxes(e) += driver->gravity.dot(driver->fluid_body->p[e]);
     }
 
     //convert resulting fluxes to output

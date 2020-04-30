@@ -434,6 +434,71 @@ void TriangularGridLinear::hiddenInit(Job* job){
         len *= Nx(pos);
     }
 
+    Eigen::VectorXi ijk = Eigen::VectorXi(GRID_DIM);
+    int sc;
+
+    //form min/max list
+    std::vector<int> element_min_max; //list of minimum and maximum ijk of nodes
+    element_min_max.resize(4 * element_count);
+    for (int e = 0; e < element_count; e++) {
+
+        //get ijk from components of x_n
+        ijk[0] = floor(x_n(nodeIDs(e, 0))[0] / hx[0]);
+        ijk[1] = floor(x_n(nodeIDs(e, 0))[1] / hx[1]);
+
+        //assign min/max from first node
+        for (int pos = 0; pos < ijk.rows(); pos++) {
+            element_min_max[4 * e + pos] = ijk[pos];
+            element_min_max[4 * e + pos + 2] = ijk[pos];
+        }
+
+        //repeat for other 2 nodes
+        for (int i = 1; i < npe; i++) {
+            ijk[0] = floor(x_n(nodeIDs(e, i))[0] / hx[0]);
+            ijk[1] = floor(x_n(nodeIDs(e, i))[1] / hx[1]);
+
+            for (int pos = 0; pos < ijk.rows(); pos++) {
+                //if ijk < min, assign to min
+                if (ijk(pos) < element_min_max[4 * e + pos]) {
+                    element_min_max[4 * e + pos] = ijk[pos];
+                } else if (ijk(pos) > element_min_max[4 * e + 2 + pos]) {
+                    element_min_max[4 * e + 2 + pos] = ijk[pos];
+                }
+            }
+        }
+    }
+
+    std::cout << "Lx: " << EIGEN_MAP_OF_KINEMATIC_VECTOR(Lx).transpose() << std::endl;
+    std::cout << "Nx: " << Nx.transpose() << std::endl;
+    std::cout << "len: " << len << std::endl;
+
+    bool cell_in_range;
+    //insert elements into search cell list
+    for (int i = 0; i < len; i++) {
+        search_offsets.push_back(search_cells.size());
+        //find ijk of search cell
+        ijk = n_to_ijk(job, i);
+        //fill cell
+        for (int e = 0; e < element_count; e++) {
+            cell_in_range = true;
+            for (int pos = 0; pos < ijk.rows(); pos++) {
+                //insert element if search cell is within min/max range
+                if (ijk(pos) < element_min_max[4 * e + pos] || ijk(pos) > element_min_max[4 * e + 2 + pos]) {
+                    cell_in_range = false;
+                    break;
+                }
+            }
+            //hasn't failed, therefore add to list
+            if (cell_in_range) {
+                search_cells.push_back(e);
+            }
+        }
+        std::cout << "Initializing... " << i << "/" << len << "\r";
+    }
+    search_offsets.push_back(search_cells.size());
+    std::cout << std::endl;
+
+    /*
     Eigen::VectorXd ijk;
     Eigen::Vector2d s1_p0, s1_p1;
     std::vector<Eigen::Vector2d,Eigen::aligned_allocator<Eigen::Vector2d>> list_p0;
@@ -516,6 +581,7 @@ void TriangularGridLinear::hiddenInit(Job* job){
         std::cout << "Initializing... " << i << "/" << len << "\r";
     }
     search_offsets.push_back(search_cells.size());
+     */
 
     return;
 }
@@ -663,17 +729,17 @@ void TriangularGridLinear::evaluateBasisFnGradient(Job* job, KinematicVector& xI
 
     //fill shape function vals
     tmpVec(0) = -1; tmpVec(1) = -1;
-    tmpVec = map*tmpVec;
+    tmpVec = inv_map.transpose()*tmpVec; //map*tmpVec;
     nID.push_back(nodeIDs(elementID,0));
     nGRAD.push_back(tmpVec);
 
     tmpVec(0) = 1; tmpVec(1) = 0;
-    tmpVec = map*tmpVec;
+    tmpVec = inv_map.transpose()*tmpVec; //map*tmpVec;
     nID.push_back(nodeIDs(elementID,1));
     nGRAD.push_back(tmpVec);
 
     tmpVec(0) = 0; tmpVec(1) = 1;
-    tmpVec = map*tmpVec;
+    tmpVec = inv_map.transpose()*tmpVec; //map*tmpVec;
     nID.push_back(nodeIDs(elementID,2));
     nGRAD.push_back(tmpVec);
 

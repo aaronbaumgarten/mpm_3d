@@ -542,9 +542,9 @@ void FiniteVolumeDriver::run(Job* job) {
     //initialize FVM objects
     serializer->init(job, this);
     fluid_grid->init(job, this);
+    solver->init(job, this);
     fluid_material->init(job, this);
     fluid_body->init(job, this);
-    solver->init(job, this);
 
     //set counters to zero
     int stepCount = 0;
