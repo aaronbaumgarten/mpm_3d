@@ -606,14 +606,32 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     H_plus = E_plus + P_plus/rho_plus;
 
                     //approximate Roe advective rate
+                    /*
                     w_1_bar = (std::sqrt(rho_plus) + std::sqrt(rho_minus))/2.0;
                     rho_bar = w_1_bar*w_1_bar;
                     u_bar = (std::sqrt(rho_plus) * u_plus + std::sqrt(rho_minus) * u_minus) / (2.0 * w_1_bar);
                     u_bar_squared = u_bar.dot(u_bar);
                     H_bar = (std::sqrt(rho_plus) * H_plus + std::sqrt(rho_minus) * H_minus) / (2.0 * w_1_bar);
                     n_bar = (std::sqrt(rho_plus) * n_plus + std::sqrt(rho_minus) * n_minus) / (2.0 * w_1_bar);
-                    c = driver->fluid_material->getSpeedOfSound(job, driver, rho_bar, rho_bar * u_bar, rhoE_minus,
-                                                                n_bar);  //n_q(q_list[q]));
+                     */
+                    //begin by estimating porosity
+                    n_bar = n_q(q_list[q]);//0.5*(n_plus + n_minus);
+
+                    //project +/- side states into intermediate porosity
+                    w_1_bar = (std::sqrt(rho_plus*n_bar/n_plus) + std::sqrt(rho_minus*n_bar/n_plus)) / 2.0;
+                    rho_bar = w_1_bar * w_1_bar;
+                    u_bar = (std::sqrt(rho_plus*n_bar/n_plus) * u_plus + std::sqrt(rho_plus*n_bar/n_plus) * u_minus) / (2.0 * w_1_bar);
+                    u_bar_squared = u_bar.dot(u_bar);
+                    H_bar = (std::sqrt(rho_plus*n_bar/n_plus) * H_plus + std::sqrt(rho_plus*n_bar/n_plus) * H_minus) / (2.0 * w_1_bar);
+
+
+                    //c = driver->fluid_material->getSpeedOfSound(job, driver, rho_bar, rho_bar * u_bar, rhoE_minus, n_bar);  //n_q(q_list[q]));
+                    c = driver->fluid_material->getSpeedOfSoundFromEnthalpy(job,
+                                                                            driver,
+                                                                            rho_bar,
+                                                                            rho_bar*u_bar,
+                                                                            rho_bar*H_bar,
+                                                                            n_bar);
 
                     //roe eigenvalues
                     lambda_1 = std::abs(u_bar.dot(normal) - c);
@@ -644,6 +662,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     a_3 = n_bar*((H_bar - u_bar_squared)*(rho_plus/n_plus - rho_minus/n_minus)
                            + u_bar.dot(p_plus/n_plus - p_minus/n_minus)
                            - (rhoE_plus/n_plus - rhoE_minus/n_minus)) / (H_bar - 0.5*u_bar_squared);
+
 
                     a_1 = n_bar*0.5*((rho_plus/n_plus - rho_minus/n_minus)
                                - (p_plus/n_plus - p_minus/n_minus - u_bar*(rho_plus/n_plus - rho_minus/n_minus)).dot(normal) / c)
@@ -1240,14 +1259,34 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     H_plus = E_plus + P_plus / rho_plus;
 
                     //approximate Roe advective rate
+                    /*
                     w_1_bar = (std::sqrt(rho_plus) + std::sqrt(rho_minus)) / 2.0;
                     rho_bar = w_1_bar * w_1_bar;
                     u_bar = (std::sqrt(rho_plus) * u_plus + std::sqrt(rho_minus) * u_minus) / (2.0 * w_1_bar);
                     u_bar_squared = u_bar.dot(u_bar);
                     H_bar = (std::sqrt(rho_plus) * H_plus + std::sqrt(rho_minus) * H_minus) / (2.0 * w_1_bar);
                     n_bar = (std::sqrt(rho_plus) * n_plus + std::sqrt(rho_minus) * n_minus) / (2.0 * w_1_bar);
+
+
                     c = driver->fluid_material->getSpeedOfSound(job, driver, rho_bar, rho_bar * u_bar, rhoE_minus,
                                                                 n_bar); //n_q(q_list[q]));
+                    */
+                    //begin by estimating porosity
+                    n_bar = n_q(q_list[q]);//0.5*(n_plus + n_minus);
+
+                    //project +/- side states into intermediate porosity
+                    w_1_bar = (std::sqrt(rho_plus*n_bar/n_plus) + std::sqrt(rho_minus*n_bar/n_plus)) / 2.0;
+                    rho_bar = w_1_bar * w_1_bar;
+                    u_bar = (std::sqrt(rho_plus*n_bar/n_plus) * u_plus + std::sqrt(rho_plus*n_bar/n_plus) * u_minus) / (2.0 * w_1_bar);
+                    u_bar_squared = u_bar.dot(u_bar);
+                    H_bar = (std::sqrt(rho_plus*n_bar/n_plus) * H_plus + std::sqrt(rho_plus*n_bar/n_plus) * H_minus) / (2.0 * w_1_bar);
+
+                    c = driver->fluid_material->getSpeedOfSoundFromEnthalpy(job,
+                                                                            driver,
+                                                                            rho_bar,
+                                                                            rho_bar*u_bar,
+                                                                            rho_bar*H_bar,
+                                                                            n_bar);
 
                     //roe eigenvalues
                     lambda_1 = std::abs(u_bar.dot(normal) - c);
@@ -2127,14 +2166,33 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     tau_plus = driver->fluid_material->getShearStress(job, driver, L[e_plus], rho_plus, p_plus, rhoE_plus, n_q(q_list[q]));
 
                     //approximate Roe advective rate
+                    /*
                     w_1_bar = (std::sqrt(rho_plus) + std::sqrt(rho_minus)) / 2.0;
                     rho_bar = w_1_bar * w_1_bar;
                     u_bar = (std::sqrt(rho_plus) * u_plus + std::sqrt(rho_minus) * u_minus) / (2.0 * w_1_bar);
                     u_bar_squared = u_bar.dot(u_bar);
                     H_bar = (std::sqrt(rho_plus) * H_plus + std::sqrt(rho_minus) * H_minus) / (2.0 * w_1_bar);
                     n_bar = (std::sqrt(rho_plus) * n_plus + std::sqrt(rho_minus) * n_minus) / (2.0 * w_1_bar);
+
                     c = driver->fluid_material->getSpeedOfSound(job, driver, rho_bar, rho_bar * u_bar, rhoE_minus,
                                                                 n_bar); //n_q(q_list[q]));
+                                                                */
+                    //begin by estimating porosity
+                    n_bar = n_q(q_list[q]);//0.5*(n_plus + n_minus);
+
+                    //project +/- side states into intermediate porosity
+                    w_1_bar = (std::sqrt(rho_plus*n_bar/n_plus) + std::sqrt(rho_minus*n_bar/n_plus)) / 2.0;
+                    rho_bar = w_1_bar * w_1_bar;
+                    u_bar = (std::sqrt(rho_plus*n_bar/n_plus) * u_plus + std::sqrt(rho_plus*n_bar/n_plus) * u_minus) / (2.0 * w_1_bar);
+                    u_bar_squared = u_bar.dot(u_bar);
+                    H_bar = (std::sqrt(rho_plus*n_bar/n_plus) * H_plus + std::sqrt(rho_plus*n_bar/n_plus) * H_minus) / (2.0 * w_1_bar);
+
+                    c = driver->fluid_material->getSpeedOfSoundFromEnthalpy(job,
+                                                                            driver,
+                                                                            rho_bar,
+                                                                            rho_bar*u_bar,
+                                                                            rho_bar*H_bar,
+                                                                            n_bar);
 
                     //roe eigenvalues
                     lambda_1 = std::abs(u_bar.dot(normal) - c);
@@ -2531,7 +2589,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                                                      bc_info[f].values[0],
                                                                                                      bc_info[f].values[1],
                                                                                                      n_minus); //n_q(q_list[q]));
-                    rhoE_minus += 0.5*rho_bar*u_minus.dot(u_minus);
+                    rhoE_minus += 0.5*rho_minus*u_minus.dot(u_minus);
 
                     flux = w_q(q_list[q]) * (rhoE_minus*u_minus.dot(normal)
                                              + P_minus*u_minus.dot(normal));
@@ -2573,7 +2631,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                                                      bc_info[f].values[0],
                                                                                                      bc_info[f].values[1],
                                                                                                      n_plus); //n_q(q_list[q]));
-                    rhoE_plus += 0.5*rho_bar*u_plus.dot(u_plus);
+                    rhoE_plus += 0.5*rho_plus*u_plus.dot(u_plus);
 
                     flux = w_q(q_list[q]) * (rhoE_plus*u_plus.dot(normal)
                                              + P_plus*u_plus.dot(normal));
@@ -2636,7 +2694,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                                                    P_minus,
                                                                                                    bc_info[f].values[1],
                                                                                                    n_minus); //n_q(q_list[q]));
-                    rhoE_bar += 0.5*rho_bar*u_minus.dot(u_minus);
+                    rhoE_bar += 0.5*rho_minus*u_minus.dot(u_minus);
 
                     if (u_minus.dot(normal) > 0) {
                         //flow out of A
@@ -2684,7 +2742,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                                                    P_plus,
                                                                                                    bc_info[f].values[1],
                                                                                                    n_plus); //n_q(q_list[q]));
-                    rhoE_bar += 0.5*rho_bar*u_plus.dot(u_plus);
+                    rhoE_bar += 0.5*rho_plus*u_plus.dot(u_plus);
 
                     if (u_plus.dot(normal) < 0) {
                         //flow out of B
@@ -3654,7 +3712,6 @@ void FVMGridBase::calculateSplitIntegralBuoyantForces(Job* job,
                                                  FiniteVolumeDriver* driver,
                                                  KinematicVectorArray& f_i,
                                                  KinematicVectorArray& f_e){
-
     //declare temporary containers for quadrature point fields
     KinematicVectorArray tmpVecArray = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE);
     Eigen::VectorXd tmpArray = Eigen::VectorXd(int_quad_count + ext_quad_count);
@@ -3907,7 +3964,7 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
 
     KinematicVectorArray Kvs_i = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
     Eigen::VectorXd K_i = Eigen::VectorXd(job->grid->node_count);
-    Eigen::VectorXd Kvsvs_i = Eigen::VectorXd(job->grid->node_count);
+    //Eigen::VectorXd Kvsvs_i = Eigen::VectorXd(job->grid->node_count);
 
     //new drag calculation
     //calculate volume weighted velocity and mass density on nodes to estimate K_i
@@ -3946,14 +4003,24 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
 
         //intermediate calculation
         Kvs_i[i] = K_i(i) * driver->fluid_body->v_s[i];
-        Kvsvs_i(i) = K_i(i) * driver->fluid_body->v_s[i].dot(driver->fluid_body->v_s[i]);
+        //Kvsvs_i(i) = K_i(i) * driver->fluid_body->v_s[i].dot(driver->fluid_body->v_s[i]);
     }
 
     //first term in drag component
+    /*
     if (num_threads > 1){
         parallelMultiply(M, Kvsvs_i, result, M.NORMAL, true);
     } else {
-        result = M*K_i;
+        result = M*Kvsvs_i;
+    }
+     */
+
+    //calculate element-wise weighted solid drag coefficient
+    Eigen::VectorXd K_e = Eigen::VectorXd(driver->fluid_grid->element_count);
+    if (num_threads > 1){
+        parallelMultiply(M, K_i, K_e, M.NORMAL, true);
+    } else {
+        K_e = M*K_i;
     }
 
     //calculate element-wise weighted solid drag component velocity
@@ -3964,9 +4031,10 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
         Kvs_e = M*Kvs_i;
     }
 
-    //second term in drag component
+    //add drag term
     for (int e=0; e<driver->fluid_grid->element_count; e++){
-        result(e) -= Kvs_e[e].dot(u[e]);
+        //result(e) -= Kvs_e[e].dot(u[e]);
+        result(e) = Kvs_e[e].dot(u[e]) - K_e(e)*u[e].dot(u[e]);
     }
 
     /*-----------------------------*/
@@ -4168,7 +4236,7 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
                                            i_begin,
                                            i_end,
                                            false,
-                                           std::ref(secondTaskComplete[t])));
+                                           std::ref(fourthTaskComplete[t])));
         }
 
         //join threads
@@ -4194,6 +4262,29 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
     return result;
 }
 
+Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFluxUsingElementBasedForce(Job* job,
+                                                                                 FiniteVolumeDriver* driver,
+                                                                                 const KinematicVectorArray &f_e){
+    //muliply element-wise forces by element velocities
+    Eigen::VectorXd result = Eigen::VectorXd(element_count);
+
+    double rho, rhoE, n, P, trL;
+    KinematicVector p, u;
+
+    //loop over elements
+    for (int e = 0; e < element_count; e++) {
+        //approximate local density, momentum
+        rho = driver->fluid_body->rho(e);
+        p = driver->fluid_body->p[e];
+
+        //estimate element velocity
+        u = p/rho;
+        result(e) = getElementVolume(e) * f_e[e].dot(u);
+    }
+
+    return result;
+}
+
 Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFluxUsingNodeBasedDrag(Job* job,
                                                                              FiniteVolumeDriver* driver,
                                                                              const KinematicVectorArray &f_d){
@@ -4207,6 +4298,7 @@ Eigen::VectorXd FVMGridBase::calculateElementIntegrandsForInterphaseEnergyFlux(J
                                                                                 FiniteVolumeDriver* driver,
                                                                                Eigen::VectorXd &result,
                                                                                 int e_start, int e_end){
+
     //check that limits are within acceptable range
     if (e_start < 0 || e_end >= element_count){
         std::cerr << "ERROR! Start or end indices out of range! " << e_start << " <? 0, " << e_end << " >=? " << element_count << std::endl;
@@ -4225,6 +4317,7 @@ Eigen::VectorXd FVMGridBase::calculateElementIntegrandsForInterphaseEnergyFlux(J
             n = rho / ((driver->fluid_body->rho(e) / driver->fluid_body->n_e(e))
                        + driver->fluid_body->true_density_x[e].dot(x_q[e * qpe + q] - x_e[e]));
 
+            /*
             //estimate velocity and velocity divergence
             u = p/rho;
             trL = (driver->fluid_body->p_x[e].trace() - u.dot(driver->fluid_body->rho_x[e]))/rho;
@@ -4234,7 +4327,16 @@ Eigen::VectorXd FVMGridBase::calculateElementIntegrandsForInterphaseEnergyFlux(J
 
             //fill in pressure term contribution to energy flux
             result(e) += getQuadratureWeight(e*qpe + q) * P * (trL * (1.0 - n_q(e*qpe + q))
-                                                               - (v_sq[e*qpe + q] - u).dot(gradn_q[e*qpe + q]));
+                                                               + (v_sq[e*qpe + q] - u).dot(gradn_q[e*qpe + q]));
+            */
+
+            //estimate local pressure
+            P = driver->fluid_material->getPressure(job, driver, rho, p, rhoE, n);
+
+            //fill in pressure term contribution to energy flux
+            u = p/rho;
+            result(e) += getQuadratureWeight(e*qpe + q) * P * u.dot(gradn_q[e*qpe + q]);
+            //result(e) += getQuadratureWeight(e*qpe + q) * P * v_sq[e*qpe + q].dot(gradn_q[e*qpe + q]);
         }
     }
 
@@ -4246,6 +4348,7 @@ Eigen::VectorXd FVMGridBase::calculateFaceIntegrandsForInterphaseEnergyFlux(Job*
                                                                             FiniteVolumeDriver* driver,
                                                                             Eigen::VectorXd &result,
                                                                             int f_start, int f_end){
+
     //check that limits are within acceptable range
     if (f_start < 0 || f_end >= face_count){
         std::cerr << "ERROR! Start or end indices out of range! " << f_start << " <? 0, " << f_end << " >=? " << element_count << std::endl;
@@ -4255,6 +4358,7 @@ Eigen::VectorXd FVMGridBase::calculateFaceIntegrandsForInterphaseEnergyFlux(Job*
     double rho_minus, rhoE_minus, n_minus, P_minus;
     KinematicVector p_plus, p_minus, normal;
     double velocity_jump;
+    double flux;
 
     //loop over elements
     int tmp_q = -1;
@@ -4285,12 +4389,21 @@ Eigen::VectorXd FVMGridBase::calculateFaceIntegrandsForInterphaseEnergyFlux(Job*
                 P_plus = driver->fluid_material->getPressure(job, driver, rho_plus, p_plus, rhoE_plus, n_plus);
                 P_minus = driver->fluid_material->getPressure(job, driver, rho_minus, p_minus, rhoE_minus, n_minus);
 
+                /*
                 //estimate velocity jump term
                 velocity_jump = (p_plus/rho_plus - p_minus/rho_minus).dot(normal);
 
                 //add contribution to energy flux
-                result(e_plus) += 0.5 * getQuadratureWeight(tmp_q) * P_plus * n_q(tmp_q) * velocity_jump;
-                result(e_minus) += 0.5 * getQuadratureWeight(tmp_q) * P_minus * n_q(tmp_q) * velocity_jump;
+                result(e_plus) += 0.5 * getQuadratureWeight(tmp_q) * P_plus * (1.0 - n_q(tmp_q)) * velocity_jump;
+                result(e_minus) += 0.5 * getQuadratureWeight(tmp_q) * P_minus * (1.0 - n_q(tmp_q)) * velocity_jump;
+                */
+                //flux = 0.5 * getQuadratureWeight(tmp_q) * ((1.0 - n_minus)*P_minus*p_minus/rho_minus
+                //                                           + (1.0 - n_plus)*P_plus*p_plus/rho_plus).dot(normal);
+                flux = 0.25 * getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q)) * (P_plus + P_minus)
+                       * (p_plus/rho_plus + p_minus/rho_minus).dot(normal);
+
+                result(e_minus) += flux;
+                result(e_plus) -= flux;
             }
         }
     }
@@ -4770,6 +4883,8 @@ void FVMGridBase::calcElementIntegrandsForInterphaseEnergyFlux(Job* job,
 
     //let everyone know we are done
     done = true;
+
+    return;
 }
 
 
@@ -4784,5 +4899,7 @@ void FVMGridBase::calcFaceIntegrandsForInterphaseEnergyFlux(Job* job,
 
     //let everyone know we are done
     done = true;
+
+    return;
 }
 

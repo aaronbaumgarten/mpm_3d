@@ -82,6 +82,7 @@ public:
     virtual double getInternalEnergyFromPressureAndTemperature(Job*, FiniteVolumeDriver*, double pressure, double theta, double n);
     virtual double getPressureFromDensityAndTemperature(Job*, FiniteVolumeDriver*, double rho, double theta, double n);
     virtual KinematicVector getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, const KinematicVector& theta_x, double n);
+    virtual double getSpeedOfSoundFromEnthalpy(Job *, FiniteVolumeDriver *, double rho, const KinematicVector &p, double rhoH, double n);
 
     //mixture model functions
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*); //return 1 if mixture problem, return 0 if FVM problem only
@@ -121,6 +122,7 @@ public:
     virtual double getInternalEnergyFromPressureAndTemperature(Job*, FiniteVolumeDriver*, double pressure, double theta, double n);
     virtual double getPressureFromDensityAndTemperature(Job*, FiniteVolumeDriver*, double rho, double theta, double n);
     virtual KinematicVector getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, const KinematicVector& theta_x, double n);
+    virtual double getSpeedOfSoundFromEnthalpy(Job *, FiniteVolumeDriver *, double rho, const KinematicVector &p, double rhoH, double n);
 
     //mixture model functions
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*); //return 1 if mixture problem, return 0 if FVM problem only
@@ -156,6 +158,7 @@ public:
     virtual double getInternalEnergyFromPressureAndTemperature(Job*, FiniteVolumeDriver*, double pressure, double theta, double n);
     virtual double getPressureFromDensityAndTemperature(Job*, FiniteVolumeDriver*, double rho, double theta, double n);
     virtual KinematicVector getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, const KinematicVector& theta_x, double n);
+    virtual double getSpeedOfSoundFromEnthalpy(Job *, FiniteVolumeDriver *, double rho, const KinematicVector &p, double rhoH, double n);
 
     //mixture model functions
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*); //return 1 if mixture problem, return 0 if FVM problem only
@@ -195,6 +198,7 @@ public:
     virtual double getInternalEnergyFromPressureAndTemperature(Job*, FiniteVolumeDriver*, double pressure, double theta, double n);
     virtual double getPressureFromDensityAndTemperature(Job*, FiniteVolumeDriver*, double rho, double theta, double n);
     virtual KinematicVector getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, const KinematicVector& theta_x, double n);
+    virtual double getSpeedOfSoundFromEnthalpy(Job *, FiniteVolumeDriver *, double rho, const KinematicVector &p, double rhoH, double n);
 
     //mixture model functions
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*); //return 1 if mixture problem, return 0 if FVM problem only

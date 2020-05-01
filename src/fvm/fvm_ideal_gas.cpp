@@ -192,6 +192,16 @@ KinematicVector FVMIdealGas::getHeatFlux(Job* job,
     return -thermal_conductivity*theta_x;
 }
 
+double FVMIdealGas::getSpeedOfSoundFromEnthalpy(Job *job,
+                                                FiniteVolumeDriver *driver,
+                                                double rho,
+                                                const KinematicVector &p,
+                                                double rhoH,
+                                                double n) {
+    //a^2 = (gamma - 1)*(H - 0.5*q^2)
+    return std::sqrt((heat_capacity_ratio - 1.0) * (rhoH/rho - 0.5*p.dot(p)/(rho*rho)));
+}
+
 //mixture model functions
 int FVMIdealGas::calculatePorosity(Job* job, FiniteVolumeDriver* driver){
     //mixture not implemented

@@ -220,6 +220,15 @@ KinematicVector FVMSlurryFluidPhase::getHeatFlux(Job* job,
     return KinematicVector(job->JOB_TYPE);
 }
 
+
+double FVMSlurryFluidPhase::getSpeedOfSoundFromEnthalpy(Job *job, FiniteVolumeDriver *driver, double rho, const KinematicVector &p, double rhoH,
+                                                        double n) {
+    std::cerr << "ERROR: FVMSlurryFluidPhase does not have getSpeedOfSoundFromEnthalpy() implemented. Exiting." << std::endl;
+    exit(0);
+
+    return 0.0;
+}
+
 //mixture model functions
 int FVMSlurryFluidPhase::calculatePorosity(Job* job, FiniteVolumeDriver* driver){
     //generate approximate porosity field from MPM body

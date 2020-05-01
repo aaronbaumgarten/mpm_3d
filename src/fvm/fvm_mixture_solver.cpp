@@ -354,7 +354,7 @@ void FVMMixtureSolver::generateFluxes(Job* job, FiniteVolumeDriver* driver){
         energy_fluxes = driver->fluid_grid->calculateElementEnergyFluxes(job, driver);      //J/s?
 
         //interphase fluxes
-        energy_fluxes += driver->fluid_grid->calculateInterphaseEnergyFlux(job, driver);
+        //energy_fluxes += driver->fluid_grid->calculateInterphaseEnergyFlux(job, driver);
 
     } else {
         //shouldn't have another flag...
@@ -412,6 +412,9 @@ void FVMMixtureSolver::generateMixtureForces(Job* job, FiniteVolumeDriver* drive
         f_i = f_d + f_b;
         f_e = f_d_e + f_b_e;
 
+        //interphace energy fluxes
+        energy_fluxes -= driver->fluid_grid->calculateInterphaseEnergyFluxUsingElementBasedForce(job,driver,f_e);
+
     } else {
         //implicit force calculation
         driver->fluid_grid->calculateSplitIntegralBuoyantForces(job, driver, f_b, f_b_e);
@@ -458,6 +461,9 @@ void FVMMixtureSolver::generateMixtureForces(Job* job, FiniteVolumeDriver* drive
         //add contributions together
         f_i = f_d + f_b;
         f_e = f_d_e + f_b_e;
+
+        //interphase energy fluxes
+        energy_fluxes -= driver->fluid_grid->calculateInterphaseEnergyFluxUsingElementBasedForce(job,driver,f_e);
 
     }
     return;

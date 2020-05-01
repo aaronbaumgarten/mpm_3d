@@ -23,6 +23,8 @@
 #include "fvm_grids.hpp"
 #include "threadpool.hpp"
 
+static const bool USE_NODE_NEIGHBORS = false;
+
 void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
     //assign grid dimension
     GRID_DIM = 2;
@@ -693,38 +695,53 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
 
     //define element neighbors map
     element_neighbors = std::vector<std::vector<int>>(element_count);
-    std::vector<std::vector<int>> tmp_node_to_element_map = std::vector<std::vector<int>>(node_count);
-    for (int e=0; e<element_count; e++){
-        //fill in list of elements associated with each node
-        n0 = nodeIDs(e,0);
-        n1 = nodeIDs(e,1);
-        n2 = nodeIDs(e,2);
+    if (USE_NODE_NEIGHBORS) {
+        //use all connected nodes
+        std::vector<std::vector<int>> tmp_node_to_element_map = std::vector<std::vector<int>>(node_count);
+        for (int e = 0; e < element_count; e++) {
+            //fill in list of elements associated with each node
+            n0 = nodeIDs(e, 0);
+            n1 = nodeIDs(e, 1);
+            n2 = nodeIDs(e, 2);
 
-        tmp_node_to_element_map[n0].push_back(e);
-        tmp_node_to_element_map[n1].push_back(e);
-        tmp_node_to_element_map[n2].push_back(e);
-    }
-    int e_tmp;
-    bool in_list;
-    for (int e=0; e<element_count; e++){
-        //loop over elements
-        for (int j=0; j<npe; j++) {
-            //for each node
-            n0 = nodeIDs(e,j);
-            //check if elements associated with that node are already in the neighbor list
-            for (int i = 0; i < tmp_node_to_element_map[n0].size(); i++) {
-                e_tmp = tmp_node_to_element_map[n0][i];
-                in_list = false;
-                for (int ii = 0; i < element_neighbors[e].size(); i++) {
-                    if (element_neighbors[e][ii] == e_tmp){
-                        in_list = true;
-                        break;
+            tmp_node_to_element_map[n0].push_back(e);
+            tmp_node_to_element_map[n1].push_back(e);
+            tmp_node_to_element_map[n2].push_back(e);
+        }
+        int e_tmp;
+        bool in_list;
+        for (int e = 0; e < element_count; e++) {
+            //loop over elements
+            for (int j = 0; j < npe; j++) {
+                //for each node
+                n0 = nodeIDs(e, j);
+                //check if elements associated with that node are already in the neighbor list
+                for (int i = 0; i < tmp_node_to_element_map[n0].size(); i++) {
+                    e_tmp = tmp_node_to_element_map[n0][i];
+                    in_list = false;
+                    for (int ii = 0; i < element_neighbors[e].size(); i++) {
+                        if (element_neighbors[e][ii] == e_tmp) {
+                            in_list = true;
+                            break;
+                        }
+                    }
+                    if (!in_list) {
+                        //if element is not in neighbor list, add it
+                        element_neighbors[e].push_back(e_tmp);
                     }
                 }
-                if (!in_list){
-                    //if element is not in neighbor list, add it
-                    element_neighbors[e].push_back(e_tmp);
-                }
+            }
+        }
+    } else {
+        //use face neighbors only
+        int e_tmp;
+        bool in_list;
+        for (int f = 0; f < face_count; f++) {
+            //loop over faces
+            if (face_elements[f][0] > -1 && face_elements[f][1] > -1){
+                //these can only show up once
+                element_neighbors[face_elements[f][0]].push_back(face_elements[f][1]);
+                element_neighbors[face_elements[f][1]].push_back(face_elements[f][0]);
             }
         }
     }

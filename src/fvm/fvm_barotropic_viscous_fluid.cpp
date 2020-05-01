@@ -174,6 +174,14 @@ KinematicVector FVMBarotropicViscousFluid::getHeatFlux(Job* job,
     return KinematicVector(job->JOB_TYPE);
 }
 
+double FVMBarotropicViscousFluid::getSpeedOfSoundFromEnthalpy(Job *job, FiniteVolumeDriver *driver, double rho, const KinematicVector &p, double rhoH,
+                                                              double n) {
+    std::cerr << "ERROR: FVMBarotropicViscousFluid does not have getSpeedOfSoundFromEnthalpy() implemented. Exiting." << std::endl;
+    exit(0);
+
+    return 0.0;
+}
+
 //mixture model functions
 int FVMBarotropicViscousFluid::calculatePorosity(Job* job, FiniteVolumeDriver* driver){
     //mixture not implemented

@@ -232,6 +232,16 @@ KinematicVector FVMSlurryGasPhase::getHeatFlux(Job* job,
     return -thermal_conductivity*theta_x*n;
 }
 
+double FVMSlurryGasPhase::getSpeedOfSoundFromEnthalpy(Job *job,
+                                                FiniteVolumeDriver *driver,
+                                                double rho,
+                                                const KinematicVector &p,
+                                                double rhoH,
+                                                double n) {
+    //a^2 = (gamma - 1)*(H - 0.5*q^2)
+    return std::sqrt((heat_capacity_ratio - 1.0)/n * (rhoH/rho - 0.5*p.dot(p)/(rho*rho)));
+}
+
 //mixture model functions
 int FVMSlurryGasPhase::calculatePorosity(Job* job, FiniteVolumeDriver* driver){
     //generate approximate porosity field from MPM body

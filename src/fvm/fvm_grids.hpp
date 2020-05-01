@@ -337,6 +337,10 @@ public:
                                                                             FiniteVolumeDriver* driver,
                                                                             const KinematicVectorArray &f_d);
 
+    virtual Eigen::VectorXd calculateInterphaseEnergyFluxUsingElementBasedForce(Job* job,
+                                                                                FiniteVolumeDriver* driver,
+                                                                                const KinematicVectorArray &f_e);
+
     virtual Eigen::VectorXd calculateElementIntegrandsForInterphaseEnergyFlux(Job* job,
                                                                               FiniteVolumeDriver* driver,
                                                                               Eigen::VectorXd &result,

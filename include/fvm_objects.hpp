@@ -153,6 +153,9 @@ public:
     virtual Eigen::VectorXd calculateInterphaseEnergyFluxUsingNodeBasedDrag(Job* job,
                                                                             FiniteVolumeDriver* driver,
                                                                             const KinematicVectorArray &f_d) = 0;
+    virtual Eigen::VectorXd calculateInterphaseEnergyFluxUsingElementBasedForce(Job* job,
+                                                                                FiniteVolumeDriver* driver,
+                                                                                const KinematicVectorArray &f_e) = 0;
 };
 
 
@@ -205,6 +208,7 @@ public:
     virtual double getInternalEnergyFromPressureAndTemperature(Job*, FiniteVolumeDriver*, double pressure, double theta, double n) = 0;
     virtual double getPressureFromDensityAndTemperature(Job*, FiniteVolumeDriver*, double rho, double theta, double n) = 0;
     virtual KinematicVector getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, const KinematicVector& theta_x, double n) = 0;
+    virtual double getSpeedOfSoundFromEnthalpy(Job *, FiniteVolumeDriver *, double rho, const KinematicVector &p, double rhoH, double n) = 0;
 
     //mixture model functions
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*) = 0; //return 1 if mixture problem, return 0 if FVM problem only
