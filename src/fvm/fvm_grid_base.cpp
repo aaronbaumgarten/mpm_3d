@@ -811,7 +811,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     //calculate B properties
                     rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
                     u_plus = driver->fluid_body->p(e_plus) + driver->fluid_body->p_x[e_plus]*x;
-                    u_plus /= rho_bar;
+                    u_plus /= rho_plus;
                     if (u_plus.dot(normal) > 0){
                         //flow direction is into B
                         flux = rho_bar * w_q(q_list[q]) * u_plus.dot(normal);
@@ -1662,7 +1662,8 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
 
                     //tau_minus = 0
                     P_minus = bc_info[f].values[0];
-                    if (bc_info[f].tag == DAMPED_OUTLET){
+                    if (bc_info[f].tag == DAMPED_OUTLET && u_minus.dot(normal) > 0){
+                        //only adjust P for outflow
                         rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x(e_minus).dot(x);
                         //n_minus = driver->fluid_body->n_e(e_minus) + driver->fluid_body->n_e_x[e_minus].dot(x);
                         n_minus = rho_minus / ((driver->fluid_body->rho(e_minus)
@@ -1705,7 +1706,9 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
 
                     //tau_minus = 0
                     P_plus = bc_info[f].values[0];
-                    if (bc_info[f].tag == DAMPED_OUTLET){
+                    if (bc_info[f].tag == DAMPED_OUTLET && u_plus.dot(normal) < 0){
+                        //only adjust P for outflow
+
                         rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x(e_plus).dot(x);
                         //n_plus = driver->fluid_body->n_e(e_plus) + driver->fluid_body->n_e_x[e_plus].dot(x);
                         n_plus = rho_plus / ((driver->fluid_body->rho(e_plus)
@@ -2680,7 +2683,8 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
 
                     //tau_minus = 0
                     P_minus = bc_info[f].values[0];
-                    if (bc_info[f].tag == DAMPED_OUTLET){
+                    if (bc_info[f].tag == DAMPED_OUTLET && u_minus.dot(normal) > 0){
+                        //only adjust if outflow
                         P_minus = (1.0 - damping_coefficient)*P_minus
                                   + damping_coefficient*driver->fluid_material->getPressure(job,driver,
                                                                                             rho_minus,
@@ -2728,7 +2732,8 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
 
                     //tau_minus = 0
                     P_plus = bc_info[f].values[0];
-                    if (bc_info[f].tag == DAMPED_OUTLET){
+                    if (bc_info[f].tag == DAMPED_OUTLET && u_plus.dot(normal) < 0){
+                        //only adjust P for outflow
                         P_plus = (1.0 - damping_coefficient)*P_plus
                                   + damping_coefficient*driver->fluid_material->getPressure(job,driver,
                                                                                             rho_plus,
