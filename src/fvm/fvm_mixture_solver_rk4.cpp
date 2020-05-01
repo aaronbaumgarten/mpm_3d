@@ -183,10 +183,14 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
     //get correction term
     driver->fluid_grid->calculateSplitIntegralCorrectedDragForces(job, driver, second_drag_correction, f_d_e, K_n);
 
+    //get energy contribution from correction term
+    energy_fluxes = driver->fluid_grid->calculateInterphaseEnergyFluxUsingElementBasedForce(job,driver,f_d_e);
+
     //add corrected drag to fluid momentum
     double volume;
     for (int e = 0; e < driver->fluid_grid->element_count; e++) {
         driver->fluid_body->p[e] -= job->dt * f_d_e[e];
+        driver->fluid_body->rhoE(e) -= job->dt * energy_fluxes(e) / driver->fluid_grid->getElementVolume(e);
     }
 
     //add correction to solid momentum and reset velocity

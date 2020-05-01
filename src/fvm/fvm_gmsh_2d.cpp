@@ -23,7 +23,7 @@
 #include "fvm_grids.hpp"
 #include "threadpool.hpp"
 
-static const bool USE_NODE_NEIGHBORS = false;
+static const bool USE_NODE_NEIGHBORS = true;
 
 void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
     //assign grid dimension

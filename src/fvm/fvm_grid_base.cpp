@@ -666,7 +666,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
 
                     a_1 = n_bar*0.5*((rho_plus/n_plus - rho_minus/n_minus)
                                - (p_plus/n_plus - p_minus/n_minus - u_bar*(rho_plus/n_plus - rho_minus/n_minus)).dot(normal) / c)
-                          - a_3;
+                          - 0.5*a_3;
 
                     a_2 = n_bar*(rho_plus/n_plus - rho_minus/n_minus) - a_3 - a_1;
 
@@ -1324,7 +1324,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
 
                     a_1 = n_bar* 0.5 * ((rho_plus/n_plus - rho_minus/n_minus)
                                         - (p_plus/n_plus - p_minus/n_minus - u_bar * (rho_plus/n_plus - rho_minus/n_minus)).dot(normal) / c)
-                          - a_3;
+                          - 0.5*a_3;
 
                     a_2 = n_bar*(rho_plus/n_plus - rho_minus/n_minus) - a_3 - a_1;
 
@@ -2230,7 +2230,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
 
                     a_1 = n_bar* 0.5 * ((rho_plus/n_plus - rho_minus/n_minus)
                                  - (p_plus/n_plus - p_minus/n_minus - u_bar * (rho_plus/n_plus - rho_minus/n_minus)).dot(normal) / c)
-                          - a_3;
+                          - 0.5*a_3;
 
                     a_2 = n_bar*(rho_plus/n_plus - rho_minus/n_minus) - a_3 - a_1;
 
@@ -4279,7 +4279,8 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFluxUsingElementBasedForce
 
         //estimate element velocity
         u = p/rho;
-        result(e) = getElementVolume(e) * f_e[e].dot(u);
+        //result(e) = getElementVolume(e) * (f_e[e].dot(u) - 0.5*f_e[e].dot(f_e[e])/rho*job->dt);
+        result(e) = getElementVolume(e) * (f_e[e].dot(u));
     }
 
     return result;
@@ -4397,10 +4398,10 @@ Eigen::VectorXd FVMGridBase::calculateFaceIntegrandsForInterphaseEnergyFlux(Job*
                 result(e_plus) += 0.5 * getQuadratureWeight(tmp_q) * P_plus * (1.0 - n_q(tmp_q)) * velocity_jump;
                 result(e_minus) += 0.5 * getQuadratureWeight(tmp_q) * P_minus * (1.0 - n_q(tmp_q)) * velocity_jump;
                 */
-                //flux = 0.5 * getQuadratureWeight(tmp_q) * ((1.0 - n_minus)*P_minus*p_minus/rho_minus
-                //                                           + (1.0 - n_plus)*P_plus*p_plus/rho_plus).dot(normal);
-                flux = 0.25 * getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q)) * (P_plus + P_minus)
-                       * (p_plus/rho_plus + p_minus/rho_minus).dot(normal);
+                flux = 0.5 * getQuadratureWeight(tmp_q) * ((1.0 - n_q(tmp_q))*P_minus*p_minus/rho_minus
+                                                           + (1.0 - n_q(tmp_q))*P_plus*p_plus/rho_plus).dot(normal);
+                //flux = 0.25 * getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q)) * (P_plus + P_minus)
+                //       * (p_plus/rho_plus + p_minus/rho_minus).dot(normal);
 
                 result(e_minus) += flux;
                 result(e_plus) -= flux;
