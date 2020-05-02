@@ -3024,11 +3024,13 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                                                    P_minus,
                                                                                                    bc_info[f].values[1],
                                                                                                    n_minus); //n_q(q_list[q]));
+
+
                     rhoE_bar += 0.5 * rho_minus * u_minus.dot(u_minus);
 
                     if (u_minus.dot(normal) > 0) {
                         //flow out of A
-                        flux = w_q(q_list[q]) * (rhoE_minus * u_minus.dot(normal)
+                        flux = w_q(q_list[q]) * (rhoE_bar * u_minus.dot(normal)
                                                  + P_minus * u_minus.dot(normal));
                     } else {
                         //flow into A
@@ -3080,7 +3082,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
 
                     if (u_plus.dot(normal) < 0) {
                         //flow out of B
-                        flux = w_q(q_list[q]) * (rhoE_plus * u_plus.dot(normal)
+                        flux = w_q(q_list[q]) * (rhoE_bar * u_plus.dot(normal)
                                                  + P_plus * u_plus.dot(normal));
                     } else {
                         //flow into A
