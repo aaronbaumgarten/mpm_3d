@@ -179,6 +179,7 @@ public:
 
     Eigen::VectorXd n_e;                 //mixture porosity field (defined on finite volumes)
     KinematicVectorArray true_density_x; //mixture true density field gradient
+    KinematicVectorArray true_energy_x;  //mixture true internal energy field gradient
 
 };
 
