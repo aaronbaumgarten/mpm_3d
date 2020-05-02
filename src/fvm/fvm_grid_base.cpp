@@ -4871,22 +4871,75 @@ Eigen::VectorXd FVMGridBase::calculateFaceIntegrandsForInterphaseEnergyFlux(Job*
 
     double rho_plus, rhoE_plus, n_plus, P_plus;
     double rho_minus, rhoE_minus, n_minus, P_minus;
-    KinematicVector p_plus, p_minus, normal, x;
+    KinematicVector p_plus, p_minus, normal, x, p;
     double velocity_jump;
     double flux;
     double epsilon_0, epsilon_bar;
+    double rho, rhoE, n, P;
 
     //loop over elements
     int tmp_q = -1;
+    int tmp_e = -1;
     int e_plus, e_minus;
     for (int f = f_start; f <= f_end; f++) {
         e_minus = face_elements[f][0];
         e_plus = face_elements[f][1];
         normal = getFaceNormal(job, f);
-        if (e_minus > -1 && e_plus > -1) {
-            for (int q = 0; q < qpf; q++) {
-                //quadrature point index
-                tmp_q = int_quad_count + f*qpf + q;
+
+        for (int q = 0; q < qpf; q++) {
+
+            //quadrature point index
+            tmp_q = int_quad_count + f*qpf + q;
+
+            if (q_b[int_quad_count + f*qpf + q]) {
+                //if quadrature point is on boundary
+                //check element ids
+                if (e_minus > -1) {
+                    //A is interior to domain
+                    tmp_e = e_minus;
+                } else {
+                    //B is interior to domain
+                    normal *= -1.0;
+                    tmp_e = e_minus;
+                }
+
+                //approximate local density, momentum, and energy
+                tmp_q = int_quad_count + f * qpf + q;
+                rho = driver->fluid_body->rho(tmp_e) + driver->fluid_body->rho_x[tmp_e].dot(x_q[tmp_q] - x_e[tmp_e]);
+                rhoE = driver->fluid_body->rhoE(tmp_e) + driver->fluid_body->rhoE_x[tmp_e].dot(x_q[tmp_q] - x_e[tmp_e]);
+                p = driver->fluid_body->p[tmp_e] + driver->fluid_body->p_x[tmp_e] * (x_q[tmp_q] - x_e[tmp_e]);
+                //n = driver->fluid_body->n_e(tmp_e) + driver->fluid_body->n_e_x[tmp_e].dot(x_q[tmp_q] - x_e[tmp_e]);
+
+                //estimate porosity field for THERMAL and ISOTHERMAL cases
+                if (driver->TYPE == FiniteVolumeDriver::THERMAL) {
+                    epsilon_0 = (driver->fluid_body->rhoE(tmp_e)
+                                 - 0.5 * driver->fluid_body->p[tmp_e].dot(driver->fluid_body->p[tmp_e])
+                                   / driver->fluid_body->rho(tmp_e)) / driver->fluid_body->n_e(tmp_e);
+
+                    epsilon_bar = rhoE - 0.5 * p.dot(p) / rho;
+                    n = epsilon_bar /
+                        (epsilon_0 + driver->fluid_body->true_energy_x[tmp_e].dot(x_q[tmp_q] - x_e[tmp_e]));
+                } else if (driver->TYPE == FiniteVolumeDriver::ISOTHERMAL) {
+                    n = rho / ((driver->fluid_body->rho(tmp_e)
+                                / driver->fluid_body->n_e(tmp_e))
+                               + driver->fluid_body->true_density_x[tmp_e].dot(x_q[tmp_q] - x_e[tmp_e]));
+                } else {
+                    n = driver->fluid_body->n_e(tmp_e);
+                }
+
+                //fill in pressure
+                P = driver->fluid_material->getPressure(job,
+                                                        driver,
+                                                        rho,
+                                                        p,
+                                                        rhoE,
+                                                        n); //n_q(tmp_q));
+
+                flux = getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q))*v_sq[tmp_q].dot(normal) * P;
+
+                result(tmp_e) += flux;
+
+            } else if (e_minus > -1 && e_plus > -1) {
 
                 //approximate local density, momentum, and energy
                 rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x_q[tmp_q] - x_e[e_plus]);
