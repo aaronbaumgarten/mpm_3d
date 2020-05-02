@@ -4937,7 +4937,8 @@ Eigen::VectorXd FVMGridBase::calculateFaceIntegrandsForInterphaseEnergyFlux(Job*
                                                         rhoE,
                                                         n); //n_q(tmp_q));
 
-                flux = getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q))*v_sq[tmp_q].dot(normal) * P;
+                //flux = getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q))*v_sq[tmp_q].dot(normal) * P;
+                flux = getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q))*(p/rho).dot(normal) * P;
 
                 result(tmp_e) += flux;
 
@@ -5008,10 +5009,10 @@ Eigen::VectorXd FVMGridBase::calculateFaceIntegrandsForInterphaseEnergyFlux(Job*
                 //flux = 0.25 * getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q)) * (P_plus + P_minus)
                 //       * (p_plus/rho_plus + p_minus/rho_minus).dot(normal);
 
-                //flux = 0.5 * getQuadratureWeight(tmp_q) * ((1.0 - n_q(tmp_q))*P_minus*p_minus/rho_minus
-                //                                           + (1.0 - n_q(tmp_q))*P_plus*p_plus/rho_plus).dot(normal);
+                flux = 0.5 * getQuadratureWeight(tmp_q) * ((1.0 - n_q(tmp_q))*P_minus*p_minus/rho_minus
+                                                           + (1.0 - n_q(tmp_q))*P_plus*p_plus/rho_plus).dot(normal);
 
-                flux = 0.5 * getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q))*v_sq[tmp_q].dot(normal) * (P_minus + P_plus);
+                //flux = 0.5 * getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q))*v_sq[tmp_q].dot(normal) * (P_minus + P_plus);
 
                 result(e_minus) += flux;
                 result(e_plus) -= flux;
