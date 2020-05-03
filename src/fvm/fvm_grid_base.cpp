@@ -4545,8 +4545,8 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
 
         //intermediate storage vector
         //check that memUnitID is valid
-        if (memoryUnits[0].kv.size() != thread_count) {
-            memoryUnits[0].kv.resize(thread_count);
+        if (memoryUnits[0].s.size() != thread_count) {
+            memoryUnits[0].s.resize(thread_count);
         }
 
         //boolean of completion status
@@ -4562,6 +4562,9 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
             if (memoryUnits[0].s[t].size() != element_count) {
                 memoryUnits[0].s[t] = Eigen::VectorXd(element_count);
             }
+
+            //zero output vector
+            memoryUnits[0].s[t].setZero();
 
             //set interval
             k_begin = t * k_interval;
@@ -4642,7 +4645,6 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
             }
         }
 
-
         //determine number of threads for face flux evaluation
         if (face_count >= num_threads){
             thread_count = num_threads;
@@ -4668,6 +4670,9 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
             if (memoryUnits[0].s[t].size() != element_count){
                 memoryUnits[0].s[t] = Eigen::VectorXd(element_count);
             }
+
+            //zero output vector
+            memoryUnits[0].s[t].setZero();
 
             //set interval
             k_begin = t * k_interval;
@@ -4725,7 +4730,7 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
             //send job to thread pool
             jobThreadPool->doJob(std::bind(ThreadPoolExplicitUSL::scalarAddwithFlag,
                                            std::ref(memoryUnits[0].s),
-                                           result,
+                                           std::ref(result),
                                            i_begin,
                                            i_end,
                                            false,
@@ -5009,10 +5014,10 @@ Eigen::VectorXd FVMGridBase::calculateFaceIntegrandsForInterphaseEnergyFlux(Job*
                 //flux = 0.25 * getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q)) * (P_plus + P_minus)
                 //       * (p_plus/rho_plus + p_minus/rho_minus).dot(normal);
 
+                //flux = 0.5 * getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q))*v_sq[tmp_q].dot(normal) * (P_minus + P_plus);
+
                 flux = 0.5 * getQuadratureWeight(tmp_q) * ((1.0 - n_q(tmp_q))*P_minus*p_minus/rho_minus
                                                            + (1.0 - n_q(tmp_q))*P_plus*p_plus/rho_plus).dot(normal);
-
-                //flux = 0.5 * getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q))*v_sq[tmp_q].dot(normal) * (P_minus + P_plus);
 
                 result(e_minus) += flux;
                 result(e_plus) -= flux;
