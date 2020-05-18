@@ -26,27 +26,6 @@
 #include "fvm_solvers.hpp"
 #include "objects/bodies/bodies.hpp"
 
-void FVMMixtureSolverRK4::adjustSolidVelocity(Job* job, FiniteVolumeDriver* driver, double h){
-
-    //assign grid velocity
-    for (int i = 0; i<job->bodies[solid_body_id]->nodes->mx_t.size(); i++){
-        if (job->bodies[solid_body_id]->nodes->m(i) > 0) {
-            job->bodies[solid_body_id]->nodes->x_t(i) =
-                    (job->bodies[solid_body_id]->nodes->mx_t(i) +
-                    job->dt*h*(job->bodies[solid_body_id]->nodes->f(i)
-                               + f_i(i) * job->grid->nodeVolume(job, i)))
-                    / job->bodies[solid_body_id]->nodes->m(i);
-        } else {
-            job->bodies[solid_body_id]->nodes->x_t(i).setZero();
-        }
-    }
-
-    //tell grid to update
-    driver->fluid_grid->mapMixturePropertiesToQuadraturePoints(job, driver);
-
-    return;
-}
-
 void FVMMixtureSolverRK4::init(Job* job, FiniteVolumeDriver* driver){
 
     //call parent initialization f'n

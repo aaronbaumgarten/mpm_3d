@@ -177,7 +177,6 @@ public:
     KinematicVectorArray first_drag_correction; //drag correction component from t = t_n
     KinematicVectorArray second_drag_correction; //drag correction component form t = t_star;
 
-    void adjustSolidVelocity(Job* job, FiniteVolumeDriver* driver, double h);
     Eigen::VectorXd F(Job* job, FiniteVolumeDriver* driver, const Eigen::VectorXd& u);          //calculate flux function value
 
     void convertVectorToStateSpace(Job* job, FiniteVolumeDriver* driver,
@@ -201,6 +200,16 @@ public:
     virtual void updateStress(Job* job, int SPEC); //overload function
 
     virtual void writeFrame(Job* job, FiniteVolumeDriver* driver);
+};
+
+class FVMStaticMixtureSolverRK4 : public FVMMixtureSolverRK4{
+public:
+    FVMStaticMixtureSolverRK4(){
+        object_name = "FVMStaticMixtureSolverRK4";
+    }
+
+    //this class is identical to FVMMixtureSolverRK4, except that no update is performed on MPM body
+    virtual void step(Job* job, FiniteVolumeDriver* driver);                                        //perform single mpm step
 };
 
 #endif //MPM_V3_FVM_SOLVERS_HPP

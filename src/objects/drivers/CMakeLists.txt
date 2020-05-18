@@ -6,5 +6,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/cavity_flow_driver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/ballistic_driver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fish_random_sample_driver.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fish_mixture_model_random_sample_driver.cpp.cpp
         PARENT_SCOPE
         )

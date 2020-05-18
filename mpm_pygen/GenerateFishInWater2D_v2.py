@@ -16,8 +16,8 @@ print "files named"
 
 #grid properties
 #Ly = Lx = Lz = 0.4
-Lx = 1.0
-Ly = 0.5
+Lx = 2.0
+Ly = 1.0
 Lz = 1.0
 #Ne = 40
 Nx = 200
@@ -33,7 +33,7 @@ g = -9.81
 
 # free block properties
 bulk_properties = { 'rho': 1000 }
-bulk_primitive = Primitives3d.NACA00(Primitives3d.Point(0.75, 0.25, 0.0), 0.5, 12, 0.0, 1.0)
+bulk_primitive = Primitives3d.NACA00(Primitives3d.Point(0.75, 0.5, 0.0), 0.5, 12, 0.0, 1.0)
 bulk_body = CSGTree3d.Node(bulk_primitive)
 print "fish created"
 

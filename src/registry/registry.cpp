@@ -58,6 +58,7 @@ Registry<Driver>::Registry() {
     object["BallisticDriver"] = &createInstance<Driver,BallisticDriver>;
     object["FiniteVolumeDriver"] = &createInstance<Driver,FiniteVolumeDriver>;
     object["FishRandomSampleDriver"] = &createInstance<Driver,FishRandomSampleDriver>;
+    object["FishMixtureModelRandomSampleDriver"] = &createInstance<Driver,FishMixtureModelRandomSampleDriver>;
 }
 
 
@@ -177,6 +178,7 @@ Registry<FiniteVolumeSolver>::Registry() {
     object["FVMSteadyStateSolver"] = &createInstance<FiniteVolumeSolver,FVMSteadyStateSolver>;
     object["FVMMixtureSolver"] = &createInstance<FiniteVolumeSolver, FVMMixtureSolver>;
     object["FVMMixtureSolverRK4"] = &createInstance<FiniteVolumeSolver, FVMMixtureSolverRK4>;
+    object["FVMStaticMixtureSolverRK4"] = &createInstance<FiniteVolumeSolver, FVMStaticMixtureSolverRK4>;
 }
 
 template<>

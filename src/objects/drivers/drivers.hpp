@@ -16,6 +16,7 @@
 #include <vector>
 #include <Eigen/Core>
 #include <time.h>
+#include <random>
 
 /*
  * IN THIS FILE, DEFINE DRIVER OBJECTS.
@@ -155,6 +156,49 @@ public:
 
     double stop_time;
     KinematicVector gravity;
+
+    virtual void init(Job* job);
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    virtual void run(Job* job);
+    virtual void generateGravity(Job* job);
+    virtual void applyGravity(Job* job);
+};
+
+class FishMixtureModelRandomSampleDriver : public FishRandomSampleDriver{
+public:
+    FishMixtureModelRandomSampleDriver(){
+        object_name = "FishMixtureModelRandomSampleDriver"; //set object name here
+    }
+
+    //from https://stackoverflow.com/questions/6142576/sample-from-multivariate-normal-gaussian-distribution-in-c
+    struct MultivariateNormalRandomVariable
+    {
+        Eigen::VectorXd mean;
+        Eigen::MatrixXd transform;
+
+        void setMean(Eigen::VectorXd const& meanIn){
+            mean = meanIn;
+        }
+
+        void setCovar(Eigen::MatrixXd const& covarIn){
+            Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> eigenSolver(covarIn);
+            transform = eigenSolver.eigenvectors() * eigenSolver.eigenvalues().cwiseSqrt().asDiagonal();
+        }
+
+        Eigen::VectorXd operator()() const
+        {
+            static std::mt19937 gen{ std::random_device{}() };
+            static std::normal_distribution<> dist;
+
+            return mean + transform * Eigen::VectorXd{ mean.size() }.unaryExpr([&](double x) { return dist(gen); });
+        }
+    };
+
+    std::string input_file;
+    std::vector<MultivariateNormalRandomVariable> normal_distributions;
+    std::vector<double> probability_distribution;
 
     virtual void init(Job* job);
     virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
