@@ -3730,6 +3730,8 @@ void FVMGridBase::calculateFaceIntegrandsForBuoyantForce(Job *job,
     KinematicVector p_plus, p_minus, x;
     double epsilon_0, epsilon_bar;
 
+    KinematicTensor L_tmp = KinematicTensor(job->JOB_TYPE);
+
     int tmp_e = -1;
     int tmp_q = -1;
     int e_plus = -1;
@@ -3773,13 +3775,82 @@ void FVMGridBase::calculateFaceIntegrandsForBuoyantForce(Job *job,
                     n = driver->fluid_body->n_e(tmp_e);
                 }
 
-                //fill in pressure
-                P = driver->fluid_material->getPressure(job,
-                                                        driver,
-                                                        rho,
-                                                        p,
-                                                        rhoE,
-                                                        n); //n_q(tmp_q));
+                if (bc_info[f].tag == VELOCITY_INLET) {
+                    //fill in pressure
+                    P = driver->fluid_material->getPressure(job,
+                                                            driver,
+                                                            rho,
+                                                            p,
+                                                            rhoE,
+                                                            n); //n_q(tmp_q));
+
+                } else if (bc_info[f].tag == VELOCITY_DENSITY_INLET) {
+                    //density and velocity given
+                    rho = n*bc_info[f].values[0];
+                    p = n*bc_info[f].values[0] * bc_info[f].vector;
+
+                    //fill in pressure
+                    P = driver->fluid_material->getPressure(job,
+                                                            driver,
+                                                            rho,
+                                                            p,
+                                                            rhoE,
+                                                            n); //n_q(tmp_q));
+
+                } else if (bc_info[f].tag == VELOCITY_TEMP_INLET) {
+                    //velocity and temperature given
+                    p = rho*bc_info[f].vector;
+
+                    //fill in pressure
+                    P = driver->fluid_material->getPressureFromDensityAndTemperature(job, driver, rho, bc_info[f].values[0], n);
+
+                } else if (bc_info[f].tag == PRESSURE_INLET) {
+                    //face has prescribed pressure (and temperature)
+                    P = bc_info[f].values[0];
+
+                } else if (bc_info[f].tag == PRESSURE_OUTLET || bc_info[f].tag == DAMPED_OUTLET) {
+                    //face has prescribed pressure
+                    P = bc_info[f].values[0];
+                    if (bc_info[f].tag == DAMPED_OUTLET && p.dot(normal) > 0) {
+                        //only adjust if outflow
+                        P = (1.0 - damping_coefficient) * P_minus
+                            + damping_coefficient * driver->fluid_material->getPressure(job, driver,
+                                                                                        rho,
+                                                                                        p,
+                                                                                        rhoE,
+                                                                                        n); //n_q(q_list[q]));
+                    }
+                } else if (bc_info[f].tag == ADIABATIC_WALL ||
+                           bc_info[f].tag == DAMPED_WALL ||
+                           bc_info[f].tag == SYMMETRIC_WALL ||
+                           bc_info[f].tag == THERMAL_WALL){
+                    P = driver->fluid_material->getPressure(job, driver, rho, p, rhoE, n); //n_q(q_list[q]));
+
+                    if (bc_info[f].tag == DAMPED_WALL){
+                        //add damping term to pressure
+                        //estimate L
+                        for (int ii=0; ii<GRID_DIM; ii++){
+                            for (int jj=0; jj<GRID_DIM; jj++){
+                                L_tmp(ii,jj) = (bc_info[f].vector[ii] - driver->fluid_body->p[e_minus][ii]/driver->fluid_body->rho(e_minus))
+                                               /(x_f[f] - x_e[e_minus]).dot(normal)*normal[jj];
+                            }
+                        }
+                        P -= bc_info[f].values[0]*L_tmp.trace();
+                    }
+                } else if (bc_info[f].tag == SUPERSONIC_INLET) {
+                    n = n_q[tmp_q];
+                    rho = n*bc_info[f].values[0];
+                    p = rho*bc_info[f].vector;
+                    P = driver->fluid_material->getPressureFromDensityAndTemperature(job,driver,rho,bc_info[f].values[1],n);
+                } else if (bc_info[f].tag == SUPERSONIC_OUTLET) {
+                    //fill in pressure
+                    P = driver->fluid_material->getPressure(job,
+                                                            driver,
+                                                            rho,
+                                                            p,
+                                                            rhoE,
+                                                            n); //n_q(tmp_q));
+                }
 
                 //fill in tmpArray
                 //tmpVecArray[tmp_q] = -P_q(tmp_q) * (1.0 - n_q(tmp_q)) * normal * getQuadratureWeight(tmp_q);
@@ -4907,7 +4978,7 @@ Eigen::VectorXd FVMGridBase::calculateFaceIntegrandsForInterphaseEnergyFlux(Job*
                 } else {
                     //B is interior to domain
                     normal *= -1.0;
-                    tmp_e = e_minus;
+                    tmp_e = e_plus;
                 }
 
                 //approximate local density, momentum, and energy
@@ -4934,13 +5005,68 @@ Eigen::VectorXd FVMGridBase::calculateFaceIntegrandsForInterphaseEnergyFlux(Job*
                     n = driver->fluid_body->n_e(tmp_e);
                 }
 
-                //fill in pressure
-                P = driver->fluid_material->getPressure(job,
-                                                        driver,
-                                                        rho,
-                                                        p,
-                                                        rhoE,
-                                                        n); //n_q(tmp_q));
+
+                if (bc_info[f].tag == VELOCITY_INLET) {
+                    std::cerr << "ERROR: Encountered VELOCITY_INLET tag in THERMAL simulation!" << std::endl;
+                    P = 0.0;
+                } else if (bc_info[f].tag == VELOCITY_DENSITY_INLET) {
+                    //density and velocity given
+                    rho = n*bc_info[f].values[0];
+                    p = n*bc_info[f].values[0] * bc_info[f].vector;
+
+                    //fill in pressure
+                    P = driver->fluid_material->getPressure(job,
+                                                            driver,
+                                                            rho,
+                                                            p,
+                                                            rhoE,
+                                                            n); //n_q(tmp_q));
+
+                } else if (bc_info[f].tag == VELOCITY_TEMP_INLET) {
+                    //velocity and temperature given
+                    p = rho*bc_info[f].vector;
+
+                    //fill in pressure
+                    P = driver->fluid_material->getPressureFromDensityAndTemperature(job, driver, rho, bc_info[f].values[0], n);
+
+                } else if (bc_info[f].tag == PRESSURE_INLET) {
+                    //face has prescribed pressure (and temperature)
+                    P = bc_info[f].values[0];
+
+                } else if (bc_info[f].tag == PRESSURE_OUTLET || bc_info[f].tag == DAMPED_OUTLET) {
+                    //face has prescribed pressure
+                    P = bc_info[f].values[0];
+                    if (bc_info[f].tag == DAMPED_OUTLET && p.dot(normal) > 0) {
+                        //only adjust if outflow
+                        P = (1.0 - damping_coefficient) * P_minus
+                                  + damping_coefficient * driver->fluid_material->getPressure(job, driver,
+                                                                                              rho,
+                                                                                              p,
+                                                                                              rhoE,
+                                                                                              n); //n_q(q_list[q]));
+                    }
+                } else if (bc_info[f].tag == ADIABATIC_WALL ||
+                           bc_info[f].tag == THERMAL_WALL ||
+                           bc_info[f].tag == DAMPED_WALL ||
+                           bc_info[f].tag == SYMMETRIC_WALL){
+                    //no outflow
+                    P = 0.0;
+                    p.setZero();
+                } else if (bc_info[f].tag == SUPERSONIC_INLET) {
+                    n = n_q[tmp_q];
+                    rho = n*bc_info[f].values[0];
+                    p = rho*bc_info[f].vector;
+                    P = driver->fluid_material->getPressureFromDensityAndTemperature(job,driver,rho,bc_info[f].values[1],n);
+                } else if (bc_info[f].tag == SUPERSONIC_OUTLET) {
+                    //fill in pressure
+                    P = driver->fluid_material->getPressure(job,
+                                                            driver,
+                                                            rho,
+                                                            p,
+                                                            rhoE,
+                                                            n); //n_q(tmp_q));
+                }
+
 
                 //flux = getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q))*v_sq[tmp_q].dot(normal) * P;
                 flux = getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q))*(p/rho).dot(normal) * P;
@@ -4976,7 +5102,7 @@ Eigen::VectorXd FVMGridBase::calculateFaceIntegrandsForInterphaseEnergyFlux(Job*
                     x = x_q[tmp_q] - x_e[e_plus];
                     x -= 2.0 * (x.dot(normal)) * normal;
                 } else {
-                    x = x_q(tmp_q) - x_e(e_minus);
+                    x = x_q[tmp_q] - x_e[e_minus];
                 }
 
                 rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
@@ -5016,8 +5142,15 @@ Eigen::VectorXd FVMGridBase::calculateFaceIntegrandsForInterphaseEnergyFlux(Job*
 
                 //flux = 0.5 * getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q))*v_sq[tmp_q].dot(normal) * (P_minus + P_plus);
 
-                flux = 0.5 * getQuadratureWeight(tmp_q) * ((1.0 - n_q(tmp_q))*P_minus*p_minus/rho_minus
-                                                           + (1.0 - n_q(tmp_q))*P_plus*p_plus/rho_plus).dot(normal);
+                flux = 0.5 * getQuadratureWeight(tmp_q) * ((1.0 - n_q(tmp_q))*P_minus*p_minus.dot(normal)/rho_minus
+                                                           + (1.0 - n_q(tmp_q))*P_plus*p_plus.dot(normal)/rho_plus);
+
+                //use upwind flux along velocity characteristic
+                //if ((p_plus/rho_plus + p_minus/rho_minus).dot(normal) > 0) {
+                //    flux = getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q)) * P_minus * p_minus.dot(normal)/rho_minus;
+                //} else {
+                //    flux = getQuadratureWeight(tmp_q) * (1.0 - n_q(tmp_q)) * P_plus * p_plus.dot(normal)/rho_plus;
+                //}
 
                 result(e_minus) += flux;
                 result(e_plus) -= flux;

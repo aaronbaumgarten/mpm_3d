@@ -267,7 +267,7 @@ KinematicVector FVMSlurryFluidPhase::getInterphaseDrag(Job* job, FiniteVolumeDri
     double Re = (v_s - v_f).norm() * rho * grain_diam / eta;
     double C = 0;
     //Beetstra
-    if (n < 1e-10 || ((1-n) < 1e-10)){
+    if (n < 1e-10 || ((1-n) < 1e-10) || eta < 1e-10){
         C = 0;
     } else if (Re < 1e-10){
         C = 18.0 * (1 - n) * eta / (grain_diam * grain_diam) *
@@ -309,7 +309,7 @@ double FVMSlurryFluidPhase::getInterphaseDragCoefficient(Job* job, FiniteVolumeD
     double Re = (v_s - v_f).norm() * rho * grain_diam / eta;
     double C = 0;
     //Beetstra
-    if (n < 1e-10 || ((1-n) < 1e-10)){
+    if (n < 1e-10 || ((1-n) < 1e-10) || eta < 1e-10){
         return 0;
     } else if (Re < 1e-10){
         C = 18.0 * (1 - n) * eta / (grain_diam * grain_diam) *

@@ -90,7 +90,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
             std::cerr << "ERROR: FVMCartesian is not implemented for FiniteVolumeDriver TYPE " << driver->TYPE << "! Exiting.";
             exit(0);
         }
-    } else if (int_props.size() >= 3*GRID_DIM) {
+    } else {
         //counter to avoid overflow error
         int fp64_iterator = GRID_DIM; //already read in GRID_DIM properties
 
