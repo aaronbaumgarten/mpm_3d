@@ -134,7 +134,7 @@ double FVMSlurryFluidPhase::getSpeedOfSound(Job* job,
                                                   double rhoE,
                                                   double n){
     //c^2 = kappa/rho
-    return std::sqrt(kappa/rho);
+    return std::sqrt(n*kappa/rho);
 }
 
 //loop over elements and fill in pressures

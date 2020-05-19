@@ -239,7 +239,8 @@ double FVMSlurryGasPhase::getSpeedOfSoundFromEnthalpy(Job *job,
                                                 double rhoH,
                                                 double n) {
     //a^2 = (gamma - 1)*(H - 0.5*q^2)
-    return std::sqrt((heat_capacity_ratio - 1.0)/n * (rhoH/rho - 0.5*p.dot(p)/(rho*rho)));
+    //return std::sqrt((heat_capacity_ratio - 1.0)/n * (rhoH/rho - 0.5*p.dot(p)/(rho*rho)));
+    return std::sqrt((heat_capacity_ratio - 1.0) * (rhoH/rho - 0.5*p.dot(p)/(rho*rho)));
 }
 
 //mixture model functions
