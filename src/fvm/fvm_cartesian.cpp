@@ -1367,8 +1367,8 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
         for (int e = 0; e<element_count; e++){
             //least squares fit of u_x to neighbors of element e
             x_0 = getElementCentroid(job, e);
-            p_0 = driver->fluid_body->p[e];
-            rho_0 = driver->fluid_body->rho(e);
+            p_0 = driver->fluid_body->p[e] / driver->fluid_body->n_e(e);
+            rho_0 = driver->fluid_body->rho(e) / driver->fluid_body->n_e(e);
             p_max = p_0; p_min = p_0;
             min_dif.setZero();
             //loop over components of momentum
@@ -1376,7 +1376,7 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                 //create system of equations
                 for (int ii=0; ii<element_neighbors[e].size(); ii++){
                     //just fill in b vector
-                    p = driver->fluid_body->p[element_neighbors[e][ii]];
+                    p = driver->fluid_body->p[element_neighbors[e][ii]] / driver->fluid_body->n_e(element_neighbors[e][ii]);
                     b_e[e](ii) = p[mom_index] - p_0[mom_index];
 
                     //update maximum and minimum velocities
@@ -1416,6 +1416,9 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                     }
                 }
             }
+
+            //transform gradient from true momentum space to effective momentum space
+            driver->fluid_body->p_x[e] *= driver->fluid_body->n_e(e);
         }
     }
     return;
@@ -1437,14 +1440,14 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
         for (int e = 0; e<element_count; e++){
             //least squares fit of u_x to neighbors of element e
             x_0 = getElementCentroid(job, e);
-            rho_0 = driver->fluid_body->rho(e);
+            rho_0 = driver->fluid_body->rho(e) / driver->fluid_body->n_e(e);
             rho_max = rho_0;
             rho_min = rho_0;
 
             //create system of equations
             for (int ii=0; ii<element_neighbors[e].size(); ii++){
                 //fill in b vector
-                rho = driver->fluid_body->rho(element_neighbors[e][ii]);
+                rho = driver->fluid_body->rho(element_neighbors[e][ii]) / driver->fluid_body->n_e(element_neighbors[e][ii]);
                 b_e[e](ii) = rho - rho_0;
 
                 //update maximum and minimum velocities
@@ -1481,6 +1484,9 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                     driver->fluid_body->rho_x(e, pos) *= min_dif/tmp_dif;
                 }
             }
+
+            //transform gradient from true density to effective density
+            driver->fluid_body->rho_x[e] *=  driver->fluid_body->n_e(e);
         }
     }
     return;
@@ -1502,14 +1508,14 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
         for (int e = 0; e<element_count; e++){
             //least squares fit of u_x to neighbors of element e
             x_0 = getElementCentroid(job, e);
-            rhoE_0 = driver->fluid_body->rhoE(e);
+            rhoE_0 = driver->fluid_body->rhoE(e) / driver->fluid_body->n_e(e);
             rhoE_max = rhoE_0;
             rhoE_min = rhoE_0;
 
             //create system of equations
             for (int ii=0; ii<element_neighbors[e].size(); ii++){
                 //fill in b vector
-                rhoE = driver->fluid_body->rhoE(element_neighbors[e][ii]);
+                rhoE = driver->fluid_body->rhoE(element_neighbors[e][ii]) / driver->fluid_body->n_e(element_neighbors[e][ii]);
                 b_e[e](ii) = rhoE - rhoE_0;
 
                 //update maximum and minimum velocities
@@ -1546,6 +1552,9 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
                     driver->fluid_body->rhoE_x(e, pos) *= min_dif/tmp_dif;
                 }
             }
+
+            //transform true energy gradient to effective energy gradient
+            driver->fluid_body->rhoE_x *= driver->fluid_body->n_e(e);
         }
     }
     return;
@@ -1553,146 +1562,6 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
 
 
 void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
-    //for isothermal simulations, reconstruct 'true' density
-    //for thermal simulations, reconstruct 'true' internal energy
-    if (driver->ORDER == 1){
-        if (driver->TYPE == driver->THERMAL){
-            driver->fluid_body->true_energy_x.setZero();
-        } else if (driver->TYPE == driver->ISOTHERMAL) {
-            driver->fluid_body->true_density_x.setZero(); //let energy be constant within an element
-        } else {
-            //undefined
-            std::cout << "WARNING: FVMCartesian does not have porosity field reconstruction defined for simulation type " << driver->TYPE << "!" << std::endl;
-        }
-    } if (driver->ORDER >= 2){
-        if (driver->ORDER > 2) {
-            std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER momentum reconstruction."
-                      << std::endl;
-        }
-
-        if (driver->TYPE == driver->THERMAL){
-            //reconstruct energy field
-            Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
-            KinematicVector x_0, x;
-            double epsilon_0, epsilon, epsilon_max, epsilon_min, min_dif;
-            double tmp_dif;
-            for (int e = 0; e < element_count; e++) {
-                //least squares fit of u_x to neighbors of element e
-                x_0 = getElementCentroid(job, e);
-
-                //epsilon = rhoE - 0.5*rho*u^2
-                epsilon_0 = (driver->fluid_body->rhoE(e)
-                             - driver->fluid_body->p[e].dot(driver->fluid_body->p[e])
-                               /(2.0*driver->fluid_body->rho(e))) / driver->fluid_body->n_e(e);
-
-                epsilon_max = epsilon_0;
-                epsilon_min = epsilon_0;
-
-                //create system of equations
-                for (int ii = 0; ii < element_neighbors[e].size(); ii++) {
-                    //fill in b vector
-                    epsilon = (driver->fluid_body->rhoE(element_neighbors[e][ii])
-                                 - driver->fluid_body->p[element_neighbors[e][ii]].dot(driver->fluid_body->p[element_neighbors[e][ii]])
-                                   /(2.0*driver->fluid_body->rho(element_neighbors[e][ii])))
-                              / driver->fluid_body->n_e(element_neighbors[e][ii]);
-
-                    b_e[e](ii) = epsilon - epsilon_0;
-
-                    //update maximum and minimum velocities
-                    if (epsilon > epsilon_max) {
-                        epsilon_max = epsilon;
-                    } else if (epsilon < epsilon_min) {
-                        epsilon_min = epsilon;
-                    }
-                }
-
-                //solve for components of gradient
-                sol = A_inv[e] * b_e[e];
-                for (int pos = 0; pos < GRID_DIM; pos++) {
-                    driver->fluid_body->true_energy_x(e, pos) = sol(pos);
-                }
-
-                //calculate minimum magnitude difference in velocity components
-                min_dif = std::abs(epsilon_0 - epsilon_min);
-                if (std::abs(epsilon_0 - epsilon_max) < min_dif) {
-                    min_dif = std::abs(epsilon_0 - epsilon_max);
-                }
-
-                //limit gradient to ensure monotonicity
-                //calculate maximum velocity change in cell
-                tmp_dif = 0;
-                for (int pos = 0; pos < GRID_DIM; pos++) {
-                    tmp_dif += hx[pos] * std::abs(driver->fluid_body->true_energy_x(e, pos) / 2.0);
-                }
-
-                if (tmp_dif > min_dif) {
-                    //if maximum velocity change in cell is larger than maximum difference b/w neighbors
-                    //need to scale gradient
-                    for (int pos = 0; pos < GRID_DIM; pos++) {
-                        driver->fluid_body->true_energy_x(e, pos) *= min_dif / tmp_dif;
-                    }
-                }
-            }
-
-        } else if (driver->TYPE == driver->ISOTHERMAL) {
-            //reconstruct density field
-            Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
-            KinematicVector x_0, x;
-            double rho_0, rho, rho_max, rho_min, min_dif;
-            double tmp_dif;
-            for (int e = 0; e < element_count; e++) {
-                //least squares fit of u_x to neighbors of element e
-                x_0 = getElementCentroid(job, e);
-                rho_0 = driver->fluid_body->rho(e) / driver->fluid_body->n_e(e);
-                rho_max = rho_0;
-                rho_min = rho_0;
-
-                //create system of equations
-                for (int ii = 0; ii < element_neighbors[e].size(); ii++) {
-                    //fill in b vector
-                    rho = driver->fluid_body->rho(element_neighbors[e][ii]) /
-                          driver->fluid_body->n_e(element_neighbors[e][ii]);
-                    b_e[e](ii) = rho - rho_0;
-
-                    //update maximum and minimum velocities
-                    if (rho > rho_max) {
-                        rho_max = rho;
-                    } else if (rho < rho_min) {
-                        rho_min = rho;
-                    }
-                }
-
-                //solve for components of gradient
-                sol = A_inv[e] * b_e[e];
-                for (int pos = 0; pos < GRID_DIM; pos++) {
-                    driver->fluid_body->true_density_x(e, pos) = sol(pos);
-                }
-
-                //calculate minimum magnitude difference in velocity components
-                min_dif = std::abs(rho_0 - rho_min);
-                if (std::abs(rho_0 - rho_max) < min_dif) {
-                    min_dif = std::abs(rho_0 - rho_max);
-                }
-
-                //limit gradient to ensure monotonicity
-                //calculate maximum velocity change in cell
-                tmp_dif = 0;
-                for (int pos = 0; pos < GRID_DIM; pos++) {
-                    tmp_dif += hx[pos] * std::abs(driver->fluid_body->true_density_x(e, pos) / 2.0);
-                }
-
-                if (tmp_dif > min_dif) {
-                    //if maximum velocity change in cell is larger than maximum difference b/w neighbors
-                    //need to scale gradient
-                    for (int pos = 0; pos < GRID_DIM; pos++) {
-                        driver->fluid_body->true_density_x(e, pos) *= min_dif / tmp_dif;
-                    }
-                }
-            }
-        } else {
-            //undefined
-            std::cout << "WARNING: FVMCartesian does not have porosity field reconstruction defined for simulation type " << driver->TYPE << "!" << std::endl;
-        }
-    }
+    //do not reconstruct porosity field
     return;
 }

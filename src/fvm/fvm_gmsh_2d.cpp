@@ -978,14 +978,14 @@ void FVMGmsh2D::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
         for (int e = 0; e<element_count; e++){
             //least squares fit of u_x to neighbors of element e
             x_0 = getElementCentroid(job, e);
-            p_0 = driver->fluid_body->p[e];
-            rho_0 = driver->fluid_body->rho(e);
+            p_0 = driver->fluid_body->p[e] / driver->fluid_body->n_e(e);
+            rho_0 = driver->fluid_body->rho(e) / driver->fluid_body->n_e(e);
             p_max = p_0; p_min = p_0;
             for (int mom_index = 0; mom_index<GRID_DIM; mom_index++){
                 //create system of equations
                 for (int ii=0; ii<element_neighbors[e].size(); ii++){
                     //ill in b vector
-                    p = driver->fluid_body->p[element_neighbors[e][ii]];
+                    p = driver->fluid_body->p[element_neighbors[e][ii]] / driver->fluid_body->n_e(element_neighbors[e][ii]);
                     b_e[e](ii) = p[mom_index] - p_0[mom_index];
 
                     //update maximum and minimum velocities
@@ -1023,6 +1023,9 @@ void FVMGmsh2D::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                     }
                 }
             }
+
+            //transform true momentum gradient into effective momentum gradient
+            driver->fluid_body->p_x[e] *= driver->fluid_body->n_e(e);
         }
     }
     return;
@@ -1044,14 +1047,14 @@ void FVMGmsh2D::constructDensityField(Job* job, FiniteVolumeDriver* driver){
         for (int e = 0; e<element_count; e++){
             //least squares fit of rho_x to neighbors of element e
             x_0 = getElementCentroid(job, e);
-            rho_0 = driver->fluid_body->rho(e);
+            rho_0 = driver->fluid_body->rho(e) / driver->fluid_body->n_e(e);
             rho_max = rho_0;
             rho_min = rho_0;
 
             //create system of equations
             for (int ii=0; ii<element_neighbors[e].size(); ii++){
                 //fill in b vector
-                rho = driver->fluid_body->rho(element_neighbors[e][ii]);
+                rho = driver->fluid_body->rho(element_neighbors[e][ii]) / driver->fluid_body->n_e(element_neighbors[e][ii]);
                 b_e[e](ii) = rho - rho_0;
 
                 //update maximum and minimum velocities
@@ -1086,6 +1089,9 @@ void FVMGmsh2D::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                     }
                 }
             }
+
+            //transform true density gradient into effective density gradient
+            driver->fluid_body->rho_x[e] *= driver->fluid_body->n_e(e);
         }
     }
     return;
@@ -1108,14 +1114,14 @@ void FVMGmsh2D::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
         for (int e = 0; e<element_count; e++){
             //least squares fit of rho_x to neighbors of element e
             x_0 = getElementCentroid(job, e);
-            rhoE_0 = driver->fluid_body->rhoE(e);
+            rhoE_0 = driver->fluid_body->rhoE(e) / driver->fluid_body->n_e(e);
             rhoE_max = rhoE_0;
             rhoE_min = rhoE_0;
 
             //create system of equations
             for (int ii=0; ii<element_neighbors[e].size(); ii++){
                 //fill in b vector
-                rhoE = driver->fluid_body->rhoE(element_neighbors[e][ii]);
+                rhoE = driver->fluid_body->rhoE(element_neighbors[e][ii]) / driver->fluid_body->n_e(element_neighbors[e][ii]);
                 b_e[e](ii) = rhoE - rhoE_0;
 
                 //update maximum and minimum velocities
@@ -1150,146 +1156,15 @@ void FVMGmsh2D::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
                     }
                 }
             }
+
+            //transform true energy gradient to effectiv energy gradient
+            driver->fluid_body->rhoE_x[e] *= driver->fluid_body->n_e(e);
         }
     }
     return;
 }
 
 void FVMGmsh2D::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
-    //for isothermal simulations, reconstruct 'true' density
-    //for thermal simulations, reconstruct 'true' internal energy
-    if (driver->ORDER == 1){
-        if (driver->TYPE == driver->THERMAL){
-            driver->fluid_body->true_energy_x.setZero();
-        } else if (driver->TYPE == driver->ISOTHERMAL) {
-            driver->fluid_body->true_density_x.setZero(); //let energy be constant within an element
-        } else {
-            //undefined
-            std::cout << "WARNING: FVMGmsh2D does not have porosity field reconstruction defined for simulation type " << driver->TYPE << "!" << std::endl;
-        }
-    } if (driver->ORDER >= 2){
-        if (driver->ORDER > 2) {
-            std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER momentum reconstruction."
-                      << std::endl;
-        }
-
-        if (driver->TYPE == driver->THERMAL){
-            //initialize least squares fields
-            Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
-            KinematicVector x_0, x;
-            double epsilon_0, epsilon, epsilon_max, epsilon_min, min_dif;
-            double tmp_val;
-            for (int e = 0; e<element_count; e++){
-                //least squares fit of rho_x to neighbors of element e
-                x_0 = getElementCentroid(job, e);
-                //epsilon = rhoE - 0.5*rho*u^2
-                epsilon_0 = (driver->fluid_body->rhoE(e)
-                             - driver->fluid_body->p[e].dot(driver->fluid_body->p[e])
-                               /(2.0*driver->fluid_body->rho(e))) / driver->fluid_body->n_e(e);
-
-                epsilon_max = epsilon_0;
-                epsilon_min = epsilon_0;
-
-                //create system of equations
-                for (int ii=0; ii<element_neighbors[e].size(); ii++){
-                    //fill in b vector
-                    epsilon = (driver->fluid_body->rhoE(element_neighbors[e][ii])
-                               - driver->fluid_body->p[element_neighbors[e][ii]].dot(driver->fluid_body->p[element_neighbors[e][ii]])
-                                 /(2.0*driver->fluid_body->rho(element_neighbors[e][ii])))
-                              / driver->fluid_body->n_e(element_neighbors[e][ii]);
-
-                    b_e[e](ii) = epsilon - epsilon_0;
-
-                    //update maximum and minimum velocities
-                    if (epsilon > epsilon_max){
-                        epsilon_max = epsilon;
-                    } else if (epsilon < epsilon_min){
-                        epsilon_min = epsilon;
-                    }
-                }
-
-                //solve for components of gradient
-                sol = A_inv[e]*b_e[e];
-                for (int pos = 0; pos<GRID_DIM; pos++){
-                    driver->fluid_body->true_energy_x(e, pos) = sol(pos);
-                }
-
-                //limit gradient to ensure monotonicity
-                //check max, min at each node
-                for (int j=0; j<npe; j++){
-                    //p(x) = grad(p) * (x - x_0)
-                    tmp_val = driver->fluid_body->true_energy_x[e].dot(x_n[nodeIDs(e,j)] - x_e[e]);
-                    //check for both overshoot and undershoot
-                    if (tmp_val > (epsilon_max - epsilon_0)){
-                        //limit gradient
-                        for (int pos=0; pos<GRID_DIM; pos++) {
-                            driver->fluid_body->true_energy_x[e] *= (epsilon_max - epsilon_0)/tmp_val;
-                        }
-                    } else if (tmp_val < (epsilon_min - epsilon_0)){
-                        //limit gradient
-                        for (int pos=0; pos<GRID_DIM; pos++) {
-                            driver->fluid_body->true_energy_x[e] *= (epsilon_min - epsilon_0)/tmp_val;
-                        }
-                    }
-                }
-            }
-
-        } else if (driver->TYPE == driver->ISOTHERMAL){
-            //initialize least squares fields
-            Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
-            KinematicVector x_0, x;
-            double rho_0, rho, rho_max, rho_min, min_dif;
-            double tmp_val;
-            for (int e = 0; e<element_count; e++){
-                //least squares fit of rho_x to neighbors of element e
-                x_0 = getElementCentroid(job, e);
-                rho_0 = driver->fluid_body->rho(e) / driver->fluid_body->n_e(e);
-                rho_max = rho_0;
-                rho_min = rho_0;
-
-                //create system of equations
-                for (int ii=0; ii<element_neighbors[e].size(); ii++){
-                    //fill in b vector
-                    rho = driver->fluid_body->rho(element_neighbors[e][ii]) / driver->fluid_body->n_e(element_neighbors[e][ii]);
-                    b_e[e](ii) = rho - rho_0;
-
-                    //update maximum and minimum velocities
-                    if (rho > rho_max){
-                        rho_max = rho;
-                    } else if (rho < rho_min){
-                        rho_min = rho;
-                    }
-                }
-
-                //solve for components of gradient
-                sol = A_inv[e]*b_e[e];
-                for (int pos = 0; pos<GRID_DIM; pos++){
-                    driver->fluid_body->true_density_x(e, pos) = sol(pos);
-                }
-
-                //limit gradient to ensure monotonicity
-                //check max, min at each node
-                for (int j=0; j<npe; j++){
-                    //p(x) = grad(p) * (x - x_0)
-                    tmp_val = driver->fluid_body->true_density_x[e].dot(x_n[nodeIDs(e,j)] - x_e[e]);
-                    //check for both overshoot and undershoot
-                    if (tmp_val > (rho_max - rho_0)){
-                        //limit gradient
-                        for (int pos=0; pos<GRID_DIM; pos++) {
-                            driver->fluid_body->true_density_x[e] *= (rho_max - rho_0)/tmp_val;
-                        }
-                    } else if (tmp_val < (rho_min - rho_0)){
-                        //limit gradient
-                        for (int pos=0; pos<GRID_DIM; pos++) {
-                            driver->fluid_body->true_density_x[e] *= (rho_min - rho_0)/tmp_val;
-                        }
-                    }
-                }
-            }
-        } else {
-            //undefined
-            std::cout << "WARNING: FVMGmsh2D does not have porosity field reconstruction defined for simulation type " << driver->TYPE << "!" << std::endl;
-        }
-    }
+    //do not reconstruct field
     return;
 }
