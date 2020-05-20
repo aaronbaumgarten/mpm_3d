@@ -545,13 +545,13 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     }
 
                     //calculate Roe eigenvector coefficients
-                    a_1 = n_bar * 0.5 * (rho_plus - rho_minus) - n_bar / (2.0 * c) * (rho_plus * u_plus - rho_minus * u_minus -
+                    a_1 = 0.5 * (rho_plus - rho_minus) - 1.0 / (2.0 * c) * (rho_plus * u_plus - rho_minus * u_minus -
                                                                             (rho_plus - rho_minus) * u_bar).dot(normal);
-                    a_2 = n_bar * (rho_plus - rho_minus) - a_1;
+                    a_2 = (rho_plus - rho_minus) - a_1;
 
                     //flux in n direction
-                    flux = w_q(q_list[q]) * 0.5 * (n_bar * rho_plus * u_plus.dot(normal) + n_bar * rho_minus * u_minus.dot(normal)
-                                                   - a_1 * lambda_1 - a_2 * lambda_2);
+                    flux = w_q(q_list[q]) * 0.5 * n_bar * (rho_plus * u_plus.dot(normal) + rho_minus * u_minus.dot(normal)
+                                                           - a_1 * lambda_1 - a_2 * lambda_2);
 
                     //add flux to element integrals
                     result(e_minus) -= flux;
@@ -4134,6 +4134,11 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
     //result defines interphase energy flux into fluid elements
     Eigen::VectorXd result = Eigen::VectorXd(element_count);
     result.setZero();
+
+    //don't bother for ISOTHERMAL sims
+    if (driver->TYPE != driver->THERMAL){
+        return result;
+    }
 
     /*-------------------------*/
     /* BEGIN DRAG CONTRIBUTION */

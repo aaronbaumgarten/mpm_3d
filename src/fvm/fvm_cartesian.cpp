@@ -1554,7 +1554,7 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
             }
 
             //transform true energy gradient to effective energy gradient
-            driver->fluid_body->rhoE_x *= driver->fluid_body->n_e(e);
+            driver->fluid_body->rhoE_x[e] *= driver->fluid_body->n_e(e);
         }
     }
     return;

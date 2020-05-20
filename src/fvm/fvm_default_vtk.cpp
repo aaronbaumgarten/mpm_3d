@@ -114,7 +114,7 @@ int FVMDefaultVTK::writeFrame(Job* job, FiniteVolumeDriver* driver){
                                                                           driver->fluid_body->rho(e),
                                                                           driver->fluid_body->p[e],
                                                                           driver->fluid_body->rhoE(e),
-                                                                          1.0);                         //porosity of 1 for now
+                                                                          driver->fluid_body->n_e(e));
         }
         writeScalarArray(mach, "mach");
 
