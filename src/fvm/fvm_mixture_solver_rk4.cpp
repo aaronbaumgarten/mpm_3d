@@ -100,12 +100,87 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
                               driver->fluid_body->rhoE);
 
     //get drag and corrected coefficients from initial state
-    driver->fluid_grid->calculateSplitIntegralDragForces(job, driver, f_d, f_d_e);
+    //driver->fluid_grid->calculateSplitIntegralDragForces(job, driver, f_d, f_d_e);
     K_n = driver->fluid_grid->getCorrectedDragCoefficients(job, driver);
 
+    /*----------------------*/
+    /* Estimate k1 w/o drag */
+    /*----------------------*/
+
+    f_d.setZero();
+    f_d_e.setZero();
     k1 = job->dt * F(job, driver, u_0);
     f_i1 = f_i;                             //store intermediate drag calculations
-    f_b_e = (f_e - f_d_e)/6.0;                    //store intermediate buoyancy term
+    f_b_e = f_e/6.0;                        //store intermediate buoyancy term
+
+    /*-----------------------*/
+    /* Estimate Drag at t+dt */
+    /*-----------------------*/
+
+    //assign u_0 + k1 to fluid phase
+    //assign v_0 + f_i to solid phase
+    convertVectorToStateSpace(job,
+                              driver,
+                              (u_0 + k1),
+                              driver->fluid_body->rho,
+                              driver->fluid_body->p,
+                              driver->fluid_body->rhoE);
+
+    for (int i = 0; i<job->bodies[solid_body_id]->nodes->mx_t.size(); i++){
+        if (job->bodies[solid_body_id]->nodes->m(i) > 0) {
+            job->bodies[solid_body_id]->nodes->x_t(i) = (job->bodies[solid_body_id]->nodes->mx_t(i) +
+                                                         job->dt*(job->bodies[solid_body_id]->nodes->f(i)
+                                                                  + f_i1(i)*job->grid->nodeVolume(job,i)))
+                                                        / job->bodies[solid_body_id]->nodes->m(i);
+        } else {
+            job->bodies[solid_body_id]->nodes->x_t(i).setZero();
+        }
+    }
+
+
+    driver->fluid_grid->mapMixturePropertiesToQuadraturePoints(job, driver);
+    driver->fluid_grid->constructDensityField(job, driver);
+    driver->fluid_grid->constructMomentumField(job, driver);
+    if (driver->TYPE == driver->THERMAL) {
+        driver->fluid_grid->constructEnergyField(job, driver);
+    }
+    driver->fluid_grid->constructPorosityField(job, driver);
+
+    //get corrected estimate for drag at t+dt
+    driver->fluid_grid->calculateSplitIntegralCorrectedDragForces(job, driver, f_d, f_d_e, K_n);
+
+    //reset v_0
+    for (int i = 0; i<job->bodies[solid_body_id]->nodes->mx_t.size(); i++){
+        if (job->bodies[solid_body_id]->nodes->m(i) > 0) {
+            job->bodies[solid_body_id]->nodes->x_t(i) = job->bodies[solid_body_id]->nodes->mx_t(i)
+                                                        / job->bodies[solid_body_id]->nodes->m(i);
+        } else {
+            job->bodies[solid_body_id]->nodes->x_t(i).setZero();
+        }
+    }
+
+    //add f_d to k1
+    convertVectorToStateSpace(job,
+                              driver,
+                              k1,
+                              density_fluxes,
+                              momentum_fluxes,
+                              energy_fluxes);
+
+    momentum_fluxes -= job->dt*f_d_e;
+
+    convertStateSpaceToVector(job,
+                              driver,
+                              k1,
+                              density_fluxes,
+                              momentum_fluxes,
+                              energy_fluxes);
+
+    f_i1 += f_d;
+
+    /*----------------------*/
+    /*    Find k2 to k4     */
+    /*----------------------*/
 
     k2 = job->dt * F(job, driver, (u_0 + k1/2.0));
     f_i2 = f_i;
@@ -133,6 +208,10 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
     for (int i=0; i<job->grid->node_count; i++) {
         job->bodies[solid_body_id]->nodes->f[i] += (f_i[i] - f_d[i])*job->grid->nodeVolume(job,i);
     }
+
+    /*-----------------------*/
+    /* Estimate Drag at t+dt */
+    /*-----------------------*/
 
     //assign v_plus grid velocity
     for (int i = 0; i<job->bodies[solid_body_id]->nodes->mx_t.size(); i++){
