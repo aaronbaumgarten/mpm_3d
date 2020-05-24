@@ -1246,10 +1246,10 @@ void FVMGmsh2D::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
                         for (int pos=0; pos<GRID_DIM; pos++) {
                             tmp_gradn_star *= (n_max - n_0)/tmp_val;
                         }
-                    } else if (tmp_val < (n_max - n_0)){
+                    } else if (tmp_val < (n_min - n_0)){
                         //limit gradient
                         for (int pos=0; pos<GRID_DIM; pos++) {
-                            tmp_gradn_star *= (n_max - n_0)/tmp_val;
+                            tmp_gradn_star *= (n_min - n_0)/tmp_val;
                         }
                     }
                 }
