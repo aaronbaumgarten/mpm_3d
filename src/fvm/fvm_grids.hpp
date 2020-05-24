@@ -55,7 +55,6 @@ public:
     static const int PERIODIC               = 11;
     static const int DAMPED_WALL            = 12;
     static const int STAGNATION_INLET       = 13;
-    static const int STAGNATION_OUTLET      = 14;
 
     //Harten entropy correction scale
     static constexpr double delta = 0.1;
@@ -183,6 +182,8 @@ public:
 
     //damping coefficient
     double damping_coefficient = 0.999;
+    double damping_at_t0 = 0.999;
+    double damping_time_cst = 1.0;
 
     //grid definitions
     Eigen::VectorXd face_areas;

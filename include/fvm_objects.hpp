@@ -60,7 +60,6 @@ public:
     static const int PERIODIC               = 11;
     static const int DAMPED_WALL            = 12;
     static const int STAGNATION_INLET       = 13;
-    static const int STAGNATION_OUTLET      = 14;
 
     //Harten entropy correction scale
     static constexpr double delta = 0.1;
@@ -180,7 +179,7 @@ public:
     Eigen::VectorXd n;          //mixture porosity field (defined on MPM grid)
 
     Eigen::VectorXd n_e;                 //mixture porosity field (defined on finite volumes)
-    KinematicVectorArray gradn_e;        //mixture porosity gradient (defined on finite volumes)
+    KinematicVectorArray n_e_x;        //mixture porosity gradient (defined on finite volumes)
 };
 
 /*----------------------------------------------------------------------------*/
@@ -210,6 +209,8 @@ public:
     virtual double getPressureFromDensityAndTemperature(Job*, FiniteVolumeDriver*, double rho, double theta, double n) = 0;
     virtual KinematicVector getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, const KinematicVector& theta_x, double n) = 0;
     virtual double getSpeedOfSoundFromEnthalpy(Job *, FiniteVolumeDriver *, double rho, const KinematicVector &p, double rhoH, double n) = 0;
+    virtual double getPressureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Pt, double M) = 0;
+    virtual double getTemperatureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Tt, double M) = 0;
 
     //mixture model functions
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*) = 0; //return 1 if mixture problem, return 0 if FVM problem only

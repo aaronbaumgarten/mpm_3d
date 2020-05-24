@@ -202,6 +202,17 @@ double FVMIdealGas::getSpeedOfSoundFromEnthalpy(Job *job,
     return std::sqrt((heat_capacity_ratio - 1.0) * (rhoH/rho - 0.5*p.dot(p)/(rho*rho)));
 }
 
+double FVMIdealGas::getPressureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Pt, double M){
+    //(P^t/P) = (1 + M^2 * (gamma - 1)/2)^(gamma/gamma - 1)
+    return Pt * std::pow(1.0 + M*M*(heat_capacity_ratio - 1)/2.0, -(heat_capacity_ratio)/(heat_capacity_ratio - 1.0));
+}
+
+double FVMIdealGas::getTemperatureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Tt, double M){
+    //(T^t/T) = (1 + M^2 * (gamma - 1)/2)
+    return Tt / (1.0 + M*M*(heat_capacity_ratio - 1)/2.0);
+}
+
+
 //mixture model functions
 int FVMIdealGas::calculatePorosity(Job* job, FiniteVolumeDriver* driver){
     //mixture not implemented

@@ -182,6 +182,20 @@ double FVMBarotropicViscousFluid::getSpeedOfSoundFromEnthalpy(Job *job, FiniteVo
     return 0.0;
 }
 
+double FVMBarotropicViscousFluid::getPressureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Pt, double M){
+    std::cerr << "ERROR: FVMBarotropicViscousFluid does not have getPressureFromStagnationProperties() implemented. Exiting." << std::endl;
+    exit(0);
+
+    return 0.0;
+}
+
+double FVMBarotropicViscousFluid::getTemperatureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Tt, double M){
+    std::cerr << "ERROR: FVMBarotropicViscousFluid does not have getTemperatureFromStagnationProperties() implemented. Exiting." << std::endl;
+    exit(0);
+
+    return 0.0;
+}
+
 //mixture model functions
 int FVMBarotropicViscousFluid::calculatePorosity(Job* job, FiniteVolumeDriver* driver){
     //mixture not implemented

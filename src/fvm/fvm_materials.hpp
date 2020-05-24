@@ -47,6 +47,9 @@ public:
     virtual double getInternalEnergyFromPressureAndTemperature(Job*, FiniteVolumeDriver*, double pressure, double theta, double n) = 0;
     virtual double getPressureFromDensityAndTemperature(Job*, FiniteVolumeDriver*, double rho, double theta, double n) = 0;
     virtual KinematicVector getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, const KinematicVector& theta_x, double n) = 0;
+    virtual double getSpeedOfSoundFromEnthalpy(Job *, FiniteVolumeDriver *, double rho, const KinematicVector &p, double rhoH, double n) = 0;
+    virtual double getPressureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Pt, double M) = 0;
+    virtual double getTemperatureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Tt, double M) = 0;
 
     //mixture model functions
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*) = 0; //return 1 if mixture problem, return 0 if FVM problem only
@@ -83,6 +86,8 @@ public:
     virtual double getPressureFromDensityAndTemperature(Job*, FiniteVolumeDriver*, double rho, double theta, double n);
     virtual KinematicVector getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, const KinematicVector& theta_x, double n);
     virtual double getSpeedOfSoundFromEnthalpy(Job *, FiniteVolumeDriver *, double rho, const KinematicVector &p, double rhoH, double n);
+    virtual double getPressureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Pt, double M);
+    virtual double getTemperatureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Tt, double M);
 
     //mixture model functions
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*); //return 1 if mixture problem, return 0 if FVM problem only
@@ -123,6 +128,8 @@ public:
     virtual double getPressureFromDensityAndTemperature(Job*, FiniteVolumeDriver*, double rho, double theta, double n);
     virtual KinematicVector getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, const KinematicVector& theta_x, double n);
     virtual double getSpeedOfSoundFromEnthalpy(Job *, FiniteVolumeDriver *, double rho, const KinematicVector &p, double rhoH, double n);
+    virtual double getPressureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Pt, double M);
+    virtual double getTemperatureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Tt, double M);
 
     //mixture model functions
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*); //return 1 if mixture problem, return 0 if FVM problem only
@@ -159,6 +166,8 @@ public:
     virtual double getPressureFromDensityAndTemperature(Job*, FiniteVolumeDriver*, double rho, double theta, double n);
     virtual KinematicVector getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, const KinematicVector& theta_x, double n);
     virtual double getSpeedOfSoundFromEnthalpy(Job *, FiniteVolumeDriver *, double rho, const KinematicVector &p, double rhoH, double n);
+    virtual double getPressureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Pt, double M);
+    virtual double getTemperatureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Tt, double M);
 
     //mixture model functions
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*); //return 1 if mixture problem, return 0 if FVM problem only
@@ -199,6 +208,8 @@ public:
     virtual double getPressureFromDensityAndTemperature(Job*, FiniteVolumeDriver*, double rho, double theta, double n);
     virtual KinematicVector getHeatFlux(Job*, FiniteVolumeDriver*, double rho, double theta, const KinematicVector& theta_x, double n);
     virtual double getSpeedOfSoundFromEnthalpy(Job *, FiniteVolumeDriver *, double rho, const KinematicVector &p, double rhoH, double n);
+    virtual double getPressureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Pt, double M);
+    virtual double getTemperatureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Tt, double M);
 
     //mixture model functions
     virtual int calculatePorosity(Job*, FiniteVolumeDriver*); //return 1 if mixture problem, return 0 if FVM problem only

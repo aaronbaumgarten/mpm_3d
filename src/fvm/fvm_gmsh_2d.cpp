@@ -83,8 +83,7 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
                 tmp_bc_info[i].tag != SUPERSONIC_OUTLET &&
                 tmp_bc_info[i].tag != PERIODIC &&
                 tmp_bc_info[i].tag != DAMPED_WALL &&
-                tmp_bc_info[i].tag != STAGNATION_INLET &&
-                tmp_bc_info[i].tag != STAGNATION_OUTLET){
+                tmp_bc_info[i].tag != STAGNATION_INLET){
                 std::cerr << "ERROR: Boundary tag " << tmp_bc_info[i].tag << " not defined for FVMCartesian grid object! Exiting." << std::endl;
                 exit(0);
             }
@@ -216,52 +215,6 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
                     std::cout << ", T* = " << tmp_bc_info[i].values[1] << std::endl;
                     break;
 
-                case STAGNATION_INLET:
-                    //first property is pressure
-                    if (fp64_props.size() > fp64_iterator) {
-                        tmp_bc_info[i].values[0] = fp64_props[fp64_iterator];
-                        fp64_iterator++;
-                    } else {
-                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
-                        exit(0);
-                    }
-                    //second property is temperature
-                    if (fp64_props.size() > fp64_iterator) {
-                        tmp_bc_info[i].values[1] = fp64_props[fp64_iterator];
-                        fp64_iterator++;
-                    } else {
-                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
-                        exit(0);
-                    }
-
-                    //print boundary condition info
-                    std::cout << " - " << i << " : STAGNATION_INLET : P* = " << tmp_bc_info[i].values[0];
-                    std::cout << ", T* = " << tmp_bc_info[i].values[1] << std::endl;
-                    break;
-
-                case STAGNATION_OUTLET:
-                    //first property is pressure
-                    if (fp64_props.size() > fp64_iterator) {
-                        tmp_bc_info[i].values[0] = fp64_props[fp64_iterator];
-                        fp64_iterator++;
-                    } else {
-                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
-                        exit(0);
-                    }
-                    //second property is temperature
-                    if (fp64_props.size() > fp64_iterator) {
-                        tmp_bc_info[i].values[1] = fp64_props[fp64_iterator];
-                        fp64_iterator++;
-                    } else {
-                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
-                        exit(0);
-                    }
-
-                    //print boundary condition info
-                    std::cout << " - " << i << " : STAGNATION_OUTLET : P* = " << tmp_bc_info[i].values[0];
-                    std::cout << ", T** = " << tmp_bc_info[i].values[1] << std::endl;
-                    break;
-
                 case DAMPED_OUTLET:
                     //first property is density
                     if (fp64_props.size() > fp64_iterator) {
@@ -380,6 +333,23 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
 
                     //print boundary condition info
                     std::cout << " - " << i << " : DAMPED_WALL : nu = " << tmp_bc_info[i].values[0] << std::endl;
+                    break;
+
+                case STAGNATION_INLET:
+                    //two properties: P^t and T^t
+                    if (fp64_props.size() > fp64_iterator+1){
+                        tmp_bc_info[i].values[0] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                        tmp_bc_info[i].values[1] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : STAGNATION_INLET : P^t = " << tmp_bc_info[i].values[0];
+                    std::cout << ", T^t = " << tmp_bc_info[i].values[1] << std::endl;
                     break;
 
                 default:
@@ -1213,6 +1183,113 @@ void FVMGmsh2D::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
 }
 
 void FVMGmsh2D::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
-    //do not reconstruct field
+    //use porosity field gradients to adjust field gradients
+    if (USE_LOCAL_POROSITY_CORRECTION) {
+        Eigen::VectorXd gradn_star = Eigen::VectorXd(GRID_DIM);
+        KinematicVector x_0, x, u, p, tmp_gradn_star;
+        double rho, rhoE, M, c;
+        double n_0, n, n_max, n_min, min_dif;
+        double tmp_dif, tmp_val;
+        double dn_ds, P;
+
+        //loop over elements
+        for (int e = 0; e < element_count; e++) {
+            //estimate gradn_star (reconstructed porosity gradient)
+            if (driver->ORDER == 1) {
+                //gradients are initially zero
+                gradn_star.setZero();
+
+                tmp_gradn_star = KinematicVector(job->JOB_TYPE);
+                tmp_gradn_star.setZero();
+            }
+            if (driver->ORDER >= 2) {
+                if (driver->ORDER > 2) {
+                    std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER porosity reconstruction." << std::endl;
+                }
+
+                //least squares fit of n to neighbors of element e
+                x_0 = getElementCentroid(job, e);
+                n_0 = driver->fluid_body->n_e(e);
+                n_max = n_0;
+                n_min = n_0;
+
+                //create system of equations
+                for (int ii = 0; ii < element_neighbors[e].size(); ii++) {
+                    //fill in b vector
+                    n = driver->fluid_body->n_e(element_neighbors[e][ii]);
+                    b_e[e](ii) = n - n_0;
+
+                    //update maximum and minimum velocities
+                    if (n > n_max) {
+                        n_max = n;
+                    } else if (n < n_min) {
+                        n_min = n;
+                    }
+                }
+
+                //solve for components of gradient
+                gradn_star = A_inv[e] * b_e[e];
+
+                tmp_gradn_star = KinematicVector(job->JOB_TYPE);
+                for (int pos = 0; pos < GRID_DIM; pos++) {
+                    tmp_gradn_star[pos] = gradn_star(pos);
+                }
+
+                //limit gradient to ensure monotonicity
+                //check max, min at each node
+                for (int i=0; i<npe; i++){
+                    //p(x) = grad(p) * (x - x_0)
+                    tmp_val = tmp_gradn_star.dot(x_n[nodeIDs(e,i)] - x_e[e]);
+                    //check for both overshoot and undershoot
+                    if (tmp_val > (n_max - n_0)){
+                        //limit gradient
+                        for (int pos=0; pos<GRID_DIM; pos++) {
+                            tmp_gradn_star *= (n_max - n_0)/tmp_val;
+                        }
+                    } else if (tmp_val < (n_max - n_0)){
+                        //limit gradient
+                        for (int pos=0; pos<GRID_DIM; pos++) {
+                            tmp_gradn_star *= (n_max - n_0)/tmp_val;
+                        }
+                    }
+                }
+            }
+
+            //update gradient estimates based on difference between n_e_x and gradn_star
+            //pg 37-38 nb #7
+            //get cell velocity
+            p = driver->fluid_body->p(e);
+            rho = driver->fluid_body->rho(e);
+            rhoE = driver->fluid_body->rhoE(e);
+            u = p/rho;
+            n = driver->fluid_body->n_e(e);
+
+            //estimate Mach number
+            c = driver->fluid_material->getSpeedOfSound(job, driver, rho, p, rhoE, n);
+            M = u.norm()/c;
+
+            if (u.norm() > 1e-10 && n > 1e-10 && M < (1.0 - delta)) {
+                //estimate dn/ds correction (amount not 'seen' by standard reconstruction operation)
+                dn_ds = (driver->fluid_body->n_e_x[e] - tmp_gradn_star).dot(u) / u.norm();
+
+                //update gradients
+                driver->fluid_body->rho_x[e] += rho/n * dn_ds * u/u.norm() * (M*M)/(1.0 - M*M);
+                driver->fluid_body->p_x[e] -= p.tensor(u)/(u.norm()*n) * dn_ds;
+
+                if (driver->TYPE == driver->THERMAL) {
+                    //get pressure
+                    P = driver->fluid_material->getPressure(job, driver, rho, p, rhoE, n);
+                    driver->fluid_body->rhoE_x[e] -=
+                            (rho*c*c - rhoE - P) / n * dn_ds * u / u.norm() * (M * M) / (1.0 - M * M);
+                }
+            } else {
+                //flow too slow, too low porosity, or trans/supersonic
+                //do nothing
+            }
+        }
+    } else {
+        //do nothing
+    }
+
     return;
 }

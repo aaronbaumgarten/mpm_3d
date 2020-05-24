@@ -229,6 +229,21 @@ double FVMSlurryFluidPhase::getSpeedOfSoundFromEnthalpy(Job *job, FiniteVolumeDr
     return 0.0;
 }
 
+double FVMSlurryFluidPhase::getPressureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Pt, double M){
+    std::cerr << "ERROR: FVMSlurryFluidPhase does not have getPressureFromStagnationProperties() implemented. Exiting." << std::endl;
+    exit(0);
+
+    return 0.0;
+}
+
+double FVMSlurryFluidPhase::getTemperatureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Tt, double M){
+    std::cerr << "ERROR: FVMSlurryFluidPhase does not have getTemperatureFromStagnationProperties() implemented. Exiting." << std::endl;
+    exit(0);
+
+    return 0.0;
+}
+
+
 //mixture model functions
 int FVMSlurryFluidPhase::calculatePorosity(Job* job, FiniteVolumeDriver* driver){
     //generate approximate porosity field from MPM body
