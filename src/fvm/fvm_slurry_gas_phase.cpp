@@ -142,7 +142,8 @@ double FVMSlurryGasPhase::getSpeedOfSound(Job* job,
                                                   double n){
     //c^2 = sqrt((gamma - 1 + n)RT)/n =====> see pg. 154, nb #6
     double theta = getTemperature(job, driver, rho, p, rhoE, n);
-    return std::sqrt((heat_capacity_ratio - 1.0 + n)*R*theta)/n;
+    //return std::sqrt((heat_capacity_ratio - 1.0 + n)*R*theta)/n;
+    return std::sqrt(heat_capacity_ratio*R*theta);
 }
 
 //loop over elements and fill in pressures

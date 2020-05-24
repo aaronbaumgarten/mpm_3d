@@ -85,7 +85,7 @@ public:
             thread.join();
     }
 
-    void doJob (std::function <void (void)> func)
+    void doJob(std::function <void (void)> func)
     {
         // If there are no threads to do job, exit
         if (threads_.size() == 0){

@@ -54,6 +54,8 @@ public:
     static const int SUPERSONIC_OUTLET      = 10;
     static const int PERIODIC               = 11;
     static const int DAMPED_WALL            = 12;
+    static const int STAGNATION_INLET       = 13;
+    static const int STAGNATION_OUTLET      = 14;
 
     //Harten entropy correction scale
     static constexpr double delta = 0.1;
@@ -172,6 +174,9 @@ public:
     //booleans for additional simulation options
     bool USE_REDUCED_QUADRATURE = false;
     bool USE_LOCAL_GRADIENT_CORRECTION = false;
+    bool USE_DECAYING_DAMPING = false;
+    bool USE_GAUSS_GREEN = false;
+    bool USE_LOCAL_POROSITY_CORRECTION = false;
 
     //instantiate
     std::vector<parallelMemoryUnit> memoryUnits;

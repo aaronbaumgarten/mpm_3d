@@ -82,7 +82,9 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
                 tmp_bc_info[i].tag != SUPERSONIC_INLET &&
                 tmp_bc_info[i].tag != SUPERSONIC_OUTLET &&
                 tmp_bc_info[i].tag != PERIODIC &&
-                tmp_bc_info[i].tag != DAMPED_WALL){
+                tmp_bc_info[i].tag != DAMPED_WALL &&
+                tmp_bc_info[i].tag != STAGNATION_INLET &&
+                tmp_bc_info[i].tag != STAGNATION_OUTLET){
                 std::cerr << "ERROR: Boundary tag " << tmp_bc_info[i].tag << " not defined for FVMCartesian grid object! Exiting." << std::endl;
                 exit(0);
             }
@@ -212,6 +214,52 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
                     //print boundary condition info
                     std::cout << " - " << i << " : PRESSURE_OUTLET : P = " << tmp_bc_info[i].values[0];
                     std::cout << ", T* = " << tmp_bc_info[i].values[1] << std::endl;
+                    break;
+
+                case STAGNATION_INLET:
+                    //first property is pressure
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[0] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+                    //second property is temperature
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[1] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : STAGNATION_INLET : P* = " << tmp_bc_info[i].values[0];
+                    std::cout << ", T* = " << tmp_bc_info[i].values[1] << std::endl;
+                    break;
+
+                case STAGNATION_OUTLET:
+                    //first property is pressure
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[0] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+                    //second property is temperature
+                    if (fp64_props.size() > fp64_iterator) {
+                        tmp_bc_info[i].values[1] = fp64_props[fp64_iterator];
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : STAGNATION_OUTLET : P* = " << tmp_bc_info[i].values[0];
+                    std::cout << ", T** = " << tmp_bc_info[i].values[1] << std::endl;
                     break;
 
                 case DAMPED_OUTLET:

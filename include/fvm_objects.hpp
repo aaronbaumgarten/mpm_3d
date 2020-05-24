@@ -59,6 +59,8 @@ public:
     static const int SUPERSONIC_OUTLET      = 10;
     static const int PERIODIC               = 11;
     static const int DAMPED_WALL            = 12;
+    static const int STAGNATION_INLET       = 13;
+    static const int STAGNATION_OUTLET      = 14;
 
     //Harten entropy correction scale
     static constexpr double delta = 0.1;
@@ -178,6 +180,7 @@ public:
     Eigen::VectorXd n;          //mixture porosity field (defined on MPM grid)
 
     Eigen::VectorXd n_e;                 //mixture porosity field (defined on finite volumes)
+    KinematicVectorArray gradn_e;        //mixture porosity gradient (defined on finite volumes)
 };
 
 /*----------------------------------------------------------------------------*/

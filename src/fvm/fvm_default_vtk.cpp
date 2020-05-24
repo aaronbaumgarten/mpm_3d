@@ -74,11 +74,11 @@ int FVMDefaultVTK::writeFrame(Job* job, FiniteVolumeDriver* driver){
 
         //write data to file
         writeScalarArray(driver->fluid_body->rho, "density");
-        //writeVectorArray(driver->fluid_body->rho_x, "density_gradient");
+        writeVectorArray(driver->fluid_body->rho_x, "density_gradient");
         writeVectorArray(driver->fluid_body->p, "momentum");
-        //writeTensorArray(driver->fluid_body->p_x, "momentum_gradient");
+        writeTensorArray(driver->fluid_body->p_x, "momentum_gradient");
         writeScalarArray(driver->fluid_body->rhoE, "energy");
-        //writeVectorArray(driver->fluid_body->rhoE_x, "enegry_gradient");
+        writeVectorArray(driver->fluid_body->rhoE_x, "enegry_gradient");
         writeScalarArray(driver->fluid_body->n_e, "porosity");
 
         driver->fluid_material->calculateElementTemperatures(job, driver);

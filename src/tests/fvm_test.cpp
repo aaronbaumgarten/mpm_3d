@@ -88,10 +88,10 @@ namespace FVM_TEST{
             GRID_DIM = 3;
 
             //set simulation ORDER
-            ORDER = 2;
+            ORDER = 1;
 
             //set simulation TYPE
-            TYPE = FiniteVolumeDriver::ISOTHERMAL;
+            TYPE = FiniteVolumeDriver::THERMAL;
 
             //set gravity
             gravity = KinematicVector(job->JOB_TYPE);
@@ -99,22 +99,22 @@ namespace FVM_TEST{
 
             //assign grid
             fluid_grid = std::unique_ptr<FiniteVolumeGrid>(new FVMCartesian);
-            fluid_grid->fp64_props = {3, 1, 1}; //Lx
-            fluid_grid->int_props = {3, 1, 1};  //Nx
+            fluid_grid->fp64_props = {2, 1, 1, 0, 0, 0, 0, 0, 0}; //Lx
+            fluid_grid->int_props = {2, 1, 1, 8, 8, 8, 8, 8, 8};  //Nx
 
             //assign body
             fluid_body = std::unique_ptr<FiniteVolumeBody>(new FVMDefaultBody);
-            fluid_body->fp64_props = {1, 1}; //rho and theta
+            fluid_body->fp64_props = {1.177, 298}; //rho and theta
 
             //assign material
-            fluid_material = std::unique_ptr<FiniteVolumeMaterial>(new FVMBarotropicViscousFluid);
-            fluid_material->fp64_props = {100, 0, 1}; //kappa, eta, rho_0
+            fluid_material = std::unique_ptr<FiniteVolumeMaterial>(new FVMIdealGas);
+            fluid_material->fp64_props = {1.4, 287.1, 0, 0}; //gamma, R, eta, k
 
             //assign solver
             solver = std::unique_ptr<FiniteVolumeSolver>(new FVMDefaultSolver);
 
             //set time step for stability
-            job->dt = 0.01; //< dx*sqrt(rho/kappa)
+            job->dt = 0.001; //< dx*sqrt(rho/kappa)
             stop_time = 1.0; //seconds
 
             return;
@@ -130,161 +130,120 @@ namespace FVM_TEST{
             //set up specific problems
             KinematicVector p_0 = KinematicVector(job->JOB_TYPE);
             KinematicVector p_1 = KinematicVector(job->JOB_TYPE);
-            KinematicVector p_2 = KinematicVector(job->JOB_TYPE);
-            double rho_0, rho_1, rho_2;
+            double rho_0, rho_1, rhoE_0, rhoE_1;
 
             //first check number of elements
-            std::cout << "Number of Elements: " << fluid_grid->element_count << " ?= 3" << std::endl;
+            std::cout << "Number of Elements: " << fluid_grid->element_count << " ?= 2" << std::endl;
 
             //check element volumes
             std::cout << "Element Volumes: " << fluid_grid->getElementVolume(0) << " ?= 1" << std::endl;
 
             /*---------------------------------*/
-            //Problem 1
+            //Flux Test
             /*---------------------------------*/
 
-            //let p_0 = p_1 = RAND =/= p_2
             p_0[0] = std::rand()/(RAND_MAX+1.0);
-            p_1[0] = p_0[0];
-            p_2[0] = -std::rand()/(RAND_MAX+1.0);
+            p_1[0] = std::rand()/(RAND_MAX+1.0);
 
-            //let rho_0 = rho_1 = RAND =/= rho_2
+            p_0[1] = std::rand()/(RAND_MAX+1.0);
+            p_1[1] = std::rand()/(RAND_MAX+1.0);
+
+            p_0[2] = std::rand()/(RAND_MAX+1.0);
+            p_1[2] = std::rand()/(RAND_MAX+1.0);
+
             rho_0 = 0.5 + std::rand()/(RAND_MAX+1.0);
-            rho_1 = rho_0;
-            rho_2 = 0.5 + std::rand()/(RAND_MAX+1.0);
+            rho_1 = 0.5 + std::rand()/(RAND_MAX+1.0);
+
+            rhoE_0 = 0.5 + std::rand()/(RAND_MAX+1.0);
+            rhoE_1 = 0.5 + std::rand()/(RAND_MAX+1.0);
+
+            rhoE_0 *= 100000;
+            rhoE_1 *= 100000;
 
             fluid_body->rho(0) = rho_0;
             fluid_body->rho(1) = rho_1;
-            fluid_body->rho(2) = rho_2;
 
             fluid_body->p[0] = p_0;
             fluid_body->p[1] = p_1;
-            fluid_body->p[2] = p_2;
+
+            fluid_body->rhoE(0) = rhoE_0;
+            fluid_body->rhoE(1) = rhoE_1;
 
             //call grid to reconstruct conserved fields
             fluid_grid->constructDensityField(job, this);
             fluid_grid->constructMomentumField(job, this);
+            fluid_grid->constructEnergyField(job, this);
 
             //fluid fluxes associated with each volume (to compare against exact solution)
             Eigen::VectorXd density_fluxes = fluid_grid->calculateElementMassFluxes(job, this);
             KinematicVectorArray momentum_fluxes = fluid_grid->calculateElementMomentumFluxes(job, this);
+            Eigen::VectorXd energy_fluxes = fluid_grid->calculateElementEnergyFluxes(job, this);
 
             //flux into cell 0 should be zero
-            std::cout << "3 Cell Check #1:" << std::endl;
-            std::cout << "rho: " << rho_0 << " , " << rho_1 << " , " << rho_2 << std::endl;
-            std::cout << "p:   " << p_0[0] << " , " << p_1[0] << " , " << p_2[0] << std::endl;
+            std::cout << "2 Cell Check #1:" << std::endl;
+            std::cout << "rho:  " << rho_0 << " , " << rho_1 << std::endl;
+            std::cout << "p:    " << p_0[0] << " , " << p_1[0] << std::endl;
+            std::cout << "rhoE: " << rhoE_0 << " , " << rhoE_1 << std::endl;
 
-            std::cout << "mass_flux[0]     = " << density_fluxes(0) << " ?= " << -p_0[0] << std::endl;
-            std::cout << "momentum_flux[0] = <" << momentum_fluxes(0,0) << ", " << momentum_fluxes(0,1) << "> ?= <";
-            std::cout << -p_0[0]*p_0[0]/rho_0 << ", 0>" << std::endl;
+            //analytical solution
+            double P_0 = (rhoE_0 - 0.5*p_0.dot(p_0)/rho_0)*0.4;
+            double P_1 = (rhoE_1 - 0.5*p_1.dot(p_1)/rho_1)*0.4;
 
-            //exact solution for second boundary
-            double rho_bar = std::sqrt(rho_1*rho_2);
-            double u_bar = (p_1[0]/std::sqrt(rho_1) + p_2[0]/std::sqrt(rho_2))/(std::sqrt(rho_1) + std::sqrt(rho_2));
-            double a_1 = 0.5*(rho_2 - rho_1) - 0.5*std::sqrt(rho_bar)/10.0 * (p_2[0] - p_1[0] - (rho_2 - rho_1)*u_bar);
-            double a_2 = rho_2 - rho_1 - a_1;
-            double dm_dt = 0.5*(p_1[0] + p_2[0] - a_1*std::abs(u_bar - 10.0/std::sqrt(rho_bar))
-                                                - a_2*std::abs(u_bar + 10.0/std::sqrt(rho_bar))) - p_0[0];
-            /*
-            double dp_dt = 0.5*(p_1[0]*p_1[0]/rho_1 + p_2[0]*p_2[0]/rho_2)
-                           + 100.0*std::log(rho_bar/1.0) + 0.5*(100.0/rho_bar*(rho_1 + rho_2 - 2*rho_bar))
-                            - 0.5*(a_1*std::abs(u_bar - 10.0/std::sqrt(rho_bar))*(u_bar - 10.0/std::sqrt(rho_bar))
-                                    + a_2*std::abs(u_bar + 10.0/std::sqrt(rho_bar))*(u_bar + 10.0/std::sqrt(rho_bar)));
-                                    */
-            double dp_dt = 0.5*(p_1[0]*p_1[0]/rho_1 + p_2[0]*p_2[0]/rho_2)
-                           + 50.0*std::log(rho_1/1.0) + 50.0*std::log(rho_2/1.0)
-                           - 0.5*(a_1*std::abs(u_bar - 10.0/std::sqrt(rho_bar))*(u_bar - 10.0/std::sqrt(rho_bar))
-                                  + a_2*std::abs(u_bar + 10.0/std::sqrt(rho_bar))*(u_bar + 10.0/std::sqrt(rho_bar)));
+            KinematicVector u_bar = (p_0/std::sqrt(rho_0) + p_1/std::sqrt(rho_1))
+                                    /(std::sqrt(rho_0) + std::sqrt(rho_1));
+            double H_bar = ((rhoE_0 + P_0)/std::sqrt(rho_0) + (rhoE_1 + P_1)/std::sqrt(rho_1))
+                           /(std::sqrt(rho_0) + std::sqrt(rho_1));
 
-            //std::cout << "alpha_ext: " << a_1 << " " << a_2 << std::endl;
+            double a = std::sqrt(0.4*(H_bar - 0.5*u_bar.dot(u_bar)));
 
-            //account for pressure term from lhs of element 1
-            dp_dt -= 100.0*std::log(rho_0/1.0) + p_0[0]*p_0[0]/rho_0;
+            double lambda_1 = std::abs(u_bar[0] - a);
+            double lambda_2 = std::abs(u_bar[0]);
+            double lambda_3 = std::abs(u_bar[0]);
+            double lambda_4 = std::abs(u_bar[0] + a);
 
-            std::cout << "mass_flux[1]       = " << density_fluxes(1) << " ?= " << -dm_dt << " : " << density_fluxes(1) + dm_dt << std::endl;
-            std::cout << "momentum_flux[1,0] = " << momentum_fluxes(1,0) << " ?= " << -dp_dt << " : " << momentum_fluxes(1,0) + dp_dt << std::endl;
-            std::cout << "momentum_flux[1,1] = " << momentum_fluxes(1,1) << " ?= 0" << std::endl;
+            std::cout << "lambdas: " << lambda_1 << ", " << lambda_4 << " ?= " << a << std::endl;
 
-            std::cout << "SUM(mass_flux)     = " << density_fluxes.sum() << " ?= 0" << std::endl;
+            KinematicVector s_bar = u_bar;
+            s_bar[0] = 0;
+            KinematicVector s_0 = p_0/rho_0;
+            KinematicVector s_1 = p_1/rho_1;
+            s_0[0] = 0;
+            s_1[0] = 0;
 
+            KinematicVector sa_2 = ((p_1 - p_0) - u_bar*(rho_1 - rho_0));
+            sa_2[0] = 0;
 
-            /*---------------------------------*/
-            //Problem 2
-            /*---------------------------------*/
+            double a_3 = ((H_bar - u_bar.dot(u_bar))*(rho_1 - rho_0)
+                          + u_bar[0]*(p_1[0] - p_0[0])
+                          + s_bar.dot(rho_1 * s_1 - rho_0*s_0)
+                          - (rhoE_1 - rhoE_0)) / (H_bar - 0.5*u_bar.dot(u_bar));
 
-            //let p_0 =/= p_1 =/= p_2
-            p_0[0] = 2.0;
-            p_1[0] = 1.0+std::rand()/(RAND_MAX+1.0);;
-            p_2[0] = -std::rand()/(RAND_MAX+1.0);
+            double a_4 = 0.5/a * (p_1[0] - p_0[0] - (rho_1 - rho_0)*(u_bar[0] - a) - a*a_3);
+            double a_1 = (rho_1 - rho_0) - a_3 - a_4;
 
-            //let rho_0 =/= rho_1 =/= rho_2
-            rho_0 = 2.0;
-            rho_1 = 1.0 + 0.5*std::rand()/(RAND_MAX+1.0);
-            rho_2 = 0.5 + 0.5*std::rand()/(RAND_MAX+1.0);
+            //solution
+            double density_flux = 0.5*(p_0[0] + p_1[0]) - 0.5*(a_1*lambda_1 + a_3*lambda_3 + a_4*lambda_4);
 
-            fluid_body->rho(0) = rho_0;
-            fluid_body->rho(1) = rho_1;
-            fluid_body->rho(2) = rho_2;
+            double momentum_flux = 0.5*(p_0[0]*p_0[0]/rho_0 + p_1[0]*p_1[0]/rho_1)
+                                     + 0.5*(P_0 + P_1) - (rhoE_1 - 0.5*rho_1*s_1.dot(s_1))*0.4
+                                     - 0.5*(a_1*lambda_1*(u_bar[0] - a)
+                                            + a_3*lambda_3*u_bar[0]
+                                            + a_4*lambda_4*(u_bar[0] + a));
 
-            fluid_body->p[0] = p_0;
-            fluid_body->p[1] = p_1;
-            fluid_body->p[2] = p_2;
+            double energy_flux = 0.5*((rhoE_0 + P_0)*p_0[0]/rho_0 + (rhoE_1 + P_1)*p_1[0]/rho_1)
+                                 - 0.5*(a_1*lambda_1*(H_bar - u_bar[0]*a)
+                                        + lambda_2*sa_2.dot(s_bar)
+                                        + a_3*lambda_3*0.5*u_bar.dot(u_bar)
+                                        + a_4*lambda_4*(H_bar + u_bar[0]*a));
 
-            //call grid to reconstruct conserved fields
-            fluid_grid->constructDensityField(job, this);
-            fluid_grid->constructMomentumField(job, this);
+            std::cout << "density flux: " << density_fluxes(1) << " ?= " << density_flux;
+            std::cout << " : " << (density_fluxes(1) - density_flux)/density_flux << std::endl;
 
-            //fluid fluxes associated with each volume (to compare against exact solution)
-            density_fluxes = fluid_grid->calculateElementMassFluxes(job, this);
-            momentum_fluxes = fluid_grid->calculateElementMomentumFluxes(job, this);
+            std::cout << "momentum flux: " << momentum_fluxes(1,0) << " ?= " << momentum_flux;
+            std::cout << " : " << (momentum_fluxes(1,0) - momentum_flux)/momentum_flux << std::endl;
 
-            //flux into cell 0 should be zero
-            std::cout << "3 Cell Check #2:" << std::endl;
-            std::cout << "rho: " << rho_0 << " , " << rho_1 << " , " << rho_2 << std::endl;
-            std::cout << "p:   " << p_0[0] << " , " << p_1[0] << " , " << p_2[0] << std::endl;
-
-            double rho_x = (rho_2 - rho_0)/2.0;
-            if (std::abs(2*(rho_1 - rho_0)) < std::abs(rho_x)){
-                rho_x = 2*(rho_1 - rho_0);
-            }
-            if (std::abs(2*(rho_2 - rho_1)) < std::abs(rho_x)){
-                rho_x = 2*(rho_2 - rho_1);
-            }
-
-            double p_x = (p_2[0] - p_0[0])/2.0;
-            if (std::abs(2*(p_1[0] - p_0[0])) < std::abs(p_x)){
-                p_x = 2*(p_1[0] - p_0[0]);
-            }
-            if (std::abs(2*(p_2[0] - p_1[0])) < std::abs(p_x)){
-                p_x = 2*(p_2[0] - p_1[0]);
-            }
-
-            double rho_minus = rho_0;
-            double rho_plus = rho_1 - rho_x/2.0;
-            double p_minus = p_0[0];
-            double p_plus = p_1[0] - p_x/2.0;
-            rho_bar = std::sqrt(rho_plus*rho_minus);
-            u_bar = (p_plus/std::sqrt(rho_plus) + p_minus/std::sqrt(rho_minus))/(std::sqrt(rho_plus) + std::sqrt(rho_minus));
-            double c_bar = 10.0/std::sqrt(rho_bar);
-            a_1 = 0.5*(rho_plus - rho_minus) - 1/(2.0*c_bar)*(p_plus - p_minus - (rho_plus - rho_minus)*u_bar);
-            a_2 = rho_plus - rho_minus - a_1;
-
-            dm_dt = 0.5*(p_plus + p_minus - a_1*std::abs(u_bar - c_bar) - a_2*std::abs(u_bar+c_bar));
-            /*
-            dp_dt = 0.5*(p_plus*p_plus/rho_plus + p_minus*p_minus/rho_minus) + 100.0*std::log(rho_bar)
-                    + 0.5*(100.0/rho_bar*(rho_plus + rho_minus - 2*rho_bar))
-                    - 0.5*(a_1*std::abs(u_bar - c_bar)*(u_bar - c_bar) + a_2*std::abs(u_bar+c_bar)*(u_bar+c_bar))
-                    - 100.0*std::log(rho_0);
-                    */
-            dp_dt = 0.5*(p_plus*p_plus/rho_plus + p_minus*p_minus/rho_minus) + 50.0*std::log(rho_plus) + 50.0*std::log(rho_minus)
-                    - 0.5*(a_1*std::abs(u_bar - c_bar)*(u_bar - c_bar) + a_2*std::abs(u_bar+c_bar)*(u_bar+c_bar))
-                    - 100.0*std::log(rho_0);
-
-            std::cout << "mass_flux[0]     = " << density_fluxes(0) << " ?= " << -dm_dt << " : " << density_fluxes(0) + dm_dt << std::endl;
-            std::cout << "momentum_flux[0] = <" << momentum_fluxes(0,0) << ", " << momentum_fluxes(0,1) << "> ?= <";
-            std::cout << -dp_dt << ", 0> : " << momentum_fluxes(0,0)+dp_dt << std::endl;
-
-            std::cout << "SUM(mass_flux)     = " << density_fluxes.sum() << " ?= 0" << std::endl;
+            std::cout << "energy flux: " << energy_fluxes(1) << " ?= " << energy_flux;
+            std::cout << " : " << (energy_fluxes(1) - energy_flux)/energy_flux << std::endl;
 
             return;
         }

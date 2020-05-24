@@ -74,6 +74,9 @@ void FVMDefaultBody::init(Job *job, FiniteVolumeDriver *driver) {
     n_e = Eigen::VectorXd(driver->fluid_grid->element_count);
     n_e.setConstant(1.0);
 
+    gradn_e = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+    gradn_e.setZero();
+
     //adjust density and porosity fields
     if (driver->fluid_material->calculatePorosity(job, driver) == 1){
         //if 1 is returned, then this is a mixture problem
