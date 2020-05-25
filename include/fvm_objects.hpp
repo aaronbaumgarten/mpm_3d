@@ -179,7 +179,7 @@ public:
     Eigen::VectorXd n;          //mixture porosity field (defined on MPM grid)
 
     Eigen::VectorXd n_e;                 //mixture porosity field (defined on finite volumes)
-    KinematicVectorArray n_e_x;        //mixture porosity gradient (defined on finite volumes)
+    KinematicVectorArray n_e_x;          //mixture porosity gradient (defined on finite volumes)
 };
 
 /*----------------------------------------------------------------------------*/

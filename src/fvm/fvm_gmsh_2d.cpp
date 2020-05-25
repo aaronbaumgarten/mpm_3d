@@ -23,7 +23,7 @@
 #include "fvm_grids.hpp"
 #include "threadpool.hpp"
 
-static const bool USE_NODE_NEIGHBORS = true;
+static const bool USE_NODE_NEIGHBORS = false;
 
 void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
     //assign grid dimension
@@ -1187,10 +1187,13 @@ void FVMGmsh2D::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
     if (USE_LOCAL_POROSITY_CORRECTION) {
         Eigen::VectorXd gradn_star = Eigen::VectorXd(GRID_DIM);
         KinematicVector x_0, x, u, p, tmp_gradn_star;
+        KinematicVector rho_x, rhoE_x;
+        KinematicTensor p_x;
         double rho, rhoE, M, c;
         double n_0, n, n_max, n_min, min_dif;
         double tmp_dif, tmp_val;
         double dn_ds, P;
+        KinematicVector u_s = KinematicVector(job->JOB_TYPE);
 
         //loop over elements
         for (int e = 0; e < element_count; e++) {
@@ -1264,6 +1267,17 @@ void FVMGmsh2D::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
             u = p/rho;
             n = driver->fluid_body->n_e(e);
 
+            //get average solid velocity in cell
+            u_s.setZero();
+            for (int q=0; q<qpe; q++){
+                u_s += v_sq[e*qpe+q] * w_q(e*qpe+q) / getElementVolume(e);
+            }
+
+            //convert p, rho, rhoE to solid reference frame
+            p -= rho*u_s;
+            rhoE += -p.dot(u_s) + 0.5*rho*u_s.dot(u_s);
+            u -= u_s;
+
             //estimate Mach number
             c = driver->fluid_material->getSpeedOfSound(job, driver, rho, p, rhoE, n);
             M = u.norm()/c;
@@ -1272,15 +1286,22 @@ void FVMGmsh2D::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
                 //estimate dn/ds correction (amount not 'seen' by standard reconstruction operation)
                 dn_ds = (driver->fluid_body->n_e_x[e] - tmp_gradn_star).dot(u) / u.norm();
 
-                //update gradients
-                driver->fluid_body->rho_x[e] += rho/n * dn_ds * u/u.norm() * (M*M)/(1.0 - M*M);
-                driver->fluid_body->p_x[e] -= p.tensor(u)/(u.norm()*n) * dn_ds;
+                //calculate gradients of properties in solid frame
+                rho_x = rho/n * dn_ds * u/u.norm() * (M*M)/(1.0 - M*M);
+                p_x = -p.tensor(u)/(u.norm()*n) * dn_ds;
 
                 if (driver->TYPE == driver->THERMAL) {
                     //get pressure
                     P = driver->fluid_material->getPressure(job, driver, rho, p, rhoE, n);
-                    driver->fluid_body->rhoE_x[e] -=
-                            (rho*c*c - rhoE - P) / n * dn_ds * u / u.norm() * (M * M) / (1.0 - M * M);
+                    rhoE_x = -(rho*c*c - rhoE - P) / n * dn_ds * u / u.norm() * (M * M) / (1.0 - M * M);
+                }
+
+                //convert gradients back to spatial frame and update gradients
+                driver->fluid_body->rho_x[e] += rho_x;
+                driver->fluid_body->p_x[e] += p_x + u_s.tensor(rho_x);
+
+                if (driver->TYPE == driver->THERMAL) {
+                    driver->fluid_body->rhoE_x[e] += rhoE_x + p_x.transpose()*u_s + 0.5*u_s.dot(u_s)*rho_x;
                 }
             } else {
                 //flow too slow, too low porosity, or trans/supersonic
