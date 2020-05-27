@@ -1672,6 +1672,11 @@ void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
             M = u.norm()/c;
 
             if (u.norm() > 1e-10 && n > 1e-10 && M < (1.0 - delta)) {
+                tmp_gradn_star = KinematicVector(job->JOB_TYPE);
+                for (int pos = 0; pos < GRID_DIM; pos++){
+                    tmp_gradn_star[pos] = gradn_star(pos);
+                }
+
                 //estimate dn/ds correction (amount not 'seen' by standard reconstruction operation)
                 dn_ds = (driver->fluid_body->n_e_x[e] - tmp_gradn_star).dot(u) / u.norm();
 
