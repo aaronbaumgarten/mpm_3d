@@ -432,6 +432,7 @@ void CartesianCubicCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xI
 
         for (int i=0;i<GRID_DIM;i++){
             //check proximity to edge
+            /*
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmpVec *= s(rst(i), hx(i));
                 tmpVec(i) *= 1.0/s(rst(i), hx(i));
@@ -450,6 +451,46 @@ void CartesianCubicCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xI
             } else if (edge_n(nodeIDs(elementID,n),i) == -3) {
                 tmpVec *= (s(rst(i), hx(i)) + s(rst(i) + Lx(i), hx(i))); //sum of two
                 tmpVec(i) /= (s(rst(i), hx(i)) + s(rst(i) + Lx(i), hx(i))); //sum of two
+            }
+             */
+
+            //more stable when s << 1
+            if (edge_n(nodeIDs(elementID,n),i) == 2) {
+                for (int j=0; j<GRID_DIM; j++) {
+                    if (j != i) {
+                        tmpVec(j) *= s(rst(i), hx(i));
+                    }
+                }
+            } else if (edge_n(nodeIDs(elementID,n),i) == 1) {
+                for (int j=0; j<GRID_DIM; j++) {
+                    if (j != i) {
+                        tmpVec(j) *= (s(rst(i), hx(i)) - s(rst(i) + 2 * hx(i), hx(i)));
+                    }
+                }
+            } else if (edge_n(nodeIDs(elementID,n),i) == -1) {
+                for (int j=0; j<GRID_DIM; j++) {
+                    if (j != i) {
+                        tmpVec(j) *= (s(rst(i), hx(i)) - s(rst(i) - 2 * hx(i), hx(i)));
+                    }
+                }
+            } else if (edge_n(nodeIDs(elementID,n),i) == 0) {
+                for (int j=0; j<GRID_DIM; j++) {
+                    if (j != i) {
+                        tmpVec(j) *= (s(rst(i), hx(i)) + 2.0 * s(std::abs(rst(i)) + hx(i), hx(i)));
+                    }
+                }
+            } else if (edge_n(nodeIDs(elementID,n),i) == 3) {
+                for (int j=0; j<GRID_DIM; j++) {
+                    if (j != i) {
+                        tmpVec(j) *= (s(rst(i), hx(i)) + s(rst(i) - Lx(i), hx(i))); //sum of two shape functions
+                    }
+                }
+            } else if (edge_n(nodeIDs(elementID,n),i) == -3) {
+                for (int j=0; j<GRID_DIM; j++) {
+                    if (j != i) {
+                        tmpVec(j) *= (s(rst(i), hx(i)) + s(rst(i) + Lx(i), hx(i))); //sum of two
+                    }
+                }
             }
         }
 

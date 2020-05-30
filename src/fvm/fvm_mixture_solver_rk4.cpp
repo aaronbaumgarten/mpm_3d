@@ -137,7 +137,6 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
         }
     }
 
-
     driver->fluid_grid->mapMixturePropertiesToQuadraturePoints(job, driver);
     driver->fluid_grid->constructDensityField(job, driver);
     driver->fluid_grid->constructMomentumField(job, driver);

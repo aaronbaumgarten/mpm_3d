@@ -4235,6 +4235,7 @@ void FVMGridBase::calculateSplitIntegralBuoyantForces(Job* job,
         for (int i = 0; i < f_i.size(); i++) {
             f_i[i] = (1.0 - driver->fluid_body->n(i)) * tmp_result(i); //ensures nodes with zero porosity have zero force
         }
+
         tmp_result = gradQ * tmpArray;
         for (int i = 0; i < f_i.size(); i++) {
             f_i[i] += (1.0 - driver->fluid_body->n(i)) * tmp_result(i);
