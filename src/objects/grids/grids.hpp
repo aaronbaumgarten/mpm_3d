@@ -343,6 +343,43 @@ public:
 
 };
 
+class Linear1DNonUniform : public Grid{
+public:
+    Linear1DNonUniform(){
+        object_name = "Linear1DNonUniform";
+    }
+
+    KinematicVector Lx, hx;
+    Eigen::VectorXi Nx;
+    KinematicVectorArray x_n;
+    Eigen::MatrixXi nodeIDs; //element to node map
+    Eigen::MatrixXi A; //0,1 for directions
+    int npe; //nodes per element
+    Eigen::VectorXd v_n; //nodal volume
+    Eigen::VectorXd v_e; //element volume
+    Eigen::VectorXd s_n; //surface integral
+
+    virtual void init(Job* job);
+    virtual void hiddenInit(Job* job);
+
+    virtual void writeFrame(Job* job, Serializer* serializer);
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    virtual void writeHeader(Job* job, Body* body, Serializer* serializer, std::ofstream& nfile, int SPEC); //write cell types
+
+    virtual int whichElement(Job* job, KinematicVector& xIN);
+    virtual bool inDomain(Job* job, KinematicVector& xIN);
+    virtual KinematicVector nodeIDToPosition(Job* job, int idIN);
+
+    virtual void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL);
+    virtual void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD);
+    virtual double nodeVolume(Job* job, int idIN);
+    virtual double elementVolume(Job* job, int idIN);
+    virtual int nodeTag(Job* job, int idIN);
+    virtual double nodeSurfaceArea(Job* job, int idIN);
+};
+
 /*----------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------------------------*/

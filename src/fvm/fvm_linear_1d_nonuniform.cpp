@@ -26,7 +26,7 @@
 #include "../objects/grids/grids.hpp"
 
 //helper functions
-int FVMCartesian::whichElement(Job* job, KinematicVector xIN){
+int FVMLinear1DNonUniform::whichElement(Job* job, KinematicVector xIN){
     //convert Lx, Nx, Hx to KinematicVector
     KinematicVector lx = KinematicVector(Lx.data(), job->JOB_TYPE);
     KinematicVector dx = KinematicVector(hx.data(), job->JOB_TYPE);
@@ -37,7 +37,7 @@ int FVMCartesian::whichElement(Job* job, KinematicVector xIN){
     return CartesianLinear::cartesianWhichElement(job, xIN, lx, dx, nx);
 } //return which element this position is within
 
-std::vector<double> FVMCartesian::getBoundingBox(){
+std::vector<double> FVMLinear1DNonUniform::getBoundingBox(){
     std::vector<double> result = std::vector<double>(2*GRID_DIM);
     for (int i=0; i<GRID_DIM; i++){
         result[2*i] = 0.0;
@@ -47,21 +47,13 @@ std::vector<double> FVMCartesian::getBoundingBox(){
 }  //return min/max of each coordinate
 
 
-void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
-    //assign grid dimension from job type
-    if (job->JOB_TYPE == job->JOB_1D){
-        GRID_DIM = 1;
-    } else if (job->JOB_TYPE == job->JOB_2D){
-        GRID_DIM = 2;
-    } else if (job->JOB_TYPE == job->JOB_3D){
-        GRID_DIM = 3;
-    } else if (job->JOB_TYPE == job->JOB_2D_OOP){
-        GRID_DIM = 2; //this is important, job->DIM =/= job->grid->GRID_DIM
-    } else if (job->JOB_TYPE == job->JOB_AXISYM){
-        GRID_DIM = 2; //this is important, job->DIM =/= job->grid->GRID_DIM
-    } else {
-        std::cerr << "FiniteVolumeGrid doesn't have defined type for JOB_TYPE " << job->JOB_TYPE << "." << std::endl;
+void FVMLinear1DNonUniform::init(Job* job, FiniteVolumeDriver* driver){
+    if (job->JOB_TYPE != job->JOB_1D){
+        std::cout << "ERROR! FVMLinear1DNonUniform grid designed for 1D simulations only! Exiting." << std::endl;
+        exit(0);
     }
+
+    GRID_DIM = 1;
 
     //call initializer for base class
     FVMGridBase::init(job, driver);
@@ -85,10 +77,6 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         }
     }
 
-    if (job->JOB_TYPE > 3){
-        std::cerr << "WARNING: Cannot use FVMCartesian with JOB_TYPE of " << job->JOB_TYPE << "!" << std::endl;
-    }
-
     //initialize tags and values vectors;
     std::vector<FiniteVolumeMethod::BCContainer> tmp_bc_info = std::vector<FiniteVolumeMethod::BCContainer>(2*GRID_DIM);
 
@@ -110,7 +98,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
                 tmp_bc_info[i].vector.setZero();
             }
         } else {
-            std::cerr << "ERROR: FVMCartesian is not implemented for FiniteVolumeDriver TYPE " << driver->TYPE << "! Exiting.";
+            std::cerr << "ERROR: FVMLinear1DNonUniform is not implemented for FiniteVolumeDriver TYPE " << driver->TYPE << "! Exiting.";
             exit(0);
         }
     } else {
@@ -138,7 +126,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
                     tmp_bc_info[i].tag != PERIODIC &&
                     tmp_bc_info[i].tag != DAMPED_WALL &&
                     tmp_bc_info[i].tag != STAGNATION_INLET){
-                std::cerr << "ERROR: Boundary tag " << tmp_bc_info[i].tag << " not defined for FVMCartesian grid object! Exiting." << std::endl;
+                std::cerr << "ERROR: Boundary tag " << tmp_bc_info[i].tag << " not defined for FVMLinear1DNonUniform grid object! Exiting." << std::endl;
                 exit(0);
             }
 
@@ -416,7 +404,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
             if ((tmp_bc_info[2*i].tag == FiniteVolumeGrid::PERIODIC
                  || tmp_bc_info[2*i+1].tag == FiniteVolumeGrid::PERIODIC)
                    && tmp_bc_info[2*i].tag != tmp_bc_info[2*i+1].tag){
-                std::cerr << "ERROR: Boundary conditions defined on FVMCartesian grid do not match! Exiting." << std::endl;
+                std::cerr << "ERROR: Boundary conditions defined on FVMLinear1DNonUniform grid do not match! Exiting." << std::endl;
                 exit(0);
             }
         }
@@ -437,7 +425,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
             qpe = 2;
             qpf = 1;
         } else {
-            std::cerr << "ERROR: FVMCartesian not defined for simulation ORDER > 2." << std::endl;
+            std::cerr << "ERROR: FVMLinear1DNonUniform not defined for simulation ORDER > 2." << std::endl;
             qpe = 2;
             qpf = 1;
         }
@@ -492,305 +480,8 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
             face_elements[face_count-1][0] = -1;
         }
 
-    } else if (GRID_DIM == 2){
-        //number of grid elements
-        element_count = Nx[0]*Nx[1];
-        node_count = (Nx[0] + 1)*(Nx[1] + 1);
-        face_count = 2*Nx[1]*Nx[0] + Nx[0] + Nx[1];
-
-        //volumes and areas
-        v_e = Eigen::VectorXd(element_count);
-        v_e.setConstant(hx[0]*hx[1]);
-        face_areas = Eigen::VectorXd(face_count);
-
-        //quadrature rule
-        if (driver->ORDER == 1 || USE_REDUCED_QUADRATURE){
-            qpe = 1; //quad points per element
-            qpf = 1; //quad points per face
-        } else if (driver->ORDER == 2){
-            qpe = 4;
-            qpf = 2;
-        } else {
-            std::cerr << "ERROR: FVMCartesian not defined for simulation ORDER > 2." << std::endl;
-            qpe = 4;
-            qpf = 2;
-        }
-        ext_quad_count = face_count*qpf;
-        int_quad_count = element_count*qpe;
-
-        //face normals
-        face_normals = KinematicVectorArray(face_count, job->JOB_TYPE);
-        for (int i=0; i<Nx[1]*Nx[0]; i++){
-            //-x, -y faces of ith element
-            face_normals(2*i,0)   = 1; //+x
-            face_areas(2*i) = hx[1];
-
-            face_normals(2*i+1,1) = 1; //+y
-            face_areas(2*i+1) = hx[0];
-        }
-        for (int i=0; i<Nx[1]; i++){
-            //+x faces of domain
-            face_normals(2*Nx[1]*Nx[0] + i,0) = 1; //+x
-            face_areas(2*Nx[1]*Nx[0]+i) = hx[1];
-        }
-        for (int i=0; i<Nx[0]; i++){
-            //+y faces of domain
-            face_normals(2*Nx[1]*Nx[0] + Nx[1] + i,1) = 1; //+y
-            face_areas(2*Nx[1]*Nx[0] + Nx[1] + i) = hx[0];
-        }
-
-        //define default face to element definitions.
-        face_elements = std::vector<std::array<int,2>>(face_count);
-        bc_info = std::vector<FiniteVolumeMethod::BCContainer>(face_count);
-
-        //initalize bc_info
-        for (int f=0; f<face_count; f++){
-            bc_info[f].tag = -1;
-            bc_info[f].values = std::array<double,2>();
-            bc_info[f].values[0] = 0;
-            bc_info[f].values[1] = 0;
-            bc_info[f].vector = KinematicVector(job->JOB_TYPE);
-            bc_info[f].vector.setZero();
-        }
-
-        std::vector<int> ijk = std::vector<int>(2);
-        std::vector<int> tmp = ijk;
-        int e_iminus, e_jminus;
-        for (int e=0; e<element_count; e++){
-            ijk = e_to_ijk(e);
-            //assign element
-            face_elements[2*e][1] = e;
-            face_elements[2*e+1][1] = e;
-
-            //get element in the -x direction
-            tmp = ijk;
-            tmp[0] -= 1;
-            e_iminus = ijk_to_e(tmp);
-            face_elements[2*e][0] = e_iminus;
-
-            //get element in the -y direction
-            tmp[0] = ijk[0]; tmp[1] -= 1;
-            e_jminus = ijk_to_e(tmp);
-            face_elements[2*e+1][0] = e_jminus;
-
-            //check bc_tags
-            tmp = ijk;
-            if (ijk[0] == 0){
-                bc_info[2*e] = tmp_bc_info[0];                                  //-x
-                if (tmp_bc_info[0].tag == FiniteVolumeGrid::PERIODIC) {
-                    tmp[0] = Nx[0] - 1;
-                    face_elements[2 * e][0] = ijk_to_e(tmp);
-                }
-            } else {
-                bc_info[2*e].tag = -1;
-            }
-
-            tmp = ijk;
-            if (ijk[1] == 0){
-                bc_info[2*e+1] = tmp_bc_info[2];                                //-y
-                if (tmp_bc_info[2].tag == FiniteVolumeGrid::PERIODIC){
-                    tmp[1] = Nx[1] - 1;
-                    face_elements[2 * e + 1][0] = ijk_to_e(tmp);
-                }
-            } else {
-                bc_info[2*e+1].tag = -1;
-            }
-        }
-        for (int i=0; i<Nx[1]; i++){
-            //+x faces of domain
-            bc_info[2*Nx[1]*Nx[0] + i] = tmp_bc_info[1];                    //+x
-            if (tmp_bc_info[1].tag == FiniteVolumeGrid::PERIODIC){
-                face_elements[2*Nx[1]*Nx[0] + i][0] = -1;
-                face_elements[2*Nx[1]*Nx[0] + i][1] = -1;
-            } else {
-                ijk[0] = Nx[0] - 1;
-                ijk[1] = i;
-                face_elements[2 * Nx[1] * Nx[0] + i][0] = ijk_to_e(ijk); //+x
-                face_elements[2 * Nx[1] * Nx[0] + i][1] = -1;
-            }
-        }
-        for (int i=0; i<Nx[0]; i++){
-            //+y faces of domain
-            bc_info[2*Nx[1]*Nx[0] + Nx[1] + i] = tmp_bc_info[3];                    //+y
-            if (tmp_bc_info[3].tag == FiniteVolumeGrid::PERIODIC){
-                face_elements[2*Nx[1]*Nx[0] + Nx[1] + i][0] = -1;
-                face_elements[2*Nx[1]*Nx[0] + Nx[1] + i][1] = -1;
-            } else {
-                ijk[0] = i;
-                ijk[1] = Nx[1] - 1;
-                face_elements[2 * Nx[1] * Nx[0] + Nx[1] + i][0] = ijk_to_e(ijk); //+y
-                face_elements[2 * Nx[1] * Nx[0] + Nx[1] + i][1] = -1; //+y
-            }
-        }
-    } else if (GRID_DIM == 3){
-        //number of grid elements
-        element_count = Nx[0]*Nx[1]*Nx[2];
-        node_count = (Nx[0] + 1)*(Nx[1] + 1)*(Nx[2] + 1);
-        face_count = 3*Nx[0]*Nx[1]*Nx[2] + Nx[1]*Nx[2] + Nx[0]*Nx[2] + Nx[0]*Nx[1];
-
-        //volumes and areas
-        v_e = Eigen::VectorXd(element_count);
-        v_e.setConstant(hx[0]*hx[1]*hx[2]);
-        face_areas = Eigen::VectorXd(face_count);
-
-        //quadrature rule
-        if (driver->ORDER == 1 || USE_REDUCED_QUADRATURE){
-            qpe = 1; //quad points per element
-            qpf = 1; //quad points per face
-        } else if (driver->ORDER == 2){
-            qpe = 8;
-            qpf = 4;
-        } else {
-            std::cerr << "ERROR: FVMCartesian not defined for simulation ORDER > 2." << std::endl;
-            qpe = 8;
-            qpf = 4;
-        }
-        ext_quad_count = face_count*qpf;
-        int_quad_count = element_count*qpe;
-
-        //face normals
-        face_normals = KinematicVectorArray(face_count, job->JOB_TYPE);
-        for (int i=0; i<Nx[2]*Nx[1]*Nx[0]; i++){
-            //-x, -y faces of ith element
-            face_normals(3*i,0)   = 1; //+x
-            face_normals(3*i+1,1) = 1; //+y
-            face_normals(3*i+2,2) = 1; //+z
-
-            face_areas(3*i) = hx[1]*hx[2];
-            face_areas(3*i+1) = hx[0]*hx[2];
-            face_areas(3*i+2) = hx[0]*hx[1];
-        }
-        for (int i=0; i<Nx[1]*Nx[2]; i++){
-            //+x faces of domain
-            face_normals(3*Nx[2]*Nx[1]*Nx[0] + i,0) = 1; //+x
-            face_areas(3*Nx[2]*Nx[1]*Nx[0] + i) = hx[1]*hx[2];
-        }
-        for (int i=0; i<Nx[0]*Nx[2]; i++){
-            //+y faces of domain
-            face_normals(3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + i,1) = 1; //+y
-            face_areas(3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + i) = hx[0]*hx[2];
-        }
-        for (int i=0; i<Nx[0]*Nx[1]; i++){
-            //+z faces of domain
-            face_normals(3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + Nx[0]*Nx[2] + i,2) = 1; //+z
-            face_areas(3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + Nx[0]*Nx[2] + i) = hx[0]*hx[1];
-        }
-
-        //define default face to element definitions.
-        face_elements = std::vector<std::array<int,2>>(face_count);
-        bc_info = std::vector<FiniteVolumeMethod::BCContainer>(face_count);
-
-        //initalize bc_info
-        for (int f=0; f<face_count; f++){
-            bc_info[f].tag = -1;
-            bc_info[f].values = std::array<double,2>();
-            bc_info[f].values[0] = 0;
-            bc_info[f].values[1] = 0;
-            bc_info[f].vector = KinematicVector(job->JOB_TYPE);
-            bc_info[f].vector.setZero();
-        }
-
-        std::vector<int> ijk = std::vector<int>(2);
-        std::vector<int> tmp = ijk;
-        int e_iminus, e_jminus, e_kminus;
-        for (int e=0; e<element_count; e++){
-            ijk = e_to_ijk(e);
-            face_elements[3*e][1] = e;
-            face_elements[3*e+1][1] = e;
-            face_elements[3*e+2][1] = e;
-
-            //get element in the -x direction
-            tmp = ijk;
-            tmp[0] -= 1;
-            e_iminus = ijk_to_e(tmp);
-            face_elements[3*e][0] = e_iminus;
-
-            //get element in the -y direction
-            tmp[0] = ijk[0]; tmp[1] -= 1;
-            e_jminus = ijk_to_e(tmp);
-            face_elements[3*e+1][0] = e_jminus;
-
-            //get element in the -z direction
-            tmp[1] = ijk[1]; tmp[2] -= 1;
-            e_kminus = ijk_to_e(tmp);
-            face_elements[3*e+2][0] = e_kminus;
-
-            //check bc_tags
-            tmp = ijk;
-            if (ijk[0] == 0){
-                bc_info[3*e] = tmp_bc_info[0];                                  //-x
-                if (tmp_bc_info[0].tag == FiniteVolumeGrid::PERIODIC) {
-                    tmp[0] = Nx[0] - 1;
-                    face_elements[3 * e][0] = ijk_to_e(tmp);
-                }
-            } else {
-                bc_info[3*e].tag = -1;
-            }
-
-            tmp = ijk;
-            if (ijk[1] == 0){
-                bc_info[3*e+1] = tmp_bc_info[2];                                //-y
-                if (tmp_bc_info[2].tag == FiniteVolumeGrid::PERIODIC){
-                    tmp[1] = Nx[1] - 1;
-                    face_elements[3 * e + 1][0] = ijk_to_e(tmp);
-                }
-            } else {
-                bc_info[3*e+1].tag = -1;
-            }
-
-            tmp = ijk;
-            if (ijk[1] == 0){
-                bc_info[3*e+2] = tmp_bc_info[4];                                //-z
-                if (tmp_bc_info[2].tag == FiniteVolumeGrid::PERIODIC){
-                    tmp[2] = Nx[2] - 1;
-                    face_elements[3 * e + 2][0] = ijk_to_e(tmp);
-                }
-            } else {
-                bc_info[3*e+2].tag = -1;
-            }
-        }
-        for (int i=0; i<Nx[1]*Nx[2]; i++){
-            //+x faces of domain
-            bc_info[3*Nx[2]*Nx[1]*Nx[0] + i] = tmp_bc_info[1];                    //+x
-            if (tmp_bc_info[1].tag == FiniteVolumeGrid::PERIODIC){
-                face_elements[3*Nx[2]*Nx[1]*Nx[0] + i][0] = -1;
-                face_elements[3*Nx[2]*Nx[1]*Nx[0] + i][1] = -1;
-            } else {
-                tmp[0] = Nx[0] - 1;
-                tmp[1] = i%Nx[1];
-                tmp[2] = ((i - i%Nx[1])/Nx[1]);
-                face_elements[3*Nx[2]*Nx[1]*Nx[0] + i][0] = ijk_to_e(tmp); //+x
-                face_elements[3*Nx[2]*Nx[1]*Nx[0] + i][1] = -1;
-            }
-        }
-        for (int i=0; i<Nx[0]*Nx[2]; i++){
-            //+y faces of domain
-            bc_info[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + i] = tmp_bc_info[3];                    //+y
-            if (tmp_bc_info[3].tag == FiniteVolumeGrid::PERIODIC){
-                face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + i][0] = -1;
-                face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + i][1] = -1;
-            } else {
-                tmp[0] = i%Nx[0];
-                tmp[1] = Nx[1] - 1;
-                tmp[2] = (i - i%Nx[0])/Nx[0];
-                face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + i][0] = ijk_to_e(tmp); //+y
-                face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + i][1] = -1;
-            }
-        }
-        for (int i=0; i<Nx[0]*Nx[1]; i++){
-            //+z faces of domain
-            bc_info[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + Nx[0]*Nx[2] + i] = tmp_bc_info[5];                    //+z
-            if (tmp_bc_info[5].tag == FiniteVolumeGrid::PERIODIC){
-                face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + Nx[0]*Nx[2] + i][0] = -1;
-                face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + Nx[0]*Nx[2] + i][1] = -1;
-            } else {
-                tmp[0] = i%Nx[0];
-                tmp[1] = (i - i%Nx[0])/Nx[0];
-                tmp[2] = Nx[2] - 1;
-                face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + Nx[0]*Nx[2] + i][0] = ijk_to_e(tmp); //+z
-                face_elements[3*Nx[2]*Nx[1]*Nx[0] + Nx[1]*Nx[2] + Nx[0]*Nx[2] + i][1] = -1;
-            }
-        }
+    } else {
+        std::cout << "Uh?" << std::endl;
     }
 
     //define face, element, and quadrature centroids
@@ -813,39 +504,18 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         q_b[i] = false;
     }
 
+    x_f(0,0) = 0.0;
+    x_f(face_count-1,0) = Lx[0];
+    //face centroid
+    for (int f=0; f<face_count; f++) {
+        x_f(f,0) = hx[0] * (f - 0.25 + 0.5*std::rand()/RAND_MAX);
+    }
+
     //element centroid
     std::vector<int> tmp;
     for (int e=0; e<element_count; e++){
-        tmp = e_to_ijk(e);
-        for (int i=0; i<GRID_DIM; i++){
-            x_e(e,i) = hx[i]*tmp[i] + hx[i]/2.0;
-        }
-    }
-
-    //face centroid
-    for (int f=0; f<face_count; f++) {
-        if (f < GRID_DIM * element_count) {
-            //face is in first set, therefore element B defines location
-            int e = face_elements[f][1];
-            tmp = e_to_ijk(e);
-            for (int i = 0; i < GRID_DIM; i++) {
-                x_f(f,i) = hx[i] * tmp[i] + hx[i] / 2.0; //centroid of element
-                x_f(f,i) -= hx[i]*face_normals(f,i) / 2.0; //adjusted to face
-            }
-        } else {
-            //face is in second set, therefore element A defines location
-            int e = face_elements[f][0];
-            if (e >= 0) {
-                //element exists
-                tmp = e_to_ijk(e);
-                for (int i = 0; i < GRID_DIM; i++) {
-                    x_f(f,i) = hx[i] * tmp[i] + hx[i] / 2.0; //centroid of element
-                    x_f(f,i) += hx[i]*face_normals(f,i) / 2.0; //adjusted to face
-                }
-            } else {
-                //face is not used on current grid (must be periodic)
-            }
-        }
+        x_e(e,0) = (x_f(e,0) + x_f(e+1,0))/2.0;
+        v_e(e) = (x_f(e,0) - x_f(e+1,0));
     }
 
     //quadrature points
@@ -859,44 +529,10 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
             w_q(e*qpe) = v_e[e];
         } else if (qpe == 2){
             //quad points at +/- sqrt(1/3) along x-axis
-            x_q(e*qpe + 0,0) = x_e(e,0) - offset_factor*hx[0]/2.0;
-            x_q(e*qpe + 1,0) = x_e(e,0) + offset_factor*hx[0]/2.0;
+            x_q(e*qpe + 0,0) = x_e(e,0) - offset_factor*v_e[0]/2.0;
+            x_q(e*qpe + 1,0) = x_e(e,0) + offset_factor*v_e[0]/2.0;
             w_q[e*qpe + 0] = v_e[e]/qpe;
             w_q[e*qpe + 1] = v_e[e]/qpe;
-        } else if (qpe == 4){
-            //quad points at +/- sqrt(1/3) around centroid
-            for (int q=0; q<qpe; q++){
-                x_q[e*qpe + q] = x_e[e];
-                w_q[e*qpe + q] = v_e[e]/qpe;
-            }
-            x_q(e*qpe + 0, 0) -= offset_factor*hx[0]/2.0;
-            x_q(e*qpe + 0, 1) -= offset_factor*hx[1]/2.0;
-
-            x_q(e*qpe + 1, 0) += offset_factor*hx[0]/2.0;
-            x_q(e*qpe + 1, 1) -= offset_factor*hx[1]/2.0;
-
-            x_q(e*qpe + 2, 0) -= offset_factor*hx[0]/2.0;
-            x_q(e*qpe + 2, 1) += offset_factor*hx[1]/2.0;
-
-            x_q(e*qpe + 3, 0) += offset_factor*hx[0]/2.0;
-            x_q(e*qpe + 3, 1) += offset_factor*hx[1]/2.0;
-        } else if (qpe == 8){
-            //quad points at +/- sqrt(1/3) around centroid
-            for (int q=0; q<qpe; q++){
-                x_q[e*qpe + q] = x_e[e];
-                w_q[e*qpe + q] = v_e[e]/qpe;
-            }
-            int q = 0;
-            for (int ii=-1; ii<2; ii+=2){
-                for (int jj=-1; jj<2; jj+=2){
-                    for (int kk=-1; kk<2; kk+=2){
-                        x_q(e*qpe + q, 0) += ii*offset_factor*hx[0]/2.0;
-                        x_q(e*qpe + q, 1) += jj*offset_factor*hx[1]/2.0;
-                        x_q(e*qpe + q, 2) += kk*offset_factor*hx[2]/2.0;
-                        q++;
-                    }
-                }
-            }
         }
     }
 
@@ -909,38 +545,6 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
                 //face is bounding face and quadrature point should be included in boundary integrals
                 q_b[int_quad_count + f * qpf + q] = true;
             }
-        }
-
-        if (qpf == 1){
-            //quadrature point collocated with face center
-        } else if (qpf == 2) {
-            //quadrature points offset from face center by +/- sqrt(1/3)
-            int q=0;
-            for (int ii=-1; ii<2; ii+=2){
-                //one of these is necessarily zero
-                x_q(int_quad_count + f*qpf + q, 0) += ii*offset_factor*hx[0]/2.0 * (1.0 - face_normals(f,0));
-                x_q(int_quad_count + f*qpf + q, 1) += ii*offset_factor*hx[1]/2.0 * (1.0 - face_normals(f,1));
-                q++;
-            }
-        } else if (qpf == 4) {
-            //quadrature points offset from face center by +/- sqrt(1/3)
-            //this list should produce a unique set of points on the correct face with normal component zero'd out
-            //regardless of which cardinal direction the normal is pointed in
-            x_q(int_quad_count + f*qpf + 0, 0) -= offset_factor*hx[0]/2.0 * (1.0 - face_normals(f,0));
-            x_q(int_quad_count + f*qpf + 0, 1) -= offset_factor*hx[1]/2.0 * (1.0 - face_normals(f,1));
-            x_q(int_quad_count + f*qpf + 0, 2) -= offset_factor*hx[2]/2.0 * (1.0 - face_normals(f,2));
-
-            x_q(int_quad_count + f*qpf + 1, 0) -= offset_factor*hx[0]/2.0 * (1.0 - face_normals(f,0));
-            x_q(int_quad_count + f*qpf + 1, 1) += offset_factor*hx[1]/2.0 * (1.0 - face_normals(f,1));
-            x_q(int_quad_count + f*qpf + 1, 2) += offset_factor*hx[2]/2.0 * (1.0 - face_normals(f,2));
-
-            x_q(int_quad_count + f*qpf + 2, 0) += offset_factor*hx[0]/2.0 * (1.0 - face_normals(f,0));
-            x_q(int_quad_count + f*qpf + 2, 1) += offset_factor*hx[1]/2.0 * (1.0 - face_normals(f,1));
-            x_q(int_quad_count + f*qpf + 2, 2) -= offset_factor*hx[2]/2.0 * (1.0 - face_normals(f,2));
-
-            x_q(int_quad_count + f*qpf + 3, 0) += offset_factor*hx[0]/2.0 * (1.0 - face_normals(f,0));
-            x_q(int_quad_count + f*qpf + 3, 1) -= offset_factor*hx[1]/2.0 * (1.0 - face_normals(f,1));
-            x_q(int_quad_count + f*qpf + 3, 2) += offset_factor*hx[2]/2.0 * (1.0 - face_normals(f,2));
         }
     }
 
@@ -1053,76 +657,6 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
          */
     }
 
-    /*
-    for (int e=0; e<element_count; e++){
-        ijk = e_to_ijk(e);
-        //loop over i
-        for (int i=-1; i<2; i++){
-            tmp[0] = ijk[0] + i;
-            //check for periodic BC
-            for (int f=0; f<element_faces[e].size(); f++){
-                //loop -x
-                if (face_normals(f,0) == 1 && bc_info[f].tag == PERIODIC){
-                    if (ijk[0] == 0 && i==-1) {
-                        tmp[0] = Nx[0] - 1;
-                    } else if (ijk[0] == Nx[0]-1 && i==1){
-                        tmp[0] = 0;
-                    }
-                }
-            }
-            if (GRID_DIM > 1){
-                //loop over j
-                for (int j=-1; j<2; j++){
-                    tmp[1] = ijk[1] + j;
-                    //check for periodic BC
-                    for (int f=0; f<element_faces[e].size(); f++){
-                        //loop -y
-                        if (face_normals(f,1) == 1 && bc_info[f].tag == PERIODIC){
-                            if (ijk[1] == 0 && j == -1) {
-                                tmp[1] = Nx[1] - 1;
-                            } else if (ijk[1] == Nx[1] -1 && j == 1) {
-                                tmp[1] = 0;
-                            }
-                        }
-                    }
-                    if (GRID_DIM > 2){
-                        for (int k=-1; k<2; k++){
-                            //loop over k
-                            tmp[2] = ijk[2] + k;
-                            //check for periodic BC
-                            for (int f=0; f<element_faces[e].size(); f++){
-                                //loop -z
-                                if (face_normals(f,2) == 1 && bc_info[f].tag == PERIODIC){
-                                    if (ijk[2] == 0 && k == -1) {
-                                        tmp[2] = Nx[2] - 1;
-                                    } else if (ijk[2] == Nx[2] - 1 && k == 1) {
-                                        tmp[2] = 0;
-                                    }
-                                }
-                            }
-
-                            tmp_e = ijk_to_e(tmp);
-                            if (tmp_e >= 0 && tmp_e != e && tmp_e < element_count){
-                                element_neighbors[e].push_back(tmp_e);
-                            }
-                        }
-                    } else {
-                        tmp_e = ijk_to_e(tmp);
-                        if (tmp_e >= 0 && tmp_e != e && tmp_e < element_count){
-                            element_neighbors[e].push_back(tmp_e);
-                        }
-                    }
-                }
-            } else {
-                tmp_e = ijk_to_e(tmp);
-                if (tmp_e >= 0 && tmp_e != e && tmp_e < element_count){
-                    element_neighbors[e].push_back(tmp_e);
-                }
-            }
-        }
-    }
-    */
-
     //consistency check!!!
     int num_neighbors = 3;
     for (int i = 1; i<GRID_DIM; i++){
@@ -1208,56 +742,11 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
     std::cout << "    Quad Points: " << int_quad_count + ext_quad_count << std::endl;
 
     std::cout << "FiniteVolumeGrid initialized." << std::endl;
-
-    /*
-    //error checking
-    for (int f=0; f<face_elements.size(); f++){
-        std::cout << f << " : " << face_elements[f][0] << " | " << face_elements[f][1] << std::endl;
-    }
-    std::cout << std::endl;
-    for (int e=0; e<element_count; e++){
-        std::cout << e << " : ";
-        for (int i=0; i<element_neighbors[e].size(); i++){
-            std::cout << element_neighbors[e][i] << ", ";
-        }
-        std::cout << std::endl;
-    }
-
-    //check periodic faces for double counting
-    for (int f=0; f<face_count; f++){
-        if (face_bcs[f] > -1 && bc_tags[face_bcs[f]] == PERIODIC){
-            std::cout << f << " : " << face_elements[f][0] << " | " << face_elements[f][1] << std::endl;
-            std::cout << "  " << face_elements[f][0] << " : ";
-            for (int i=0; i<element_neighbors[face_elements[f][0]].size(); i++){
-                std::cout << element_neighbors[face_elements[f][0]][i] << " ";
-            }
-            std::cout << std::endl << "  " << face_elements[f][1] << " : ";
-            for (int i=0; i<element_neighbors[face_elements[f][1]].size(); i++){
-                std::cout << element_neighbors[face_elements[f][1]][i] << " ";
-            }
-            std::cout << std::endl;
-        }
-    }
-
-    std::cout << "quadrature rules:" << std::endl;
-    for (int q=0; q<ext_quad_count; q++){
-        std::cout << "[" << q << "]: " << w_q(int_quad_count + q) << ", ";
-        std::cout << x_q(int_quad_count + q,0) << ", " << x_q(int_quad_count + q,1) << ", " << x_q(int_quad_count + q,2);
-        std::cout << std::endl;
-    }
-
-    std::cout << "faces:" << std::endl;
-    for (int f=0; f<face_count; f++){
-        std::cout << "[" << f << "]: " << bc_info[f].tag << ", ";
-        std::cout << x_f(f,0) << ", " << x_f(f,1) << ", " << x_f(f,2);
-        std::cout << std::endl;
-    }
-     */
 }
 
 /*----------------------------------------------------------------------------*/
 
-std::vector<int> FVMCartesian::e_to_ijk(int e){
+std::vector<int> FVMLinear1DNonUniform::e_to_ijk(int e){
     std::vector<int> ijk = std::vector<int>(GRID_DIM);
     int tmp = e;
     for (int i=0;i<ijk.size();i++){
@@ -1267,7 +756,7 @@ std::vector<int> FVMCartesian::e_to_ijk(int e){
     return ijk;
 }
 
-int FVMCartesian::ijk_to_e(std::vector<int> ijk){
+int FVMLinear1DNonUniform::ijk_to_e(std::vector<int> ijk){
     int tmp = 0;
     for (int i=ijk.size(); i>0; i--){
         if (ijk[i-1] < 0 || ijk[i-1] >= Nx[i-1]){
@@ -1278,7 +767,7 @@ int FVMCartesian::ijk_to_e(std::vector<int> ijk){
     return tmp;
 }
 
-std::vector<int> FVMCartesian::n_to_ijk(int n){
+std::vector<int> FVMLinear1DNonUniform::n_to_ijk(int n){
     std::vector<int> ijk = std::vector<int>(GRID_DIM);
     int tmp = n;
     for (int i=0;i<ijk.size();i++){
@@ -1288,7 +777,7 @@ std::vector<int> FVMCartesian::n_to_ijk(int n){
     return ijk;
 }
 
-int FVMCartesian::ijk_to_n(std::vector<int> ijk){
+int FVMLinear1DNonUniform::ijk_to_n(std::vector<int> ijk){
     int tmp = 0;
     for (int i=ijk.size(); i>0; i--){
         if (ijk[i-1] < 0 || ijk[i-1] >= (Nx[i-1]+1)){
@@ -1301,7 +790,7 @@ int FVMCartesian::ijk_to_n(std::vector<int> ijk){
 
 /*---------------------------------------------------------------------------*/
 
-void FVMCartesian::writeHeader(std::ofstream& file, int SPEC){
+void FVMLinear1DNonUniform::writeHeader(std::ofstream& file, int SPEC){
     if (SPEC != Serializer::VTK){
         std::cerr << "ERROR: Unknown file SPEC in writeHeader: " << SPEC  << "! Exiting." << std::endl;
         exit(0);
@@ -1320,7 +809,7 @@ void FVMCartesian::writeHeader(std::ofstream& file, int SPEC){
         ijk = n_to_ijk(i);
         for (int pos = 0; pos < 3; pos++){
             if (pos < GRID_DIM){
-                file << ijk[pos]*hx[pos] << " ";
+                file << x_f(i,pos) << " ";
             } else {
                 file << "0 ";
             }
@@ -1391,12 +880,12 @@ void FVMCartesian::writeHeader(std::ofstream& file, int SPEC){
 }
 
 /*----------------------------------------------------------------------------*/
-void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
+void FVMLinear1DNonUniform::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
     if (driver->ORDER == 1){
         driver->fluid_body->p_x.setZero(); //let momentum be constant within an element
     } else if (driver->ORDER >= 2){
         if (driver->ORDER > 2) {
-            std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER momentum reconstruction."
+            std::cout << "ERROR: FVMLinear1DNonUniform does not currently implement higher ORDER momentum reconstruction."
                       << std::endl;
         }
 
@@ -1446,7 +935,7 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                 //calculate maximum momentum change in cell
                 tmp_dif = 0;
                 for (int pos = 0; pos < GRID_DIM; pos++){
-                    tmp_dif += hx[pos]*std::abs(driver->fluid_body->p_x(e, mom_index, pos)/2.0);
+                    tmp_dif += v_e[e]*std::abs(driver->fluid_body->p_x(e, mom_index, pos)/2.0);
                 }
 
                 if (tmp_dif > min_dif[mom_index]){
@@ -1465,12 +954,12 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
     return;
 }
 
-void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
+void FVMLinear1DNonUniform::constructDensityField(Job* job, FiniteVolumeDriver* driver){
     if (driver->ORDER == 1){
         driver->fluid_body->rho_x.setZero(); //let density be constant within an element
     } if (driver->ORDER >= 2){
         if (driver->ORDER > 2) {
-            std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER momentum reconstruction."
+            std::cout << "ERROR: FVMLinear1DNonUniform does not currently implement higher ORDER momentum reconstruction."
                       << std::endl;
         }
 
@@ -1515,7 +1004,7 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
             //calculate maximum velocity change in cell
             tmp_dif = 0;
             for (int pos = 0; pos < GRID_DIM; pos++){
-                tmp_dif += hx[pos]*std::abs(driver->fluid_body->rho_x(e, pos)/2.0);
+                tmp_dif += v_e[e]*std::abs(driver->fluid_body->rho_x(e, pos)/2.0);
             }
 
             if (tmp_dif > min_dif){
@@ -1533,12 +1022,12 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
     return;
 }
 
-void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
+void FVMLinear1DNonUniform::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
     if (driver->ORDER == 1){
         driver->fluid_body->rhoE_x.setZero(); //let energy be constant within an element
     } if (driver->ORDER >= 2){
         if (driver->ORDER > 2) {
-            std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER momentum reconstruction."
+            std::cout << "ERROR: FVMLinear1DNonUniform does not currently implement higher ORDER momentum reconstruction."
                       << std::endl;
         }
 
@@ -1583,7 +1072,7 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
             //calculate maximum velocity change in cell
             tmp_dif = 0;
             for (int pos = 0; pos < GRID_DIM; pos++){
-                tmp_dif += hx[pos]*std::abs(driver->fluid_body->rhoE_x(e, pos)/2.0);
+                tmp_dif += v_e[e]*std::abs(driver->fluid_body->rhoE_x(e, pos)/2.0);
             }
 
             if (tmp_dif > min_dif){
@@ -1602,7 +1091,7 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
 }
 
 
-void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
+void FVMLinear1DNonUniform::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
     //use porosity field gradients to adjust field gradients
     if (USE_LOCAL_POROSITY_CORRECTION) {
         Eigen::VectorXd gradn_star = Eigen::VectorXd(GRID_DIM);
@@ -1623,7 +1112,7 @@ void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
                 gradn_star.setZero();
             } else if (driver->ORDER >= 2) {
                 if (driver->ORDER > 2) {
-                    std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER porosity reconstruction." << std::endl;
+                    std::cout << "ERROR: FVMLinear1DNonUniform does not currently implement higher ORDER porosity reconstruction." << std::endl;
                 }
 
                 //least squares fit of n to neighbors of element e
@@ -1659,7 +1148,7 @@ void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
                 //calculate maximum velocity change in cell
                 tmp_dif = 0;
                 for (int pos = 0; pos < GRID_DIM; pos++) {
-                    tmp_dif += hx[pos] * std::abs(gradn_star(pos) / 2.0);
+                    tmp_dif += v_e[e] * std::abs(gradn_star(pos) / 2.0);
                 }
 
                 if (tmp_dif > min_dif) {

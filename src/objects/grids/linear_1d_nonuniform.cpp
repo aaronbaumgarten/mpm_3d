@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <Eigen/Core>
+#include <random>
 
 #include "mpm_objects.hpp"
 #include "mpm_vector.hpp"
@@ -21,7 +22,12 @@
 
 /*----------------------------------------------------------------------------*/
 //initialize grid assuming that job is set up
-void CartesianLinear::init(Job* job){
+void Linear1DNonUniform::init(Job* job){
+    if (GRID_DIM > 1) {
+        std::cerr << "ERROR! Linear1DNonUniform grid only designed for 1D simulations! Exiting." << std::endl;
+        exit(0);
+    }
+
     if (fp64_props.size() < GRID_DIM || int_props.size() < GRID_DIM){
         std::cout << fp64_props.size() << ", " << int_props.size() << "\n";
         fprintf(stderr,
@@ -69,7 +75,7 @@ void CartesianLinear::init(Job* job){
 
 /*----------------------------------------------------------------------------*/
 //hidden initializer
-void CartesianLinear::hiddenInit(Job* job){
+void Linear1DNonUniform::hiddenInit(Job* job){
     //called from loading or initializing functions
     //needs to have Lx,Nx,hx defined
 
@@ -84,8 +90,10 @@ void CartesianLinear::hiddenInit(Job* job){
     }
 
     x_n = KinematicVectorArray(node_count,job->JOB_TYPE);
-    for (int i=0;i<x_n.size();i++){
-        x_n(i) = nodeIDToPosition(job,i);
+    x_n(0,0) = 0.0;
+    x_n(node_count-1, 0) = Lx(0);
+    for (int i=1;i<node_count-1;i++){
+        x_n(i,0) = hx(0) * (i - 0.25 + 0.5*std::rand()/RAND_MAX);
     }
 
     //initialize A matrix
@@ -141,43 +149,19 @@ void CartesianLinear::hiddenInit(Job* job){
     }
 
     //element volume
-    v_e = 1;
-    for (int pos=0;pos<GRID_DIM;pos++){
-        v_e *= hx(pos);
+    for (int i=0; i<element_count; i++){
+        v_e(i) = x_n(i+1,0) - x_n(i,0);
     }
 
     //nodal volume
     v_n.resize(x_n.size());
     v_n.setZero();
-    for (int e=0;e<nodeIDs.rows();e++){
-        for (int c=0;c<nodeIDs.cols();c++) {
-            v_n(nodeIDs(e, c)) += v_e / nodeIDs.cols();
+    for (int i=0;i<node_count;i++){
+        if (i > 0){
+            v_n(i) += v_e(i-1)/2.0;
         }
-    }
-
-    KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
-    //nodal surface integral
-    s_n.resize(x_n.size());
-    s_n.setZero();
-    for (int n=0;n<x_n.size();n++){
-        tmp = n;
-        for (int i=0;i<ijk.rows();i++){
-            ijk(i) = tmp % (Nx(i)+1);
-            tmp = tmp/(Nx(i)+1);
-
-            if (ijk(i) == 0 || ijk(i) == Nx(i)){
-                s_n(n) = 1;
-                for (int pos=0;pos<(GRID_DIM-1);pos++){
-                    s_n(n) *= hx(pos);
-                }
-
-                //approximate adjustment for axisymetric case
-                if (job->JOB_TYPE == job->JOB_AXISYM){
-                    tmpVec = nodeIDToPosition(job, n);
-                    s_n(n) *= tmpVec(0);
-                }
-                break;
-            }
+        if (i < node_count-1){
+            v_n(i) += v_e(i)/2.0;
         }
     }
 
@@ -188,7 +172,7 @@ void CartesianLinear::hiddenInit(Job* job){
 
 /*----------------------------------------------------------------------------*/
 //
-void CartesianLinear::writeFrame(Job* job, Serializer* serializer){
+void Linear1DNonUniform::writeFrame(Job* job, Serializer* serializer){
     //nothing to report
     return;
 }
@@ -196,14 +180,14 @@ void CartesianLinear::writeFrame(Job* job, Serializer* serializer){
 
 /*----------------------------------------------------------------------------*/
 //
-std::string CartesianLinear::saveState(Job* job, Serializer* serializer, std::string filepath){
+std::string Linear1DNonUniform::saveState(Job* job, Serializer* serializer, std::string filepath){
     return "err";
 }
 
 
 /*----------------------------------------------------------------------------*/
 //
-int CartesianLinear::loadState(Job* job, Serializer* serializer, std::string fullpath){
+int Linear1DNonUniform::loadState(Job* job, Serializer* serializer, std::string fullpath){
     return 0;
 }
 
@@ -211,38 +195,25 @@ int CartesianLinear::loadState(Job* job, Serializer* serializer, std::string ful
 
 /*----------------------------------------------------------------------------*/
 //
-int CartesianLinear::whichElement(Job* job, KinematicVector& xIN){
-    return cartesianWhichElement(job, xIN, Lx, hx, Nx, GRID_DIM);
-}
+int Linear1DNonUniform::whichElement(Job* job, KinematicVector& xIN){
+    //cartesian guess should be within +/- 1
+    int e = CartesianLinear::cartesianWhichElement(job, xIN, Lx, hx, Nx, GRID_DIM);
 
-//standard function that other cartesian grids may use
-int CartesianLinear::cartesianWhichElement(Job* job, KinematicVector& xIN, KinematicVector& LxIN, KinematicVector& hxIN, Eigen::VectorXi& NxIN, int GRID_DIM_IN){
-    assert(xIN.VECTOR_TYPE == LxIN.VECTOR_TYPE && xIN.VECTOR_TYPE == hxIN.VECTOR_TYPE && "cartesianWhichElement failed");
-    if (GRID_DIM_IN == -1){
-        GRID_DIM_IN = xIN.DIM;
+    if (e < 0) {
+        return e;
+    } else if (xIN(0) >= x_n(e+1,0)){
+        return e+1;
+    } else if (xIN(0) >= x_n(e,0)){
+        return e;
+    } else {
+        return e-1;
     }
-
-    bool inDomain;
-    int elementID = floor(xIN[0] / hxIN[0]); //id in x-dimension
-    for (int i = 0; i < GRID_DIM_IN; i++) {
-        inDomain = (xIN[i] < LxIN[i] && xIN[i] >= 0);
-        if (!inDomain) { //if xIn is outside domain, return -1
-            return -1;
-        }
-        if (i == 1) {
-            //add number of elements in next layer of id in higher dimensions
-            elementID += floor(xIN[i] / hxIN[i]) * (NxIN[i - 1]);
-        } else if (i == 2) {
-            elementID += floor(xIN[i] / hxIN[i]) * (NxIN[i - 1]) * (NxIN[i - 2]);
-        }
-    }
-    return elementID;
 }
 
 
 /*----------------------------------------------------------------------------*/
 //
-bool CartesianLinear::inDomain(Job* job, KinematicVector& xIN){
+bool Linear1DNonUniform::inDomain(Job* job, KinematicVector& xIN){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "inDomain failed");
     for (int i=0;i<GRID_DIM;i++){
         if (!(xIN[i] <= Lx[i] && xIN[i] >= 0)) { //if xIn is outside domain, return -1
@@ -255,29 +226,15 @@ bool CartesianLinear::inDomain(Job* job, KinematicVector& xIN){
 
 /*----------------------------------------------------------------------------*/
 //
-KinematicVector CartesianLinear::nodeIDToPosition(Job* job, int idIN){
-    Eigen::VectorXi ijk(GRID_DIM);
-    KinematicVector tmpVec(job->JOB_TYPE);
-    int tmp = idIN;
-    //find i,j,k representation of node id
-    for (int i=0;i<ijk.rows();i++){
-        ijk(i) = tmp % (Nx(i)+1);
-        tmp = tmp/(Nx(i)+1);
-    }
-    for (int i=0;i<GRID_DIM;i++){
-        tmpVec[i] = hx(i)*ijk(i);
-    }
-    for (int i=GRID_DIM; i<hx.size(); i++){
-        tmpVec[i] = 0;
-    }
-    return tmpVec;
+KinematicVector Linear1DNonUniform::nodeIDToPosition(Job* job, int idIN){
+    return x_n(idIN);
 }
 
 
 
 /*----------------------------------------------------------------------------*/
 //
-void CartesianLinear::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL){
+void Linear1DNonUniform::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "evaluateShapeFnValue failed");
     KinematicVector rst(job->JOB_TYPE);
     double tmp = 1.0;
@@ -289,7 +246,7 @@ void CartesianLinear::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::
         //find local coordinates relative to nodal position
         for (int i=0;i<GRID_DIM;i++){
             //r = (x_p - x_n)/hx
-            rst[i] = (xIN[i] - x_n(nodeIDs(elementID,n),i)) / hx(i);
+            rst[i] = (xIN[i] - x_n(nodeIDs(elementID,n),i)) / (x_n(elementID + 1,i) - x_n(elementID,i));
 
             //standard linear hat function
             tmp *= (1 - std::abs(rst[i]));
@@ -304,7 +261,7 @@ void CartesianLinear::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::
 
 /*----------------------------------------------------------------------------*/
 //
-void CartesianLinear::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD){
+void Linear1DNonUniform::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && nGRAD.VECTOR_TYPE == Lx.VECTOR_TYPE && "evaluateShapeFnGradient failed");
     KinematicVector rst(job->JOB_TYPE);
     KinematicVector tmpVec(job->JOB_TYPE);
@@ -317,7 +274,7 @@ void CartesianLinear::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
         //find local coordinates relative to nodal position
         for (int i=0;i<GRID_DIM;i++){
             //r = (x_p - x_n)/hx
-            rst[i] = (xIN[i] - x_n(nodeIDs(elementID,n),i)) / hx(i);
+            rst[i] = (xIN[i] - x_n(nodeIDs(elementID,n),i)) / (x_n(elementID + 1,i) - x_n(elementID,i));
 
             //standard linear hat function
             //evaluate at point
@@ -326,7 +283,7 @@ void CartesianLinear::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
 
         for (int i=0;i<GRID_DIM;i++){
             //replace i-direction contribution with sign function
-            tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
+            tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / (x_n(elementID + 1,i) - x_n(elementID,i));
         }
 
         for (int i=GRID_DIM;i<xIN.DIM;i++){
@@ -344,34 +301,38 @@ void CartesianLinear::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
 
 /*----------------------------------------------------------------------------*/
 //
-double CartesianLinear::nodeVolume(Job* job, int idIN){
+double Linear1DNonUniform::nodeVolume(Job* job, int idIN){
     return v_n(idIN);
 }
 
 
 /*----------------------------------------------------------------------------*/
 //
-double CartesianLinear::elementVolume(Job* job, int idIN){
-    return v_e;
+double Linear1DNonUniform::elementVolume(Job* job, int idIN){
+    return v_e(idIN);
 }
 
 
 /*----------------------------------------------------------------------------*/
 //
-int CartesianLinear::nodeTag(Job* job, int idIN){
+int Linear1DNonUniform::nodeTag(Job* job, int idIN){
     return -1;
 }
 
 /*----------------------------------------------------------------------------*/
 //
-double CartesianLinear::nodeSurfaceArea(Job *job, int idIN) {
-    return s_n(idIN);
+double Linear1DNonUniform::nodeSurfaceArea(Job *job, int idIN) {
+    if (idIN == 0 || idIN == Nx(0)){
+        return 1.0;
+    } else {
+        return 0.0;
+    }
 }
 
 
 /*----------------------------------------------------------------------------*/
 //
-void CartesianLinear::writeHeader(Job *job, Body *body, Serializer *serializer, std::ofstream &nfile, int SPEC) {
+void Linear1DNonUniform::writeHeader(Job *job, Body *body, Serializer *serializer, std::ofstream &nfile, int SPEC) {
     if (SPEC != Serializer::VTK){
         std::cerr << "ERROR: Unknown file SPEC in writeHeader: " << SPEC  << "! Exiting." << std::endl;
         exit(0);

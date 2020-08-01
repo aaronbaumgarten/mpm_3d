@@ -8,5 +8,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/gmsh_tri2D.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_cubic_offset.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/gmsh_tet3D.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/linear_1d_nonuniform.cpp
         PARENT_SCOPE
         )

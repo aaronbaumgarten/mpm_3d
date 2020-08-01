@@ -260,7 +260,7 @@ int FVMSlurryGasPhase::calculatePorosity(Job* job, FiniteVolumeDriver* driver){
     double m1;
     for (int i=0;i<driver->fluid_body->n.rows();i++){
 
-        m1 = job->bodies[solid_body_id]->nodes->m[i];
+        m1 = job->bodies[solid_body_id]->nodes->m(i);
         if (m1 > 0){
             driver->fluid_body->n(i) = 1.0 - (m1 / (job->grid->nodeVolume(job,i)*solid_rho));
 

@@ -22,8 +22,21 @@
 #include "fvm_objects.hpp"
 #include "fvm_grids.hpp"
 #include "threadpool.hpp"
+#include "../objects/grids/grids.hpp"
 
 static const bool USE_NODE_NEIGHBORS = false;
+
+//helper functions
+int FVMGmsh2D::whichElement(Job* job, KinematicVector xIN){
+    std::cout << "ERROR: whichElement not implemented for FVMGmsh2D. Fatal. Exiting." << std::endl;
+    exit(0);
+} //return which element this position is within
+
+std::vector<double> FVMGmsh2D::getBoundingBox(){
+    std::cout << "ERROR: getBoundingBox not implemented for FVMGmsh2D. Fatal. Exiting." << std::endl;
+    exit(0);
+}  //return min/max of each coordinate
+
 
 void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
     //assign grid dimension

@@ -88,6 +88,9 @@ public:
     virtual int getFaceTag(int) = 0;               //return 'tag of face id
     virtual KinematicVector getFaceNormal(Job*, int) = 0; //return normal vector associated with given id
 
+    virtual int whichElement(Job *job, KinematicVector xIN) = 0; //return which element this position is within
+    virtual std::vector<double> getBoundingBox() = 0;  //return min/max of each coordinate
+
     virtual std::vector<int> getElementQuadraturePoints(int e) = 0; //return vector with global quadrature indices
     virtual std::vector<int> getFaceQuadraturePoints(int f) = 0;    //return vector with global quadrature indices
 

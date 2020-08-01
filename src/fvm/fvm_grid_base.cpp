@@ -46,7 +46,8 @@ void FVMGridBase::init(Job* job, FiniteVolumeDriver* driver){
                                         "USE_CUSTOM_DAMPING",
                                         "USE_GAUSS_GREEN",
                                         "USE_LOCAL_POROSITY_CORRECTION",
-                                        "USE_DECAYING_DAMPING"};
+                                        "USE_DECAYING_DAMPING",
+                                        "USE_ENHANCED_M_MATRIX"};
     for (int i=0; i<str_props.size(); i++){
         switch (Parser::findStringID(options, str_props[i])){
             case 0:
@@ -81,6 +82,14 @@ void FVMGridBase::init(Job* job, FiniteVolumeDriver* driver){
                 damping_time_cst = fp64_props[fp64_props.size()-1];
                 std::cout << "FiniteVolumeGrid using decaying damping coefficient." << std::endl;
                 //do not use with USE_CUSTOM_DAMPING flag!!!
+                break;
+            case 6:
+                //USE_ENHANCED_M_MATRIX
+                USE_ENHANCED_M_MATRIX = true;
+                hx_enhanced_quad = fp64_props[fp64_props.size()-1];
+                std::cout << "FiniteVolumeGrid using enhanced M matrix calculation." << std::endl;
+                //do not use with USE_CUSTOM_DAMPING flag!!!
+                break;
             default:
                 //do nothing
                 break;
@@ -280,25 +289,112 @@ void FVMGridBase::generateMappings(Job* job, FiniteVolumeDriver* driver){
     M = MPMScalarSparseMatrix(element_count, job->grid->node_count);
 
     //loop over elements
-    for (int e=0; e<element_count; e++){
-        for (int q=0; q<qpe; q++){
-            nvec.resize(0);
-            valvec.resize(0);
+    if (!USE_ENHANCED_M_MATRIX) {
+        for (int e = 0; e < element_count; e++) {
+            for (int q = 0; q < qpe; q++) {
+                nvec.resize(0);
+                valvec.resize(0);
 
-            //for each interior quadrature point, get MPM basis function value
-            tmpVec = x_q[e*qpe + q];
+                //for each interior quadrature point, get MPM basis function value
+                tmpVec = x_q[e * qpe + q];
 
-            if (job->grid->whichElement(job, tmpVec) > -1){
-                //do nothing
-            } else {
-                tmpVec *= (1.0 - 1e-14); //adjust tmpVec slightly
+                if (job->grid->whichElement(job, tmpVec) > -1) {
+                    //do nothing
+                } else {
+                    tmpVec *= (1.0 - 1e-14); //adjust tmpVec slightly
+                }
+
+                job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
+
+                //add all weighted MPM function values to matrix
+                for (int j = 0; j < nvec.size(); j++) {
+                    M.push_back(e, nvec[j], w_q(e * qpe + q) * valvec[j]); //element, node, quad weight
+                }
             }
+        }
+    } else {
+        //use enhance mapping calculation (for h_i < h_e)
+        //create point cartesian point cloud using hx as length scale
+        std::vector<double> min_max = getBoundingBox();
+        std::vector<int> Nx = std::vector<int>(GRID_DIM);
+        for (int i=0; i<GRID_DIM; i++){
+            Nx[i] = (int)std::floor((min_max[2*i+1] - min_max[2*i])/hx_enhanced_quad);
+        }
 
-            job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
+        //loop over points in cloud and get cross-contributions to M matrix
+        double w = 1;
+        for (int i=0; i<GRID_DIM; i++){
+            w *= hx_enhanced_quad;
+        }
+        int e;
+        KinematicVector x = KinematicVector(job->JOB_TYPE);
+        for (int i=0; i<Nx[0]; i++){
+            x[0] = hx_enhanced_quad*(i + 0.5);
 
-            //add all weighted MPM function values to matrix
-            for (int j = 0; j < nvec.size(); j++) {
-                M.push_back(e, nvec[j], w_q(e*qpe + q)*valvec[j]); //element, node, quad weight
+            if (GRID_DIM > 1){
+                for (int j=0; j<Nx[1]; j++){
+                    x[1] = hx_enhanced_quad*(j + 0.5);
+
+                    if (GRID_DIM > 2){
+                        for (int k=0; k<Nx[2]; k++){
+                            x[2] = hx_enhanced_quad*(k + 0.5);
+
+                            e = whichElement(job, x);
+
+                            nvec.resize(0);
+                            valvec.resize(0);
+
+                            if (job->grid->whichElement(job, x) > -1) {
+                                //do nothing
+                            } else {
+                                x *= (1.0 - 1e-14); //adjust tmpVec slightly
+                            }
+
+                            job->grid->evaluateBasisFnValue(job, x, nvec, valvec);
+
+                            //add all weighted MPM function values to matrix
+                            for (int jj = 0; jj < nvec.size(); jj++) {
+                                M.push_back(e, nvec[jj], w * valvec[jj]); //element, node, quad weight
+                            }
+                        }
+                    } else {
+                        e = whichElement(job, x);
+
+                        nvec.resize(0);
+                        valvec.resize(0);
+
+                        if (job->grid->whichElement(job, x) > -1) {
+                            //do nothing
+                        } else {
+                            x *= (1.0 - 1e-14); //adjust tmpVec slightly
+                        }
+
+                        job->grid->evaluateBasisFnValue(job, x, nvec, valvec);
+
+                        //add all weighted MPM function values to matrix
+                        for (int jj = 0; jj < nvec.size(); jj++) {
+                            M.push_back(e, nvec[jj], w * valvec[jj]); //element, node, quad weight
+                        }
+                    }
+                }
+            } else {
+                e = whichElement(job, x);
+
+                nvec.resize(0);
+                valvec.resize(0);
+
+                if (job->grid->whichElement(job, x) > -1) {
+                    //do nothing
+                } else {
+                    x *= (1.0 - 1e-14); //adjust tmpVec slightly
+                }
+
+                job->grid->evaluateBasisFnValue(job, x, nvec, valvec);
+
+                //add all weighted MPM function values to matrix
+                for (int jj = 0; jj < nvec.size(); jj++) {
+                    M.push_back(e, nvec[jj], w * valvec[jj]); //element, node, quad weight
+                }
             }
         }
     }

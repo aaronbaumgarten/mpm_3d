@@ -176,6 +176,7 @@ public:
     bool USE_DECAYING_DAMPING = false;
     bool USE_GAUSS_GREEN = false;
     bool USE_LOCAL_POROSITY_CORRECTION = false;
+    bool USE_ENHANCED_M_MATRIX = false;
 
     //instantiate
     std::vector<parallelMemoryUnit> memoryUnits;
@@ -184,6 +185,9 @@ public:
     double damping_coefficient = 0.999;
     double damping_at_t0 = 0.999;
     double damping_time_cst = 1.0;
+
+    //enhanced m matrix calculation
+    double hx_enhanced_quad = 1.0;
 
     //grid definitions
     Eigen::VectorXd face_areas;
@@ -224,6 +228,10 @@ public:
     virtual void constructEnergyField(Job *job, FiniteVolumeDriver *driver) = 0;
 
     virtual void constructPorosityField(Job *, FiniteVolumeDriver *) = 0;
+
+    virtual int whichElement(Job *job, KinematicVector xIN) = 0; //return which element this position is within
+
+    virtual std::vector<double> getBoundingBox() = 0;  //return min/max of each coordinate
 
     virtual double getElementVolume(int e);
 
@@ -449,6 +457,9 @@ public:
     virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructPorosityField(Job* job, FiniteVolumeDriver* driver);
+
+    virtual int whichElement(Job* job, KinematicVector xIN); //return which element this position is within
+    virtual std::vector<double> getBoundingBox();  //return min/max of each coordinate
 };
 
 /*----------------------------------------------------------------------------*/
@@ -474,6 +485,40 @@ public:
     virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver);
     virtual void constructPorosityField(Job* job, FiniteVolumeDriver* driver);
+
+    virtual int whichElement(Job* job, KinematicVector xIN); //return which element this position is within
+    virtual std::vector<double> getBoundingBox();  //return min/max of each coordinate
+};
+
+/*---------------------------------------------------------------------------*/
+
+class FVMLinear1DNonUniform : public FVMGridBase{
+public:
+    FVMLinear1DNonUniform(){
+        object_name = "FVMLinear1DNonUniform";
+    }
+
+    //grid dimensions
+    std::vector<int> Nx;
+    std::vector<double> Lx, hx;
+
+    //mapping functions
+    std::vector<int> e_to_ijk(int e); //convert element id to ijk element definition
+    int ijk_to_e(std::vector<int> ijk); //convert ijk element definition to e
+    std::vector<int> n_to_ijk(int n); //convert node id to ijk
+    int ijk_to_n(std::vector<int> ijk); //convert ijk to node id
+
+    virtual void init(Job* job, FiniteVolumeDriver* driver);
+
+    virtual void writeHeader(std::ofstream& file, int TYPE);
+
+    virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver);
+    virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver);
+    virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver);
+    virtual void constructPorosityField(Job* job, FiniteVolumeDriver* driver);
+
+    virtual int whichElement(Job* job, KinematicVector xIN); //return which element this position is within
+    virtual std::vector<double> getBoundingBox();  //return min/max of each coordinate
 };
 
 #endif //MPM_V3_FVM_GRIDS_HPP

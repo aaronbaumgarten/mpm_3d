@@ -16,5 +16,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_ideal_gas.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_slurry_gas_phase.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_static_mixture_solver_rk4.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_linear_1d_nonuniform.cpp
         PARENT_SCOPE
         )

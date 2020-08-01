@@ -110,6 +110,7 @@ Registry<Grid>::Registry() {
     object["TriangularGridLinear"] = &createInstance<Grid,TriangularGridLinear>;
     object["CartesianCubic_Offset"] = &createInstance<Grid,CartesianCubic_Offset>;
     object["TetrahedralGridLinear"] = &createInstance<Grid,TetrahedralGridLinear>;
+    object["Linear1DNonUniform"] = &createInstance<Grid,Linear1DNonUniform>;
 }
 
 
@@ -185,6 +186,7 @@ template<>
 Registry<FiniteVolumeGrid>::Registry() {
     object["FVMCartesian"] = &createInstance<FiniteVolumeGrid,FVMCartesian>;
     object["FVMGmsh2D"] = &createInstance<FiniteVolumeGrid,FVMGmsh2D>;
+    object["FVMLinear1DNonUniform"] = &createInstance<FiniteVolumeGrid,FVMLinear1DNonUniform>;
 }
 
 template<>
