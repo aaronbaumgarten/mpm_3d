@@ -34,7 +34,18 @@ int FVMLinear1DNonUniform::whichElement(Job* job, KinematicVector xIN){
     for (int i=0; i<GRID_DIM; i++){
         nx(i) = Nx[i];
     }
-    return CartesianLinear::cartesianWhichElement(job, xIN, lx, dx, nx);
+
+    int e = CartesianLinear::cartesianWhichElement(job, xIN, lx, dx, nx, GRID_DIM);
+
+    if (e < 0) {
+        return e;
+    } else if (xIN(0) >= x_f(e+1,0)){
+        return e+1;
+    } else if (xIN(0) >= x_f(e,0)){
+        return e;
+    } else {
+        return e-1;
+    }
 } //return which element this position is within
 
 std::vector<double> FVMLinear1DNonUniform::getBoundingBox(){
@@ -507,7 +518,7 @@ void FVMLinear1DNonUniform::init(Job* job, FiniteVolumeDriver* driver){
     x_f(0,0) = 0.0;
     x_f(face_count-1,0) = Lx[0];
     //face centroid
-    for (int f=0; f<face_count; f++) {
+    for (int f=1; f<face_count-1; f++) {
         x_f(f,0) = hx[0] * (f - 0.25 + 0.5*std::rand()/RAND_MAX);
     }
 

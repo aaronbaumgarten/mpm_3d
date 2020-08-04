@@ -374,7 +374,7 @@ namespace FVM_TEST{
             fluid_grid->int_props = {N_e};  //Nx
             fluid_grid->str_props = {"USE_LOCAL_POROSITY_CORRECTION"};
 
-            if (N_e < N_i){
+            if (true){ //N_e < N_i){
                 fluid_grid->fp64_props.push_back(0.1/N_q);
                 fluid_grid->str_props.push_back("USE_ENHANCED_M_MATRIX");
             }
@@ -507,13 +507,6 @@ namespace FVM_TEST{
             Eigen::VectorXd f_e_fvm = Eigen::VectorXd(fluid_grid->element_count);
             f_e_fvm.setZero();
 
-            KinematicVector Lx = KinematicVector(job->JOB_TYPE);
-            Lx[0] = 1.0;
-            KinematicVector hx = KinematicVector(job->JOB_TYPE);
-            hx[0] = 1.0/fluid_grid->element_count;
-            Eigen::VectorXi Nx = Eigen::VectorXi(1);
-            Nx(0) = fluid_grid->element_count;
-
             std::vector<int> nvec(0);
             std::vector<double> valvec(0);
             KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
@@ -529,7 +522,7 @@ namespace FVM_TEST{
                 }
 
                 //get element id
-                int e = CartesianLinear::cartesianWhichElement(job, tmpVec, Lx, hx, Nx, GRID_DIM);
+                int e = fluid_grid->whichElement(job, tmpVec);
                 if (e > -1) {
                     f_e_fvm(e) -= W_q * get_drag(X_q);
                 }
@@ -581,6 +574,7 @@ void fvm_mpm_drag_test(Job* job){
     std::vector<int> n_i = {11,21,41,81,161,321,641,1281,2561,5121,10241};
     std::vector<int> n_e = {10,20,40,80,160,320,640,1280,2560,5120,10240};
 
+    /*
     //set up data containers
     std::vector<double> f_ii_L1 = std::vector<double>(n_i.size()); //L1 error for f_i vs. n_i
     std::vector<double> f_ei_L1 = std::vector<double>(n_i.size()); //L1 error for f_e vs. n_i
@@ -611,6 +605,33 @@ void fvm_mpm_drag_test(Job* job){
     std::cout << "N_e Convergence Study" << std::endl;
     for (int i=0; i<n_e.size(); i++){
         std::cout << n_i_max << ", " << n_e[i] << ": " << f_ie_L1[i] << " : " << f_ee_L1[i] << std::endl;
+    }
+     */
+
+    //second study
+    //set up data containers
+    std::vector<int> n_i_result = std::vector<int>();
+    std::vector<int> n_e_result = std::vector<int>();
+    std::vector<double> f_i_L1 = std::vector<double>(); //L1 error for f_i
+    std::vector<double> f_e_L1 = std::vector<double>(); //L1 error for f_e
+
+    //run study
+    std::vector<double> result;
+    for (int i=0; i<n_i.size(); i++){
+        for (int j=0; j<n_e.size(); j++) {
+            result = driver.get_L1_errors(job, n_i[i], n_e[j], 102400, "Linear1DNonUniform");
+            n_i_result.push_back(n_i[i]);
+            n_e_result.push_back(n_e[j]);
+            f_i_L1.push_back(result[0]);
+            f_e_L1.push_back(result[1]);
+        }
+    }
+
+    //print results
+    std::cout << std::endl;
+    std::cout << "Convergence Study" << std::endl;
+    for (int i=0; i<n_i_result.size(); i++){
+        std::cout << n_i_result[i] << ", " << n_e_result[i] << ": " << f_i_L1[i] << " : " << f_e_L1[i] << std::endl;
     }
 
     return;

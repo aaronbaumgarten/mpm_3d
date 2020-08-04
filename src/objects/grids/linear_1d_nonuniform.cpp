@@ -37,7 +37,7 @@ void Linear1DNonUniform::init(Job* job){
     } else {
         //store length, number of linear nodes, and deltas
         Lx = KinematicVector(job->JOB_TYPE);
-        Nx = Eigen::VectorXi(job->DIM);
+        Nx = Eigen::VectorXi(GRID_DIM);
         hx = KinematicVector(job->JOB_TYPE);
 
         for (int pos=0;pos<GRID_DIM;pos++){
@@ -149,6 +149,7 @@ void Linear1DNonUniform::hiddenInit(Job* job){
     }
 
     //element volume
+    v_e = Eigen::VectorXd(element_count);
     for (int i=0; i<element_count; i++){
         v_e(i) = x_n(i+1,0) - x_n(i,0);
     }
