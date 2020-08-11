@@ -37,6 +37,7 @@ void DefaultPoints::init(Job* job, Body* body){
     v0 = v;
 
     //extent initialization (for grid integration)
+    extent.resize(v.rows());
     if(job->grid->GRID_DIM == 1){
         for (int i=0;i<v.rows();i++){
             extent[i] = 0.5 * v[i];

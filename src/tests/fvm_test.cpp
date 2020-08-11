@@ -1048,6 +1048,7 @@ namespace FVM_TEST{
             job->bodies[0]->points->m = Eigen::VectorXd(N_p);
             job->bodies[0]->points->v = Eigen::VectorXd(N_p);
             job->bodies[0]->points->x = KinematicVectorArray(N_p, job->JOB_1D);
+            job->bodies[0]->points->active = Eigen::VectorXi(N_p);
 
             //assign grid
             fluid_grid = std::unique_ptr<FiniteVolumeGrid>(new FVMLinear1DNonUniform);
@@ -1060,9 +1061,6 @@ namespace FVM_TEST{
             fluid_material->init(job, this);
             fluid_body->init(job, this);
             solver->init(job, this);
-
-            //initialize MPM objects
-            job->bodies[0]->init(job);
 
             //first check number of elements
             std::cout << "Number of Elements: " << fluid_grid->element_count << std::endl;
@@ -1088,8 +1086,12 @@ namespace FVM_TEST{
                 job->bodies[0]->points->v(p) = fluid_grid->getElementVolume(p);
                 job->bodies[0]->points->m(p) = rho_s
                                                *job->bodies[0]->points->v(p)
-                                               *get_porosity(job->bodies[0]->points->x(p,0));
+                                               *(1.0 - get_porosity(job->bodies[0]->points->x(p,0)));
+                job->bodies[0]->points->active(p) = 1;
             }
+
+            //initialize MPM objects
+            job->bodies[0]->init(job);
 
             //create mapping matrix \tilde{S}_ip
             if (str_type == "CartesianCubic"){
@@ -1147,12 +1149,19 @@ namespace FVM_TEST{
 
             Eigen::VectorXd m_j_approx = A*rho_bar_s;
 
+            double uh = 0;
+            for (int i=0; i<job->grid->node_count; i++){
+                uh += rho_bar_s(i) * job->grid->nodeVolume(job,i);
+            }
+
             //calculate f_i L1 norm (without edges)
             double f_i_L1 = 0;
             for (int i=0; i<job->grid->node_count;i++){
                 f_i_L1 += std::abs(m_j_exact(i) - m_j_approx(i));
+                //std::cout << m_j_exact(i) << " ?= " << m_j_approx(i) << std::endl;
             }
 
+            std::cout << "Total Error: " <<  m_j_approx.sum() << " ... " << m_j_approx.sum() - m_j_exact.sum() << std::endl;
             std::cout << "Nodal Drag Error (L1): " << f_i_L1 << std::endl;
 
             return f_i_L1;
@@ -1292,19 +1301,65 @@ void fvm_mpm_porosity_test(Job* job){
     std::vector<int> n_p = {10,20,40,80,160,320,640,1280,2560,5120,10240};
 
     //set up data containers
-    std::vector<double> f_i_L1 = std::vector<double>(n_i.size()); //L1 error
+    std::vector<double> f_i_L1_cst_hp1 = std::vector<double>(n_i.size()); //L1 error (10240 p)
+    std::vector<double> f_i_L1_cst_hp2 = std::vector<double>(n_i.size()); //L1 error (5120 p)
+    std::vector<double> f_i_L1_cst_ppc1 = std::vector<double>(n_i.size()-4); //L1 error (16 ppc)
+    std::vector<double> f_i_L1_cst_ppc2 = std::vector<double>(n_i.size()-4); //L1 error (8 ppc)
+    std::vector<double> f_i_L1_cst_hi1 = std::vector<double>(n_p.size()-6); //L1 error (641 n)
+    std::vector<double> f_i_L1_cst_hi2 = std::vector<double>(n_p.size()-6); //L1 error (321 n)
 
-    //run study
+
+    //run studies
     for (int i=0; i<n_i.size(); i++){
-        f_i_L1[i] = driver.get_L1_error(job, n_i[i], n_p_max, 102400, "Linear1DNonUniform");
+        f_i_L1_cst_hp1[i] = driver.get_L1_error(job, n_i[i], 10240, 102400, "Linear1DNonUniform");
+        f_i_L1_cst_hp2[i] = driver.get_L1_error(job, n_i[i], 5120, 102400, "Linear1DNonUniform");
+    }
+    for (int i=0; i<n_i.size()-4; i++){
+        f_i_L1_cst_ppc1[i] = driver.get_L1_error(job, n_i[i], n_p[i+4], 102400, "Linear1DNonUniform");
+        f_i_L1_cst_ppc2[i] = driver.get_L1_error(job, n_i[i], n_p[i+3], 102400, "Linear1DNonUniform");
+    }
+    for (int i=0; i<n_p.size()-6; i++){
+        f_i_L1_cst_hi1[i] = driver.get_L1_error(job, 641, n_p[i+6], 102400, "Linear1DNonUniform");
+        f_i_L1_cst_hi2[i] = driver.get_L1_error(job, 321, n_p[i+5], 102400, "Linear1DNonUniform");
     }
 
     //print results
     std::cout << std::endl;
     std::cout << "N_i Convergence Study" << std::endl;
-    for (int i=0; i<n_p.size(); i++){
-        std::cout << n_i[i] << ", " << n_p_max << ": " << f_i_L1[i] << std::endl;
+    for (int i=0; i<n_i.size(); i++){
+        std::cout << n_i[i] << ", " << 10240 << ": " << f_i_L1_cst_hp1[i] << std::endl;
     }
+
+    std::cout << std::endl;
+    std::cout << "N_i Convergence Study" << std::endl;
+    for (int i=0; i<n_i.size(); i++){
+        std::cout << n_i[i] << ", " << 5120 << ": " << f_i_L1_cst_hp2[i] << std::endl;
+    }
+
+    std::cout << std::endl;
+    std::cout << "Lmpp Convergence Study" << std::endl;
+    for (int i=0; i<n_i.size()-4; i++){
+        std::cout << n_i[i] << ", " << n_p[i+4] << ": " << f_i_L1_cst_ppc1[i] << std::endl;
+    }
+    std::cout << std::endl;
+
+    std::cout << "Lmpp Convergence Study" << std::endl;
+    for (int i=0; i<n_i.size()-4; i++){
+        std::cout << n_i[i] << ", " << n_p[i+3] << ": " << f_i_L1_cst_ppc2[i] << std::endl;
+    }
+    std::cout << std::endl;
+
+    std::cout << "N_p Convergence Study" << std::endl;
+    for (int i=0; i<n_p.size()-6; i++){
+        std::cout << 641 << ", " << n_p[i+6] << ": " << f_i_L1_cst_hi1[i] << std::endl;
+    }
+    std::cout << std::endl;
+
+    std::cout << "N_p Convergence Study" << std::endl;
+    for (int i=0; i<n_p.size()-6; i++){
+        std::cout << 321 << ", " << n_p[i+5] << ": " << f_i_L1_cst_hi1[i] << std::endl;
+    }
+
 
     return;
 }
