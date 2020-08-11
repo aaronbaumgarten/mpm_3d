@@ -552,6 +552,612 @@ namespace FVM_TEST{
             return result;
         }
     };
+
+    class FVMMPMBuoyancyTestDriver : public FiniteVolumeDriver {
+    public:
+        FVMMPMBuoyancyTestDriver(){
+            object_name = "FVMMPMBuoyancyTestDriver"; //set object name here
+        }
+
+        int GRID_DIM;
+        int N_i = 101;
+        int N_e = 100;
+        int N_q = 100000;
+        double rho_s = 1000;
+
+        //functions which must be implemented by every driver
+        void init(Job* job){
+            //force job properties
+            job->t = 0;
+            job->JOB_TYPE = job->JOB_1D;
+
+            GRID_DIM = 1;
+
+            //set simulation ORDER
+            ORDER = 2;
+
+            //set simulation TYPE
+            TYPE = FiniteVolumeDriver::THERMAL;
+
+            //set gravity
+            gravity = KinematicVector(job->JOB_TYPE);
+            gravity.setZero();
+
+            //assign body
+            fluid_body = std::unique_ptr<FiniteVolumeBody>(new FVMDefaultBody);
+            fluid_body->fp64_props = {1.177, 298}; //rho and theta
+
+            //assign material
+            fluid_material = std::unique_ptr<FiniteVolumeMaterial>(new FVMSlurryGasPhase);
+            fluid_material->fp64_props = {1.4, 287.1, 1, 0, rho_s, 1}; //gamma, R, eta, k, solid_rho, grain_diam
+            fluid_material->int_props = {0}; //solid body id (hopefully doesn't cause issue)
+
+            //assign solver
+            solver = std::unique_ptr<FiniteVolumeSolver>(new FVMDefaultSolver);
+
+            //set time step for stability
+            job->dt = 0.001; //< dx*sqrt(rho/kappa)
+            stop_time = 1.0; //seconds
+
+            return;
+        }
+
+        double get_solid_velocity(double x){
+            return 1.0 + 0.5*(x - 0.75)*(x - 0.75);
+        }
+
+        double get_fluid_velocity(double x){
+            return 0.9 - 0.5*(x - 0.25)*(x - 0.25);
+        }
+
+        double get_porosity(double x){
+            return 0.9 - 0.5*x*x;
+        }
+
+        double get_porosity_gradient(double x){
+            return -x;
+        }
+
+        double get_fluid_density(double x){
+            return 1.0 + 10.0*(x - 0.5)*(x - 0.5);
+        }
+
+        double get_pressure(double x){
+            return 100000.0 + 10000.0*(x - 0.6)*(x - 0.6);
+        }
+
+        double get_energy(double x){
+            return get_porosity(x)*get_pressure(x)/(0.4) + 0.5*get_fluid_density(x)*get_fluid_velocity(x)*get_fluid_velocity(x);
+        }
+
+        double get_buoyancy(double x){
+            return get_pressure(x)*get_porosity_gradient(x);
+        }
+
+        void run(Job* job){
+            //do nothing
+            std::vector<double> L1_err = get_L1_errors(job, 10241, 10);
+            return;
+        }
+
+        std::vector<double> get_L1_errors(Job* job, int n_i, int n_e, int n_q = 100000, std::string str_type = "CartesianLinear"){
+
+            //assign grid dimensions
+            N_i = n_i;
+            N_e = n_e;
+            N_q = n_q;
+
+            //set up mpm grid
+            if (str_type == "CartesianCubic"){
+                job->grid = std::unique_ptr<Grid>(new CartesianCubic);
+            } else if (str_type == "Linear1DNonUniform"){
+                job->grid = std::unique_ptr<Grid>(new Linear1DNonUniform);
+            } else {
+                job->grid = std::unique_ptr<Grid>(new CartesianLinear);
+            }
+            job->grid->node_count = N_i;
+            job->grid->GRID_DIM = 1;
+            job->grid->fp64_props = {1.0};
+            job->grid->int_props = {N_i-1};
+
+            //set up mpm body
+            job->bodies.push_back(std::unique_ptr<Body>(new DefaultBody));
+            job->bodies[0]->points = std::unique_ptr<Points>(new DefaultPoints);
+            job->bodies[0]->nodes = std::unique_ptr<Nodes>(new DefaultNodes);
+            job->bodies[0]->nodes->m = Eigen::VectorXd(N_i);
+            job->bodies[0]->nodes->x_t = KinematicVectorArray(N_i, job->JOB_1D);
+
+            //assign grid
+            if (str_type == "Linear1DNonUniform"){
+                fluid_grid = std::unique_ptr<FiniteVolumeGrid>(new FVMLinear1DNonUniform);
+            } else {
+                fluid_grid = std::unique_ptr<FiniteVolumeGrid>(new FVMCartesian);
+            }
+            fluid_grid->fp64_props = {1.0}; //Lx
+            fluid_grid->int_props = {N_e};  //Nx
+            fluid_grid->str_props = {"USE_LOCAL_POROSITY_CORRECTION"};
+
+            if (true){ //N_e < N_i){
+                fluid_grid->fp64_props.push_back(0.1/N_q);
+                fluid_grid->str_props.emplace_back("USE_ENHANCED_M_MATRIX");
+                //fluid_grid->str_props.emplace_back("USE_GAUSS_GREEN");
+            }
+
+            //initialize FVM objects
+            job->grid->init(job);
+            fluid_grid->init(job, this);
+            fluid_material->init(job, this);
+            fluid_body->init(job, this);
+            solver->init(job, this);
+
+            //first check number of elements
+            std::cout << "Number of Elements: " << fluid_grid->element_count << std::endl;
+
+            //check number of nodes
+            std::cout << "Number of Nodes: " << job->grid->node_count << std::endl;
+
+            //assign fluid fields
+            for (int e=0; e<fluid_grid->element_count;e++){
+                //zero out density and energy
+                fluid_body->rho(e) = 0;
+                fluid_body->p[e].setZero();
+                fluid_body->rhoE(e) = 0;
+
+                //integrate average field values
+                for (int q=0; q<fluid_grid->qpe; q++){
+                    fluid_body->rho(e) += fluid_grid->getQuadratureWeight(e*fluid_grid->qpe + q)
+                                          *get_fluid_density(fluid_grid->getQuadraturePosition(job, e*fluid_grid->qpe + q)[0]);
+                    fluid_body->p(e,0) += fluid_grid->getQuadratureWeight(e*fluid_grid->qpe + q)
+                                          *get_fluid_density(fluid_grid->getQuadraturePosition(job, e*fluid_grid->qpe + q)[0])
+                                          *get_fluid_velocity(fluid_grid->getQuadraturePosition(job, e*fluid_grid->qpe + q)[0]);
+                    fluid_body->rhoE(e) += fluid_grid->getQuadratureWeight(e*fluid_grid->qpe + q)
+                                             *get_energy(fluid_grid->getQuadraturePosition(job, e*fluid_grid->qpe + q)[0]);
+                }
+
+                //average per volume
+                fluid_body->rho(e) /= fluid_grid->getElementVolume(e);
+                fluid_body->p(e,0) /= fluid_grid->getElementVolume(e);
+                fluid_body->rhoE(e) /= fluid_grid->getElementVolume(e);
+            }
+
+            //assign solid fields
+            for (int i=0; i<job->grid->node_count; i++){
+                job->bodies[0]->nodes->m(i) = job->grid->nodeVolume(job, i) * rho_s * (1.0 - get_porosity(job->grid->nodeIDToPosition(job,i)[0]));
+                job->bodies[0]->nodes->x_t(i,0) = get_solid_velocity(job->grid->nodeIDToPosition(job,i)[0]);
+            }
+
+            //call grid to reconstruct conserved fields
+            fluid_grid->mapMixturePropertiesToQuadraturePoints(job, this);
+            fluid_grid->constructDensityField(job, this);
+            fluid_grid->constructMomentumField(job, this);
+            fluid_grid->constructEnergyField(job, this);
+            fluid_grid->constructPorosityField(job, this);
+
+            //find and report max pressure
+            double max_pressure = 0;
+            for (int e=0; e<fluid_grid->element_count; e++){
+                if (fluid_material->getPressure(job,
+                                                this,
+                                                fluid_body->rho(e),
+                                                fluid_body->p[e],
+                                                fluid_body->rhoE(e),
+                                                get_porosity(fluid_grid->getElementCentroid(job, e)[0])) > max_pressure){
+                    max_pressure = fluid_material->getPressure(job,
+                                                               this,
+                                                               fluid_body->rho(e),
+                                                               fluid_body->p[e],
+                                                               fluid_body->rhoE(e),
+                                                               get_porosity(fluid_grid->getElementCentroid(job, e)[0]));
+                }
+            }
+            std::cout << "Max Pressure: " << max_pressure << " ?= 103600" << std::endl;
+
+            //find and report max porosity gradient
+            KinematicVectorArray grad_n = KinematicVectorArray(fluid_grid->int_quad_count + fluid_grid->ext_quad_count, job->JOB_TYPE);
+            grad_n = fluid_grid->gradQ.operate(fluid_body->n,MPMScalarSparseMatrix::TRANSPOSED);
+            double max_abs = 0;
+            double max_val = 0;
+            for (int q=0; q<fluid_grid->int_quad_count; q++){
+                if (std::abs(grad_n(q,0)) > max_abs){
+                    max_abs = std::abs(grad_n(q,0));
+                    max_val = grad_n(q,0);
+                }
+            }
+            std::cout << "Max Porosity Gradient: " << max_val << " ?= -1.0" << std::endl;
+
+            //initialize buoyancy output
+            KinematicVectorArray f_b = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+            KinematicVectorArray f_b_e = KinematicVectorArray(fluid_grid->element_count, job->JOB_TYPE);
+
+            //get drag estimate for f_i^drag and F_e^drag
+            fluid_grid->calculateSplitIntegralBuoyantForces(job, this, f_b, f_b_e);
+
+            //remove edge contributions
+            double rho, rhoE, n, P;
+            KinematicVector p = KinematicVector(job->JOB_TYPE);
+            //approximate local density, momentum, and energy
+            rho = fluid_body->rho(0) + fluid_body->rho_x(0,0)*(0.0 - fluid_grid->getElementCentroid(job,0)[0]);
+            rhoE = fluid_body->rhoE(0) + fluid_body->rhoE_x(0,0)*(0.0 - fluid_grid->getElementCentroid(job,0)[0]);
+            p = fluid_body->p[0];
+            p(0) += fluid_body->p_x(0,0,0)*(0.0 - fluid_grid->getElementCentroid(job,0)[0]);
+            n = fluid_body->n_e(0);
+
+            //fill in pressure
+            P = fluid_material->getPressure(job,
+                                            this,
+                                            rho,
+                                            p,
+                                            rhoE,
+                                            n); //n_q(e*qpe + q));
+
+            f_b(0,0) -= (1.0 - get_porosity(0.0))*P / job->grid->nodeVolume(job,0);
+
+            //approximate local density, momentum, and energy
+            rho = fluid_body->rho(N_e-1) + fluid_body->rho_x(N_e-1,0)*(1.0 - fluid_grid->getElementCentroid(job,N_e-1)[0]);
+            rhoE = fluid_body->rhoE(N_e-1) + fluid_body->rhoE_x(N_e-1,0)*(1.0 - fluid_grid->getElementCentroid(job,N_e-1)[0]);
+            p = fluid_body->p[N_e-1];
+            p(0) += fluid_body->p_x(N_e-1,0,0)*(1.0 - fluid_grid->getElementCentroid(job,N_e-1)[0]);
+            n = fluid_body->n_e(N_e-1);
+
+            //fill in pressure
+            P = fluid_material->getPressure(job,
+                                            this,
+                                            rho,
+                                            p,
+                                            rhoE,
+                                            n); //n_q(e*qpe + q));
+
+            f_b(f_b.size()-1,0) += (1.0 - get_porosity(1.0))*P / job->grid->nodeVolume(job,f_b.size()-1);
+
+            double f_b_nodes = 0;
+            double f_b_elements = 0;
+            double c = 0; //for safe summation
+            double y = 0; //for safe summation
+            double t = 0; //for safe summation
+
+            //f_d * V_i = -f_i^drag
+            for (int i=0; i<job->grid->node_count; i++) {
+                f_b_nodes -= f_b(i,0) * job->grid->nodeVolume(job,i);
+                //y = -f_d(i,0) * job->grid->nodeVolume(job,i) - c;
+                //t = f_d_nodes + y;
+                //c = (t - f_d_nodes) - y;
+                //f_d_nodes = t;
+            }
+
+            c = 0;
+            //adjust F_e^drag to integral form
+            for (int e=0; e<fluid_grid->element_count; e++){
+                f_b_elements -= f_b_e(e,0) * fluid_grid->getElementVolume(e);
+                //y = -f_d_e(e,0) * fluid_grid->getElementVolume(e) - c;
+                //t = f_d_elements + y;
+                //c = (t - f_d_elements) - y;
+                //f_d_elements = t;
+            }
+
+            //estimate exact drag with quadrature
+            double W_q = 1.0/N_q;
+            double X_q = W_q/2.0;
+            double f_b_exact = 0;
+            c = 0;
+            for (int q=0; q<N_q; q++){
+                f_b_exact += W_q * get_buoyancy(X_q);
+                //y = W_q * get_drag(X_q) - c;
+                //t = f_d_exact + y;
+                //c = (t - f_d_exact) - y;
+                //f_d_exact = t;
+                X_q += W_q;
+            }
+
+            //save guess
+            double f_b_exact_0 = f_b_exact;
+
+            //recalculate
+            N_q *= 10;
+            W_q = 1.0/N_q;
+            X_q = W_q/2.0;
+            f_b_exact = 0;
+            c = 0;
+            for (int q=0; q<N_q; q++){
+                f_b_exact += W_q * get_buoyancy(X_q);
+                //y = W_q * get_drag(X_q) - c;
+                //t = f_d_exact + y;
+                //c = (t - f_d_exact) - y;
+                //f_d_exact = t;
+                X_q += W_q;
+            }
+
+            //check answer against exact value
+            //int_0^1(f_d) = 9.488652696271 +/- 8e-12
+            //std::cout << "Exact Drag Integral: 9.488652696271" << std::endl;
+            std::cout << "Exact Buoy Integral: " << f_b_exact << " : " << (f_b_exact - f_b_exact_0) << std::endl;
+            std::cout << "Nodal Buoy Integral: " << f_b_nodes << " : " << (f_b_nodes - f_b_exact) << std::endl;
+            std::cout << "Elem. Buoy Integral: " << f_b_elements << " : " << (f_b_elements - f_b_exact) << std::endl;
+
+            //calculate mapping for mpm grid and fvm elements
+            Eigen::VectorXd f_i_mpm = Eigen::VectorXd(job->grid->node_count);
+            f_i_mpm.setZero();
+
+            Eigen::VectorXd f_e_fvm = Eigen::VectorXd(fluid_grid->element_count);
+            f_e_fvm.setZero();
+
+            std::vector<int> nvec(0);
+            KinematicVectorArray gradvec(0,job->JOB_TYPE);
+            KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
+            double p_err = 0;
+            double rho_err = 0;
+            W_q = 1.0/N_q;
+            X_q = W_q/2.0;
+            for (int q=0; q<N_q; q++) {
+                nvec.resize(0);
+                gradvec.resize(0);
+                tmpVec(0) = X_q;
+                job->grid->evaluateBasisFnGradient(job, tmpVec, nvec, gradvec);
+                for (int j = 0; j < nvec.size(); j++) {
+                    f_i_mpm(nvec[j]) += W_q*gradvec(j,0)*(1.0 - fluid_body->n(nvec[j]))*get_pressure(X_q);
+                }
+
+                //get element id
+                int e = fluid_grid->whichElement(job, tmpVec);
+                if (e > -1) {
+                    f_e_fvm(e) -= W_q * get_buoyancy(X_q);
+
+
+                    //approximate local density, momentum, and energy
+                    rho = fluid_body->rho(e) + fluid_body->rho_x(e,0)*(X_q - fluid_grid->getElementCentroid(job,e)[0]);
+                    rhoE = fluid_body->rhoE(e) + fluid_body->rhoE_x(e,0)*(X_q - fluid_grid->getElementCentroid(job,e)[0]);
+                    p = fluid_body->p[e];
+                    p(0) += fluid_body->p_x(e,0,0)*(X_q - fluid_grid->getElementCentroid(job,e)[0]);
+                    n = fluid_body->n_e(e);
+
+                    //fill in pressure
+                    P = fluid_material->getPressure(job,
+                                                    this,
+                                                    rho,
+                                                    p,
+                                                    rhoE,
+                                                    n); //n_q(e*qpe + q));
+
+                    if (std::abs(get_pressure(X_q) - P) > p_err){
+                        p_err = std::abs(get_pressure(X_q) - P);
+                    }
+
+                    if (std::abs(get_fluid_density(X_q)/get_porosity(X_q) - rho/n) > rho_err){
+                        rho_err = std::abs(get_fluid_density(X_q)/get_porosity(X_q) - rho/n);
+                    }
+                }
+
+                X_q += W_q;
+            }
+            std::cout << "Pressure Error: " << p_err << std::endl;
+            std::cout << "Density Error: " << rho_err << std::endl;
+
+            //calculate f_i L1 norm (without edges)
+            double f_i_L1 = 0;
+            for (int i=0; i<job->grid->node_count;i++){
+                f_i_L1 += std::abs(f_i_mpm(i) - f_b(i,0) * job->grid->nodeVolume(job,i));
+                //std::cout << f_i_mpm(i) << " ?= " << f_b(i,0) * job->grid->nodeVolume(job,i) << std::endl;
+            }
+
+            std::cout << "Nodal Drag Error (L1): " << f_i_L1 << std::endl;
+
+
+            //calculate f_e L1 norm
+            double f_e_L1 = 0;
+            for (int e=0; e<fluid_grid->element_count; e++){
+                f_e_L1 += std::abs(f_e_fvm(e) - f_b_e(e,0) * fluid_grid->getElementVolume(e));
+            }
+
+            std::cout << "Elem. Drag Error (L1): " << f_e_L1 << std::endl;
+
+            std::vector<double> result = {f_i_L1, f_e_L1};
+
+            return result;
+        }
+    };
+
+    class FVMMPMPorosityTestDriver : public FiniteVolumeDriver {
+    public:
+        FVMMPMPorosityTestDriver(){
+            object_name = "FVMMPMPorosityTestDriver"; //set object name here
+        }
+
+        int GRID_DIM;
+        int N_i = 101;
+        int N_e = 100;
+        int N_p = 100;
+        int N_q = 100000;
+        double rho_s = 1000;
+
+        //functions which must be implemented by every driver
+        void init(Job* job){
+            //force job properties
+            job->t = 0;
+            job->JOB_TYPE = job->JOB_1D;
+
+            GRID_DIM = 1;
+
+            //set simulation ORDER
+            ORDER = 2;
+
+            //set simulation TYPE
+            TYPE = FiniteVolumeDriver::THERMAL;
+
+            //set gravity
+            gravity = KinematicVector(job->JOB_TYPE);
+            gravity.setZero();
+
+            //assign body
+            fluid_body = std::unique_ptr<FiniteVolumeBody>(new FVMDefaultBody);
+            fluid_body->fp64_props = {1.177, 298}; //rho and theta
+
+            //assign material
+            fluid_material = std::unique_ptr<FiniteVolumeMaterial>(new FVMSlurryGasPhase);
+            fluid_material->fp64_props = {1.4, 287.1, 1, 0, rho_s, 1}; //gamma, R, eta, k, solid_rho, grain_diam
+            fluid_material->int_props = {0}; //solid body id (hopefully doesn't cause issue)
+
+            //assign solver
+            solver = std::unique_ptr<FiniteVolumeSolver>(new FVMDefaultSolver);
+
+            //set time step for stability
+            job->dt = 0.001; //< dx*sqrt(rho/kappa)
+            stop_time = 1.0; //seconds
+
+            return;
+        }
+
+        double get_porosity(double x){
+            return 0.9 - 0.5*x*x;
+        }
+
+        void run(Job* job){
+            //do nothing
+            double L1_err = get_L1_error(job, 10241, 10);
+            return;
+        }
+
+        double get_L1_error(Job* job, int n_i, int n_p, int n_q = 100000, std::string str_type = "CartesianLinear"){
+
+            //assign grid dimensions
+            N_i = n_i;
+            N_e = n_p; //for simplicity, collocate point centroids with FVM cell centers
+            N_p = n_p;
+            N_q = n_q;
+
+            //set up mpm grid
+            if (str_type == "CartesianCubic"){
+                job->grid = std::unique_ptr<Grid>(new CartesianCubic);
+            } else if (str_type == "Linear1DNonUniform"){
+                job->grid = std::unique_ptr<Grid>(new Linear1DNonUniform);
+            } else {
+                job->grid = std::unique_ptr<Grid>(new CartesianLinear);
+            }
+            job->grid->node_count = N_i;
+            job->grid->GRID_DIM = 1;
+            job->grid->fp64_props = {1.0};
+            job->grid->int_props = {N_i-1};
+
+            //set up mpm body
+            job->bodies.push_back(std::unique_ptr<Body>(new DefaultBody));
+            job->bodies[0]->points = std::unique_ptr<Points>(new DefaultPoints);
+            job->bodies[0]->nodes = std::unique_ptr<Nodes>(new DefaultNodes);
+            job->bodies[0]->nodes->m = Eigen::VectorXd(N_i);
+            job->bodies[0]->nodes->x = KinematicVectorArray(N_i, job->JOB_1D);
+            job->bodies[0]->nodes->x_t = KinematicVectorArray(N_i, job->JOB_1D);
+
+            //need to define x, m, v on points
+            job->bodies[0]->points->m = Eigen::VectorXd(N_p);
+            job->bodies[0]->points->v = Eigen::VectorXd(N_p);
+            job->bodies[0]->points->x = KinematicVectorArray(N_p, job->JOB_1D);
+
+            //assign grid
+            fluid_grid = std::unique_ptr<FiniteVolumeGrid>(new FVMLinear1DNonUniform);
+            fluid_grid->fp64_props = {1.0}; //Lx
+            fluid_grid->int_props = {N_e};  //Nx
+
+            //initialize FVM objects
+            job->grid->init(job);
+            fluid_grid->init(job, this);
+            fluid_material->init(job, this);
+            fluid_body->init(job, this);
+            solver->init(job, this);
+
+            //initialize MPM objects
+            job->bodies[0]->init(job);
+
+            //first check number of elements
+            std::cout << "Number of Elements: " << fluid_grid->element_count << std::endl;
+
+            //check number of nodes
+            std::cout << "Number of Nodes: " << job->grid->node_count << std::endl;
+
+            //assign fluid fields
+            for (int e=0; e<fluid_grid->element_count;e++){
+                //zero out density and energy
+                fluid_body->rho(e) = 0;
+                fluid_body->p[e].setZero();
+                fluid_body->rhoE(e) = 0;
+            }
+
+            //assign solid fields
+            for (int i=0; i<job->grid->node_count; i++){
+                job->bodies[0]->nodes->m(i) = job->grid->nodeVolume(job, i) * rho_s * (1.0 - get_porosity(job->grid->nodeIDToPosition(job,i)[0]));
+                job->bodies[0]->nodes->x_t(i,0) = 0.0;
+            }
+            for (int p=0; p<job->bodies[0]->points->x.size(); p++){
+                job->bodies[0]->points->x[p] = fluid_grid->getElementCentroid(job, p); //equivalence b/w points and fluid grid
+                job->bodies[0]->points->v(p) = fluid_grid->getElementVolume(p);
+                job->bodies[0]->points->m(p) = rho_s
+                                               *job->bodies[0]->points->v(p)
+                                               *get_porosity(job->bodies[0]->points->x(p,0));
+            }
+
+            //create mapping matrix \tilde{S}_ip
+            if (str_type == "CartesianCubic"){
+                job->bodies[0]->generateMap(job, DefaultBody::CPDI_OFF);
+            } else {
+                job->bodies[0]->generateMap(job, DefaultBody::CPDI_ON);
+            }
+
+            //call fluid to construct porosity field
+            job->bodies[0]->nodes->m = job->bodies[0]->S*job->bodies[0]->points->m;
+            fluid_material->calculatePorosity(job, this);
+
+            //recalculate N_q (for consistency)
+            N_q *= 10;
+
+            //calculate exact S_ip and A_ij
+            MPMScalarSparseMatrix S = MPMScalarSparseMatrix(N_i,N_p);
+            MPMScalarSparseMatrix A = MPMScalarSparseMatrix(N_i,N_i);
+
+            std::vector<int> nvec(0);
+            std::vector<double> valvec(0);
+            KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
+            double W_q = 1.0/N_q;
+            double X_q = W_q/2.0;
+            for (int q=0; q<N_q; q++) {
+                nvec.resize(0);
+                valvec.resize(0);
+                tmpVec(0) = X_q;
+                job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
+
+                for (int i = 0; i < nvec.size(); i++) {
+                    for (int j = 0; j < nvec.size(); j++) {
+                        A.push_back(nvec[i],nvec[j],W_q*valvec[i]*valvec[j]);
+                    }
+                }
+
+                //get point id
+                int e = fluid_grid->whichElement(job, tmpVec);
+                if (e > -1) {
+                    for (int i=0; i<nvec.size(); i++){
+                        S.push_back(nvec[i],e,W_q*valvec[i]/fluid_grid->getElementVolume(e));
+                    }
+                }
+
+                X_q += W_q;
+            }
+
+            //calculate error
+            Eigen::VectorXd m_j_exact = S*job->bodies[0]->points->m;
+
+            Eigen::VectorXd rho_bar_s = Eigen::VectorXd(job->grid->node_count);
+            for (int i=0; i<job->grid->node_count; i++){
+                rho_bar_s(i) = rho_s * (1.0 - fluid_body->n(i));
+            }
+
+            Eigen::VectorXd m_j_approx = A*rho_bar_s;
+
+            //calculate f_i L1 norm (without edges)
+            double f_i_L1 = 0;
+            for (int i=0; i<job->grid->node_count;i++){
+                f_i_L1 += std::abs(m_j_exact(i) - m_j_approx(i));
+            }
+
+            std::cout << "Nodal Drag Error (L1): " << f_i_L1 << std::endl;
+
+            return f_i_L1;
+        }
+    };
 }
 
 void fvm_test(Job* job){
@@ -632,6 +1238,72 @@ void fvm_mpm_drag_test(Job* job){
     std::cout << "Convergence Study" << std::endl;
     for (int i=0; i<n_i_result.size(); i++){
         std::cout << n_i_result[i] << ", " << n_e_result[i] << ": " << f_i_L1[i] << " : " << f_e_L1[i] << std::endl;
+    }
+
+    return;
+}
+
+void fvm_mpm_buoyancy_test(Job* job){
+    FVM_TEST::FVMMPMBuoyancyTestDriver driver = FVM_TEST::FVMMPMBuoyancyTestDriver();
+    driver.init(job);
+    //driver->run(job);
+    //driver.get_L1_errors(job, 100001, 100000);
+
+    int n_i_max = 10241;
+    int n_e_max = 10240;
+
+    //set up study
+    std::vector<int> n_i = {11,21,41,81,161,321,641,1281,2561,5121,10241};
+    std::vector<int> n_e = {10,20,40,80,160,320,640,1280,2560,5120,10240};
+
+    //set up data containers
+    std::vector<double> f_ie_L1 = std::vector<double>(n_e.size()); //L1 error for f_i vs. n_e
+    std::vector<double> f_ee_L1 = std::vector<double>(n_e.size()); //L1 error for f_e vs. n_e
+
+    //run study
+    std::vector<double> result;
+    for (int i=0; i<n_e.size(); i++){
+        result = driver.get_L1_errors(job, n_i[i], n_e[i], 102400);//, "Linear1DNonUniform");
+        f_ie_L1[i] = result[0];
+        f_ee_L1[i] = result[1];
+    }
+
+    //print results
+    std::cout << std::endl;
+    std::cout << "N_e Convergence Study" << std::endl;
+    for (int i=0; i<n_e.size(); i++){
+        std::cout << n_i[i] << ", " << n_e[i] << ": " << f_ie_L1[i] << " : " << f_ee_L1[i] << std::endl;
+    }
+
+    return;
+}
+
+void fvm_mpm_porosity_test(Job* job){
+    FVM_TEST::FVMMPMPorosityTestDriver driver = FVM_TEST::FVMMPMPorosityTestDriver();
+    driver.init(job);
+    //driver->run(job);
+    //driver.get_L1_errors(job, 100001, 100000);
+
+    int n_i_max = 10241;
+    int n_p_max = 10240;
+
+    //set up study
+    std::vector<int> n_i = {11,21,41,81,161,321,641,1281,2561,5121,10241};
+    std::vector<int> n_p = {10,20,40,80,160,320,640,1280,2560,5120,10240};
+
+    //set up data containers
+    std::vector<double> f_i_L1 = std::vector<double>(n_i.size()); //L1 error
+
+    //run study
+    for (int i=0; i<n_i.size(); i++){
+        f_i_L1[i] = driver.get_L1_error(job, n_i[i], n_p_max, 102400, "Linear1DNonUniform");
+    }
+
+    //print results
+    std::cout << std::endl;
+    std::cout << "N_i Convergence Study" << std::endl;
+    for (int i=0; i<n_p.size(); i++){
+        std::cout << n_i[i] << ", " << n_p_max << ": " << f_i_L1[i] << std::endl;
     }
 
     return;

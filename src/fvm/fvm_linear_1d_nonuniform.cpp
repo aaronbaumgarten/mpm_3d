@@ -526,7 +526,7 @@ void FVMLinear1DNonUniform::init(Job* job, FiniteVolumeDriver* driver){
     std::vector<int> tmp;
     for (int e=0; e<element_count; e++){
         x_e(e,0) = (x_f(e,0) + x_f(e+1,0))/2.0;
-        v_e(e) = (x_f(e,0) - x_f(e+1,0));
+        v_e(e) = (x_f(e+1,0) - x_f(e,0));
     }
 
     //quadrature points
