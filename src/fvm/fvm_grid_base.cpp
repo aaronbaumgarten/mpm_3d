@@ -47,7 +47,8 @@ void FVMGridBase::init(Job* job, FiniteVolumeDriver* driver){
                                         "USE_GAUSS_GREEN",
                                         "USE_LOCAL_POROSITY_CORRECTION",
                                         "USE_DECAYING_DAMPING",
-                                        "USE_ENHANCED_M_MATRIX"};
+                                        "USE_ENHANCED_M_MATRIX",
+                                        "USE_ENHANCED_QUADRATURE"};
     for (int i=0; i<str_props.size(); i++){
         switch (Parser::findStringID(options, str_props[i])){
             case 0:
@@ -88,6 +89,13 @@ void FVMGridBase::init(Job* job, FiniteVolumeDriver* driver){
                 USE_ENHANCED_M_MATRIX = true;
                 hx_enhanced_quad = fp64_props[fp64_props.size()-1];
                 std::cout << "FiniteVolumeGrid using enhanced M matrix calculation." << std::endl;
+                //do not use with USE_CUSTOM_DAMPING flag!!!
+                break;
+            case 7:
+                //USE_ENHANCED_QUADRATURE
+                USE_ENHANCED_QUADRATURE = true;
+                lqpe_enhanced = int_props[int_props.size()-1];
+                std::cout << "FiniteVolumeGrid using enhanced quadrature calculation." << std::endl;
                 //do not use with USE_CUSTOM_DAMPING flag!!!
                 break;
             default:

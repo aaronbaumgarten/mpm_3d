@@ -369,21 +369,26 @@ void FVMMixtureSolver::applyFluxes(Job* job, FiniteVolumeDriver* driver){
     if (driver->TYPE == FiniteVolumeDriver::ISOTHERMAL) {
         //use fluxes to update element-wise average density and momentum (Forward Euler)
         double volume;
+        KinematicVector load;
         for (int e = 0; e < driver->fluid_grid->element_count; e++) {
             volume = driver->fluid_grid->getElementVolume(e);
+            load = driver->getFluidLoading(job, driver->fluid_grid->getElementCentroid(job, e));
             driver->fluid_body->rho(e) += density_fluxes(e) / volume * job->dt;     //d(rho dv)/dt   = flux
             driver->fluid_body->p[e] += momentum_fluxes[e] / volume * job->dt;    //d(rho u dv)/dt = flux
 
             //add gravitational contribution to momentum update
             driver->fluid_body->p[e] += driver->fluid_body->rho(e) * driver->gravity * job->dt;
+            driver->fluid_body->p[e] += load * job->dt;
         }
 
     } else if (driver->TYPE == FiniteVolumeDriver::THERMAL) {
         //add gravity and scale by element volume
         //use fluxes to update element-wise average density and momentum (Forward Euler)
         double volume;
+        KinematicVector load;
         for (int e = 0; e < driver->fluid_grid->element_count; e++) {
             volume = driver->fluid_grid->getElementVolume(e);
+            load = driver->getFluidLoading(job, driver->fluid_grid->getElementCentroid(job, e));
             driver->fluid_body->rho(e) += density_fluxes(e) / volume * job->dt;     //d(rho dv)/dt   = flux
             driver->fluid_body->p[e] += momentum_fluxes[e] / volume * job->dt;    //d(rho u dv)/dt = flux
             driver->fluid_body->rhoE(e) += energy_fluxes(e) / volume * job->dt;
@@ -391,6 +396,10 @@ void FVMMixtureSolver::applyFluxes(Job* job, FiniteVolumeDriver* driver){
             //add gravitational contribution to momentum and energy updates
             driver->fluid_body->p[e] += driver->fluid_body->rho(e) * driver->gravity * job->dt;
             driver->fluid_body->rhoE(e) += driver->gravity.dot(driver->fluid_body->p[e]) * job->dt;
+
+            //add arbitrary loading
+            driver->fluid_body->p[e] += load * job->dt;
+            driver->fluid_body->rhoE(e) += load.dot(driver->fluid_body->p[e])/driver->fluid_body->rho(e) * job->dt;
         }
     } else {
         //shouldn't have another flag...

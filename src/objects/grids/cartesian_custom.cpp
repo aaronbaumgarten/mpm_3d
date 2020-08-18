@@ -331,8 +331,19 @@ void CartesianCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
         }
         for (int i=0;i<GRID_DIM;i++){
             //replace i-direction contribution with sign function
-            tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
+            //tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
+            if (std::abs(rst(i)) > 0){
+                tmpVec(i) = -1.0*rst(i)/std::abs(rst(i)) / hx(i);
+            } else {
+                tmpVec(i) = 0.0;
+            }
+            for (int j=0; j<GRID_DIM; j++){
+                if (j != i){
+                    tmpVec(i) *= (1 - std::abs(rst(j)));
+                }
+            }
         }
+
         for (int i=GRID_DIM;i<tmpVec.size();i++){
             tmpVec(i) = 0;
         }

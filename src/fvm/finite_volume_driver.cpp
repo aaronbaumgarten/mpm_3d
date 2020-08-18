@@ -600,6 +600,16 @@ void FiniteVolumeDriver::run(Job* job) {
 
 /*----------------------------------------------------------------------------*/
 
+KinematicVector FiniteVolumeDriver::getFluidLoading(Job *job, const KinematicVector &x){
+    return KinematicVector(job->JOB_TYPE);
+}
+
+KinematicVector FiniteVolumeDriver::getSolidLoading(Job *job, const KinematicVector &x){
+    return KinematicVector(job->JOB_TYPE);
+}
+
+/*----------------------------------------------------------------------------*/
+
 void FiniteVolumeDriver::generateGravity(Job* job) {
     //nothing to do here
     return;

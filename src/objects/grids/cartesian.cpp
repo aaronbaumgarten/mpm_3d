@@ -330,7 +330,7 @@ void CartesianLinear::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
             if (std::abs(rst(i)) > 0){
                 tmpVec(i) = -1.0*rst(i)/std::abs(rst(i)) / hx(i);
             } else {
-                tmpVec(i) = 1.0 / hx(i);
+                tmpVec(i) = 0.0;
             }
             for (int j=0; j<GRID_DIM; j++){
                 if (j != i){

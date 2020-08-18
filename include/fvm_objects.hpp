@@ -270,6 +270,10 @@ public:
     virtual void generateGravity(Job*);                             //generate gravity
     virtual void applyGravity(Job*);                                //apply gravity
 
+    //new function for returning body forces at specified position in space
+    virtual KinematicVector getFluidLoading(Job *job, const KinematicVector &x);
+    virtual KinematicVector getSolidLoading(Job *job, const KinematicVector &x);
+
     //objects for running finite volume method
     std::unique_ptr<FiniteVolumeSolver> solver;
     std::unique_ptr<FiniteVolumeGrid> fluid_grid;

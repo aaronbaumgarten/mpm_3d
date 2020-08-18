@@ -341,17 +341,21 @@ Eigen::VectorXd FVMMixtureSolverRK4::F(Job* job, FiniteVolumeDriver* driver, con
 
     //add gravity and scale by element volume
     double volume;
+    KinematicVector load;
     for (int e = 0; e < driver->fluid_grid->element_count; e++) {
         volume = driver->fluid_grid->getElementVolume(e);
+        load = driver->getFluidLoading(job, driver->fluid_grid->getElementCentroid(job, e));
         density_fluxes(e) /= volume;
         momentum_fluxes[e] /= volume;
         if (driver->TYPE == driver->THERMAL) {
             energy_fluxes(e) /= volume;
         }
         momentum_fluxes[e] += driver->fluid_body->rho(e) * driver->gravity;
+        momentum_fluxes[e] += load;
         momentum_fluxes[e] -= f_e[e];// / volume;
         if (driver->TYPE == driver->THERMAL) {
             energy_fluxes(e) += driver->gravity.dot(driver->fluid_body->p[e]);
+            energy_fluxes(e) += load.dot(driver->fluid_body->p[e])/driver->fluid_body->rho(e);
         }
     }
 

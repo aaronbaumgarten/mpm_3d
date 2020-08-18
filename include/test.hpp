@@ -15,5 +15,6 @@ void fvm_test(Job*);
 void fvm_mpm_drag_test(Job*);
 void fvm_mpm_buoyancy_test(Job*);
 void fvm_mpm_porosity_test(Job*);
+void fvm_mpm_moms_test(Job*);
 
 #endif //MPM_V3_TEST_HPP

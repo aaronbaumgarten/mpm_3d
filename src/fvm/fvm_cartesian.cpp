@@ -430,7 +430,10 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         face_count = Nx[0] + 1;
 
         //quadrature rule
-        if (driver->ORDER == 1 || USE_REDUCED_QUADRATURE){
+        if (USE_ENHANCED_QUADRATURE) {
+            qpe = lqpe_enhanced;
+            qpf = 1;
+        } else if (driver->ORDER == 1 || USE_REDUCED_QUADRATURE){
             qpe = 1; //quad points per element
             qpf = 1; //quad points per face
         } else if (driver->ORDER == 2){
@@ -441,6 +444,7 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
             qpe = 2;
             qpf = 1;
         }
+
         ext_quad_count = face_count*qpf;
         int_quad_count = element_count*qpe;
 
@@ -504,7 +508,10 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         face_areas = Eigen::VectorXd(face_count);
 
         //quadrature rule
-        if (driver->ORDER == 1 || USE_REDUCED_QUADRATURE){
+        if (USE_ENHANCED_QUADRATURE) {
+            qpe = lqpe_enhanced*lqpe_enhanced;
+            qpf = 2;
+        } else if (driver->ORDER == 1 || USE_REDUCED_QUADRATURE){
             qpe = 1; //quad points per element
             qpf = 1; //quad points per face
         } else if (driver->ORDER == 2){
@@ -634,7 +641,10 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
         face_areas = Eigen::VectorXd(face_count);
 
         //quadrature rule
-        if (driver->ORDER == 1 || USE_REDUCED_QUADRATURE){
+        if (USE_ENHANCED_QUADRATURE) {
+            qpe = lqpe_enhanced*lqpe_enhanced*lqpe_enhanced;
+            qpf = 4;
+        } else if (driver->ORDER == 1 || USE_REDUCED_QUADRATURE){
             qpe = 1; //quad points per element
             qpf = 1; //quad points per face
         } else if (driver->ORDER == 2){
@@ -853,7 +863,30 @@ void FVMCartesian::init(Job* job, FiniteVolumeDriver* driver){
 
     //loop over elements for interior quadrature points
     for (int e=0; e<element_count; e++){
-        if (qpe == 1){
+        if (USE_ENHANCED_QUADRATURE){
+            //quadrature points evenly distributed in cell
+            for (int i=0; i<lqpe_enhanced; i++){
+                if (GRID_DIM == 1){
+                    x_q(e*qpe + i,0) = x_e(e,0) - hx[0]/2.0 + (i + 0.5)*hx[0]/lqpe_enhanced;
+                    w_q(e*qpe + i,0) = v_e(e)/lqpe_enhanced;
+                } else {
+                    for (int j = 0; j < lqpe_enhanced; j++) {
+                        if (GRID_DIM == 2) {
+                            x_q(e*qpe + j*lqpe_enhanced + i,0) = x_e(e,0) - hx[0]/2.0 + (i + 0.5)*hx[0]/lqpe_enhanced;
+                            x_q(e*qpe + j*lqpe_enhanced + i,1) = x_e(e,1) - hx[1]/2.0 + (j + 0.5)*hx[1]/lqpe_enhanced;
+                            w_q(e*qpe + j*lqpe_enhanced + i) = v_e(e) / (lqpe_enhanced*lqpe_enhanced);
+                        } else {
+                            for (int k = 0; k < lqpe_enhanced; k++) {
+                                x_q(e*qpe + k*lqpe_enhanced*lqpe_enhanced + j*lqpe_enhanced + i,0) = x_e(e,0) - hx[0]/2.0 + (i + 0.5)*hx[0]/lqpe_enhanced;
+                                x_q(e*qpe + k*lqpe_enhanced*lqpe_enhanced + j*lqpe_enhanced + i,1) = x_e(e,1) - hx[1]/2.0 + (j + 0.5)*hx[1]/lqpe_enhanced;
+                                x_q(e*qpe + k*lqpe_enhanced*lqpe_enhanced + j*lqpe_enhanced + i,2) = x_e(e,2) - hx[2]/2.0 + (k + 0.5)*hx[2]/lqpe_enhanced;
+                                w_q(e*qpe + k*lqpe_enhanced*lqpe_enhanced + j*lqpe_enhanced + i) = v_e(e) / (lqpe_enhanced*lqpe_enhanced*lqpe_enhanced);
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (qpe == 1){
             //quad point collocated with element centroid
             x_q[e*qpe] = x_e[e];
             w_q(e*qpe) = v_e[e];

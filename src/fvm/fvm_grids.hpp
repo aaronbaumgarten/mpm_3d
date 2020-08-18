@@ -177,6 +177,7 @@ public:
     bool USE_GAUSS_GREEN = false;
     bool USE_LOCAL_POROSITY_CORRECTION = false;
     bool USE_ENHANCED_M_MATRIX = false;
+    bool USE_ENHANCED_QUADRATURE = false;
 
     //instantiate
     std::vector<parallelMemoryUnit> memoryUnits;
@@ -188,6 +189,9 @@ public:
 
     //enhanced m matrix calculation
     double hx_enhanced_quad = 1.0;
+
+    //enhanced quadrature rule
+    int lqpe_enhanced = 2; //linear quadrature points per element for enhanced quadrature rule
 
     //grid definitions
     Eigen::VectorXd face_areas;
