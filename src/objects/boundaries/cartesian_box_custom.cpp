@@ -192,10 +192,10 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                 } else if (limit_props(2*pos) == FRICTIONAL_WALL){
                     bcNodalMask(i,pos) = -2;
                 } else if (limit_props(2*pos) == DRIVEN_VELOCITY && bcNodalMask(i,pos) != 1){
-                    bcNodalMask(i).setOnes();
+                    bcNodalMask(i).setZero();
                     bcNodalMask(i,pos) = -4;
                 } else if (limit_props(2*pos) == DRIVEN_TRACTION && bcNodalMask(i,pos) != 1){
-                    bcNodalMask(i).setOnes();
+                    bcNodalMask(i).setZero();
                     bcNodalMask(i,pos) = -5;
                 } else if (limit_props(2*pos) == DRIVEN_VELOCITY_BOUNDED_TRACTION && bcNodalMask(i,pos) != 1){
                     bcNodalMask(i).setOnes();
@@ -216,10 +216,10 @@ void CartesianBoxCustom::init(Job* job, Body* body){
                 } else if (limit_props(2*pos + 1) == FRICTIONAL_WALL){
                     bcNodalMask(i,pos) = 2;
                 } else if (limit_props(2*pos + 1) == DRIVEN_VELOCITY && bcNodalMask(i,pos) != 1){
-                    bcNodalMask(i).setOnes();
+                    bcNodalMask(i).setZero();
                     bcNodalMask(i,pos) = 4;
                 } else if (limit_props(2*pos + 1) == DRIVEN_TRACTION && bcNodalMask(i,pos) != 1){
-                    bcNodalMask(i).setOnes();
+                    bcNodalMask(i).setZero();
                     bcNodalMask(i,pos) = 5;
                 } else if (limit_props(2*pos + 1) == DRIVEN_VELOCITY_BOUNDED_TRACTION && bcNodalMask(i,pos) != 1){
                     bcNodalMask(i).setOnes();
@@ -349,27 +349,29 @@ void CartesianBoxCustom::applyRules(Job* job, Body* body){
                 //do not add friction
                 delta_momentum(pos) = 0; //-std::max(0.0, body->nodes->mx_t(i,pos) + job->dt * bcNodalForce(i,pos));
                 body->nodes->f(i) = (body->nodes->m(i) * v_set(2*pos) - body->nodes->mx_t(i)) / job->dt;
-                body->nodes->x_t(i,pos) = 0;
-                body->nodes->mx_t(i,pos) = 0;
-                body->nodes->f(i,pos) = 0;
+                //body->nodes->x_t(i,pos) = 0;
+                //body->nodes->mx_t(i,pos) = 0;
+                //body->nodes->f(i,pos) = 0;
                 break;
             } else if (bcNodalMask(i,pos) == 4){
                 //zero out velocity closing velocity
                 //do not add friction
                 delta_momentum(pos) = 0; //-std::max(0.0, body->nodes->mx_t(i,pos) + job->dt * bcNodalForce(i,pos));
                 body->nodes->f(i) = (body->nodes->m(i) * v_set(2*pos + 1) - body->nodes->mx_t(i)) / job->dt;
-                body->nodes->x_t(i,pos) = 0;
-                body->nodes->mx_t(i,pos) = 0;
-                body->nodes->f(i,pos) = 0;
+                //body->nodes->x_t(i,pos) = 0;
+                //body->nodes->mx_t(i,pos) = 0;
+                //body->nodes->f(i,pos) = 0;
                 break;
             } else if (bcNodalMask(i,pos) == -5){
                 //zero out velocity closing velocity
                 //do not add friction
                 delta_momentum(pos) = 0; //-std::max(0.0, body->nodes->mx_t(i,pos) + job->dt * bcNodalForce(i,pos));
+                //std::cout << i << " : " << body->nodes->f(i,0) << std::endl;
                 body->nodes->f(i) += v_set(2*pos)*job->grid->nodeSurfaceArea(job,i)*v_n(i)/job->grid->nodeVolume(job,i);
-                body->nodes->x_t(i,pos) = 0;
-                body->nodes->mx_t(i,pos) = 0;
-                body->nodes->f(i,pos) = 0;
+                //std::cout << "    " << v_set(2*pos,0)*job->grid->nodeSurfaceArea(job,i)*v_n(i)/job->grid->nodeVolume(job,i) << std::endl;
+                //body->nodes->x_t(i,pos) = 0;
+                //body->nodes->mx_t(i,pos) = 0;
+                //body->nodes->f(i,pos) = 0;
 
                 //for NaN entries, assume no-slip
                 for (int k=0; k<v_set.DIM; k++){
@@ -386,9 +388,9 @@ void CartesianBoxCustom::applyRules(Job* job, Body* body){
                 //do not add friction
                 delta_momentum(pos) = 0; //-std::max(0.0, body->nodes->mx_t(i,pos) + job->dt * bcNodalForce(i,pos));
                 body->nodes->f(i) += v_set(2*pos + 1)*job->grid->nodeSurfaceArea(job,i)*v_n(i)/job->grid->nodeVolume(job,i);
-                body->nodes->x_t(i,pos) = 0;
-                body->nodes->mx_t(i,pos) = 0;
-                body->nodes->f(i,pos) = 0;
+                //body->nodes->x_t(i,pos) = 0;
+                //body->nodes->mx_t(i,pos) = 0;
+                //body->nodes->f(i,pos) = 0;
 
                 //for NaN entries, assume no-slip
                 for (int k=0; k<v_set.DIM; k++){

@@ -81,9 +81,12 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
     //map particles to grid
     mapPointsToNodes(job);
 
-    //enforce boundary conditions
-    generateBoundaryConditions(job);
-    addBoundaryConditions(job);
+    //enforce boundary conditions on solid body only
+    f_bc = -job->bodies[solid_body_id]->nodes->f;
+    job->bodies[solid_body_id]->boundary->generateRules(job,job->bodies[solid_body_id].get());
+    job->bodies[solid_body_id]->boundary->applyRules(job,job->bodies[solid_body_id].get());
+    //store difference in forces
+    f_bc += job->bodies[solid_body_id]->nodes->f;
 
     //map mixture properties to finite volumes
     mapMixturePropertiesToElements(job, driver);
@@ -266,6 +269,9 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
         }
     }
 
+    //remove original BC forces from solid body
+    job->bodies[solid_body_id]->nodes->f -= f_bc;
+
     /*----------------------*/
     /*   End FVM-RK4 Step   */
     /*----------------------*/
@@ -295,8 +301,12 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
     updateDensity(job, Material::UPDATE);
 
     //add body forces
-    job->driver->generateGravity(job);
-    job->driver->applyGravity(job);
+    driver->generateGravity(job);
+    driver->applyGravity(job);
+    for (int i=0; i<job->bodies[solid_body_id]->points->b.size(); i++){
+        job->bodies[solid_body_id]->points->b[i] = job->bodies[solid_body_id]->points->v(i)
+                                                   * driver->getSolidLoading(job, job->bodies[solid_body_id]->points->x(i));
+    }
 
     //update stress
     updateStress(job, Material::UPDATE);

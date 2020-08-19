@@ -155,8 +155,12 @@ void FVMMixtureSolver::step(Job* job, FiniteVolumeDriver* driver){
         updateDensity(job);
 
         //add body forces
-        job->driver->generateGravity(job);
-        job->driver->applyGravity(job);
+        driver->generateGravity(job);
+        driver->applyGravity(job);
+        for (int i=0; i<job->bodies[solid_body_id]->points->b.size(); i++){
+            job->bodies[solid_body_id]->points->b[i] = job->bodies[solid_body_id]->points->v(i)
+                                                       * driver->getSolidLoading(job, job->bodies[solid_body_id]->points->x(i));
+        }
 
         //update stress
         updateStress(job);
@@ -281,8 +285,12 @@ void FVMMixtureSolver::step(Job* job, FiniteVolumeDriver* driver){
 
         //add body forces
         clock_gettime(CLOCK_MONOTONIC, &timeStart);
-        job->driver->generateGravity(job);
-        job->driver->applyGravity(job);
+        driver->generateGravity(job);
+        driver->applyGravity(job);
+        for (int i=0; i<job->bodies[solid_body_id]->points->b.size(); i++){
+            job->bodies[solid_body_id]->points->b[i] = job->bodies[solid_body_id]->points->v(i)
+                                                       * driver->getSolidLoading(job, job->bodies[solid_body_id]->points->x(i));
+        }
         clock_gettime(CLOCK_MONOTONIC, &timeStop);
         std::cout << "generate/applyGravity(): " << (timeStop.tv_sec - timeStart.tv_sec) +
                                              (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;

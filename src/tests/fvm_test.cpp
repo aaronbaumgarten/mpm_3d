@@ -1261,7 +1261,7 @@ namespace FVM_TEST{
 
             //assign material
             fluid_material = std::unique_ptr<FiniteVolumeMaterial>(new FVMSlurryGasPhase);
-            fluid_material->fp64_props = {1.4, 287.1, 1, 0, rho_s, 1}; //gamma, R, eta, k, solid_rho, grain_diam
+            fluid_material->fp64_props = {1.4, 2.871, 1, 0, rho_s, 1}; //gamma, R, eta, k, solid_rho, grain_diam
             fluid_material->int_props = {0}; //solid body id (hopefully doesn't cause issue)
 
             //assign solver
@@ -1270,17 +1270,17 @@ namespace FVM_TEST{
 
             //assign serializer
             serializer = std::unique_ptr<FiniteVolumeSerializer>(new FVMDefaultVTK);
-            serializer->fp64_props = {1e-2};
+            serializer->fp64_props = {1e2};
             serializer->str_props = {"output", "output", "test"};
 
             //set time step for stability
-            job->dt = 0.00003; //< dx*sqrt(rho/kappa)
+            job->dt = 3e-5; //< dx*sqrt(rho/kappa)
             stop_time = 1.0; //seconds
 
             //setup serializer
             job->serializer = std::unique_ptr<Serializer>(new DefaultVTK);
-            //job->serializer->fp64_props = {1e-2};
-            //job->serializer->str_props = {"output","output","conv_test"};
+            job->serializer->fp64_props = {1e2};
+            job->serializer->str_props = {"output","output","test"};
 
             return;
         }
@@ -1303,12 +1303,19 @@ namespace FVM_TEST{
             double bar_rho_f = get_porosity(y)*rho_f;
             double n = get_porosity(y);
             //let eta and d be 1.0
-            double Re = (v_s - v_f)*bar_rho_f;
-            return 18*n*(1-n)*(10 * (1-n)/(n*n)
-                               + n*n*(1 + 1.5*std::sqrt(1-n))
-                               + 0.413*Re/(24*n*n)
-                                 * (1/n + 3*n*(1-n) + 8.4*std::pow(Re,-0.343))
-                                 /(1 + std::pow(10,3*(1-n))*std::pow(Re,-0.5*(1+4*(1-n)))))*(v_s-v_f);
+            double Re = std::abs(v_s - v_f)*bar_rho_f;
+            if (Re < 1e-10) {
+                return 18 * n * (1 - n) * (10 * (1 - n) / (n * n)
+                                           + n * n * (1 + 1.5 * std::sqrt(1 - n))) * (v_s - v_f);
+            } else {
+                return 18 * n * (1 - n) * (10 * (1 - n) / (n * n)
+                                           + n * n * (1 + 1.5 * std::sqrt(1 - n))
+                                           + 0.413 * Re / (24 * n * n)
+                                             * (1 / n + 3 * n * (1 - n) + 8.4 * std::pow(Re, -0.343))
+                                             /
+                                             (1 + std::pow(10, 3 * (1 - n)) * std::pow(Re, -0.5 * (1 + 4 * (1 - n))))) *
+                       (v_s - v_f);
+            }
         }
 
         double get_solid_body_force(double y){
@@ -1325,13 +1332,27 @@ namespace FVM_TEST{
             return -f_d + (1.0 - 2.5*phi)*4*M_PI*M_PI*std::sin(2.0*M_PI*y) - 2.5*0.2*y*2*M_PI*std::cos(2.0*M_PI*y);
         }
 
+        KinematicVector getFluidLoading(Job *job, const KinematicVector &x){
+            KinematicVector result = KinematicVector(job->JOB_TYPE);
+            result(0) = get_fluid_body_force(x(1));
+            return result;
+        }
+
+        KinematicVector getSolidLoading(Job *job, const KinematicVector &x){
+            KinematicVector result = KinematicVector(job->JOB_TYPE);
+            result(0) = get_solid_body_force(x(1));
+            return result;
+        }
+
         void run(Job* job){
             //do nothing
-            std::vector<double> L1_err = get_L1_error(job, 101, 100, 100, 1);
+            std::vector<double> L1_err = get_L1_error(job, 11, 10, 10, 1, 1e-5);
             return;
         }
 
-        std::vector<double> get_L1_error(Job* job, int n_i, int n_p, int n_e, int n_q){
+        std::vector<double> get_L1_error(Job* job, int n_i, int n_p, int n_e, int n_q, double dt){
+            //assign job dt
+            job->dt = dt;
 
             //assign grid dimensions
             N_i = n_i;
@@ -1340,7 +1361,7 @@ namespace FVM_TEST{
             N_q = n_q;
 
             //set up mpm grid
-            job->grid = std::unique_ptr<Grid>(new CartesianCustom);
+            job->grid = std::unique_ptr<Grid>(new CartesianCubicCustom);
             job->grid->node_count = N_i*N_i;
             job->grid->GRID_DIM = 2;
             job->grid->fp64_props = {1.0, 1.0};
@@ -1393,19 +1414,22 @@ namespace FVM_TEST{
             job->bodies[0]->nodes = std::unique_ptr<Nodes>(new DefaultNodes);
 
             job->bodies[0]->boundary = std::unique_ptr<Boundary>(new CartesianBoxCustom);
-            job->bodies[0]->boundary->int_props = {3,3,1,1};
+            job->bodies[0]->boundary->int_props = {3,3,5,5};
+            job->bodies[0]->boundary->fp64_props = {mu_1*p_0, p_0, 0, -mu_1*p_0, -p_0, 0};
             job->bodies[0]->activeBoundary = 1;
 
             job->bodies[0]->material = std::unique_ptr<Material>(new Sand_SachithLocal);
-            job->bodies[0]->material->fp64_props = {1e8, 0.3, 1.0, 0.3, rho_s, 0.5*rho_s, 1.0, 1.0};
+            job->bodies[0]->material->fp64_props = {1e6, 0.3, 1.0, 0.3, rho_s, 0.5*rho_s, 1.0, 1.0};
+            job->bodies[0]->activeMaterial = 1;
 
             //assign grid
             fluid_grid = std::unique_ptr<FiniteVolumeGrid>(new FVMCartesian);//(new FVMLinear1DNonUniform);
-            fluid_grid->fp64_props = {1.0, 1.0}; //Lx
-            fluid_grid->int_props = {N_e, N_e};  //Nx
+            fluid_grid->fp64_props = {1.0, 1.0, 0, 0, 0,0,1.177, 0,0,1.177}; //Lx
+            fluid_grid->int_props = {N_e, N_e, 11, 11, 2, 2, N_q};  //Nx
+            fluid_grid->str_props = {"USE_ENHANCED_QUADRATURE","USE_LOCAL_POROSITY_CORRECTION"};
 
             //initialize MPM objects
-            //job->serializer->init(job);
+            job->serializer->init(job);
             job->grid->init(job);
             job->bodies[0]->init(job);
 
@@ -1424,6 +1448,40 @@ namespace FVM_TEST{
 
             //check number of points
             std::cout << "Number of Points: " << job->bodies[0]->points->x.size() << std::endl;
+
+            //set counters to zero
+            int stepCount = 0;
+            int frameCount = 0;
+
+            struct timespec timeStart, timeFrame, timeFinish;
+            clock_gettime(CLOCK_MONOTONIC, &timeStart);
+            timeFrame = timeStart;
+            double tSim = 0;
+            double tFrame = 0;
+
+            //run simulation until stop_time
+            while (job->t <= stop_time){
+                //run solver
+                solver->step(job,this);
+
+                if (job->serializer->writeFrame(job) == 1) {
+                    //call fvm serializer to write frame as well:
+                    serializer->writeFrame(job,this);
+
+                    //successful frame written
+                    clock_gettime(CLOCK_MONOTONIC,&timeFinish);
+                    tFrame = (timeFinish.tv_sec - timeFrame.tv_sec) + (timeFinish.tv_nsec - timeFrame.tv_nsec)/1000000000.0;
+                    tSim = (timeFinish.tv_sec - timeStart.tv_sec) + (timeFinish.tv_nsec - timeStart.tv_nsec)/1000000000.0;
+                    timeFrame = timeFinish;
+                    printf("\33[2K");
+                    std::cout << "Frame Written [" << ++frameCount << "]. Time/Frame [" << tFrame << " s]. Elapsed Time [" << tSim << " s]." << std::flush;
+                }
+                std::cout << "\r";
+                job->t += job->dt;
+            }
+            clock_gettime(CLOCK_MONOTONIC,&timeFinish);
+            tSim = (timeFinish.tv_sec - timeStart.tv_sec) + (timeFinish.tv_nsec - timeStart.tv_nsec)/1000000000.0;
+            std::cout << std::endl << std::endl << "Simulation Complete. Elapsed Time [" << tSim << "s]." << std::endl;
 
             return {0};
         }
@@ -1629,7 +1687,7 @@ void fvm_mpm_moms_test(Job* job) {
     FVM_TEST::FVMMPMMoMSDriver driver = FVM_TEST::FVMMPMMoMSDriver();
     driver.init(job);
     //driver->run(job);
-    driver.get_L1_error(job, 101, 100, 100, 100);
+    driver.get_L1_error(job, 21, 40, 20, 1, 5e-5);
 
     return;
 }

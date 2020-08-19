@@ -204,8 +204,10 @@ void CartesianCustom::hiddenInit(Job* job){
 
             if (ijk(i) == 0 || ijk(i) == Nx(i)){
                 s_n(n) = 1;
-                for (int pos=0;pos<(GRID_DIM-1);pos++){
-                    s_n(n) *= hx(pos);
+                for (int pos=0;pos<GRID_DIM;pos++){
+                    if (pos != i) {
+                        s_n(n) *= hx(pos);
+                    }
                 }
 
                 //approximate adjustment for axisymetric case
@@ -329,6 +331,7 @@ void CartesianCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
             //evaluate at point
             tmp *= (1 - std::abs(rst(i)));
         }
+
         for (int i=0;i<GRID_DIM;i++){
             //replace i-direction contribution with sign function
             //tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
@@ -344,10 +347,11 @@ void CartesianCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
             }
         }
 
-        for (int i=GRID_DIM;i<tmpVec.size();i++){
+        for (int i=GRID_DIM;i<xIN.DIM;i++){
             tmpVec(i) = 0;
         }
-        nID.push_back(nodeIDs(elementID,n));
+
+        nID.push_back(nntoni(nodeIDs(elementID,n)));
         nGRAD.push_back(tmpVec);
         tmp = 1.0;
         tmpVec.setZero();
