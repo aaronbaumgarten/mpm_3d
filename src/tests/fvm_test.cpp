@@ -1272,11 +1272,11 @@ namespace FVM_TEST{
             //assign serializer
             serializer = std::unique_ptr<FiniteVolumeSerializer>(new FVMDefaultVTK);
             serializer->fp64_props = {fps};
-            serializer->str_props = {"output", "output", "test"};
+            serializer->str_props = {"output", "test"};
 
             //set time step for stability
             job->dt = 3e-5; //< dx*sqrt(rho/kappa)
-            stop_time = 25.0; //seconds
+            stop_time = 1.0; //seconds
 
             //setup serializer
             job->serializer = std::unique_ptr<Serializer>(new DefaultVTK);
@@ -1290,17 +1290,17 @@ namespace FVM_TEST{
             return 0.4 - 0.1*y*y;
         }
 
-        double get_solid_velocity(double y){
-            return std::cos(M_PI*y);
+        double get_solid_velocity(double y, double t){
+            return t*t*std::cos(M_PI*y);
         }
 
-        double get_fluid_velocity(double y){
-            return std::sin(2.0*M_PI*y);
+        double get_fluid_velocity(double y, double t){
+            return t*t*std::sin(2.0*M_PI*y);
         }
 
-        double get_drag(double y){
-            double v_s = get_solid_velocity(y);
-            double v_f = get_fluid_velocity(y);
+        double get_drag(double y, double t){
+            double v_s = get_solid_velocity(y,t);
+            double v_f = get_fluid_velocity(y,t);
             double bar_rho_f = get_porosity(y)*rho_f;
             double n = get_porosity(y);
             //let eta and d be 1.0
@@ -1319,44 +1319,45 @@ namespace FVM_TEST{
             }
         }
 
-        double get_solid_body_force(double y){
+        double get_solid_body_force(double y, double t){
             double B = b/d*std::sqrt(p_0/rho_s);
-            double f_d = get_drag(y);
-            return f_d + B*B*(mu_2 - mu_1)/((std::abs(M_PI*std::sin(M_PI*y)) + B)*(std::abs(M_PI*std::sin(M_PI*y)) + B))*
-                                           p_0 * (M_PI*M_PI*std::cos(M_PI*y));
-            //pg 80, nb 7
+            double f_d = get_drag(y,t);
+            double n = get_porosity(y);
+            return rho_s*(1.0 - n)*2*t*std::cos(M_PI*y)
+                   + f_d
+                   + B*B*(mu_2 - mu_1)/((t*t*std::abs(M_PI*std::sin(M_PI*y)) + B)*(t*t*std::abs(M_PI*std::sin(M_PI*y)) + B))*
+                                           p_0 * (t*t*M_PI*M_PI*std::cos(M_PI*y));
+            //pg 82, nb 7
         }
 
-        double get_fluid_body_force(double y){
+        double get_fluid_body_force(double y, double t){
             double phi = 1.0 - get_porosity(y);
-            double f_d = get_drag(y);
-            return -f_d + (1.0 + 2.5*phi)*4*M_PI*M_PI*std::sin(2.0*M_PI*y) - 2.5*0.2*y*2*M_PI*std::cos(2.0*M_PI*y);
-        }
-
-        double get_solid_shear_stress(double y){
-            double B = b/d*std::sqrt(p_0/rho_s);
-            return -(mu_1 + (mu_2 - mu_1)*std::abs(M_PI*std::sin(M_PI*y))/(std::abs(M_PI*std::sin(M_PI*y) + B)))*p_0;
+            double f_d = get_drag(y,t);
+            return rho_f*(1.0 - phi)*2*t*std::sin(2*M_PI*y)
+                   - f_d
+                   + (1.0 + 2.5*phi)*4*M_PI*M_PI*t*t*std::sin(2.0*M_PI*y)
+                   - 2.5*0.2*y*2*M_PI*t*t*std::cos(2.0*M_PI*y);
         }
 
         KinematicVector getFluidLoading(Job *job, const KinematicVector &x){
             KinematicVector result = KinematicVector(job->JOB_TYPE);
-            result(0) = get_fluid_body_force(x(1));
+            result(0) = get_fluid_body_force(x(1), job->t);
             return result;
         }
 
         KinematicVector getSolidLoading(Job *job, const KinematicVector &x){
             KinematicVector result = KinematicVector(job->JOB_TYPE);
-            result(0) = get_solid_body_force(x(1));
+            result(0) = get_solid_body_force(x(1), job->t);
             return result;
         }
 
         void run(Job* job){
             //do nothing
-            std::vector<double> L1_err = get_L1_error(job, 11, 10, 10, 1, 1e-5, 1e-5);
+            std::vector<double> L1_err = get_L1_error(job, 11, 10, 10, 1, 1e-5, "test");
             return;
         }
 
-        std::vector<double> get_L1_error(Job* job, int n_i, int n_p, int n_e, int n_q, double dt, double TOL, int num_threads = 20){
+        std::vector<double> get_L1_error(Job* job, int n_i, int n_p, int n_e, int n_q, double dt, std::string sim_name, int num_threads = 20){
             //assign job dt
             job->dt = dt;
 
@@ -1376,7 +1377,11 @@ namespace FVM_TEST{
             //set up mpm body
             job->bodies.push_back(std::unique_ptr<Body>(new DefaultBody));
             job->activeBodies.push_back(1);
-            job->bodies[0]->name = "sand";
+
+            //assign simulation name
+            job->bodies[0]->name = sim_name; //"sand";
+            solver->str_props = {sim_name};
+            serializer->str_props[1] = sim_name;
 
             job->bodies[0]->points = std::unique_ptr<Points>(new ThreadPoolPoints);
 
@@ -1414,8 +1419,8 @@ namespace FVM_TEST{
                     job->bodies[0]->points->v(i*N_p + j) = 1.0/(N_p*N_p);
                     job->bodies[0]->points->m(i*N_p + j) = rho_s/(N_p*N_p) * (1.0 - get_porosity((j + 0.5)/N_p));
                     job->bodies[0]->points->T(i*N_p + j) -= p_0*MaterialTensor::Identity();
-                    job->bodies[0]->points->T(i*N_p + j,0,1) = get_solid_shear_stress((j + 0.5)/N_p);
-                    job->bodies[0]->points->T(i*N_p + j,1,0) = get_solid_shear_stress((j + 0.5)/N_p);
+                    job->bodies[0]->points->T(i*N_p + j,0,1) = -mu_1*p_0;
+                    job->bodies[0]->points->T(i*N_p + j,1,0) = -mu_1*p_0;
                 }
             }
 
@@ -1461,6 +1466,7 @@ namespace FVM_TEST{
             fluid_body->init(job, this);
 
             //assign velocities near solution values
+            /*
             for (int i=0; i<N_p; i++){
                 for (int j=0; j<N_p; j++){
                     job->bodies[0]->points->x_t(i*N_p + j,0) = get_solid_velocity((j + 0.5)/N_p);
@@ -1472,6 +1478,7 @@ namespace FVM_TEST{
                 fluid_body->p(e,0) = fluid_body->rho(e) * get_fluid_velocity(fluid_grid->getElementCentroid(job,e)[1]);
                 fluid_body->rhoE(e) += 0.5*fluid_body->p(e,0)*fluid_body->p(e,0)/fluid_body->rho(e);
             }
+             */
 
             //first check number of elements
             std::cout << "Number of Elements: " << fluid_grid->element_count << std::endl;
@@ -1491,44 +1498,20 @@ namespace FVM_TEST{
             timeFrame = timeStart;
             double tSim = 0;
             double tFrame = 0;
-            double eSolid, ev_s, deltaEs;
-            double eFluid, ev_f, deltaEf;
+            double eSolid;
+            double eFluid;
             bool converged = false;
-            KinematicVectorArray p0 = fluid_body->p;
-            KinematicVectorArray p1 = fluid_body->p;
             std::vector<double> result = std::vector<double>();
 
-            std::cout << "\n\n\n" << std::flush;
+            std::cout << "\n" << std::flush;
             //run simulation until stop_time
             while (job->t <= stop_time && !converged){
-                //save momentum at beginning of step
-                p0 = fluid_body->p;
 
                 //run solver
                 solver->step(job,this);
 
-                //save momentum at end of step
-                p1 = fluid_body->p;
-
-                //calculate solid and fluid phase error
-                deltaEs = ev_s;
-                ev_s = 0;
-                for (int i=0; i<job->grid->node_count; i++){
-                    if (job->bodies[0]->nodes->m(i) > 1e-10){
-                        ev_s += std::abs(job->bodies[0]->nodes->x_t(i,0)
-                                         - get_solid_velocity(job->bodies[0]->nodes->x(i,1)))
-                                * job->grid->nodeVolume(job,i);
-                    }
-                }
-                deltaEs = std::abs(deltaEs - ev_s);
-                deltaEf = ev_f;
-                ev_f = 0;
-                for (int e=0; e<fluid_grid->element_count; e++){
-                    ev_f += std::abs(fluid_body->p(e,0)/fluid_body->rho(e)
-                                     - get_fluid_velocity(fluid_grid->getElementCentroid(job,e)[1]))
-                            * fluid_grid->getElementVolume(e);
-                }
-                deltaEf = std::abs(deltaEf - ev_f);
+                //increment time
+                job->t += job->dt;
 
                 if (job->serializer->writeFrame(job) == 1) {
                     //call fvm serializer to write frame as well:
@@ -1540,42 +1523,36 @@ namespace FVM_TEST{
                     tSim = (timeFinish.tv_sec - timeStart.tv_sec) + (timeFinish.tv_nsec - timeStart.tv_nsec)/1000000000.0;
                     timeFrame = timeFinish;
 
-                    //calculate solid phase and fluid phase acc.
+                    //calculate solid and fluid phase error
                     eSolid = 0;
                     for (int i=0; i<job->grid->node_count; i++){
-                        if (job->bodies[0]->nodes->m(i) > 1e-10) {
-                            eSolid += job->bodies[0]->nodes->f(i).norm();
+                        if (job->bodies[0]->nodes->m(i) > 1e-10){
+                            eSolid += std::abs(job->bodies[0]->nodes->x_t(i,0)
+                                               - get_solid_velocity(job->bodies[0]->nodes->x(i,1), job->t))
+                                      * job->grid->nodeVolume(job,i);
                         }
                     }
                     eFluid = 0;
                     for (int e=0; e<fluid_grid->element_count; e++){
-                        eFluid += (p1(e) - p0(e)).norm() * fluid_grid->getElementVolume(e) / job->dt;
+                        eFluid += std::abs(fluid_body->p(e,0)/fluid_body->rho(e)
+                                           - get_fluid_velocity(fluid_grid->getElementCentroid(job,e)[1], job->t))
+                                  * fluid_grid->getElementVolume(e);
                     }
 
                     //add chain of errors to output
-                    result.push_back(ev_s);
-                    result.push_back(ev_f);
+                    result.push_back(eFluid);
+                    result.push_back(eSolid);
 
-                    std::cout << "\33[2K" << "\x1b[A" << "\33[2K" << "\x1b[A" << "\33[2K" << "\x1b[A" << "\33[2K" << "\r";
+                    std::cout << "\33[2K" << "\x1b[A" << "\33[2K" << "\r";
                     //printf("\33[2K");
                     std::cout << "Frame Written [" << ++frameCount << "]. Time/Frame [" << tFrame << " s]. Elapsed Time [" << tSim << " s]." << std::endl;
-                    std::cout << "Velocity Change Rate : Solid [" << eSolid/rho_s << "], Fluid [" << eFluid/rho_f << "]" << std::endl;
-                    std::cout << "L1 Velocity Error    : Solid [" << ev_s << "], Fluid [" << ev_f << "]" << std::endl;
-                    std::cout << "Change in Error      : Solid [" << deltaEs/ev_s << "], Fluid [" << deltaEf/ev_f << "]" << std::flush;
-                }
-                job->t += job->dt;
-
-                if (deltaEs < TOL*ev_s && deltaEf < TOL*ev_f){
-                    converged = true;
+                    std::cout << "L1 Velocity Error : Solid [" << eSolid << "], Fluid [" << eFluid << "]" << std::flush;
                 }
             }
             clock_gettime(CLOCK_MONOTONIC,&timeFinish);
             tSim = (timeFinish.tv_sec - timeStart.tv_sec) + (timeFinish.tv_nsec - timeStart.tv_nsec)/1000000000.0;
             std::cout << std::endl << std::endl << "Simulation Complete. Elapsed Time [" << tSim << "s]." << std::endl;
 
-            //add chain of errors to output
-            result.push_back(ev_s);
-            result.push_back(ev_f);
             return result;
         }
     };
@@ -1780,13 +1757,131 @@ void fvm_mpm_moms_test(Job* job) {
     FVM_TEST::FVMMPMMoMSDriver driver = FVM_TEST::FVMMPMMoMSDriver();
     driver.init(job);
     //driver->run(job);
-    double dt = 5e-4;
-    std::vector<double> results = driver.get_L1_error(job, 21, 40, 20, 1, dt, 0.01*dt, 4);
+    //double dt = 1e-4;
+    //std::vector<double> results = driver.get_L1_error(job, 81, 80, 80, 1, dt, "808080", 4);
 
-    //write output to console
-    std::cout << std::endl;
-    for (int i=0; i<results.size()/2; i++){
-        std::cout << results[i*2] << " : " << results[i*2 + 1] << std::endl;
+    //run tests for h_i convergence
+    double dt = 0.05 / 80.0 / 40.0;
+    std::vector<int> N_i = {6, 11, 21, 41, 81};
+    std::vector<int> N_p = {20, 40, 80, 160, 320};
+    std::vector<int> N_e = {80, 80, 80, 80, 80};
+
+    std::vector<double> hi_results = {};
+    std::vector<double> tmp;
+    int len = 0;
+    std::string sim_name;
+    for (int i=0; i<N_i.size(); i++){
+        sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]);
+        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, dt, sim_name);
+        len = tmp.size();
+        for (int ii=0; ii<len; ii++){
+            hi_results.push_back(tmp[ii]);
+        }
+    }
+
+    //run tests for h_e convergence
+    dt = 0.05 / 80.0 / 40.0;
+    N_i = {81, 81, 81, 81, 81};
+    N_p = {320, 320, 320, 320, 320};
+    N_e = {5, 10, 20, 40, 80};
+
+    std::vector<double> he_results = {};
+    for (int i=0; i<N_e.size(); i++){
+        sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]);
+        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], (N_i[i]-1)/N_e[i], dt, sim_name);
+        len = tmp.size();
+        for (int ii=0; ii<len; ii++){
+            he_results.push_back(tmp[ii]);
+        }
+    }
+
+    //run tests for h_p convergence
+    dt = 0.05 / 80.0 / 40.0;
+    N_i = {81, 81, 81, 81, 81};
+    N_p = {40, 80, 160, 240, 320};
+    N_e = {80, 80, 80, 80, 80};
+
+    std::vector<double> hp_results = {};
+    for (int i=0; i<N_p.size(); i++){
+        sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]);
+        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, dt, sim_name);
+        len = tmp.size();
+        for (int ii=0; ii<len; ii++){
+            he_results.push_back(tmp[ii]);
+        }
+    }
+
+    //run tests for h_p convergence
+    dt = 0.05 / 80.0 / 40.0;
+    std::vector<double> Dt = {dt*10, dt*8, dt*4, dt*2, dt};
+    N_i = {81, 81, 81, 81, 81};
+    N_p = {320, 320, 320, 320, 320};
+    N_e = {80, 80, 80, 80, 80};
+
+    std::vector<double> ht_results = {};
+    for (int i=0; i<Dt.size(); i++){
+        sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]);
+        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, Dt[i], sim_name);
+        len = tmp.size();
+        for (int ii=0; ii<len; ii++){
+            ht_results.push_back(tmp[ii]);
+        }
+    }
+
+
+    //print results to console
+    std::cout << "Convergence Study" << std::endl;
+    std::cout << "dt, N_i, N_p, N_e, E_s(0), E_f(0), ..., E_s(1.0), E_f(1.0)" << std::endl;
+    dt = 0.05 / 80.0 / 40.0;
+    N_i = {6, 11, 21, 41, 81};
+    N_p = {20, 40, 80, 160, 320};
+    N_e = {80, 80, 80, 80, 80};
+    for (int i=0; i<N_i.size(); i++){
+        std::cout << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
+        for (int ii=0; ii<len; ii++){
+            std::cout << ", " << hi_results[i*len + ii];
+        }
+        std::cout << std::endl;
+    }
+
+    //print results to console
+    dt = 0.05 / 80.0 / 40.0;
+    N_i = {81, 81, 81, 81, 81};
+    N_p = {320, 320, 320, 320, 320};
+    N_e = {5, 10, 20, 40, 80};
+    for (int i=0; i<N_e.size(); i++){
+        std::cout << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
+        for (int ii=0; ii<len; ii++){
+            std::cout << ", " << he_results[i*len + ii];
+        }
+        std::cout << std::endl;
+    }
+
+    //print results to console
+    dt = 0.05 / 80.0 / 40.0;
+    N_i = {81, 81, 81, 81, 81};
+    N_p = {40, 80, 160, 240, 320};
+    N_e = {80, 80, 80, 80, 80};
+    for (int i=0; i<N_p.size(); i++){
+        std::cout << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
+        for (int ii=0; ii<len; ii++){
+            std::cout << ", " << hp_results[i*len + ii];
+        }
+        std::cout << std::endl;
+    }
+
+    //print results to console
+    dt = 0.05 / 80.0 / 40.0;
+    Dt = {dt*10, dt*8, dt*4, dt*2, dt};
+    N_i = {81, 81, 81, 81, 81};
+    N_p = {320, 320, 320, 320, 320};
+    N_e = {80, 80, 80, 80, 80};
+    for (int i=0; i<Dt.size(); i++){
+        std::cout << Dt[i] << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
+        for (int ii=0; ii<len; ii++){
+            std::cout << ", " << ht_results[i*len + ii];
+        }
+        std::cout << std::endl;
     }
 
     return;
