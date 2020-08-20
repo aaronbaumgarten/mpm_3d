@@ -1229,12 +1229,13 @@ namespace FVM_TEST{
         int N_p = 100;
         int N_q = 1;
         double rho_s = 1000;
-        double rho_f = 1.177;
+        double rho_f = 117.7; //1.177;
         double b = 1.0;
         double p_0 = 1000;
         double mu_1 = 0.3;
         double mu_2 = 1.0;
         double d = 1.0;
+        double fps = 25;
 
         //functions which must be implemented by every driver
         void init(Job* job){
@@ -1270,16 +1271,16 @@ namespace FVM_TEST{
 
             //assign serializer
             serializer = std::unique_ptr<FiniteVolumeSerializer>(new FVMDefaultVTK);
-            serializer->fp64_props = {1e2};
+            serializer->fp64_props = {fps};
             serializer->str_props = {"output", "output", "test"};
 
             //set time step for stability
             job->dt = 3e-5; //< dx*sqrt(rho/kappa)
-            stop_time = 1.0; //seconds
+            stop_time = 25.0; //seconds
 
             //setup serializer
             job->serializer = std::unique_ptr<Serializer>(new DefaultVTK);
-            job->serializer->fp64_props = {1e2};
+            job->serializer->fp64_props = {fps};
             job->serializer->str_props = {"output","output","test"};
 
             return;
@@ -1329,7 +1330,12 @@ namespace FVM_TEST{
         double get_fluid_body_force(double y){
             double phi = 1.0 - get_porosity(y);
             double f_d = get_drag(y);
-            return -f_d + (1.0 - 2.5*phi)*4*M_PI*M_PI*std::sin(2.0*M_PI*y) - 2.5*0.2*y*2*M_PI*std::cos(2.0*M_PI*y);
+            return -f_d + (1.0 + 2.5*phi)*4*M_PI*M_PI*std::sin(2.0*M_PI*y) - 2.5*0.2*y*2*M_PI*std::cos(2.0*M_PI*y);
+        }
+
+        double get_solid_shear_stress(double y){
+            double B = b/d*std::sqrt(p_0/rho_s);
+            return -(mu_1 + (mu_2 - mu_1)*std::abs(M_PI*std::sin(M_PI*y))/(std::abs(M_PI*std::sin(M_PI*y) + B)))*p_0;
         }
 
         KinematicVector getFluidLoading(Job *job, const KinematicVector &x){
@@ -1346,11 +1352,11 @@ namespace FVM_TEST{
 
         void run(Job* job){
             //do nothing
-            std::vector<double> L1_err = get_L1_error(job, 11, 10, 10, 1, 1e-5);
+            std::vector<double> L1_err = get_L1_error(job, 11, 10, 10, 1, 1e-5, 1e-5);
             return;
         }
 
-        std::vector<double> get_L1_error(Job* job, int n_i, int n_p, int n_e, int n_q, double dt){
+        std::vector<double> get_L1_error(Job* job, int n_i, int n_p, int n_e, int n_q, double dt, double TOL, int num_threads = 20){
             //assign job dt
             job->dt = dt;
 
@@ -1361,7 +1367,7 @@ namespace FVM_TEST{
             N_q = n_q;
 
             //set up mpm grid
-            job->grid = std::unique_ptr<Grid>(new CartesianCubicCustom);
+            job->grid = std::unique_ptr<Grid>(new CartesianCustom);
             job->grid->node_count = N_i*N_i;
             job->grid->GRID_DIM = 2;
             job->grid->fp64_props = {1.0, 1.0};
@@ -1372,7 +1378,7 @@ namespace FVM_TEST{
             job->activeBodies.push_back(1);
             job->bodies[0]->name = "sand";
 
-            job->bodies[0]->points = std::unique_ptr<Points>(new DefaultPoints);
+            job->bodies[0]->points = std::unique_ptr<Points>(new ThreadPoolPoints);
 
             int len = N_p*N_p;
             job->bodies[0]->points->x = KinematicVectorArray(len, job->JOB_TYPE);
@@ -1408,6 +1414,8 @@ namespace FVM_TEST{
                     job->bodies[0]->points->v(i*N_p + j) = 1.0/(N_p*N_p);
                     job->bodies[0]->points->m(i*N_p + j) = rho_s/(N_p*N_p) * (1.0 - get_porosity((j + 0.5)/N_p));
                     job->bodies[0]->points->T(i*N_p + j) -= p_0*MaterialTensor::Identity();
+                    job->bodies[0]->points->T(i*N_p + j,0,1) = get_solid_shear_stress((j + 0.5)/N_p);
+                    job->bodies[0]->points->T(i*N_p + j,1,0) = get_solid_shear_stress((j + 0.5)/N_p);
                 }
             }
 
@@ -1424,11 +1432,23 @@ namespace FVM_TEST{
 
             //assign grid
             fluid_grid = std::unique_ptr<FiniteVolumeGrid>(new FVMCartesian);//(new FVMLinear1DNonUniform);
-            fluid_grid->fp64_props = {1.0, 1.0, 0, 0, 0,0,1.177, 0,0,1.177}; //Lx
+            fluid_grid->fp64_props = {1.0, 1.0, 0, 0, 0,0,rho_f, 0,0,rho_f}; //Lx
             fluid_grid->int_props = {N_e, N_e, 11, 11, 2, 2, N_q};  //Nx
             fluid_grid->str_props = {"USE_ENHANCED_QUADRATURE","USE_LOCAL_POROSITY_CORRECTION"};
 
             //initialize MPM objects
+            std::cout << "Job properties (JOB_TYPE = " << job->JOB_TYPE << ", t = " << job->t << ", dt = " << job->dt << ")." << std::endl;
+            job->thread_count = num_threads;
+            if (job->thread_count > 1){
+                std::cout << "Using " << job->thread_count << " threads." << std::endl;
+            }
+            std::cout << "Job Initialized." << std::endl;
+
+            //do not start threadpool if thread_count == 1
+            if (job->thread_count > 1) {
+                job->threadPool = ThreadPool(job->thread_count);
+            }
+
             job->serializer->init(job);
             job->grid->init(job);
             job->bodies[0]->init(job);
@@ -1439,6 +1459,19 @@ namespace FVM_TEST{
             solver->init(job, this);
             fluid_material->init(job, this);
             fluid_body->init(job, this);
+
+            //assign velocities near solution values
+            for (int i=0; i<N_p; i++){
+                for (int j=0; j<N_p; j++){
+                    job->bodies[0]->points->x_t(i*N_p + j,0) = get_solid_velocity((j + 0.5)/N_p);
+                    job->bodies[0]->points->mx_t(i*N_p + j,0) = job->bodies[0]->points->m(i*N_p + j)
+                                                                * job->bodies[0]->points->x_t(i*N_p + j,0);
+                }
+            }
+            for (int e=0; e<fluid_grid->element_count; e++){
+                fluid_body->p(e,0) = fluid_body->rho(e) * get_fluid_velocity(fluid_grid->getElementCentroid(job,e)[1]);
+                fluid_body->rhoE(e) += 0.5*fluid_body->p(e,0)*fluid_body->p(e,0)/fluid_body->rho(e);
+            }
 
             //first check number of elements
             std::cout << "Number of Elements: " << fluid_grid->element_count << std::endl;
@@ -1458,11 +1491,44 @@ namespace FVM_TEST{
             timeFrame = timeStart;
             double tSim = 0;
             double tFrame = 0;
+            double eSolid, ev_s, deltaEs;
+            double eFluid, ev_f, deltaEf;
+            bool converged = false;
+            KinematicVectorArray p0 = fluid_body->p;
+            KinematicVectorArray p1 = fluid_body->p;
+            std::vector<double> result = std::vector<double>();
 
+            std::cout << "\n\n\n" << std::flush;
             //run simulation until stop_time
-            while (job->t <= stop_time){
+            while (job->t <= stop_time && !converged){
+                //save momentum at beginning of step
+                p0 = fluid_body->p;
+
                 //run solver
                 solver->step(job,this);
+
+                //save momentum at end of step
+                p1 = fluid_body->p;
+
+                //calculate solid and fluid phase error
+                deltaEs = ev_s;
+                ev_s = 0;
+                for (int i=0; i<job->grid->node_count; i++){
+                    if (job->bodies[0]->nodes->m(i) > 1e-10){
+                        ev_s += std::abs(job->bodies[0]->nodes->x_t(i,0)
+                                         - get_solid_velocity(job->bodies[0]->nodes->x(i,1)))
+                                * job->grid->nodeVolume(job,i);
+                    }
+                }
+                deltaEs = std::abs(deltaEs - ev_s);
+                deltaEf = ev_f;
+                ev_f = 0;
+                for (int e=0; e<fluid_grid->element_count; e++){
+                    ev_f += std::abs(fluid_body->p(e,0)/fluid_body->rho(e)
+                                     - get_fluid_velocity(fluid_grid->getElementCentroid(job,e)[1]))
+                            * fluid_grid->getElementVolume(e);
+                }
+                deltaEf = std::abs(deltaEf - ev_f);
 
                 if (job->serializer->writeFrame(job) == 1) {
                     //call fvm serializer to write frame as well:
@@ -1473,17 +1539,44 @@ namespace FVM_TEST{
                     tFrame = (timeFinish.tv_sec - timeFrame.tv_sec) + (timeFinish.tv_nsec - timeFrame.tv_nsec)/1000000000.0;
                     tSim = (timeFinish.tv_sec - timeStart.tv_sec) + (timeFinish.tv_nsec - timeStart.tv_nsec)/1000000000.0;
                     timeFrame = timeFinish;
-                    printf("\33[2K");
-                    std::cout << "Frame Written [" << ++frameCount << "]. Time/Frame [" << tFrame << " s]. Elapsed Time [" << tSim << " s]." << std::flush;
+
+                    //calculate solid phase and fluid phase acc.
+                    eSolid = 0;
+                    for (int i=0; i<job->grid->node_count; i++){
+                        if (job->bodies[0]->nodes->m(i) > 1e-10) {
+                            eSolid += job->bodies[0]->nodes->f(i).norm();
+                        }
+                    }
+                    eFluid = 0;
+                    for (int e=0; e<fluid_grid->element_count; e++){
+                        eFluid += (p1(e) - p0(e)).norm() * fluid_grid->getElementVolume(e) / job->dt;
+                    }
+
+                    //add chain of errors to output
+                    result.push_back(ev_s);
+                    result.push_back(ev_f);
+
+                    std::cout << "\33[2K" << "\x1b[A" << "\33[2K" << "\x1b[A" << "\33[2K" << "\x1b[A" << "\33[2K" << "\r";
+                    //printf("\33[2K");
+                    std::cout << "Frame Written [" << ++frameCount << "]. Time/Frame [" << tFrame << " s]. Elapsed Time [" << tSim << " s]." << std::endl;
+                    std::cout << "Velocity Change Rate : Solid [" << eSolid/rho_s << "], Fluid [" << eFluid/rho_f << "]" << std::endl;
+                    std::cout << "L1 Velocity Error    : Solid [" << ev_s << "], Fluid [" << ev_f << "]" << std::endl;
+                    std::cout << "Change in Error      : Solid [" << deltaEs/ev_s << "], Fluid [" << deltaEf/ev_f << "]" << std::flush;
                 }
-                std::cout << "\r";
                 job->t += job->dt;
+
+                if (deltaEs < TOL*ev_s && deltaEf < TOL*ev_f){
+                    converged = true;
+                }
             }
             clock_gettime(CLOCK_MONOTONIC,&timeFinish);
             tSim = (timeFinish.tv_sec - timeStart.tv_sec) + (timeFinish.tv_nsec - timeStart.tv_nsec)/1000000000.0;
             std::cout << std::endl << std::endl << "Simulation Complete. Elapsed Time [" << tSim << "s]." << std::endl;
 
-            return {0};
+            //add chain of errors to output
+            result.push_back(ev_s);
+            result.push_back(ev_f);
+            return result;
         }
     };
 }
@@ -1687,7 +1780,14 @@ void fvm_mpm_moms_test(Job* job) {
     FVM_TEST::FVMMPMMoMSDriver driver = FVM_TEST::FVMMPMMoMSDriver();
     driver.init(job);
     //driver->run(job);
-    driver.get_L1_error(job, 21, 40, 20, 1, 5e-5);
+    double dt = 5e-4;
+    std::vector<double> results = driver.get_L1_error(job, 21, 40, 20, 1, dt, 0.01*dt, 4);
+
+    //write output to console
+    std::cout << std::endl;
+    for (int i=0; i<results.size()/2; i++){
+        std::cout << results[i*2] << " : " << results[i*2 + 1] << std::endl;
+    }
 
     return;
 }
