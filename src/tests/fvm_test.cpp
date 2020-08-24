@@ -1268,6 +1268,7 @@ namespace FVM_TEST{
             //assign solver
             solver = std::unique_ptr<FiniteVolumeSolver>(new FVMMixtureSolverRK4);
             solver->str_props = {"sand"};
+            solver->int_props = {0, 1};
 
             //assign serializer
             serializer = std::unique_ptr<FiniteVolumeSerializer>(new FVMDefaultVTK);
@@ -1290,12 +1291,28 @@ namespace FVM_TEST{
             return 0.4 - 0.1*y*y;
         }
 
+        double get_A(double t){
+            return t*t;
+        }
+
+        double get_dA_dt(double t){
+            return 2*t;
+        }
+
+        double get_C(double t){
+            return t*t;
+        }
+
+        double get_dC_dt(double t){
+            return 2*t;
+        }
+
         double get_solid_velocity(double y, double t){
-            return t*t*std::cos(M_PI*y);
+            return get_A(t)*std::cos(M_PI*y);
         }
 
         double get_fluid_velocity(double y, double t){
-            return t*t*std::sin(2.0*M_PI*y);
+            return get_C(t)*std::sin(2.0*M_PI*y);
         }
 
         double get_drag(double y, double t){
@@ -1323,20 +1340,20 @@ namespace FVM_TEST{
             double B = b/d*std::sqrt(p_0/rho_s);
             double f_d = get_drag(y,t);
             double n = get_porosity(y);
-            return rho_s*(1.0 - n)*2*t*std::cos(M_PI*y)
+            return rho_s*(1.0 - n)*get_dA_dt(t)*std::cos(M_PI*y)
                    + f_d
-                   + B*B*(mu_2 - mu_1)/((t*t*std::abs(M_PI*std::sin(M_PI*y)) + B)*(t*t*std::abs(M_PI*std::sin(M_PI*y)) + B))*
-                                           p_0 * (t*t*M_PI*M_PI*std::cos(M_PI*y));
+                   + B*B*(mu_2 - mu_1)/((get_A(t)*std::abs(M_PI*std::sin(M_PI*y)) + B)*(get_A(t)*std::abs(M_PI*std::sin(M_PI*y)) + B))*
+                                           p_0 * (get_A(t)*M_PI*M_PI*std::cos(M_PI*y));
             //pg 82, nb 7
         }
 
         double get_fluid_body_force(double y, double t){
             double phi = 1.0 - get_porosity(y);
             double f_d = get_drag(y,t);
-            return rho_f*(1.0 - phi)*2*t*std::sin(2*M_PI*y)
+            return rho_f*(1.0 - phi)*get_dC_dt(t)*std::sin(2*M_PI*y)
                    - f_d
-                   + (1.0 + 2.5*phi)*4*M_PI*M_PI*t*t*std::sin(2.0*M_PI*y)
-                   - 2.5*0.2*y*2*M_PI*t*t*std::cos(2.0*M_PI*y);
+                   + (1.0 + 2.5*phi)*4*M_PI*M_PI*get_C(t)*std::sin(2.0*M_PI*y)
+                   - 2.5*0.2*y*2*M_PI*get_C(t)*std::cos(2.0*M_PI*y);
         }
 
         KinematicVector getFluidLoading(Job *job, const KinematicVector &x){
@@ -1368,15 +1385,16 @@ namespace FVM_TEST{
             N_q = n_q;
 
             //set up mpm grid
-            job->grid = std::unique_ptr<Grid>(new CartesianCustom);
+            job->grid = std::unique_ptr<Grid>(new CartesianCubicCustom);
             job->grid->node_count = N_i*N_i;
             job->grid->GRID_DIM = 2;
             job->grid->fp64_props = {1.0, 1.0};
             job->grid->int_props = {(N_i-1), (N_i-1), 1, 0};
 
             //set up mpm body
+            job->bodies.clear();
             job->bodies.push_back(std::unique_ptr<Body>(new DefaultBody));
-            job->activeBodies.push_back(1);
+            job->activeBodies = {1};
 
             //assign simulation name
             job->bodies[0]->name = sim_name; //"sand";
@@ -1552,6 +1570,9 @@ namespace FVM_TEST{
             clock_gettime(CLOCK_MONOTONIC,&timeFinish);
             tSim = (timeFinish.tv_sec - timeStart.tv_sec) + (timeFinish.tv_nsec - timeStart.tv_nsec)/1000000000.0;
             std::cout << std::endl << std::endl << "Simulation Complete. Elapsed Time [" << tSim << "s]." << std::endl;
+
+            //reset job time
+            job->t = 0;
 
             return result;
         }
@@ -1761,10 +1782,10 @@ void fvm_mpm_moms_test(Job* job) {
     //std::vector<double> results = driver.get_L1_error(job, 81, 80, 80, 1, dt, "808080", 4);
 
     //run tests for h_i convergence
-    double dt = 0.05 / 80.0 / 40.0;
-    std::vector<int> N_i = {6, 11, 21, 41, 81};
-    std::vector<int> N_p = {20, 40, 80, 160, 320};
-    std::vector<int> N_e = {80, 80, 80, 80, 80};
+    double dt = 0.05 / 40.0 / 40.0;
+    std::vector<int> N_i = {6, 11, 21, 41};
+    std::vector<int> N_p = {20, 40, 80, 160};
+    std::vector<int> N_e = {40, 40, 40, 40};
 
     std::vector<double> hi_results = {};
     std::vector<double> tmp;
@@ -1772,7 +1793,7 @@ void fvm_mpm_moms_test(Job* job) {
     std::string sim_name;
     for (int i=0; i<N_i.size(); i++){
         sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]);
-        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, dt, sim_name);
+        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, dt, sim_name, 4);
         len = tmp.size();
         for (int ii=0; ii<len; ii++){
             hi_results.push_back(tmp[ii]);
@@ -1780,10 +1801,10 @@ void fvm_mpm_moms_test(Job* job) {
     }
 
     //run tests for h_e convergence
-    dt = 0.05 / 80.0 / 40.0;
-    N_i = {81, 81, 81, 81, 81};
-    N_p = {320, 320, 320, 320, 320};
-    N_e = {5, 10, 20, 40, 80};
+    dt = 0.05 / 40.0 / 40.0;
+    N_i = {41, 41, 41};
+    N_p = {160, 160, 160};
+    N_e = {5, 10, 20};
 
     std::vector<double> he_results = {};
     for (int i=0; i<N_e.size(); i++){
@@ -1796,10 +1817,10 @@ void fvm_mpm_moms_test(Job* job) {
     }
 
     //run tests for h_p convergence
-    dt = 0.05 / 80.0 / 40.0;
-    N_i = {81, 81, 81, 81, 81};
-    N_p = {40, 80, 160, 240, 320};
-    N_e = {80, 80, 80, 80, 80};
+    dt = 0.05 / 40.0 / 40.0;
+    N_i = {41, 41, 41};
+    N_p = {20, 40, 80};
+    N_e = {40, 40, 40};
 
     std::vector<double> hp_results = {};
     for (int i=0; i<N_p.size(); i++){
@@ -1807,16 +1828,16 @@ void fvm_mpm_moms_test(Job* job) {
         tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, dt, sim_name);
         len = tmp.size();
         for (int ii=0; ii<len; ii++){
-            he_results.push_back(tmp[ii]);
+            hp_results.push_back(tmp[ii]);
         }
     }
 
     //run tests for h_p convergence
-    dt = 0.05 / 80.0 / 40.0;
-    std::vector<double> Dt = {dt*10, dt*8, dt*4, dt*2, dt};
-    N_i = {81, 81, 81, 81, 81};
-    N_p = {320, 320, 320, 320, 320};
-    N_e = {80, 80, 80, 80, 80};
+    dt = 0.05 / 40.0 / 40.0;
+    std::vector<double> Dt = {dt*8, dt*4, dt*2};
+    N_i = {41, 41, 41};
+    N_p = {160, 160, 160};
+    N_e = {40, 40, 40};
 
     std::vector<double> ht_results = {};
     for (int i=0; i<Dt.size(); i++){
@@ -1832,10 +1853,10 @@ void fvm_mpm_moms_test(Job* job) {
     //print results to console
     std::cout << "Convergence Study" << std::endl;
     std::cout << "dt, N_i, N_p, N_e, E_s(0), E_f(0), ..., E_s(1.0), E_f(1.0)" << std::endl;
-    dt = 0.05 / 80.0 / 40.0;
-    N_i = {6, 11, 21, 41, 81};
-    N_p = {20, 40, 80, 160, 320};
-    N_e = {80, 80, 80, 80, 80};
+    dt = 0.05 / 40.0 / 40.0;
+    N_i = {6, 11, 21, 41};
+    N_p = {20, 40, 80, 160};
+    N_e = {40, 40, 40, 40};
     for (int i=0; i<N_i.size(); i++){
         std::cout << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
         for (int ii=0; ii<len; ii++){
@@ -1845,10 +1866,10 @@ void fvm_mpm_moms_test(Job* job) {
     }
 
     //print results to console
-    dt = 0.05 / 80.0 / 40.0;
-    N_i = {81, 81, 81, 81, 81};
-    N_p = {320, 320, 320, 320, 320};
-    N_e = {5, 10, 20, 40, 80};
+    dt = 0.05 / 40.0 / 40.0;
+    N_i = {41, 41, 41};
+    N_p = {160, 160, 160};
+    N_e = {5, 10, 20};
     for (int i=0; i<N_e.size(); i++){
         std::cout << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
         for (int ii=0; ii<len; ii++){
@@ -1858,10 +1879,10 @@ void fvm_mpm_moms_test(Job* job) {
     }
 
     //print results to console
-    dt = 0.05 / 80.0 / 40.0;
-    N_i = {81, 81, 81, 81, 81};
-    N_p = {40, 80, 160, 240, 320};
-    N_e = {80, 80, 80, 80, 80};
+    dt = 0.05 / 40.0 / 40.0;
+    N_i = {41, 41, 41};
+    N_p = {20, 40, 80};
+    N_e = {40, 40, 40};
     for (int i=0; i<N_p.size(); i++){
         std::cout << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
         for (int ii=0; ii<len; ii++){
@@ -1871,11 +1892,11 @@ void fvm_mpm_moms_test(Job* job) {
     }
 
     //print results to console
-    dt = 0.05 / 80.0 / 40.0;
-    Dt = {dt*10, dt*8, dt*4, dt*2, dt};
-    N_i = {81, 81, 81, 81, 81};
-    N_p = {320, 320, 320, 320, 320};
-    N_e = {80, 80, 80, 80, 80};
+    dt = 0.05 / 40.0 / 40.0;
+    Dt = {dt*8, dt*4, dt*2};
+    N_i = {41, 41, 41};
+    N_p = {160, 160, 160};
+    N_e = {40, 40, 40};
     for (int i=0; i<Dt.size(); i++){
         std::cout << Dt[i] << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
         for (int ii=0; ii<len; ii++){
