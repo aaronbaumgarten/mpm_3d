@@ -1289,6 +1289,8 @@ namespace FVM_TEST{
         }
 
         double get_porosity(const KinematicVector &x){
+            return 0.4;
+
             KinematicVector tmpX = x;
             tmpX[0] = 2.0*x[0] - 1.0;
             tmpX[1] = 2.0*x[1] - 1.0;
@@ -1296,6 +1298,8 @@ namespace FVM_TEST{
         }
 
         KinematicVector get_dn_dx(Job* job, const KinematicVector &x){
+            return KinematicVector(job->JOB_TYPE);
+
             KinematicVector tmpX = x;
             tmpX[0] = 2.0*x[0] - 1.0;
             tmpX[1] = 2.0*x[1] - 1.0;
@@ -1454,14 +1458,48 @@ namespace FVM_TEST{
         }
 
         double get_fluid_energy_adjustment(Job* job, const KinematicVector &x, double t){
+
+            KinematicVector tmpX = x;
+            tmpX[0] = 2.0*x[0] - 1.0;
+            tmpX[1] = 2.0*x[1] - 1.0;
+
             KinematicVector v_s = get_solid_velocity(job, x, t);
             KinematicVector v_f = get_fluid_velocity(job, x, t);
             double bar_rho_f = get_porosity(x)*rho_f;
             double n = get_porosity(x);
             KinematicVector gradn = get_dn_dx(job, x);
 
+            //+0.5 * v_f * div(\rho v \otimes v)
+            KinematicTensor tmpMat = KinematicTensor(job->JOB_TYPE);
+            KinematicVector tmp = KinematicVector(job->JOB_TYPE);
+            tmp[0] = n * rho_f * 2.0 * 16.0 * get_A(t) * get_A(t)
+                      * tmpX[0] * (tmpX[0]*tmpX[0] - 1) * (tmpX[0]*tmpX[0] - 1) * (tmpX[0]*tmpX[0] - 1)
+                      * (tmpX[1]*tmpX[1]*tmpX[1]*tmpX[1] - 1) * (tmpX[1]*tmpX[1] - 1);
+
+            tmp[1] = n * rho_f * 2.0 * 16.0 * get_A(t) * get_A(t)
+                      * tmpX[1] * (tmpX[1]*tmpX[1] - 1) * (tmpX[1]*tmpX[1] - 1) * (tmpX[1]*tmpX[1] - 1)
+                      * (tmpX[0]*tmpX[0]*tmpX[0]*tmpX[0] - 1) * (tmpX[0]*tmpX[0] - 1);
+
+            tmpMat(0,0) = tmpX[1]*tmpX[1]*(tmpX[0]*tmpX[0] - 1)*(tmpX[0]*tmpX[0] - 1);
+            tmpMat(0,1) = -tmpX[0]*tmpX[1]*(tmpX[0]*tmpX[0] - 1)*(tmpX[1]*tmpX[1] - 1);
+            tmpMat(1,0) = tmpMat(0,1);
+            tmpMat(1,1) = tmpX[0]*tmpX[0]*(tmpX[1]*tmpX[1] - 1)*(tmpX[1]*tmpX[1] - 1);
+            tmpMat *= 16.0 * get_A(t) * get_A(t) * (tmpX[0]*tmpX[0] - 1) * (tmpX[0]*tmpX[0] - 1) * (tmpX[1]*tmpX[1] - 1) * (tmpX[1]*tmpX[1] - 1);
+
+            tmp += rho_f * tmpMat * gradn;
+
             double p_0 = rho_f*R*298.0;
-            return -p_0*gradn.dot(v_s - v_f);
+            return -p_0*gradn.dot(v_s - v_f) + p_0*gradn.dot(v_f)/(0.4) + 0.5*v_f.dot(tmp);
+        }
+
+        double get_fluid_mass_adjustment(Job* job, const KinematicVector &x, double t){
+            KinematicVector v_s = get_solid_velocity(job, x, t);
+            KinematicVector v_f = get_fluid_velocity(job, x, t);
+            double bar_rho_f = get_porosity(x)*rho_f;
+            double n = get_porosity(x);
+            KinematicVector gradn = get_dn_dx(job, x);
+
+            return rho_f*v_f.dot(gradn);
         }
 
         KinematicVector getFluidLoading(Job *job, const KinematicVector &x){
@@ -1604,17 +1642,29 @@ namespace FVM_TEST{
             double eFluid;
             double etmp;
             bool converged = false;
+            bool exploded = false;
             std::vector<double> result = std::vector<double>();
 
             std::cout << "\n" << std::flush;
             //run simulation until stop_time
             while (job->t <= stop_time && !converged){
 
-                //run solver
-                solver->step(job,this);
+                //ensure simulation hasn't nan'd out
+                for (int e=0; e<fluid_grid->element_count; e++){
+                    if (!std::isfinite(fluid_body->p(e).norm())){
+                        exploded = true;
+                        break;
+                    }
+                }
 
-                //add correction to fluid energy
+                //run solver
+                if (!exploded) {
+                    solver->step(job, this);
+                }
+
+                //add correction to fluid density and energy
                 for (int e=0; e<fluid_grid->element_count; e++) {
+                    fluid_body->rho(e) += job->dt * get_fluid_mass_adjustment(job, fluid_grid->getElementCentroid(job, e), job->t);
                     fluid_body->rhoE(e) += job->dt * get_fluid_energy_adjustment(job, fluid_grid->getElementCentroid(job, e), job->t);
                 }
 
@@ -1871,9 +1921,7 @@ void fvm_mpm_moms_test(Job* job) {
     driver.init(job);
     //driver->run(job);
     double dt = 1e-4;
-    std::vector<double> results = driver.get_L1_error(job, 41, 40, 40, 1, dt, "404040", 4);
-
-    return;
+    //std::vector<double> results = driver.get_L1_error(job, 41, 80, 40, 1, dt, "404040", 4);
 
     //run tests for h_i convergence
     //double dt = 0.05 / 40.0 / 40.0;
@@ -1887,7 +1935,7 @@ void fvm_mpm_moms_test(Job* job) {
     std::string sim_name;
     for (int i=0; i<N_i.size(); i++){
         sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]);
-        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, dt, sim_name, 4);
+        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, dt, sim_name, 10);
         len = tmp.size();
         for (int ii=0; ii<len; ii++){
             hi_results.push_back(tmp[ii]);
@@ -1895,7 +1943,7 @@ void fvm_mpm_moms_test(Job* job) {
     }
 
     //run tests for h_e convergence
-    dt = 0.05 / 40.0 / 40.0;
+    //dt = 0.05 / 40.0 / 40.0;
     N_i = {41, 41, 41};
     N_p = {160, 160, 160};
     N_e = {5, 10, 20};
@@ -1903,7 +1951,7 @@ void fvm_mpm_moms_test(Job* job) {
     std::vector<double> he_results = {};
     for (int i=0; i<N_e.size(); i++){
         sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]);
-        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], (N_i[i]-1)/N_e[i], dt, sim_name);
+        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 2*(N_i[i]-1)/N_e[i], dt, sim_name, 10);
         len = tmp.size();
         for (int ii=0; ii<len; ii++){
             he_results.push_back(tmp[ii]);
@@ -1911,7 +1959,7 @@ void fvm_mpm_moms_test(Job* job) {
     }
 
     //run tests for h_p convergence
-    dt = 0.05 / 40.0 / 40.0;
+    //dt = 0.05 / 40.0 / 40.0;
     N_i = {41, 41, 41};
     N_p = {20, 40, 80};
     N_e = {40, 40, 40};
@@ -1919,7 +1967,7 @@ void fvm_mpm_moms_test(Job* job) {
     std::vector<double> hp_results = {};
     for (int i=0; i<N_p.size(); i++){
         sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]);
-        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, dt, sim_name);
+        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, dt, sim_name, 10);
         len = tmp.size();
         for (int ii=0; ii<len; ii++){
             hp_results.push_back(tmp[ii]);
@@ -1927,16 +1975,16 @@ void fvm_mpm_moms_test(Job* job) {
     }
 
     //run tests for h_p convergence
-    dt = 0.05 / 40.0 / 40.0;
-    std::vector<double> Dt = {dt*8, dt*4, dt*2};
-    N_i = {41, 41, 41};
-    N_p = {160, 160, 160};
-    N_e = {40, 40, 40};
+    dt = 1e-5;
+    std::vector<double> Dt = {dt*8, dt*4, dt*2, dt};
+    N_i = {41, 41, 41, 41};
+    N_p = {160, 160, 160, 160};
+    N_e = {40, 40, 40, 41};
 
     std::vector<double> ht_results = {};
     for (int i=0; i<Dt.size(); i++){
         sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]);
-        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, Dt[i], sim_name);
+        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, Dt[i], sim_name, 10);
         len = tmp.size();
         for (int ii=0; ii<len; ii++){
             ht_results.push_back(tmp[ii]);
@@ -1947,7 +1995,7 @@ void fvm_mpm_moms_test(Job* job) {
     //print results to console
     std::cout << "Convergence Study" << std::endl;
     std::cout << "dt, N_i, N_p, N_e, E_s(0), E_f(0), ..., E_s(1.0), E_f(1.0)" << std::endl;
-    dt = 0.05 / 40.0 / 40.0;
+    dt = 1e-4;//0.05 / 40.0 / 40.0;
     N_i = {6, 11, 21, 41};
     N_p = {20, 40, 80, 160};
     N_e = {40, 40, 40, 40};
@@ -1960,7 +2008,7 @@ void fvm_mpm_moms_test(Job* job) {
     }
 
     //print results to console
-    dt = 0.05 / 40.0 / 40.0;
+    dt = 1e-4; //0.05 / 40.0 / 40.0;
     N_i = {41, 41, 41};
     N_p = {160, 160, 160};
     N_e = {5, 10, 20};
@@ -1973,7 +2021,7 @@ void fvm_mpm_moms_test(Job* job) {
     }
 
     //print results to console
-    dt = 0.05 / 40.0 / 40.0;
+    dt = 1e-4; //0.05 / 40.0 / 40.0;
     N_i = {41, 41, 41};
     N_p = {20, 40, 80};
     N_e = {40, 40, 40};
@@ -1986,11 +2034,11 @@ void fvm_mpm_moms_test(Job* job) {
     }
 
     //print results to console
-    dt = 0.05 / 40.0 / 40.0;
-    Dt = {dt*8, dt*4, dt*2};
-    N_i = {41, 41, 41};
-    N_p = {160, 160, 160};
-    N_e = {40, 40, 40};
+    dt = 1e-5;
+    Dt = {dt*8, dt*4, dt*2, dt};
+    N_i = {41, 41, 41, 41};
+    N_p = {160, 160, 160, 160};
+    N_e = {40, 40, 40, 41};
     for (int i=0; i<Dt.size(); i++){
         std::cout << Dt[i] << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
         for (int ii=0; ii<len; ii++){
