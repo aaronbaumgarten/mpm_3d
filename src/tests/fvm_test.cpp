@@ -1230,12 +1230,13 @@ namespace FVM_TEST{
         int N_q = 1;
         double rho_s = 1000;
         double rho_f = 117.7; //1.177;
-        double b = 1.0;
-        double p_0 = 1000;
-        double mu_1 = 0.3;
-        double mu_2 = 1.0;
+        double eta_0 = 1.0;
         double d = 1.0;
-        double fps = 25;
+        double fps = 100;
+        double R = 2.871;
+        double E = 1e6;
+        double nu = 0.3;
+        double G = E / (2.0 * (1.0 + nu));
 
         //functions which must be implemented by every driver
         void init(Job* job){
@@ -1262,13 +1263,13 @@ namespace FVM_TEST{
 
             //assign material
             fluid_material = std::unique_ptr<FiniteVolumeMaterial>(new FVMSlurryGasPhase);
-            fluid_material->fp64_props = {1.4, 2.871, 1, 0, rho_s, 1}; //gamma, R, eta, k, solid_rho, grain_diam
+            fluid_material->fp64_props = {1.4, R, eta_0, 0, rho_s, 1}; //gamma, R, eta, k, solid_rho, grain_diam
             fluid_material->int_props = {0}; //solid body id (hopefully doesn't cause issue)
 
             //assign solver
             solver = std::unique_ptr<FiniteVolumeSolver>(new FVMMixtureSolverRK4);
             solver->str_props = {"sand"};
-            solver->int_props = {0, 1};
+            solver->int_props = {1, 1};
 
             //assign serializer
             serializer = std::unique_ptr<FiniteVolumeSerializer>(new FVMDefaultVTK);
@@ -1287,41 +1288,73 @@ namespace FVM_TEST{
             return;
         }
 
-        double get_porosity(double y){
-            return 0.4 - 0.1*y*y;
+        double get_porosity(const KinematicVector &x){
+            KinematicVector tmpX = x;
+            tmpX[0] = 2.0*x[0] - 1.0;
+            tmpX[1] = 2.0*x[1] - 1.0;
+            return 0.3 + 0.2*(tmpX[0]*tmpX[0] + tmpX[1]*tmpX[1]);
+        }
+
+        KinematicVector get_dn_dx(Job* job, const KinematicVector &x){
+            KinematicVector tmpX = x;
+            tmpX[0] = 2.0*x[0] - 1.0;
+            tmpX[1] = 2.0*x[1] - 1.0;
+            KinematicVector tmp = KinematicVector(job->JOB_TYPE);
+            tmp[0] = 0.8*tmpX[0];
+            tmp[1] = 0.8*tmpX[1];
+            return tmp;
         }
 
         double get_A(double t){
-            return t*t;
+            return -t*t;
         }
 
         double get_dA_dt(double t){
-            return 2*t;
+            return -2*t;
         }
 
-        double get_C(double t){
-            return t*t;
+        double get_B(double t){
+            return 4.0*t*t;
         }
 
-        double get_dC_dt(double t){
-            return 2*t;
+        double get_dB_dt(double t){
+            return 8.0*t;
         }
 
-        double get_solid_velocity(double y, double t){
-            return get_A(t)*std::cos(M_PI*y);
+        double get_int_B(double t){
+            return 4.0*t*t*t/3.0;
         }
 
-        double get_fluid_velocity(double y, double t){
-            return get_C(t)*std::sin(2.0*M_PI*y);
+        KinematicVector get_solid_velocity(Job* job, const KinematicVector &x, double t){
+            KinematicVector tmpX = x;
+            tmpX[0] = 2.0*x[0] - 1.0;
+            tmpX[1] = 2.0*x[1] - 1.0;
+            KinematicVector tmp = KinematicVector(job->JOB_TYPE);
+            double r2 = tmpX[0]*tmpX[0] + tmpX[1]*tmpX[1];
+            if (r2 <= 1.0) {
+                tmp[0] = -tmpX[1] * (r2 - 1) * (r2 - 1);
+                tmp[1] = tmpX[0] * (r2 - 1) * (r2 - 1);
+            }
+            return get_B(t)*tmp;
         }
 
-        double get_drag(double y, double t){
-            double v_s = get_solid_velocity(y,t);
-            double v_f = get_fluid_velocity(y,t);
-            double bar_rho_f = get_porosity(y)*rho_f;
-            double n = get_porosity(y);
+        KinematicVector get_fluid_velocity(Job* job, const KinematicVector &x, double t){
+            KinematicVector tmpX = x;
+            tmpX[0] = 2.0*x[0] - 1.0;
+            tmpX[1] = 2.0*x[1] - 1.0;
+            KinematicVector tmp = KinematicVector(job->JOB_TYPE);
+            tmp[0] = 4 * tmpX[1] * (tmpX[0]*tmpX[0] - 1) * (tmpX[0] * tmpX[0] - 1) * (tmpX[1]*tmpX[1] - 1);
+            tmp[1] = -4 * tmpX[0] * (tmpX[0]*tmpX[0] - 1) * (tmpX[1] * tmpX[1] - 1) * (tmpX[1]*tmpX[1] - 1);
+            return get_A(t)*tmp;
+        }
+
+        KinematicVector get_drag(Job* job, const KinematicVector &x, double t){
+            KinematicVector v_s = get_solid_velocity(job, x, t);
+            KinematicVector v_f = get_fluid_velocity(job, x, t);
+            double bar_rho_f = get_porosity(x)*rho_f;
+            double n = get_porosity(x);
             //let eta and d be 1.0
-            double Re = std::abs(v_s - v_f)*bar_rho_f;
+            double Re = (v_s - v_f).norm()*bar_rho_f;
             if (Re < 1e-10) {
                 return 18 * n * (1 - n) * (10 * (1 - n) / (n * n)
                                            + n * n * (1 + 1.5 * std::sqrt(1 - n))) * (v_s - v_f);
@@ -1336,36 +1369,107 @@ namespace FVM_TEST{
             }
         }
 
-        double get_solid_body_force(double y, double t){
-            double B = b/d*std::sqrt(p_0/rho_s);
-            double f_d = get_drag(y,t);
-            double n = get_porosity(y);
-            return rho_s*(1.0 - n)*get_dA_dt(t)*std::cos(M_PI*y)
-                   + f_d
-                   + B*B*(mu_2 - mu_1)/((get_A(t)*std::abs(M_PI*std::sin(M_PI*y)) + B)*(get_A(t)*std::abs(M_PI*std::sin(M_PI*y)) + B))*
-                                           p_0 * (get_A(t)*M_PI*M_PI*std::cos(M_PI*y));
-            //pg 82, nb 7
+        KinematicVector get_solid_body_force(Job* job, const KinematicVector &x, double t){
+            KinematicVector tmpX = x;
+            tmpX[0] = 2.0*x[0] - 1.0;
+            tmpX[1] = 2.0*x[1] - 1.0;
+
+            KinematicVector f_d = get_drag(job, x, t);
+            double n = get_porosity(x);
+
+            KinematicVector tmp = KinematicVector(job->JOB_TYPE);
+
+            //rho dv/dt
+            double r2 = tmpX[0]*tmpX[0] + tmpX[1]*tmpX[1];
+            if (r2 <= 1.0) {
+                tmp[0] = -(1 - n) * rho_s * get_dB_dt(t) * tmpX[1] * (r2 - 1) * (r2 - 1);
+                tmp[1] = (1 - n) * rho_s * get_dB_dt(t) * tmpX[0] * (r2 - 1) * (r2 - 1);
+            }
+
+            //f_d
+            tmp += f_d;
+
+            //-div(T)
+            double D = get_int_B(t);
+            if (r2 <= 1.0){
+                tmp[0] -= 4.0 * G*(-8.0*D*(3.0*r2 - 2.0)*tmpX[1] - 16.0/3.0 * D * D * (11.0*r2*(r2 - 1)*(r2 - 1.0) + 4.0*r2*(r2 - 1.0))*tmpX[0]);
+                tmp[1] -= 4.0 * G*( 8.0*D*(3.0*r2 - 2.0)*tmpX[0] - 16.0/3.0 * D * D * (11.0*r2*(r2 - 1)*(r2 - 1.0) + 4.0*r2*(r2 - 1.0))*tmpX[1]);
+            }
+
+            return tmp;
+            //pg 99, nb 7
         }
 
-        double get_fluid_body_force(double y, double t){
-            double phi = 1.0 - get_porosity(y);
-            double f_d = get_drag(y,t);
-            return rho_f*(1.0 - phi)*get_dC_dt(t)*std::sin(2*M_PI*y)
-                   - f_d
-                   + (1.0 + 2.5*phi)*4*M_PI*M_PI*get_C(t)*std::sin(2.0*M_PI*y)
-                   - 2.5*0.2*y*2*M_PI*get_C(t)*std::cos(2.0*M_PI*y);
+        KinematicVector get_fluid_body_force(Job* job, const KinematicVector &x, double t){
+            KinematicVector tmpX = x;
+            tmpX[0] = 2.0*x[0] - 1.0;
+            tmpX[1] = 2.0*x[1] - 1.0;
+
+            KinematicVector f_d = get_drag(job, x, t);
+            double n = get_porosity(x);
+
+            KinematicVector tmp = KinematicVector(job->JOB_TYPE);
+
+            //rho dv/dt
+            tmp[0] = n * rho_f * get_dA_dt(t) * 4.0 * (tmpX[0]*tmpX[0] - 1) * (tmpX[0]*tmpX[0] - 1) * tmpX[1] * (tmpX[1]*tmpX[1] - 1);
+            tmp[1] = -n * rho_f * get_dA_dt(t) * 4.0 * tmpX[0] * (tmpX[0]*tmpX[0] - 1) * (tmpX[1]*tmpX[1] - 1) * (tmpX[1]*tmpX[1] - 1);
+
+            //f_d
+            tmp -= f_d;
+
+            //dn/dx
+            KinematicVector gradn = get_dn_dx(job, x);
+
+            //-div(T)
+            tmp[0] -= 4.0 * get_A(t) * eta_0 * (1 + 2.5*(1.0-n)) * (16.0 *(tmpX[1]*tmpX[1] - 1)*tmpX[1]*(3.0*tmpX[0]*tmpX[0] - 1) + 24.0*tmpX[1]*(tmpX[0]*tmpX[0] - 1)*(tmpX[0]*tmpX[0] - 1));
+            tmp[1] -= 4.0 * get_A(t) * eta_0 * (1 + 2.5*(1.0-n)) * (-16.0 *(tmpX[0]*tmpX[0] - 1)*tmpX[0]*(3.0*tmpX[1]*tmpX[1] - 1) - 24.0*tmpX[0]*(tmpX[1]*tmpX[1] - 1)*(tmpX[1]*tmpX[1] - 1));
+
+            KinematicTensor tmpMat = KinematicTensor(job->JOB_TYPE);
+            tmpMat(0,0) = 2.0* 16.0*tmpX[0]*(tmpX[0]*tmpX[0] - 1)*tmpX[1]*(tmpX[1]*tmpX[1]-1);
+            tmpMat(0,1) = 2.0* 2.0 * ((tmpX[0]*tmpX[0] - 1)*(tmpX[0]*tmpX[0] - 1)*(3.0*tmpX[1]*tmpX[1] - 1) - (tmpX[1]*tmpX[1] - 1)*(tmpX[1]*tmpX[1] - 1)*(3.0*tmpX[0]*tmpX[0] - 1));
+            tmpMat(1,0) = tmpMat(0,1);
+            tmpMat(1,1) = -tmpMat(0,0);
+
+            tmp += 5.0/2.0*get_A(t)*2.0*eta_0*tmpMat*gradn;
+
+            //+div(\rho v \otimes v)
+            tmp[0] += n * rho_f * 2.0 * 16.0 * get_A(t) * get_A(t)
+                      * tmpX[0] * (tmpX[0]*tmpX[0] - 1) * (tmpX[0]*tmpX[0] - 1) * (tmpX[0]*tmpX[0] - 1)
+                      * (tmpX[1]*tmpX[1]*tmpX[1]*tmpX[1] - 1) * (tmpX[1]*tmpX[1] - 1);
+
+            tmp[1] += n * rho_f * 2.0 * 16.0 * get_A(t) * get_A(t)
+                      * tmpX[1] * (tmpX[1]*tmpX[1] - 1) * (tmpX[1]*tmpX[1] - 1) * (tmpX[1]*tmpX[1] - 1)
+                      * (tmpX[0]*tmpX[0]*tmpX[0]*tmpX[0] - 1) * (tmpX[0]*tmpX[0] - 1);
+
+            tmpMat(0,0) = tmpX[1]*tmpX[1]*(tmpX[0]*tmpX[0] - 1)*(tmpX[0]*tmpX[0] - 1);
+            tmpMat(0,1) = -tmpX[0]*tmpX[1]*(tmpX[0]*tmpX[0] - 1)*(tmpX[1]*tmpX[1] - 1);
+            tmpMat(1,0) = tmpMat(0,1);
+            tmpMat(1,1) = tmpX[0]*tmpX[0]*(tmpX[1]*tmpX[1] - 1)*(tmpX[1]*tmpX[1] - 1);
+            tmpMat *= 16.0 * get_A(t) * get_A(t) * (tmpX[0]*tmpX[0] - 1) * (tmpX[0]*tmpX[0] - 1) * (tmpX[1]*tmpX[1] - 1) * (tmpX[1]*tmpX[1] - 1);
+
+            tmp += rho_f * tmpMat * gradn;
+
+            return tmp;
+            //pg 99, nb 7
+        }
+
+        double get_fluid_energy_adjustment(Job* job, const KinematicVector &x, double t){
+            KinematicVector v_s = get_solid_velocity(job, x, t);
+            KinematicVector v_f = get_fluid_velocity(job, x, t);
+            double bar_rho_f = get_porosity(x)*rho_f;
+            double n = get_porosity(x);
+            KinematicVector gradn = get_dn_dx(job, x);
+
+            double p_0 = rho_f*R*298.0;
+            return -p_0*gradn.dot(v_s - v_f);
         }
 
         KinematicVector getFluidLoading(Job *job, const KinematicVector &x){
-            KinematicVector result = KinematicVector(job->JOB_TYPE);
-            result(0) = get_fluid_body_force(x(1), job->t);
-            return result;
+            return get_fluid_body_force(job, x, job->t);
         }
 
         KinematicVector getSolidLoading(Job *job, const KinematicVector &x){
-            KinematicVector result = KinematicVector(job->JOB_TYPE);
-            result(0) = get_solid_body_force(x(1), job->t);
-            return result;
+            return get_solid_body_force(job, x, job->t);
         }
 
         void run(Job* job){
@@ -1385,11 +1489,11 @@ namespace FVM_TEST{
             N_q = n_q;
 
             //set up mpm grid
-            job->grid = std::unique_ptr<Grid>(new CartesianCubicCustom);
+            job->grid = std::unique_ptr<Grid>(new CartesianLinear);
             job->grid->node_count = N_i*N_i;
             job->grid->GRID_DIM = 2;
             job->grid->fp64_props = {1.0, 1.0};
-            job->grid->int_props = {(N_i-1), (N_i-1), 1, 0};
+            job->grid->int_props = {(N_i-1), (N_i-1)};
 
             //set up mpm body
             job->bodies.clear();
@@ -1435,28 +1539,23 @@ namespace FVM_TEST{
                     job->bodies[0]->points->x(i*N_p + j,0) = (i + 0.5)/N_p;
                     job->bodies[0]->points->x(i*N_p + j,1) = (j + 0.5)/N_p;
                     job->bodies[0]->points->v(i*N_p + j) = 1.0/(N_p*N_p);
-                    job->bodies[0]->points->m(i*N_p + j) = rho_s/(N_p*N_p) * (1.0 - get_porosity((j + 0.5)/N_p));
-                    job->bodies[0]->points->T(i*N_p + j) -= p_0*MaterialTensor::Identity();
-                    job->bodies[0]->points->T(i*N_p + j,0,1) = -mu_1*p_0;
-                    job->bodies[0]->points->T(i*N_p + j,1,0) = -mu_1*p_0;
+                    job->bodies[0]->points->m(i*N_p + j) = rho_s/(N_p*N_p) * (1.0 - get_porosity(job->bodies[0]->points->x(i*N_p + j)));
                 }
             }
 
             job->bodies[0]->nodes = std::unique_ptr<Nodes>(new DefaultNodes);
 
-            job->bodies[0]->boundary = std::unique_ptr<Boundary>(new CartesianBoxCustom);
-            job->bodies[0]->boundary->int_props = {3,3,5,5};
-            job->bodies[0]->boundary->fp64_props = {mu_1*p_0, p_0, 0, -mu_1*p_0, -p_0, 0};
+            job->bodies[0]->boundary = std::unique_ptr<Boundary>(new CartesianBox);
             job->bodies[0]->activeBoundary = 1;
 
-            job->bodies[0]->material = std::unique_ptr<Material>(new Sand_SachithLocal);
-            job->bodies[0]->material->fp64_props = {1e6, 0.3, 1.0, 0.3, rho_s, 0.5*rho_s, 1.0, 1.0};
+            job->bodies[0]->material = std::unique_ptr<Material>(new CompressibleNeohookeanElasticity);
+            job->bodies[0]->material->fp64_props = {E, nu};
             job->bodies[0]->activeMaterial = 1;
 
             //assign grid
-            fluid_grid = std::unique_ptr<FiniteVolumeGrid>(new FVMCartesian);//(new FVMLinear1DNonUniform);
-            fluid_grid->fp64_props = {1.0, 1.0, 0, 0, 0,0,rho_f, 0,0,rho_f}; //Lx
-            fluid_grid->int_props = {N_e, N_e, 11, 11, 2, 2, N_q};  //Nx
+            fluid_grid = std::unique_ptr<FiniteVolumeGrid>(new FVMCartesian);
+            fluid_grid->fp64_props = {1.0, 1.0, 0, 0, 0, 0}; //Lx
+            fluid_grid->int_props = {N_e, N_e, 6, 6, 6, 6, N_q};  //Nx
             fluid_grid->str_props = {"USE_ENHANCED_QUADRATURE","USE_LOCAL_POROSITY_CORRECTION"};
 
             //initialize MPM objects
@@ -1483,21 +1582,6 @@ namespace FVM_TEST{
             fluid_material->init(job, this);
             fluid_body->init(job, this);
 
-            //assign velocities near solution values
-            /*
-            for (int i=0; i<N_p; i++){
-                for (int j=0; j<N_p; j++){
-                    job->bodies[0]->points->x_t(i*N_p + j,0) = get_solid_velocity((j + 0.5)/N_p);
-                    job->bodies[0]->points->mx_t(i*N_p + j,0) = job->bodies[0]->points->m(i*N_p + j)
-                                                                * job->bodies[0]->points->x_t(i*N_p + j,0);
-                }
-            }
-            for (int e=0; e<fluid_grid->element_count; e++){
-                fluid_body->p(e,0) = fluid_body->rho(e) * get_fluid_velocity(fluid_grid->getElementCentroid(job,e)[1]);
-                fluid_body->rhoE(e) += 0.5*fluid_body->p(e,0)*fluid_body->p(e,0)/fluid_body->rho(e);
-            }
-             */
-
             //first check number of elements
             std::cout << "Number of Elements: " << fluid_grid->element_count << std::endl;
 
@@ -1518,6 +1602,7 @@ namespace FVM_TEST{
             double tFrame = 0;
             double eSolid;
             double eFluid;
+            double etmp;
             bool converged = false;
             std::vector<double> result = std::vector<double>();
 
@@ -1527,6 +1612,11 @@ namespace FVM_TEST{
 
                 //run solver
                 solver->step(job,this);
+
+                //add correction to fluid energy
+                for (int e=0; e<fluid_grid->element_count; e++) {
+                    fluid_body->rhoE(e) += job->dt * get_fluid_energy_adjustment(job, fluid_grid->getElementCentroid(job, e), job->t);
+                }
 
                 //increment time
                 job->t += job->dt;
@@ -1545,17 +1635,19 @@ namespace FVM_TEST{
                     eSolid = 0;
                     for (int i=0; i<job->grid->node_count; i++){
                         if (job->bodies[0]->nodes->m(i) > 1e-10){
-                            eSolid += std::abs(job->bodies[0]->nodes->x_t(i,0)
-                                               - get_solid_velocity(job->bodies[0]->nodes->x(i,1), job->t))
-                                      * job->grid->nodeVolume(job,i);
+                            etmp = (job->bodies[0]->nodes->x_t(i) - get_solid_velocity(job, job->bodies[0]->nodes->x(i), job->t)).norm();
+                            eSolid += etmp*etmp * job->grid->nodeVolume(job,i);
                         }
                     }
                     eFluid = 0;
                     for (int e=0; e<fluid_grid->element_count; e++){
-                        eFluid += std::abs(fluid_body->p(e,0)/fluid_body->rho(e)
-                                           - get_fluid_velocity(fluid_grid->getElementCentroid(job,e)[1], job->t))
-                                  * fluid_grid->getElementVolume(e);
+                        etmp = (fluid_body->p(e)/fluid_body->rho(e) - get_fluid_velocity(job, fluid_grid->getElementCentroid(job,e), job->t)).norm();
+                        eFluid += etmp * etmp * fluid_grid->getElementVolume(e);
                     }
+
+                    //sqrt for L2 norm
+                    eSolid = std::sqrt(eSolid);
+                    eFluid = std::sqrt(eFluid);
 
                     //add chain of errors to output
                     result.push_back(eFluid);
@@ -1564,7 +1656,7 @@ namespace FVM_TEST{
                     std::cout << "\33[2K" << "\x1b[A" << "\33[2K" << "\r";
                     //printf("\33[2K");
                     std::cout << "Frame Written [" << ++frameCount << "]. Time/Frame [" << tFrame << " s]. Elapsed Time [" << tSim << " s]." << std::endl;
-                    std::cout << "L1 Velocity Error : Solid [" << eSolid << "], Fluid [" << eFluid << "]" << std::flush;
+                    std::cout << "L2 Velocity Error : Solid [" << eSolid << "], Fluid [" << eFluid << "]" << std::flush;
                 }
             }
             clock_gettime(CLOCK_MONOTONIC,&timeFinish);
@@ -1778,11 +1870,13 @@ void fvm_mpm_moms_test(Job* job) {
     FVM_TEST::FVMMPMMoMSDriver driver = FVM_TEST::FVMMPMMoMSDriver();
     driver.init(job);
     //driver->run(job);
-    //double dt = 1e-4;
-    //std::vector<double> results = driver.get_L1_error(job, 81, 80, 80, 1, dt, "808080", 4);
+    double dt = 1e-4;
+    std::vector<double> results = driver.get_L1_error(job, 41, 40, 40, 1, dt, "404040", 4);
+
+    return;
 
     //run tests for h_i convergence
-    double dt = 0.05 / 40.0 / 40.0;
+    //double dt = 0.05 / 40.0 / 40.0;
     std::vector<int> N_i = {6, 11, 21, 41};
     std::vector<int> N_p = {20, 40, 80, 160};
     std::vector<int> N_e = {40, 40, 40, 40};

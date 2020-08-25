@@ -63,6 +63,23 @@ public:
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
 };
 
+class CompressibleNeohookeanElasticity : public IsotropicLinearElasticity {
+public:
+    CompressibleNeohookeanElasticity(){
+        object_name = "CompressibleNeohookeanElasticity";
+    }
+
+    //material properties
+    MaterialTensorArray F;
+
+    void init(Job* job, Body* body);
+    void calculateStress(Job* job, Body* body, int SPEC);
+    void assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC);
+    void assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+};
+
 /*----------------------------------------------------------------------------*/
 
 class Sand_SachithLocal : public Material {

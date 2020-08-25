@@ -146,6 +146,7 @@ Registry<Material>::Registry() {
     object["Cornstarch"] = &createInstance<Material,Cornstarch>;
     object["SlurryGranularPhase_wUnderCompaction"] = &createInstance<Material,SlurryGranularPhase_wUnderCompaction>;
     object["Fish"] = &createInstance<Material,Fish>;
+    object["CompressibleNeohookeanElasticity"] = &createInstance<Material,CompressibleNeohookeanElasticity>;
 }
 
 
