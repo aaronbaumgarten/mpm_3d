@@ -1540,6 +1540,7 @@ namespace FVM_TEST{
 
             //assign simulation name
             job->bodies[0]->name = sim_name; //"sand";
+            job->bodies[0]->id = 0;
             solver->str_props = {sim_name};
             serializer->str_props[1] = sim_name;
 
@@ -2046,6 +2047,67 @@ void fvm_mpm_moms_test(Job* job) {
         }
         std::cout << std::endl;
     }
+
+    //save values to file
+    std::ofstream file = std::ofstream();
+    file.open("output/data.txt");
+
+    file << "Convergence Study" << std::endl;
+    file << "dt, N_i, N_p, N_e, E_s(0), E_f(0), ..., E_s(1.0), E_f(1.0)" << std::endl;
+    dt = 1e-4;//0.05 / 40.0 / 40.0;
+    N_i = {6, 11, 21, 41};
+    N_p = {20, 40, 80, 160};
+    N_e = {40, 40, 40, 40};
+    for (int i=0; i<N_i.size(); i++){
+        file << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
+        for (int ii=0; ii<len; ii++){
+            file << ", " << hi_results[i*len + ii];
+        }
+        file << std::endl;
+    }
+
+    //print results to console
+    dt = 1e-4; //0.05 / 40.0 / 40.0;
+    N_i = {41, 41, 41};
+    N_p = {160, 160, 160};
+    N_e = {5, 10, 20};
+    for (int i=0; i<N_e.size(); i++){
+        file << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
+        for (int ii=0; ii<len; ii++){
+            file << ", " << he_results[i*len + ii];
+        }
+        file << std::endl;
+    }
+
+    //print results to console
+    dt = 1e-4; //0.05 / 40.0 / 40.0;
+    N_i = {41, 41, 41};
+    N_p = {20, 40, 80};
+    N_e = {40, 40, 40};
+    for (int i=0; i<N_p.size(); i++){
+        file << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
+        for (int ii=0; ii<len; ii++){
+            file << ", " << hp_results[i*len + ii];
+        }
+        file << std::endl;
+    }
+
+    //print results to console
+    dt = 1e-5;
+    Dt = {dt*8, dt*4, dt*2, dt};
+    N_i = {41, 41, 41, 41};
+    N_p = {160, 160, 160, 160};
+    N_e = {40, 40, 40, 41};
+    for (int i=0; i<Dt.size(); i++){
+        file << Dt[i] << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
+        for (int ii=0; ii<len; ii++){
+            file << ", " << ht_results[i*len + ii];
+        }
+        file << std::endl;
+    }
+
+    file.close();
+
 
     return;
 }
