@@ -78,6 +78,12 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
     //create map
     createMappings(job);
 
+    //add specific body force to points
+    for (int i=0; i<job->bodies[solid_body_id]->points->b.size(); i++){
+        job->bodies[solid_body_id]->points->b[i] = job->bodies[solid_body_id]->points->v(i)/job->bodies[solid_body_id]->points->m(i)
+                                                   * driver->getSolidLoading(job, job->bodies[solid_body_id]->points->x(i));
+    }
+
     //map particles to grid
     mapPointsToNodes(job);
 
@@ -303,11 +309,6 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
     //add body forces
     driver->generateGravity(job);
     driver->applyGravity(job);
-    //add specific body force to points
-    for (int i=0; i<job->bodies[solid_body_id]->points->b.size(); i++){
-        job->bodies[solid_body_id]->points->b[i] = job->bodies[solid_body_id]->points->v(i)/job->bodies[solid_body_id]->points->m(i)
-                                                   * driver->getSolidLoading(job, job->bodies[solid_body_id]->points->x(i));
-    }
 
     //update stress
     updateStress(job, Material::UPDATE);

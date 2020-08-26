@@ -1231,10 +1231,10 @@ namespace FVM_TEST{
         double rho_s = 1000;
         double rho_f = 117.7; //1.177;
         double eta_0 = 1.0;
-        double d = 1.0;
+        double d = 0.1; //1.0;
         double fps = 100;
-        double R = 2.871;
-        double E = 1e6;
+        double R = 2.871e-2;
+        double E = 0.0; //1e4;
         double nu = 0.3;
         double G = E / (2.0 * (1.0 + nu));
 
@@ -1263,7 +1263,7 @@ namespace FVM_TEST{
 
             //assign material
             fluid_material = std::unique_ptr<FiniteVolumeMaterial>(new FVMSlurryGasPhase);
-            fluid_material->fp64_props = {1.4, R, eta_0, 0, rho_s, 1}; //gamma, R, eta, k, solid_rho, grain_diam
+            fluid_material->fp64_props = {1.4, R, eta_0, 0, rho_s, d}; //gamma, R, eta, k, solid_rho, grain_diam
             fluid_material->int_props = {0}; //solid body id (hopefully doesn't cause issue)
 
             //assign solver
@@ -1357,19 +1357,18 @@ namespace FVM_TEST{
             KinematicVector v_f = get_fluid_velocity(job, x, t);
             double bar_rho_f = get_porosity(x)*rho_f;
             double n = get_porosity(x);
-            //let eta and d be 1.0
-            double Re = (v_s - v_f).norm()*bar_rho_f;
+            double Re = d*(v_s - v_f).norm()*bar_rho_f/eta_0;
             if (Re < 1e-10) {
-                return 18 * n * (1 - n) * (10 * (1 - n) / (n * n)
-                                           + n * n * (1 + 1.5 * std::sqrt(1 - n))) * (v_s - v_f);
+                return eta_0 / (d*d) * 18 * n * (1 - n) * (10 * (1 - n) / (n * n)
+                                                           + n * n * (1 + 1.5 * std::sqrt(1 - n)))
+                       * (v_s - v_f);
             } else {
-                return 18 * n * (1 - n) * (10 * (1 - n) / (n * n)
-                                           + n * n * (1 + 1.5 * std::sqrt(1 - n))
-                                           + 0.413 * Re / (24 * n * n)
-                                             * (1 / n + 3 * n * (1 - n) + 8.4 * std::pow(Re, -0.343))
-                                             /
-                                             (1 + std::pow(10, 3 * (1 - n)) * std::pow(Re, -0.5 * (1 + 4 * (1 - n))))) *
-                       (v_s - v_f);
+                return eta_0 / (d*d) * 18 * n * (1 - n) * (10 * (1 - n) / (n * n)
+                                                           + n * n * (1 + 1.5 * std::sqrt(1 - n))
+                                                           + 0.413 * Re / (24 * n * n)
+                                                             * (1 / n + 3 * n * (1 - n) + 8.4 * std::pow(Re, -0.343))
+                                                             / (1 + std::pow(10, 3 * (1 - n)) * std::pow(Re, -0.5 * (1 + 4 * (1 - n)))))
+                       * (v_s - v_f);
             }
         }
 
@@ -1519,6 +1518,9 @@ namespace FVM_TEST{
         std::vector<double> get_L1_error(Job* job, int n_i, int n_p, int n_e, int n_q, double dt, std::string sim_name, int num_threads = 20){
             //assign job dt
             job->dt = dt;
+
+            //reset job time
+            job->t = 0;
 
             //assign grid dimensions
             N_i = n_i;
@@ -1713,9 +1715,6 @@ namespace FVM_TEST{
             clock_gettime(CLOCK_MONOTONIC,&timeFinish);
             tSim = (timeFinish.tv_sec - timeStart.tv_sec) + (timeFinish.tv_nsec - timeStart.tv_nsec)/1000000000.0;
             std::cout << std::endl << std::endl << "Simulation Complete. Elapsed Time [" << tSim << "s]." << std::endl;
-
-            //reset job time
-            job->t = 0;
 
             return result;
         }
@@ -1921,129 +1920,58 @@ void fvm_mpm_moms_test(Job* job) {
     FVM_TEST::FVMMPMMoMSDriver driver = FVM_TEST::FVMMPMMoMSDriver();
     driver.init(job);
     //driver->run(job);
-    double dt = 1e-4;
-    //std::vector<double> results = driver.get_L1_error(job, 41, 80, 40, 1, dt, "404040", 4);
+    //driver.get_L1_error(job, 61, 240, 60, 1, 1e-3, "6124060v2", 4);
+
+    //return;
+
+    /*
+    double dt = 1e-5;
+    std::vector<double> results = driver.get_L1_error(job, 41, 160, 40, 1, dt, "4016040v2", 10);
+
+    //save values to file
+    std::ofstream file2 = std::ofstream();
+    file2.open("output/data_v2.txt");
+
+    //print results to console
+    file2 << 1e-5 << ", " << 41 << ", " << 160 << ", " << 40;
+    for (int ii=0; ii<results.size(); ii++){
+        file2 << ", " << results[ii];
+    }
+    file2 << std::endl;
+
+    file2.close();
+
+    return;
+     */
 
     //run tests for h_i convergence
-    //double dt = 0.05 / 40.0 / 40.0;
-    std::vector<int> N_i = {6, 11, 21, 41};
-    std::vector<int> N_p = {20, 40, 80, 160};
-    std::vector<int> N_e = {40, 40, 40, 40};
+    double dt = 1e-3; //0.05 / 40.0 / 40.0;
+    std::vector<double> Dt = {dt,  dt,   dt,   dt,   dt,   dt,  dt,  dt,  dt,  dt, dt,  dt,  dt/2.0, dt/4.0, dt/8.0, dt/16.0};
+    std::vector<int> N_i =   {5+1, 10+1, 20+1, 30+1, 60+1, 61,  61,  61,  61,  61, 61,  61,  61,     61,     61,     61};
+    std::vector<int> N_p =   {20,  40,   80,   120,  240,  240, 240, 240, 240, 60, 120, 180, 240,    240,    240,    240};
+    std::vector<int> N_e =   {60,  60,   60,   60,   60,   5,   10,  20,  30,  60, 60,  60,  60,     60,     60,     60};
+    std::vector<int> N_q =   { 1,   1,    1,    1,    2,   12,   6,   3,   2,   2,  2,   2,   2,      2,      2,      2};
 
-    std::vector<double> hi_results = {};
+    std::vector<double> results = {};
     std::vector<double> tmp;
     int len = 0;
     std::string sim_name;
     for (int i=0; i<N_i.size(); i++){
-        sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]);
-        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, dt, sim_name, 10);
+        sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]) + std::to_string(Dt[i]);
+        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], N_q[i], dt, sim_name, 10);
         len = tmp.size();
         for (int ii=0; ii<len; ii++){
-            hi_results.push_back(tmp[ii]);
+            results.push_back(tmp[ii]);
         }
     }
-
-    //run tests for h_e convergence
-    //dt = 0.05 / 40.0 / 40.0;
-    N_i = {41, 41, 41};
-    N_p = {160, 160, 160};
-    N_e = {5, 10, 20};
-
-    std::vector<double> he_results = {};
-    for (int i=0; i<N_e.size(); i++){
-        sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]);
-        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 2*(N_i[i]-1)/N_e[i], dt, sim_name, 10);
-        len = tmp.size();
-        for (int ii=0; ii<len; ii++){
-            he_results.push_back(tmp[ii]);
-        }
-    }
-
-    //run tests for h_p convergence
-    //dt = 0.05 / 40.0 / 40.0;
-    N_i = {41, 41, 41};
-    N_p = {20, 40, 80};
-    N_e = {40, 40, 40};
-
-    std::vector<double> hp_results = {};
-    for (int i=0; i<N_p.size(); i++){
-        sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]);
-        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, dt, sim_name, 10);
-        len = tmp.size();
-        for (int ii=0; ii<len; ii++){
-            hp_results.push_back(tmp[ii]);
-        }
-    }
-
-    //run tests for h_p convergence
-    dt = 1e-5;
-    std::vector<double> Dt = {dt*8, dt*4, dt*2, dt};
-    N_i = {41, 41, 41, 41};
-    N_p = {160, 160, 160, 160};
-    N_e = {40, 40, 40, 41};
-
-    std::vector<double> ht_results = {};
-    for (int i=0; i<Dt.size(); i++){
-        sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]);
-        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], 1, Dt[i], sim_name, 10);
-        len = tmp.size();
-        for (int ii=0; ii<len; ii++){
-            ht_results.push_back(tmp[ii]);
-        }
-    }
-
 
     //print results to console
     std::cout << "Convergence Study" << std::endl;
     std::cout << "dt, N_i, N_p, N_e, E_s(0), E_f(0), ..., E_s(1.0), E_f(1.0)" << std::endl;
-    dt = 1e-4;//0.05 / 40.0 / 40.0;
-    N_i = {6, 11, 21, 41};
-    N_p = {20, 40, 80, 160};
-    N_e = {40, 40, 40, 40};
     for (int i=0; i<N_i.size(); i++){
-        std::cout << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
-        for (int ii=0; ii<len; ii++){
-            std::cout << ", " << hi_results[i*len + ii];
-        }
-        std::cout << std::endl;
-    }
-
-    //print results to console
-    dt = 1e-4; //0.05 / 40.0 / 40.0;
-    N_i = {41, 41, 41};
-    N_p = {160, 160, 160};
-    N_e = {5, 10, 20};
-    for (int i=0; i<N_e.size(); i++){
-        std::cout << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
-        for (int ii=0; ii<len; ii++){
-            std::cout << ", " << he_results[i*len + ii];
-        }
-        std::cout << std::endl;
-    }
-
-    //print results to console
-    dt = 1e-4; //0.05 / 40.0 / 40.0;
-    N_i = {41, 41, 41};
-    N_p = {20, 40, 80};
-    N_e = {40, 40, 40};
-    for (int i=0; i<N_p.size(); i++){
-        std::cout << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
-        for (int ii=0; ii<len; ii++){
-            std::cout << ", " << hp_results[i*len + ii];
-        }
-        std::cout << std::endl;
-    }
-
-    //print results to console
-    dt = 1e-5;
-    Dt = {dt*8, dt*4, dt*2, dt};
-    N_i = {41, 41, 41, 41};
-    N_p = {160, 160, 160, 160};
-    N_e = {40, 40, 40, 41};
-    for (int i=0; i<Dt.size(); i++){
         std::cout << Dt[i] << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
         for (int ii=0; ii<len; ii++){
-            std::cout << ", " << ht_results[i*len + ii];
+            std::cout << ", " << results[i*len + ii];
         }
         std::cout << std::endl;
     }
@@ -2054,54 +1982,10 @@ void fvm_mpm_moms_test(Job* job) {
 
     file << "Convergence Study" << std::endl;
     file << "dt, N_i, N_p, N_e, E_s(0), E_f(0), ..., E_s(1.0), E_f(1.0)" << std::endl;
-    dt = 1e-4;//0.05 / 40.0 / 40.0;
-    N_i = {6, 11, 21, 41};
-    N_p = {20, 40, 80, 160};
-    N_e = {40, 40, 40, 40};
     for (int i=0; i<N_i.size(); i++){
-        file << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
-        for (int ii=0; ii<len; ii++){
-            file << ", " << hi_results[i*len + ii];
-        }
-        file << std::endl;
-    }
-
-    //print results to console
-    dt = 1e-4; //0.05 / 40.0 / 40.0;
-    N_i = {41, 41, 41};
-    N_p = {160, 160, 160};
-    N_e = {5, 10, 20};
-    for (int i=0; i<N_e.size(); i++){
-        file << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
-        for (int ii=0; ii<len; ii++){
-            file << ", " << he_results[i*len + ii];
-        }
-        file << std::endl;
-    }
-
-    //print results to console
-    dt = 1e-4; //0.05 / 40.0 / 40.0;
-    N_i = {41, 41, 41};
-    N_p = {20, 40, 80};
-    N_e = {40, 40, 40};
-    for (int i=0; i<N_p.size(); i++){
-        file << dt << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
-        for (int ii=0; ii<len; ii++){
-            file << ", " << hp_results[i*len + ii];
-        }
-        file << std::endl;
-    }
-
-    //print results to console
-    dt = 1e-5;
-    Dt = {dt*8, dt*4, dt*2, dt};
-    N_i = {41, 41, 41, 41};
-    N_p = {160, 160, 160, 160};
-    N_e = {40, 40, 40, 41};
-    for (int i=0; i<Dt.size(); i++){
         file << Dt[i] << ", " << N_i[i] << ", " << N_p[i] << ", " << N_e[i];
         for (int ii=0; ii<len; ii++){
-            file << ", " << ht_results[i*len + ii];
+            file << ", " << results[i*len + ii];
         }
         file << std::endl;
     }
