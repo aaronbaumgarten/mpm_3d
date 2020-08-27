@@ -1231,10 +1231,10 @@ namespace FVM_TEST{
         double rho_s = 1000;
         double rho_f = 117.7; //1.177;
         double eta_0 = 1.0;
-        double d = 0.1; //1.0;
+        double d = 0.1;
         double fps = 100;
         double R = 2.871e-2;
-        double E = 0.0; //1e4;
+        double E = 1e4;
         double nu = 0.3;
         double G = E / (2.0 * (1.0 + nu));
 
@@ -1467,6 +1467,7 @@ namespace FVM_TEST{
             double bar_rho_f = get_porosity(x)*rho_f;
             double n = get_porosity(x);
             KinematicVector gradn = get_dn_dx(job, x);
+            KinematicVector f_d = get_drag(job, x, t);
 
             //+0.5 * v_f * div(\rho v \otimes v)
             KinematicTensor tmpMat = KinematicTensor(job->JOB_TYPE);
@@ -1488,7 +1489,7 @@ namespace FVM_TEST{
             tmp += rho_f * tmpMat * gradn;
 
             double p_0 = rho_f*R*298.0;
-            return -p_0*gradn.dot(v_s - v_f) + p_0*gradn.dot(v_f)/(0.4) + 0.5*v_f.dot(tmp);
+            return -p_0*gradn.dot(v_s - v_f) + p_0*gradn.dot(v_f)/(0.4) + 0.5*v_f.dot(tmp) - f_d.dot(v_s);
         }
 
         double get_fluid_mass_adjustment(Job* job, const KinematicVector &x, double t){
@@ -1920,7 +1921,7 @@ void fvm_mpm_moms_test(Job* job) {
     FVM_TEST::FVMMPMMoMSDriver driver = FVM_TEST::FVMMPMMoMSDriver();
     driver.init(job);
     //driver->run(job);
-    //driver.get_L1_error(job, 61, 240, 60, 1, 1e-3, "6124060v2", 4);
+    //driver.get_L1_error(job, 41, 40, 40, 1, 1e-4, "414040v2", 4);
 
     //return;
 
@@ -1945,8 +1946,8 @@ void fvm_mpm_moms_test(Job* job) {
      */
 
     //run tests for h_i convergence
-    double dt = 1e-3; //0.05 / 40.0 / 40.0;
-    std::vector<double> Dt = {dt,  dt,   dt,   dt,   dt,   dt,  dt,  dt,  dt,  dt, dt,  dt,  dt/2.0, dt/4.0, dt/8.0, dt/16.0};
+    double dt = 5e-4; //0.05 / 40.0 / 40.0;
+    std::vector<double> Dt = {dt,  dt,   dt,   dt,   dt,   dt,  dt,  dt,  dt,  dt, dt,  dt,  2.0*dt, dt/2.0, dt/4.0, dt/8.0};
     std::vector<int> N_i =   {5+1, 10+1, 20+1, 30+1, 60+1, 61,  61,  61,  61,  61, 61,  61,  61,     61,     61,     61};
     std::vector<int> N_p =   {20,  40,   80,   120,  240,  240, 240, 240, 240, 60, 120, 180, 240,    240,    240,    240};
     std::vector<int> N_e =   {60,  60,   60,   60,   60,   5,   10,  20,  30,  60, 60,  60,  60,     60,     60,     60};
@@ -1958,7 +1959,7 @@ void fvm_mpm_moms_test(Job* job) {
     std::string sim_name;
     for (int i=0; i<N_i.size(); i++){
         sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]) + std::to_string(Dt[i]);
-        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], N_q[i], dt, sim_name, 10);
+        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], N_q[i], Dt[i], sim_name, 20);
         len = tmp.size();
         for (int ii=0; ii<len; ii++){
             results.push_back(tmp[ii]);

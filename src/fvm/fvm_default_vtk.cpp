@@ -44,6 +44,9 @@ void FVMDefaultVTK::init(Job* job, FiniteVolumeDriver* driver){
                frameDirectory.c_str(), outputName.c_str());
     }
 
+    //set sampledFrames to 0
+    sampledFrames = 0;
+
     std::cout << "FiniteVolumeSerializer Initialized." << std::endl;
 
     return;
