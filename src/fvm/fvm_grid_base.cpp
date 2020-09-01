@@ -1277,19 +1277,6 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
             }
         }
 
-        KinematicVectorArray hmm = calculateElementMomentumFluxes(job, driver, 0, face_count - 1);
-
-        for (int e=0; e<hmm.size(); e++){
-            double dif = (hmm(e) - lhs(e)).norm()/(hmm(e).norm());
-            if (dif > 1){
-                std::cout << "[" << e << "]: " << dif << std::endl;
-                std::cout << "    : " << hmm(e,0) << ", " << hmm(e,1) << std::endl;
-                std::cout << "    : " << lhs(e,0) << ", " << lhs(e,1) << std::endl;
-                std::cout << "    : " << memoryUnits[0].kv[0](e,0) << ", " << memoryUnits[0].kv[0](e,1) << std::endl;
-                std::cout << "    : " << memoryUnits[0].kv[1](e,0) << ", " << memoryUnits[0].kv[1](e,1) << std::endl;
-            }
-        }
-
         return lhs;
 
     } else {

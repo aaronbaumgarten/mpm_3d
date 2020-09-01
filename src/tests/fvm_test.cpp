@@ -1918,7 +1918,7 @@ void fvm_mpm_moms_test(Job* job) {
     driver.init(job);
     //driver->run(job);
 
-    std::vector<double> resultsA = driver.get_L1_error(job, 61, 120, 60, 4, 1e-4, "6112060v2", 2);
+    //std::vector<double> resultsA = driver.get_L1_error(job, 61, 120, 60, 4, 1e-4, "6112060v2", 2);
 
     /*
     //save values to file
@@ -1951,7 +1951,7 @@ void fvm_mpm_moms_test(Job* job) {
     std::string sim_name;
     for (int i=0; i<N_i.size(); i++){
         sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]) + std::to_string(Dt[i]);
-        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], N_q[i], Dt[i], sim_name, 1);
+        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], N_q[i], Dt[i], sim_name, 20);
         len = tmp.size();
         for (int ii=0; ii<len; ii++){
             results.push_back(tmp[ii]);
