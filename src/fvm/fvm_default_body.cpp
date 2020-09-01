@@ -51,6 +51,10 @@ void FVMDefaultBody::init(Job *job, FiniteVolumeDriver *driver) {
     p_x = KinematicTensorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
     p_x.setZero();
 
+    //momentum gradient
+    L = KinematicTensorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
+    L.setZero();
+
     //momentum
     p = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
     p.setZero();

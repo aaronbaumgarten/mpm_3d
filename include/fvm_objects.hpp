@@ -108,7 +108,8 @@ public:
     virtual void constructDensityField(Job*, FiniteVolumeDriver*) = 0; //construct momentum from FV body
     virtual void constructEnergyField(Job*, FiniteVolumeDriver*) = 0; //construct energy field from FV body
     virtual void constructPorosityField(Job*, FiniteVolumeDriver*) = 0; //construct porosity field from FV body
-    virtual KinematicTensorArray getVelocityGradients(Job*, FiniteVolumeDriver*) = 0; //return velocity gradient in each element
+    virtual void constructVelocityField(Job*, FiniteVolumeDriver*) = 0; //construct velocity field from FV body
+    //virtual KinematicTensorArray getVelocityGradients(Job*, FiniteVolumeDriver*) = 0; //return velocity gradient in each element
 
     //functions to compute element mass flux
     virtual Eigen::VectorXd calculateElementMassFluxes(Job* job, FiniteVolumeDriver* driver) = 0;
@@ -172,7 +173,7 @@ public:
     virtual void init(Job*, FiniteVolumeDriver*) = 0;
 
     //container for fluid fields
-    KinematicTensorArray p_x;      //momentum gradient
+    KinematicTensorArray p_x, L;      //momentum and velocity gradient
     KinematicVectorArray p, rho_x, rhoE_x; //momentum and density gradient
     Eigen::VectorXd rho, rhoE, P, theta; //density, pressure, and temperature
     MaterialTensorArray tau;       //shear stress

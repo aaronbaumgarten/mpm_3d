@@ -333,6 +333,7 @@ void FVMMixtureSolver::calculateElementGradients(Job* job, FiniteVolumeDriver* d
         driver->fluid_grid->constructDensityField(job, driver);
         driver->fluid_grid->constructMomentumField(job, driver);
         driver->fluid_grid->constructPorosityField(job, driver);
+        driver->fluid_grid->constructVelocityField(job, driver);
 
     } else if (driver->TYPE == FiniteVolumeDriver::THERMAL) {
 
@@ -341,6 +342,7 @@ void FVMMixtureSolver::calculateElementGradients(Job* job, FiniteVolumeDriver* d
         driver->fluid_grid->constructMomentumField(job, driver);
         driver->fluid_grid->constructPorosityField(job, driver);
         driver->fluid_grid->constructEnergyField(job, driver);
+        driver->fluid_grid->constructVelocityField(job, driver);
 
     } else {
 
@@ -475,6 +477,7 @@ void FVMMixtureSolver::generateMixtureForces(Job* job, FiniteVolumeDriver* drive
         driver->fluid_grid->constructMomentumField(job, driver);
         driver->fluid_grid->constructEnergyField(job, driver);
         driver->fluid_grid->constructPorosityField(job, driver);
+        driver->fluid_grid->constructVelocityField(job, driver);
 
         //get corrected drag estimate
         driver->fluid_grid->calculateSplitIntegralCorrectedDragForces(job, driver, f_d, f_d_e, K_n);

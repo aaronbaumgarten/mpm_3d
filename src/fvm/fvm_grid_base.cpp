@@ -471,9 +471,9 @@ void FVMGridBase::mapMixturePropertiesToQuadraturePoints(Job* job, FiniteVolumeD
     return;
 }
 
-KinematicTensorArray FVMGridBase::getVelocityGradients(Job* job, FiniteVolumeDriver* driver){
+void FVMGridBase::constructVelocityField(Job* job, FiniteVolumeDriver* driver){
     //reconstruct velocity field
-    KinematicTensorArray u_x = KinematicTensorArray(element_count, job->JOB_TYPE);
+    driver->fluid_body->L.setZero();
     KinematicVector u = KinematicVector(job->JOB_TYPE);
     KinematicVector p = KinematicVector(job->JOB_TYPE);
     double rho, rho_0, tmp_dif;
@@ -501,12 +501,12 @@ KinematicTensorArray FVMGridBase::getVelocityGradients(Job* job, FiniteVolumeDri
             //sol = A_e[e].householderQr().solve(b_e[e]);
             sol = A_inv[e]*b_e[e];
             for (int pos = 0; pos<GRID_DIM; pos++){
-                u_x(e, dir, pos) = sol(pos);
+                driver->fluid_body->L(e, dir, pos) = sol(pos);
             }
         }
 
     }
-    return u_x;
+    return;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -1203,6 +1203,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
             if (k_end > k_max) {
                 k_end = k_max;
             }
+
             //send job to threadpool
             jobThreadPool->doJob(std::bind(calcMomentumFluxes,
                                            job,
@@ -1276,6 +1277,19 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
             }
         }
 
+        KinematicVectorArray hmm = calculateElementMomentumFluxes(job, driver, 0, face_count - 1);
+
+        for (int e=0; e<hmm.size(); e++){
+            double dif = (hmm(e) - lhs(e)).norm()/(hmm(e).norm());
+            if (dif > 1){
+                std::cout << "[" << e << "]: " << dif << std::endl;
+                std::cout << "    : " << hmm(e,0) << ", " << hmm(e,1) << std::endl;
+                std::cout << "    : " << lhs(e,0) << ", " << lhs(e,1) << std::endl;
+                std::cout << "    : " << memoryUnits[0].kv[0](e,0) << ", " << memoryUnits[0].kv[0](e,1) << std::endl;
+                std::cout << "    : " << memoryUnits[0].kv[1](e,0) << ", " << memoryUnits[0].kv[1](e,1) << std::endl;
+            }
+        }
+
         return lhs;
 
     } else {
@@ -1320,7 +1334,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
     double M, theta_minus, theta_plus;
 
     //traction calculatons
-    KinematicTensorArray L = getVelocityGradients(job, driver);
+    KinematicTensorArray L = driver->fluid_body->L; //getVelocityGradients(job, driver);
     KinematicTensor L_tmp = KinematicTensor(job->JOB_TYPE);
     MaterialTensor tau_plus, tau_minus;
     KinematicVector dx = x;
@@ -1634,7 +1648,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
 
                         //average density and energy
                         rho_bar = (rho_plus + rho_minus)/2.0;
-                        rhoE_bar = (rho_plus + rho_minus)/2.0;
+                        rhoE_bar = (rhoE_plus + rhoE_minus)/2.0;
 
                         //calculate tau
                         tau_plus = driver->fluid_material->getShearStress(job,
@@ -2536,7 +2550,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
     double M;
 
     //traction calculatons
-    KinematicTensorArray L = getVelocityGradients(job, driver);
+    KinematicTensorArray L = driver->fluid_body->L; //getVelocityGradients(job, driver);
     KinematicTensor L_tmp = KinematicTensor(job->JOB_TYPE);
     MaterialTensor tau_plus, tau_minus;
     KinematicVector dx = x;
@@ -4754,6 +4768,8 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
             }
         }
 
+        /*
+
         //determine number of threads for face flux evaluation
         if (face_count >= num_threads){
             thread_count = num_threads;
@@ -4860,6 +4876,7 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
                 }
             }
         }
+         */
     } else {
         //do calculation serially
         calculateElementIntegrandsForInterphaseEnergyFlux(job, driver, result, 0, element_count - 1);

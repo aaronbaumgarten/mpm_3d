@@ -165,7 +165,7 @@ void FVMSlurryGasPhase::calculateElementPressures(Job* job, FiniteVolumeDriver* 
 //loop over elements and fill in shear stresses
 void FVMSlurryGasPhase::calculateElementShearStresses(Job* job, FiniteVolumeDriver* driver){
     //get strain rates from grid reconstruction (not flux limited)
-    KinematicTensorArray L = driver->fluid_grid->getVelocityGradients(job, driver);
+    KinematicTensorArray L = driver->fluid_body->L; //driver->fluid_grid->getVelocityGradients(job, driver);
 
     //map porosity field to elements
     //integrated porosity field

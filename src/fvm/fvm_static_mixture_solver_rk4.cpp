@@ -85,6 +85,8 @@ void FVMStaticMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
         driver->fluid_grid->constructEnergyField(job, driver);
     }
     driver->fluid_grid->constructPorosityField(job, driver);
+    driver->fluid_grid->constructVelocityField(job, driver);
+
 
     //get corrected estimate for drag at t+dt
     driver->fluid_grid->calculateSplitIntegralCorrectedDragForces(job, driver, f_d, f_d_e, K_n);
@@ -144,6 +146,7 @@ void FVMStaticMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
         driver->fluid_grid->constructEnergyField(job, driver);
     }
     driver->fluid_grid->constructPorosityField(job, driver);
+    driver->fluid_grid->constructVelocityField(job, driver);
 
     //get correction term
     driver->fluid_grid->calculateSplitIntegralCorrectedDragForces(job, driver, second_drag_correction, f_d_e, K_n);

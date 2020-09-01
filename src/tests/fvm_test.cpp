@@ -179,6 +179,7 @@ namespace FVM_TEST{
             fluid_grid->constructDensityField(job, this);
             fluid_grid->constructMomentumField(job, this);
             fluid_grid->constructEnergyField(job, this);
+            fluid_grid->constructVelocityField(job, this);
 
             //fluid fluxes associated with each volume (to compare against exact solution)
             Eigen::VectorXd density_fluxes = fluid_grid->calculateElementMassFluxes(job, this);
@@ -427,6 +428,7 @@ namespace FVM_TEST{
             fluid_grid->constructMomentumField(job, this);
             fluid_grid->constructEnergyField(job, this);
             fluid_grid->constructPorosityField(job, this);
+            fluid_grid->constructVelocityField(job, this);
 
             //initialize drag output
             KinematicVectorArray f_d = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
@@ -735,6 +737,7 @@ namespace FVM_TEST{
             fluid_grid->constructMomentumField(job, this);
             fluid_grid->constructEnergyField(job, this);
             fluid_grid->constructPorosityField(job, this);
+            fluid_grid->constructVelocityField(job, this);
 
             //find and report max pressure
             double max_pressure = 0;
@@ -1278,7 +1281,7 @@ namespace FVM_TEST{
 
             //set time step for stability
             job->dt = 3e-5; //< dx*sqrt(rho/kappa)
-            stop_time = 1.0; //seconds
+            stop_time = 0.20; //1.0; //seconds
 
             //setup serializer
             job->serializer = std::unique_ptr<Serializer>(new DefaultVTK);
@@ -1469,27 +1472,19 @@ namespace FVM_TEST{
             KinematicVector gradn = get_dn_dx(job, x);
             KinematicVector f_d = get_drag(job, x, t);
 
-            //+0.5 * v_f * div(\rho v \otimes v)
+            //-2*eta*tau:gradv
             KinematicTensor tmpMat = KinematicTensor(job->JOB_TYPE);
-            KinematicVector tmp = KinematicVector(job->JOB_TYPE);
-            tmp[0] = n * rho_f * 2.0 * 16.0 * get_A(t) * get_A(t)
-                      * tmpX[0] * (tmpX[0]*tmpX[0] - 1) * (tmpX[0]*tmpX[0] - 1) * (tmpX[0]*tmpX[0] - 1)
-                      * (tmpX[1]*tmpX[1]*tmpX[1]*tmpX[1] - 1) * (tmpX[1]*tmpX[1] - 1);
-
-            tmp[1] = n * rho_f * 2.0 * 16.0 * get_A(t) * get_A(t)
-                      * tmpX[1] * (tmpX[1]*tmpX[1] - 1) * (tmpX[1]*tmpX[1] - 1) * (tmpX[1]*tmpX[1] - 1)
-                      * (tmpX[0]*tmpX[0]*tmpX[0]*tmpX[0] - 1) * (tmpX[0]*tmpX[0] - 1);
-
-            tmpMat(0,0) = tmpX[1]*tmpX[1]*(tmpX[0]*tmpX[0] - 1)*(tmpX[0]*tmpX[0] - 1);
-            tmpMat(0,1) = -tmpX[0]*tmpX[1]*(tmpX[0]*tmpX[0] - 1)*(tmpX[1]*tmpX[1] - 1);
-            tmpMat(1,0) = tmpMat(0,1);
-            tmpMat(1,1) = tmpX[0]*tmpX[0]*(tmpX[1]*tmpX[1] - 1)*(tmpX[1]*tmpX[1] - 1);
-            tmpMat *= 16.0 * get_A(t) * get_A(t) * (tmpX[0]*tmpX[0] - 1) * (tmpX[0]*tmpX[0] - 1) * (tmpX[1]*tmpX[1] - 1) * (tmpX[1]*tmpX[1] - 1);
-
-            tmp += rho_f * tmpMat * gradn;
+            //nabla v
+            tmpMat(0,0) = get_A(t) * 2.0 * 16.0*tmpX[0]*(tmpX[0]*tmpX[0] - 1)*tmpX[1]*(tmpX[1]*tmpX[1]-1);
+            tmpMat(0,1) = get_A(t) * 2.0 * 4.0*(tmpX[0]*tmpX[0] - 1)*(tmpX[0]*tmpX[0] - 1)*(3.0*tmpX[1]*tmpX[1] - 1);
+            tmpMat(1,0) = -get_A(t) * 2.0 * 4.0*(tmpX[1]*tmpX[1] - 1)*(tmpX[1]*tmpX[1] - 1)*(3.0*tmpX[0]*tmpX[0] - 1);
+            tmpMat(1,1) = -tmpMat(0,0);
 
             double p_0 = rho_f*R*298.0;
-            return -p_0*gradn.dot(v_s - v_f) + p_0*gradn.dot(v_f)/(0.4) + 0.5*v_f.dot(tmp) - f_d.dot(v_s);
+            return -p_0*gradn.dot(v_s - v_f)
+                   -f_d.dot(v_s - v_f)
+                   + p_0*gradn.dot(v_f)/(0.4)
+                   - 2.0*eta_0*(1.0 + 2.5*(1.0 - n))*tmpMat.dot(tmpMat);
         }
 
         double get_fluid_mass_adjustment(Job* job, const KinematicVector &x, double t){
@@ -1661,15 +1656,16 @@ namespace FVM_TEST{
                     }
                 }
 
-                //run solver
-                if (!exploded) {
-                    solver->step(job, this);
-                }
 
                 //add correction to fluid density and energy
                 for (int e=0; e<fluid_grid->element_count; e++) {
                     fluid_body->rho(e) += job->dt * get_fluid_mass_adjustment(job, fluid_grid->getElementCentroid(job, e), job->t);
                     fluid_body->rhoE(e) += job->dt * get_fluid_energy_adjustment(job, fluid_grid->getElementCentroid(job, e), job->t);
+                }
+
+                //run solver
+                if (!exploded) {
+                    solver->step(job, this);
                 }
 
                 //increment time
@@ -1921,22 +1917,18 @@ void fvm_mpm_moms_test(Job* job) {
     FVM_TEST::FVMMPMMoMSDriver driver = FVM_TEST::FVMMPMMoMSDriver();
     driver.init(job);
     //driver->run(job);
-    //driver.get_L1_error(job, 41, 40, 40, 1, 1e-4, "414040v2", 4);
 
-    //return;
+    std::vector<double> resultsA = driver.get_L1_error(job, 61, 120, 60, 4, 1e-4, "6112060v2", 2);
 
     /*
-    double dt = 1e-5;
-    std::vector<double> results = driver.get_L1_error(job, 41, 160, 40, 1, dt, "4016040v2", 10);
-
     //save values to file
     std::ofstream file2 = std::ofstream();
     file2.open("output/data_v2.txt");
 
     //print results to console
-    file2 << 1e-5 << ", " << 41 << ", " << 160 << ", " << 40;
-    for (int ii=0; ii<results.size(); ii++){
-        file2 << ", " << results[ii];
+    file2 << 5e-4 << ", " << 61 << ", " << 120 << ", " << 60;
+    for (int ii=0; ii<resultsA.size(); ii++){
+        file2 << ", " << resultsA[ii];
     }
     file2 << std::endl;
 
@@ -1946,12 +1938,12 @@ void fvm_mpm_moms_test(Job* job) {
      */
 
     //run tests for h_i convergence
-    double dt = 5e-4; //0.05 / 40.0 / 40.0;
-    std::vector<double> Dt = {dt,  dt,   dt,   dt,   dt,   dt,  dt,  dt,  dt,  dt, dt,  dt,  2.0*dt, dt/2.0, dt/4.0, dt/8.0};
-    std::vector<int> N_i =   {5+1, 10+1, 20+1, 30+1, 60+1, 61,  61,  61,  61,  61, 61,  61,  61,     61,     61,     61};
-    std::vector<int> N_p =   {20,  40,   80,   120,  240,  240, 240, 240, 240, 60, 120, 180, 240,    240,    240,    240};
-    std::vector<int> N_e =   {60,  60,   60,   60,   60,   5,   10,  20,  30,  60, 60,  60,  60,     60,     60,     60};
-    std::vector<int> N_q =   { 1,   1,    1,    1,    2,   12,   6,   3,   2,   2,  2,   2,   2,      2,      2,      2};
+    double dt = 1e-4; //0.05 / 40.0 / 40.0;
+    std::vector<double> Dt = {dt, dt, dt, dt, dt};//{dt,  dt,   dt,   dt,   dt,   dt,  dt,  dt,  dt,  dt, dt,  dt,  2.0*dt, dt/2.0, dt/4.0, dt/8.0};
+    std::vector<int> N_i =   { 61,  61,  61,  61,  61};//{5+1, 10+1, 20+1, 30+1, 60+1, 61,  61,  61,  61,  61, 61,  61,  61,     61,     61,     61};
+    std::vector<int> N_p =   {480, 480, 480, 480, 480};//{20,  40,   80,   120,  240,  240, 240, 240, 240, 60, 120, 180, 240,    240,    240,    240};
+    std::vector<int> N_e =   {  5,  10,  20,  30,  60};//{60,  60,   60,   60,   60,   5,   10,  20,  30,  60, 60,  60,  60,     60,     60,     60};
+    std::vector<int> N_q =   { 48,  24,  12,   8,   4};//{ 1,   1,    1,    1,    2,   12,   6,   3,   2,   2,  2,   2,   2,      2,      2,      2};
 
     std::vector<double> results = {};
     std::vector<double> tmp;
@@ -1959,7 +1951,7 @@ void fvm_mpm_moms_test(Job* job) {
     std::string sim_name;
     for (int i=0; i<N_i.size(); i++){
         sim_name = std::to_string(N_i[i]) + std::to_string(N_p[i]) + std::to_string(N_e[i]) + std::to_string(Dt[i]);
-        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], N_q[i], Dt[i], sim_name, 20);
+        tmp = driver.get_L1_error(job, N_i[i], N_p[i], N_e[i], N_q[i], Dt[i], sim_name, 1);
         len = tmp.size();
         for (int ii=0; ii<len; ii++){
             results.push_back(tmp[ii]);

@@ -110,8 +110,9 @@ protected:
             {
                 std::unique_lock <std::mutex> l (lock_);
 
-                while (! shutdown_ && jobs_.empty())
-                    condVar_.wait (l);
+                while (! shutdown_ && jobs_.empty()) {
+                    condVar_.wait(l);
+                }
 
                 if (jobs_.empty ())
                 {
@@ -123,10 +124,12 @@ protected:
                 //std::cerr << "Thread " << i << " does a job" << std::endl;
                 job = std::move (jobs_.front ());
                 jobs_.pop();
+                //std::cerr << "Thread " << i << " does job " << &job << std::endl;
             }
 
             // Do the job without holding any locks
             job ();
+            //std::cerr << "Thread " << i << " done with job." << std::endl;
         }
 
     }

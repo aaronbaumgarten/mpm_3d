@@ -120,7 +120,7 @@ void FVMBarotropicViscousFluid::calculateElementPressures(Job* job, FiniteVolume
 //loop over elements and fill in shear stresses
 void FVMBarotropicViscousFluid::calculateElementShearStresses(Job* job, FiniteVolumeDriver* driver){
     //get strain rates from grid reconstruction (not flux limited)
-    KinematicTensorArray L = driver->fluid_grid->getVelocityGradients(job, driver);
+    KinematicTensorArray L = driver->fluid_body->L; //driver->fluid_grid->getVelocityGradients(job, driver);
 
     //fill in stresses accordingly
     for (int e=0; e<driver->fluid_grid->element_count; e++){

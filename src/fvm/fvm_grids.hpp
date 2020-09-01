@@ -266,7 +266,9 @@ public:
 
     virtual void mapMixturePropertiesToQuadraturePoints(Job *job, FiniteVolumeDriver *driver);
 
-    virtual KinematicTensorArray getVelocityGradients(Job *job, FiniteVolumeDriver *driver);
+    //virtual KinematicTensorArray getVelocityGradients(Job *job, FiniteVolumeDriver *driver);
+
+    virtual void constructVelocityField(Job* job, FiniteVolumeDriver* driver);
 
     //functions to compute element mass flux
     virtual Eigen::VectorXd calculateElementMassFluxes(Job *job, FiniteVolumeDriver *driver);

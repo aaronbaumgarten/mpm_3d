@@ -96,7 +96,7 @@ int FVMDefaultVTK::writeFrame(Job* job, FiniteVolumeDriver* driver){
 
         //velocity and velocity gradients
         KinematicVectorArray u = KinematicVectorArray(driver->fluid_grid->element_count, job->JOB_TYPE);
-        KinematicTensorArray u_x = driver->fluid_grid->getVelocityGradients(job, driver);
+        KinematicTensorArray u_x = driver->fluid_body->L; //driver->fluid_grid->getVelocityGradients(job, driver);
         for (int e=0; e<driver->fluid_grid->element_count; e++){
             u[e] = driver->fluid_body->p[e]/driver->fluid_body->rho(e);
         }
