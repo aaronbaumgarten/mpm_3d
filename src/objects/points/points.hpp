@@ -130,6 +130,21 @@ public:
 
 };
 
+class SandPile : public Part{
+public:
+    SandPile(){
+        object_name = "SandPile";
+    }
+
+    double mu;
+    int H_index;
+    KinematicVector peak;
+
+    void init(Job* job);
+    bool encompasses(KinematicVector& xIN);
+
+};
+
 /*----------------------------------------------------------------------------*/
 
 class GmshPoints : public DefaultPoints{

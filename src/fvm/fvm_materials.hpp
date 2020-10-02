@@ -182,6 +182,10 @@ public:
         object_name = "FVMSlurryGasPhase";
     }
 
+    //use eddy viscosity correction
+    bool USE_EDDY_VISCOSITY = false;
+    double a_T, h_T;
+
     //material properties
     double heat_capacity_ratio, R, eta, thermal_conductivity;
 

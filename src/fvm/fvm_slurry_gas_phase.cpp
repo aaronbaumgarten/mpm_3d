@@ -49,7 +49,7 @@ void FVMSlurryGasPhase::init(Job* job, FiniteVolumeDriver* driver){
         grain_diam = fp64_props[5]; //grain diameter (m)
 
         //set body ids by name
-        if (str_props.size() == 1){
+        if (str_props.size() >= 1){
             for (int b = 0; b < job->bodies.size(); b++) {
                 if (str_props[0].compare(job->bodies[b]->name) == 0){
                     solid_body_id = b;
@@ -69,6 +69,25 @@ void FVMSlurryGasPhase::init(Job* job, FiniteVolumeDriver* driver){
                         __FILE__, __func__);
                 exit(0);
             }
+        }
+    }
+
+    //loop over str-props and assign relevant flags
+    int len;
+    std::vector<std::string> options = {"USE_EDDY_VISCOSITY"};
+    for (int i=0; i<str_props.size(); i++){
+        switch (Parser::findStringID(options, str_props[i])){
+            case 0:
+                //USE_EDDY_VISCOSITY
+                USE_EDDY_VISCOSITY = true;
+                len = fp64_props.size();
+                a_T = fp64_props[len - 1];
+                h_T = fp64_props[len - 2];
+                std::cout << "FVMSlurryGasPhase using eddy viscosity. a = " << a_T << ", h = " << h_T << std::endl;
+                break;
+            default:
+                //do nothing
+                break;
         }
     }
 
@@ -95,8 +114,16 @@ MaterialTensor FVMSlurryGasPhase::getStress(Job* job,
                                                     double rhoE,
                                                     double n){
     //sigma = tau - p1
-    return eta*(1.0 + 5.0/2.0 * (1.0 - n))*(L + L.transpose() - 2.0/3.0*L.trace()*MaterialTensor::Identity())
-           - (rhoE - 0.5*p.dot(p)/rho)*(heat_capacity_ratio - 1.0)/(n)*MaterialTensor::Identity();
+    if (!USE_EDDY_VISCOSITY) {
+        return eta * (1.0 + 5.0 / 2.0 * (1.0 - n)) *
+               (L + L.transpose() - 2.0 / 3.0 * L.trace() * MaterialTensor::Identity())
+               - (rhoE - 0.5 * p.dot(p) / rho) * (heat_capacity_ratio - 1.0) / (n) * MaterialTensor::Identity();
+    } else {
+        double mu_T = a_T * a_T * h_T * h_T * rho/n * (L + L.transpose() - 2.0 / 3.0 * L.trace() * MaterialTensor::Identity()).norm()  / std::sqrt(2);
+        return (eta * (1.0 + 5.0 / 2.0 * (1.0 - n)) + mu_T) *
+               (L + L.transpose() - 2.0 / 3.0 * L.trace() * MaterialTensor::Identity())
+               - (rhoE - 0.5 * p.dot(p) / rho) * (heat_capacity_ratio - 1.0) / (n) * MaterialTensor::Identity();
+    }
 }
 
 //get shear components of stress tensor
@@ -108,7 +135,15 @@ MaterialTensor FVMSlurryGasPhase::getShearStress(Job* job,
                                                          double rhoE,
                                                          double n){
     //tau = 2*eta*(D - 1/3 trD I)
-    return eta*(1.0 + 5.0/2.0 * (1.0 - n))*(L + L.transpose() - 2.0/3.0*L.trace()*MaterialTensor::Identity());
+    if (!USE_EDDY_VISCOSITY) {
+        return eta * (1.0 + 5.0 / 2.0 * (1.0 - n)) *
+               (L + L.transpose() - 2.0 / 3.0 * L.trace() * MaterialTensor::Identity());
+    } else {
+        double mu_T = a_T * a_T * h_T * h_T * rho/n
+                      * (L + L.transpose() - 2.0 / 3.0 * L.trace() * MaterialTensor::Identity()).norm() / std::sqrt(2);
+        return (eta * (1.0 + 5.0 / 2.0 * (1.0 - n)) + mu_T) *
+               (L + L.transpose() - 2.0 / 3.0 * L.trace() * MaterialTensor::Identity());
+    }
 }
 
 //get volumetric component of stress tensor
@@ -178,7 +213,18 @@ void FVMSlurryGasPhase::calculateElementShearStresses(Job* job, FiniteVolumeDriv
         n = n_e(e) / driver->fluid_grid->getElementVolume(e);
 
         //fill in centroid shear stress
-        driver->fluid_body->tau[e] = eta*(1.0 + 5.0/2.0 * (1.0 - n))*(L[e] + L[e].transpose() - 2.0/3.0*L[e].trace()*MaterialTensor::Identity());
+        if (!USE_EDDY_VISCOSITY) {
+            driver->fluid_body->tau[e] = eta * (1.0 + 5.0 / 2.0 * (1.0 - n)) * (L[e] + L[e].transpose() -
+                                                                                2.0 / 3.0 * L[e].trace() *
+                                                                                MaterialTensor::Identity());
+        } else {
+            double mu_T = a_T * a_T * h_T * h_T * driver->fluid_body->rho(e)/n * (L[e] + L[e].transpose()
+                                                                                  - 2.0 / 3.0 * L[e].trace()
+                                                                                    * MaterialTensor::Identity()).norm() / std::sqrt(2);
+            driver->fluid_body->tau[e] = (mu_T + eta * (1.0 + 5.0 / 2.0 * (1.0 - n))) * (L[e] + L[e].transpose() -
+                                                                                         2.0 / 3.0 * L[e].trace() *
+                                                                                         MaterialTensor::Identity());
+        }
     }
     return;
 }

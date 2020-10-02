@@ -48,7 +48,8 @@ void FVMGridBase::init(Job* job, FiniteVolumeDriver* driver){
                                         "USE_LOCAL_POROSITY_CORRECTION",
                                         "USE_DECAYING_DAMPING",
                                         "USE_ENHANCED_M_MATRIX",
-                                        "USE_ENHANCED_QUADRATURE"};
+                                        "USE_ENHANCED_QUADRATURE",
+                                        "USE_HYDROSTATIC_CORRECTION"};
     for (int i=0; i<str_props.size(); i++){
         switch (Parser::findStringID(options, str_props[i])){
             case 0:
@@ -96,6 +97,12 @@ void FVMGridBase::init(Job* job, FiniteVolumeDriver* driver){
                 USE_ENHANCED_QUADRATURE = true;
                 lqpe_enhanced = int_props[int_props.size()-1];
                 std::cout << "FiniteVolumeGrid using enhanced quadrature calculation." << std::endl;
+                //do not use with USE_CUSTOM_DAMPING flag!!!
+                break;
+            case 8:
+                //USE_HYDROSTATIC_CORRECTION
+                USE_HYDROSTATIC_CORRECTION = true;
+                std::cout << "FiniteVolumeGrid using hydrostatically corrected pressure BCs." << std::endl;
                 //do not use with USE_CUSTOM_DAMPING flag!!!
                 break;
             default:
@@ -209,7 +216,7 @@ void FVMGridBase::generateMappings(Job* job, FiniteVolumeDriver* driver){
         if (job->grid->whichElement(job, tmpVec) > -1){
             //do nothing
         } else {
-            tmpVec *= (1.0 - 1e-14); //adjust tmpVec slightly
+            tmpVec *= (1.0 - 1e-12); //adjust tmpVec slightly
         }
 
         job->grid->evaluateBasisFnValue(job, tmpVec, nvec, valvec);
@@ -645,6 +652,9 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
     int e_plus, e_minus;    //elements
     double flux, area;      //face values
 
+    //height index
+    int H_index = GRID_DIM - 1;
+
     //quadrature
     KinematicVector x = KinematicVector(job->JOB_TYPE);
     std::vector<int> q_list;
@@ -939,6 +949,16 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                                                                                        bc_info[f].values[0],
                                                                                        bc_info[f].values[1],
                                                                                        n_q(q_list[q]));         //use quadrature porosity here
+
+                //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                if (USE_HYDROSTATIC_CORRECTION){
+                    rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                           bc_info[f].values[0]
+                                                                                           + rho_bar*driver->gravity.dot(x_q[q_list[q]]),
+                                                                                           bc_info[f].values[1],
+                                                                                           n_q(q_list[q]));
+                }
+
                 if (e_minus > -1) {
                     //relative position from centroid of A
                     x = x_q[q_list[q]] - x_e[e_minus];
@@ -971,6 +991,16 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                                                                                        bc_info[f].values[0],
                                                                                        bc_info[f].values[1],
                                                                                        n_q(q_list[q]));      //use quadrature porosity
+
+                //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                if (USE_HYDROSTATIC_CORRECTION){
+                    rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                           bc_info[f].values[0]
+                                                                                           + rho_bar*driver->gravity.dot(x_q[q_list[q]]),
+                                                                                           bc_info[f].values[1],
+                                                                                           n_q(q_list[q]));
+                }
+
                 if (e_minus > -1) {
                     //relative position from centroid of A
                     x = x_q[q_list[q]] - x_e[e_minus];
@@ -1060,7 +1090,14 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
             }
         } else if (bc_info[f].tag == PERIODIC){
             //if you get here, this face is ill-defined. do nothing
-        } else if (bc_info[f].tag == STAGNATION_INLET){
+        } else if (bc_info[f].tag == STAGNATION_INLET || bc_info[f].tag == PULSE_STAGNATION_INLET){
+
+            //check pulse stagnation condition to switch BCs
+            if (bc_info[f].tag == PULSE_STAGNATION_INLET && std::abs(job->t - bc_info[f].vector[2]) < job->dt){
+                bc_info[f].values[0] = bc_info[f].vector[0];
+                bc_info[f].values[1] = bc_info[f].vector[1];
+            }
+
             //face has prescribed pressure and temperature
             //reconstruct density and velocity (but adjust if flow direction changes)
             for (int q = 0; q < q_list.size(); q++) {
@@ -1100,6 +1137,15 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                                                                                                theta_minus,
                                                                                                n_q(q_list[q]));
 
+                        //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                        if (USE_HYDROSTATIC_CORRECTION){
+                            rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                                   P_minus + rho_bar*driver->gravity.dot(x_q(q_list[q])),
+                                                                                                   theta_minus,
+                                                                                                   n_q(q_list[q]));
+                        }
+
+
                         flux = rho_bar * w_q(q_list[q]) * u_minus.dot(normal);
                     } else {
                         //flow direction is out of A
@@ -1119,7 +1165,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
                     n_plus = driver->fluid_body->n_e(e_plus);
 
-                    u_plus = p_minus/rho_plus;
+                    u_plus = p_plus/rho_plus;
 
                     if (u_plus.dot(normal) > 0){
                         //flow direction is into B
@@ -1145,10 +1191,18 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                                                                                                theta_plus,
                                                                                                n_q(q_list[q]));
 
+                        //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                        if (USE_HYDROSTATIC_CORRECTION){
+                            rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                                   P_plus + rho_bar*driver->gravity.dot(x_q(q_list[q])),
+                                                                                                   theta_plus,
+                                                                                                   n_q(q_list[q]));
+                        }
+
                         flux = rho_bar * w_q(q_list[q]) * u_plus.dot(normal);
                     } else {
-                        //flow direction is out of A
-                        flux = n_q(q_list[q]) * rho_plus/n_plus * w_q(q_list[q]) * u_minus.dot(normal);
+                        //flow direction is out of B
+                        flux = n_q(q_list[q]) * rho_plus/n_plus * w_q(q_list[q]) * u_plus.dot(normal);
                     }
 
                     result(e_plus) += flux;
@@ -1942,6 +1996,16 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     //tau_minus = 0
                     P_minus = bc_info[f].values[0];
 
+                    //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                    if (USE_HYDROSTATIC_CORRECTION){
+                        P_minus += rho_bar*driver->gravity.dot(x_q[q_list[q]]);
+
+                        rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                               P_minus,
+                                                                                               bc_info[f].values[1],
+                                                                                               n_q(q_list[q]));
+                    }
+
                     flux = w_q(q_list[q]) * (rho_bar*u_minus*u_minus.dot(normal)
                                              + n_q(q_list[q])*P_minus*normal);
 
@@ -1959,6 +2023,16 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
 
                     //tau_minus = 0
                     P_plus = bc_info[f].values[0];
+
+                    //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                    if (USE_HYDROSTATIC_CORRECTION){
+                        P_plus += rho_bar*driver->gravity.dot(x_q[q_list[q]]);
+
+                        rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                               P_plus,
+                                                                                               bc_info[f].values[1],
+                                                                                               n_q(q_list[q]));
+                    }
 
                     flux = w_q(q_list[q]) * (rho_bar*u_plus*u_plus.dot(normal)
                                              + n_q(q_list[q])*P_plus*normal);
@@ -1982,14 +2056,25 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     //calculate A properties
                     rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
                     p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus] * x;
+                    rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x(e_minus).dot(x);
                     u_minus = p_minus / rho_minus;
                     n_minus = driver->fluid_body->n_e(e_minus);
 
                     //tau_minus = 0
                     P_minus = bc_info[f].values[0];
+
+                    //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                    if (USE_HYDROSTATIC_CORRECTION){
+                        P_minus += rho_bar*driver->gravity.dot(x_q[q_list[q]]);
+
+                        rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                               P_minus,
+                                                                                               bc_info[f].values[1],
+                                                                                               n_q(q_list[q]));
+                    }
+
                     if (bc_info[f].tag == DAMPED_OUTLET && u_minus.dot(normal) > 0){
                         //only adjust P for outflow
-                        rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x(e_minus).dot(x);
 
                         P_minus = (1.0 - damping_coefficient)*P_minus
                                  + damping_coefficient*(driver->fluid_material->getPressure(job,driver,
@@ -2004,6 +2089,29 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                         flux = w_q(q_list[q]) * (n_q(q_list[q]) * rho_minus / n_minus * u_minus * u_minus.dot(normal)
                                                  + n_q(q_list[q])*P_minus * normal);
                     } else {
+                        //flow direction is into A
+                        //estimate Mach number
+                        c = driver->fluid_material->getSpeedOfSound(job,driver,rho_minus,p_minus,rhoE_minus,n_minus);
+                        M = u_minus.norm()/c;
+
+                        //estimate local pressure
+                        P_minus = driver->fluid_material->getPressureFromStagnationProperties(job,
+                                                                                              driver,
+                                                                                              P_minus,
+                                                                                              M);
+
+                        //estimate local temperature
+                        theta_minus = driver->fluid_material->getTemperatureFromStagnationProperties(job,
+                                                                                                     driver,
+                                                                                                     bc_info[f].values[1],
+                                                                                                     M);
+                        //estimate local density
+                        rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job,
+                                                                                               driver,
+                                                                                               P_minus,
+                                                                                               theta_minus,
+                                                                                               n_q(q_list[q]));
+
                         //flow into A
                         flux = w_q(q_list[q]) * (rho_bar * u_minus * u_minus.dot(normal)
                                                  + n_q(q_list[q])*P_minus * normal);
@@ -2019,15 +2127,25 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     //calculate B properties
                     rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
                     p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus] * x;
+                    rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x(e_plus).dot(x);
                     u_plus = p_plus / rho_plus;
                     n_plus = driver->fluid_body->n_e(e_plus);
 
                     //tau_minus = 0
                     P_plus = bc_info[f].values[0];
+
+                    //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                    if (USE_HYDROSTATIC_CORRECTION){
+                        P_plus += rho_bar*driver->gravity.dot(x_q[q_list[q]]);
+
+                        rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                               P_plus,
+                                                                                               bc_info[f].values[1],
+                                                                                               n_q(q_list[q]));
+                    }
+
                     if (bc_info[f].tag == DAMPED_OUTLET && u_plus.dot(normal) < 0){
                         //only adjust P for outflow
-
-                        rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x(e_plus).dot(x);
                         n_plus = driver->fluid_body->n_e(e_plus);
 
                         P_plus = (1.0 - damping_coefficient)*P_plus
@@ -2044,6 +2162,28 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                                                  + n_q(q_list[q])*P_plus * normal);
                     } else {
                         //flow into B
+                        //estimate Mach number
+                        c = driver->fluid_material->getSpeedOfSound(job,driver,rho_plus,p_plus,rhoE_plus,n_plus);
+                        M = u_plus.norm()/c;
+
+                        //estimate local pressure
+                        P_plus = driver->fluid_material->getPressureFromStagnationProperties(job,
+                                                                                              driver,
+                                                                                              P_plus,
+                                                                                              M);
+
+                        //estimate local temperature
+                        theta_plus = driver->fluid_material->getTemperatureFromStagnationProperties(job,
+                                                                                                     driver,
+                                                                                                     bc_info[f].values[1],
+                                                                                                     M);
+                        //estimate local density
+                        rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job,
+                                                                                               driver,
+                                                                                               P_plus,
+                                                                                               theta_plus,
+                                                                                               n_q(q_list[q]));
+
                         flux = w_q(q_list[q]) * (rho_bar * u_plus * u_plus.dot(normal)
                                                  + n_q(q_list[q])*P_plus * normal);
                     }
@@ -2266,7 +2406,14 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
             }
         } else if (bc_info[f].tag == PERIODIC){
             //if you get here, this face is ill-defined. do nothing
-        } else if (bc_info[f].tag == STAGNATION_INLET){
+        } else if (bc_info[f].tag == STAGNATION_INLET || bc_info[f].tag == PULSE_STAGNATION_INLET){
+
+            //check pulse stagnation condition to switch BCs
+            if (bc_info[f].tag == PULSE_STAGNATION_INLET && std::abs(job->t - bc_info[f].vector[2]) < job->dt){
+                bc_info[f].values[0] = bc_info[f].vector[0];
+                bc_info[f].values[1] = bc_info[f].vector[1];
+            }
+
             //face has prescribed pressure and temperature
             //reconstruct density and velocity (but adjust if flow direction changes)
             for (int q = 0; q < q_list.size(); q++) {
@@ -2305,13 +2452,36 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                                                                                                P_minus,
                                                                                                theta_minus,
                                                                                                n_q(q_list[q]));
+                        //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                        if (USE_HYDROSTATIC_CORRECTION){
+                            P_minus += rho_bar*driver->gravity.dot(x_q(q_list[q]));
+
+
+                            rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                                   P_minus,
+                                                                                                   theta_minus,
+                                                                                                   n_q(q_list[q]));
+                        }
 
                         flux = w_q(q_list[q]) * (rho_bar * u_minus * u_minus.dot(normal)
                                                  + n_q(q_list[q])*P_minus*normal);
                     } else {
+                        P_minus = bc_info[f].values[0];
+
+                        //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                        if (USE_HYDROSTATIC_CORRECTION){
+                            rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                                   bc_info[f].values[0],
+                                                                                                   bc_info[f].values[1],
+                                                                                                   n_q(q_list[q]));
+
+                            P_minus += rho_bar*driver->gravity.dot(x_q(q_list[q]));
+
+                        }
+
                         //flow direction is out of A
                         flux = w_q(q_list[q]) * (n_q(q_list[q])*p_minus/n_minus * u_minus.dot(normal)
-                                                 + n_q(q_list[q]) * bc_info[f].values[0] * normal);
+                                                 + n_q(q_list[q]) * P_minus * normal);
                     }
 
                     result(e_minus) -= flux;
@@ -2327,7 +2497,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
                     n_plus = driver->fluid_body->n_e(e_plus);
 
-                    u_plus = p_minus/rho_plus;
+                    u_plus = p_plus/rho_plus;
 
                     if (u_plus.dot(normal) > 0){
                         //flow direction is into B
@@ -2353,12 +2523,36 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                                                                                                theta_plus,
                                                                                                n_q(q_list[q]));
 
+                        //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                        if (USE_HYDROSTATIC_CORRECTION){
+                            P_plus += rho_bar*driver->gravity.dot(x_q(q_list[q]));
+
+
+                            rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                                   P_plus,
+                                                                                                   theta_plus,
+                                                                                                   n_q(q_list[q]));
+                        }
+
                         flux = w_q(q_list[q]) * (rho_bar*u_plus*u_plus.dot(normal)
                                                  + n_q(q_list[q])*P_plus*normal);
                     } else {
+                        P_plus = bc_info[f].values[0];
+
+                        //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                        if (USE_HYDROSTATIC_CORRECTION){
+                            rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                                   bc_info[f].values[0],
+                                                                                                   bc_info[f].values[1],
+                                                                                                   n_q(q_list[q]));
+
+                            P_plus += rho_bar*driver->gravity.dot(x_q(q_list[q]));
+
+                        }
+
                         //flow direction is out of B
                         flux = w_q(q_list[q]) * n_q(q_list[q]) * (p_plus/n_plus * u_minus.dot(normal)
-                                                                  + bc_info[f].values[0] * normal);
+                                                                  + P_plus * normal);
                     }
 
                     result(e_plus) += flux;
@@ -3107,8 +3301,13 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     //tau_minus = 0
                     P_minus = bc_info[f].values[0];
 
+                    //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                    if (USE_HYDROSTATIC_CORRECTION){
+                        P_minus += rho_bar*driver->gravity.dot(x_q[q_list[q]]);
+                    }
+
                     rhoE_minus = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver,
-                                                                                                     bc_info[f].values[0],
+                                                                                                     P_minus,
                                                                                                      bc_info[f].values[1],
                                                                                                      n_minus); //n_q(q_list[q]));
                     rhoE_minus += 0.5 * rho_minus * u_minus.dot(u_minus);
@@ -3153,8 +3352,13 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     //tau_minus = 0
                     P_plus = bc_info[f].values[0];
 
+                    //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                    if (USE_HYDROSTATIC_CORRECTION){
+                        P_plus += rho_bar*driver->gravity.dot(x_q[q_list[q]]);
+                    }
+
                     rhoE_plus = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver,
-                                                                                                    bc_info[f].values[0],
+                                                                                                    P_plus,
                                                                                                     bc_info[f].values[1],
                                                                                                     n_plus); //n_q(q_list[q]));
                     rhoE_plus += 0.5 * rho_plus * u_plus.dot(u_plus);
@@ -3207,6 +3411,12 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
 
                     //tau_minus = 0
                     P_minus = bc_info[f].values[0];
+
+                    //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                    if (USE_HYDROSTATIC_CORRECTION){
+                        P_minus += rho_bar*driver->gravity.dot(x_q[q_list[q]]);
+                    }
+
                     if (bc_info[f].tag == DAMPED_OUTLET && u_minus.dot(normal) > 0) {
                         //only adjust if outflow
                         P_minus = (1.0 - damping_coefficient) * P_minus
@@ -3253,6 +3463,12 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
 
                     //tau_minus = 0
                     P_plus = bc_info[f].values[0];
+
+                    //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                    if (USE_HYDROSTATIC_CORRECTION){
+                        P_plus += rho_bar*driver->gravity.dot(x_q[q_list[q]]);
+                    }
+
                     if (bc_info[f].tag == DAMPED_OUTLET && u_plus.dot(normal) < 0) {
                         //only adjust P for outflow
                         P_plus = (1.0 - damping_coefficient) * P_plus
@@ -3429,7 +3645,14 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
             }
         } else if (bc_info[f].tag == PERIODIC) {
             //if you get here, this face is ill-defined. do nothing
-        } else if (bc_info[f].tag == STAGNATION_INLET){
+        } else if (bc_info[f].tag == STAGNATION_INLET || bc_info[f].tag == PULSE_STAGNATION_INLET){
+
+            //check pulse stagnation condition to switch BCs
+            if (bc_info[f].tag == PULSE_STAGNATION_INLET && std::abs(job->t - bc_info[f].vector[2]) < job->dt){
+                bc_info[f].values[0] = bc_info[f].vector[0];
+                bc_info[f].values[1] = bc_info[f].vector[1];
+            }
+
             //face has prescribed pressure and temperature
             //reconstruct density and velocity (but adjust if flow direction changes)
             for (int q = 0; q < q_list.size(); q++) {
@@ -3469,6 +3692,17 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                                                theta_minus,
                                                                                                n_q(q_list[q]));
 
+                        //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                        if (USE_HYDROSTATIC_CORRECTION){
+                            P_minus += rho_bar*driver->gravity.dot(x_q(q_list[q]));
+
+
+                            rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                                   P_minus,
+                                                                                                   theta_minus,
+                                                                                                   n_q(q_list[q]));
+                        }
+
                         //estimate local energy
                         rhoE_bar = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job,
                                                                                                        driver,
@@ -3498,7 +3732,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
                     n_plus = driver->fluid_body->n_e(e_plus);
 
-                    u_plus = p_minus/rho_plus;
+                    u_plus = p_plus/rho_plus;
 
                     if (u_plus.dot(normal) > 0){
                         //flow direction is into B
@@ -3523,6 +3757,17 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                                                                                                P_plus,
                                                                                                theta_plus,
                                                                                                n_q(q_list[q]));
+
+                        //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                        if (USE_HYDROSTATIC_CORRECTION){
+                            P_plus += rho_bar*driver->gravity.dot(x_q(q_list[q]));
+
+
+                            rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                                   P_plus,
+                                                                                                   theta_plus,
+                                                                                                   n_q(q_list[q]));
+                        }
 
                         //estimate local energy
                         rhoE_bar = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job,
@@ -4043,9 +4288,30 @@ void FVMGridBase::calculateFaceIntegrandsForBuoyantForce(Job *job,
                     //face has prescribed pressure (and temperature)
                     P = bc_info[f].values[0];
 
+                    //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                    if (USE_HYDROSTATIC_CORRECTION){
+                        rho = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                              P,
+                                                                                              bc_info[f].values[1],
+                                                                                              n_q(tmp_q));
+
+                        P += rho*driver->gravity.dot(x_q[tmp_q]);
+                    }
+
                 } else if (bc_info[f].tag == PRESSURE_OUTLET || bc_info[f].tag == DAMPED_OUTLET) {
                     //face has prescribed pressure
                     P = bc_info[f].values[0];
+
+                    //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
+                    if (USE_HYDROSTATIC_CORRECTION){
+                        rho = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                           P,
+                                                                                           bc_info[f].values[1],
+                                                                                           n_q(tmp_q));
+
+                        P += rho*driver->gravity.dot(x_q[tmp_q]);
+                    }
+
                     if (bc_info[f].tag == DAMPED_OUTLET && p.dot(normal) > 0) {
                         //only adjust if outflow
                         P = (1.0 - damping_coefficient) * P

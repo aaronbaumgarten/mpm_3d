@@ -223,7 +223,7 @@ int CartesianLinear::cartesianWhichElement(Job* job, KinematicVector& xIN, Kinem
     }
 
     bool inDomain;
-    int elementID = floor(xIN[0] / hxIN[0]); //id in x-dimension
+    int elementID = floor(xIN[0] / LxIN[0] * NxIN[0]); //id in x-dimension
     for (int i = 0; i < GRID_DIM_IN; i++) {
         inDomain = (xIN[i] < LxIN[i] && xIN[i] >= 0);
         if (!inDomain) { //if xIn is outside domain, return -1
@@ -231,9 +231,9 @@ int CartesianLinear::cartesianWhichElement(Job* job, KinematicVector& xIN, Kinem
         }
         if (i == 1) {
             //add number of elements in next layer of id in higher dimensions
-            elementID += floor(xIN[i] / hxIN[i]) * (NxIN[i - 1]);
+            elementID += floor(xIN[i] / LxIN[i] * NxIN[i]) * (NxIN[i - 1]);
         } else if (i == 2) {
-            elementID += floor(xIN[i] / hxIN[i]) * (NxIN[i - 1]) * (NxIN[i - 2]);
+            elementID += floor(xIN[i] / LxIN[i] * NxIN[i]) * (NxIN[i - 1]) * (NxIN[i - 2]);
         }
     }
     return elementID;

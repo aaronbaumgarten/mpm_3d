@@ -55,6 +55,7 @@ public:
     static const int PERIODIC               = 11;
     static const int DAMPED_WALL            = 12;
     static const int STAGNATION_INLET       = 13;
+    static const int PULSE_STAGNATION_INLET = 14;
 
     //Harten entropy correction scale
     static constexpr double delta = 0.1;
@@ -178,6 +179,7 @@ public:
     bool USE_LOCAL_POROSITY_CORRECTION = false;
     bool USE_ENHANCED_M_MATRIX = false;
     bool USE_ENHANCED_QUADRATURE = false;
+    bool USE_HYDROSTATIC_CORRECTION = false;
 
     //instantiate
     std::vector<parallelMemoryUnit> memoryUnits;

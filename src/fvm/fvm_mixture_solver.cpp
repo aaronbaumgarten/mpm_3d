@@ -107,10 +107,13 @@ void FVMMixtureSolver::step(Job* job, FiniteVolumeDriver* driver){
         //create map
         createMappings(job);
 
+        //add body forces
+        driver->generateGravity(job);
+        driver->applyGravity(job);
         //add specific body force to points
         for (int i=0; i<job->bodies[solid_body_id]->points->b.size(); i++){
-            job->bodies[solid_body_id]->points->b[i] = job->bodies[solid_body_id]->points->v(i)/job->bodies[solid_body_id]->points->m(i)
-                                                       * driver->getSolidLoading(job, job->bodies[solid_body_id]->points->x(i));
+            job->bodies[solid_body_id]->points->b[i] += job->bodies[solid_body_id]->points->v(i)/job->bodies[solid_body_id]->points->m(i)
+                                                        * driver->getSolidLoading(job, job->bodies[solid_body_id]->points->x(i));
         }
 
         //map particles to grid
@@ -160,15 +163,6 @@ void FVMMixtureSolver::step(Job* job, FiniteVolumeDriver* driver){
         //update density
         updateDensity(job);
 
-        //add body forces
-        driver->generateGravity(job);
-        driver->applyGravity(job);
-        //add specific body force to points
-        for (int i=0; i<job->bodies[solid_body_id]->points->b.size(); i++){
-            job->bodies[solid_body_id]->points->b[i] = job->bodies[solid_body_id]->points->v(i)/job->bodies[solid_body_id]->points->m(i)
-                                                       * driver->getSolidLoading(job, job->bodies[solid_body_id]->points->x(i));
-        }
-
         //update stress
         updateStress(job);
 
@@ -187,16 +181,24 @@ void FVMMixtureSolver::step(Job* job, FiniteVolumeDriver* driver){
         //create map
         clock_gettime(CLOCK_MONOTONIC, &timeStart);
         createMappings(job);
-
-
-        //add specific body force to points
-        for (int i=0; i<job->bodies[solid_body_id]->points->b.size(); i++){
-            job->bodies[solid_body_id]->points->b[i] = job->bodies[solid_body_id]->points->v(i)/job->bodies[solid_body_id]->points->m(i)
-                                                       * driver->getSolidLoading(job, job->bodies[solid_body_id]->points->x(i));
-        }
         clock_gettime(CLOCK_MONOTONIC, &timeStop);
         std::cout << "createMappings(): " << (timeStop.tv_sec - timeStart.tv_sec) +
                                              (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
+
+
+        //add body forces
+        clock_gettime(CLOCK_MONOTONIC, &timeStart);
+        //add body forces
+        driver->generateGravity(job);
+        driver->applyGravity(job);
+        //add specific body force to points
+        for (int i=0; i<job->bodies[solid_body_id]->points->b.size(); i++){
+            job->bodies[solid_body_id]->points->b[i] += job->bodies[solid_body_id]->points->v(i)/job->bodies[solid_body_id]->points->m(i)
+                                                        * driver->getSolidLoading(job, job->bodies[solid_body_id]->points->x(i));
+        }
+        clock_gettime(CLOCK_MONOTONIC, &timeStop);
+        std::cout << "generate/applyGravity(): " << (timeStop.tv_sec - timeStart.tv_sec) +
+                                                    (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
 
         //map particles to grid
         clock_gettime(CLOCK_MONOTONIC, &timeStart);
@@ -295,14 +297,6 @@ void FVMMixtureSolver::step(Job* job, FiniteVolumeDriver* driver){
         updateDensity(job);
         clock_gettime(CLOCK_MONOTONIC, &timeStop);
         std::cout << "updateDensity(): " << (timeStop.tv_sec - timeStart.tv_sec) +
-                                             (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
-
-        //add body forces
-        clock_gettime(CLOCK_MONOTONIC, &timeStart);
-        driver->generateGravity(job);
-        driver->applyGravity(job);
-        clock_gettime(CLOCK_MONOTONIC, &timeStop);
-        std::cout << "generate/applyGravity(): " << (timeStop.tv_sec - timeStart.tv_sec) +
                                              (timeStop.tv_nsec - timeStart.tv_nsec) / 1000000000.0 << std::endl;
 
         //update stress

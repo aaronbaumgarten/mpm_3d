@@ -1281,7 +1281,7 @@ namespace FVM_TEST{
 
             //set time step for stability
             job->dt = 3e-5; //< dx*sqrt(rho/kappa)
-            stop_time = 0.20; //1.0; //seconds
+            stop_time = 0.02; //1.0; //seconds
 
             //setup serializer
             job->serializer = std::unique_ptr<Serializer>(new DefaultVTK);
@@ -1525,7 +1525,7 @@ namespace FVM_TEST{
             N_q = n_q;
 
             //set up mpm grid
-            job->grid = std::unique_ptr<Grid>(new CartesianLinear);
+            job->grid = std::unique_ptr<Grid>(new CartesianCubic);
             job->grid->node_count = N_i*N_i;
             job->grid->GRID_DIM = 2;
             job->grid->fp64_props = {1.0, 1.0};
@@ -1706,7 +1706,7 @@ namespace FVM_TEST{
                     std::cout << "\33[2K" << "\x1b[A" << "\33[2K" << "\r";
                     //printf("\33[2K");
                     std::cout << "Frame Written [" << ++frameCount << "]. Time/Frame [" << tFrame << " s]. Elapsed Time [" << tSim << " s]." << std::endl;
-                    std::cout << "L2 Velocity Error : Solid [" << eSolid << "], Fluid [" << eFluid << "]" << std::flush;
+                    std::cout << "L2 Velocity Error : Fluid [" << eFluid << "], Solid [" << eSolid << "]" << std::flush;
                 }
             }
             clock_gettime(CLOCK_MONOTONIC,&timeFinish);
@@ -1918,7 +1918,7 @@ void fvm_mpm_moms_test(Job* job) {
     driver.init(job);
     //driver->run(job);
 
-    //std::vector<double> resultsA = driver.get_L1_error(job, 61, 120, 60, 4, 1e-4, "6112060v2", 2);
+    //std::vector<double> resultsA = driver.get_L1_error(job, 121, 240, 60, 4, 1e-4, "12124060v2", 4);
 
     /*
     //save values to file
@@ -1938,12 +1938,12 @@ void fvm_mpm_moms_test(Job* job) {
      */
 
     //run tests for h_i convergence
-    double dt = 1e-4; //0.05 / 40.0 / 40.0;
-    std::vector<double> Dt = {dt, dt, dt, dt, dt};//{dt,  dt,   dt,   dt,   dt,   dt,  dt,  dt,  dt,  dt, dt,  dt,  2.0*dt, dt/2.0, dt/4.0, dt/8.0};
-    std::vector<int> N_i =   { 61,  61,  61,  61,  61};//{5+1, 10+1, 20+1, 30+1, 60+1, 61,  61,  61,  61,  61, 61,  61,  61,     61,     61,     61};
-    std::vector<int> N_p =   {480, 480, 480, 480, 480};//{20,  40,   80,   120,  240,  240, 240, 240, 240, 60, 120, 180, 240,    240,    240,    240};
-    std::vector<int> N_e =   {  5,  10,  20,  30,  60};//{60,  60,   60,   60,   60,   5,   10,  20,  30,  60, 60,  60,  60,     60,     60,     60};
-    std::vector<int> N_q =   { 48,  24,  12,   8,   4};//{ 1,   1,    1,    1,    2,   12,   6,   3,   2,   2,  2,   2,   2,      2,      2,      2};
+    double dt = 5e-4; //0.05 / 40.0 / 40.0;
+    std::vector<double> Dt = {dt, dt/2.0, dt/4.0, dt/8.0, dt/16.0};//{dt,  dt,   dt,   dt,   dt,   dt,  dt,  dt,  dt,  dt, dt,  dt,  dt/2.0, dt/4.0, dt/8.0, dt/16.0};
+    std::vector<int> N_i =   {181, 181, 181, 181, 181};//{5+1, 10+1, 20+1, 30+1, 60+1, 61,  61,  61,  61,  61, 61,  61,  61,     61,     61,     61};
+    std::vector<int> N_p =   {720, 720, 720, 720, 720};//{20,  40,   80,   120,  240,  240, 240, 240, 240, 60, 120, 180, 240,    240,    240,    240};
+    std::vector<int> N_e =   {60, 60, 60, 60, 60};//{60,  60,   60,   60,   60,   5,   10,  20,  30,  60, 60,  60,  60,     60,     60,     60};
+    std::vector<int> N_q =   {6, 6, 6, 6, 6};//{ 1,   1,    1,    1,    2,   12,   6,   3,   2,   2,  2,   2,   2,      2,      2,      2};
 
     std::vector<double> results = {};
     std::vector<double> tmp;

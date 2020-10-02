@@ -169,6 +169,7 @@ Registry<Part>::Registry() {
     object["Ball"] = &createInstance<Part,Ball>;
     object["Box"] = &createInstance<Part,Box>;
     object["SineWave"] = &createInstance<Part,SineWave>;
+    object["SandPile"] = &createInstance<Part,SandPile>;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -181,6 +182,7 @@ Registry<FiniteVolumeSolver>::Registry() {
     object["FVMMixtureSolver"] = &createInstance<FiniteVolumeSolver, FVMMixtureSolver>;
     object["FVMMixtureSolverRK4"] = &createInstance<FiniteVolumeSolver, FVMMixtureSolverRK4>;
     object["FVMStaticMixtureSolverRK4"] = &createInstance<FiniteVolumeSolver, FVMStaticMixtureSolverRK4>;
+    object["ParallelMixtureSolverRK4"] = &createInstance<FiniteVolumeSolver, ParallelMixtureSolverRK4>;
 }
 
 template<>

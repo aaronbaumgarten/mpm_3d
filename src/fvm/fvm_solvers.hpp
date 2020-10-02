@@ -23,6 +23,7 @@
 
 #include "mpm_objects.hpp"
 #include "fvm_objects.hpp"
+#include "../objects/solvers/solvers.hpp"
 
 /*
 class FiniteVolumeSolver : public MPMObject{
@@ -210,6 +211,25 @@ public:
 
     //this class is identical to FVMMixtureSolverRK4, except that no update is performed on MPM body
     virtual void step(Job* job, FiniteVolumeDriver* driver);                                        //perform single mpm step
+};
+
+/*----------------------------------------------------------------------------*/
+//parallel solver
+class ParallelMixtureSolverRK4 : public FVMMixtureSolverRK4, public ThreadPoolExplicitUSL{
+public:
+    ParallelMixtureSolverRK4(){
+        //need to be specific about which object is being called
+        FVMMixtureSolverRK4::object_name = "ParallelMixtureSolverRK4";
+        ThreadPoolExplicitUSL::object_name = "ParallelMixtureSolverRK4";
+    }
+
+    //overwrite these functions in base classes
+    virtual void init(Job* job, FiniteVolumeDriver* driver);
+    virtual void step(Job* job, FiniteVolumeDriver* driver);
+    virtual void mapPointsToNodes(Job* job);
+    virtual void moveGrid(Job* job);
+    virtual void movePoints(Job* job);
+    virtual void calculateStrainRate(Job* job);
 };
 
 #endif //MPM_V3_FVM_SOLVERS_HPP

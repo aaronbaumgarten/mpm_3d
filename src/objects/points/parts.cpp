@@ -121,3 +121,47 @@ bool SineWave::encompasses(KinematicVector &xIN) {
         return false;
     }
 }
+
+/*----------------------------------------------------------------------------*/
+
+void SandPile::init(Job* job){
+    //initialize amplitude, wavelength, offset
+    if (fp64_props.size() < job->grid->GRID_DIM + 1){
+        std::cout << fp64_props.size() << "\n";
+        fprintf(stderr,
+                "%s:%s: Need %i values defined.\n",
+                __FILE__, __func__, job->grid->GRID_DIM + 1);
+        exit(0);
+    } else {
+        //store values
+        peak = KinematicVector(job->JOB_TYPE);
+        for (int i=0; i<job->grid->GRID_DIM; i++){
+            peak[i] = fp64_props[i];
+        }
+
+        mu = fp64_props[job->grid->GRID_DIM];
+        H_index = job->grid->GRID_DIM-1;
+
+        std::cout << "Part properties (peak = ";
+        for (int i=0; i<job->grid->GRID_DIM; i++){
+            std::cout << peak[i] << ", ";
+        }
+        std::cout << "mu = " << mu << ")." << std::endl;
+    }
+    return;
+}
+
+bool SandPile::encompasses(KinematicVector &xIN) {
+    //find relative position to peak
+    KinematicVector xdif = xIN - peak;
+
+    //find relative height
+    double hdif = xdif[H_index];
+    xdif[H_index] = 0;
+
+    //find radial distance
+    double rdif = xdif.norm();
+
+    //check that point lies underneath mu slope
+    return (hdif < -mu*rdif);
+}

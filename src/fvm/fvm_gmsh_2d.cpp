@@ -96,7 +96,8 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
                 tmp_bc_info[i].tag != SUPERSONIC_OUTLET &&
                 tmp_bc_info[i].tag != PERIODIC &&
                 tmp_bc_info[i].tag != DAMPED_WALL &&
-                tmp_bc_info[i].tag != STAGNATION_INLET){
+                tmp_bc_info[i].tag != STAGNATION_INLET &&
+                tmp_bc_info[i].tag != PULSE_STAGNATION_INLET){
                 std::cerr << "ERROR: Boundary tag " << tmp_bc_info[i].tag << " not defined for FVMCartesian grid object! Exiting." << std::endl;
                 exit(0);
             }
@@ -365,6 +366,31 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
                     std::cout << ", T^t = " << tmp_bc_info[i].values[1] << std::endl;
                     break;
 
+                case PULSE_STAGNATION_INLET:
+                    //5 properties: P^t and T^t, P_0, T_0, t_0
+                    if (fp64_props.size() > fp64_iterator+4){
+                        tmp_bc_info[i].values[0] = fp64_props[fp64_iterator]; //P^t
+                        fp64_iterator++;
+                        tmp_bc_info[i].values[1] = fp64_props[fp64_iterator]; //T^t
+                        fp64_iterator++;
+                        tmp_bc_info[i].vector[0] = fp64_props[fp64_iterator]; //P_0
+                        fp64_iterator++;
+                        tmp_bc_info[i].vector[1] = fp64_props[fp64_iterator]; //T_0
+                        fp64_iterator++;
+                        tmp_bc_info[i].vector[2] = fp64_props[fp64_iterator]; //t_0
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : PULSE_STAGNATION_INLET : P^t = " << tmp_bc_info[i].values[0];
+                    std::cout << ", T^t = " << tmp_bc_info[i].values[1];
+                    std::cout << ", P_0 = " << tmp_bc_info[i].vector[0];
+                    std::cout << ", T_0 = " << tmp_bc_info[i].vector[1];
+                    std::cout << ", t_0 = " << tmp_bc_info[i].vector[2] << std::endl;
+                    break;
                 default:
                     //do nothing
                     break;
