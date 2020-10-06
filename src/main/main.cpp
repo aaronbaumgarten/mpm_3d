@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
         //fvm_mpm_drag_test(job);
         //fvm_mpm_buoyancy_test(job);
         //fvm_mpm_porosity_test(job);
-        fvm_mpm_moms_test(job);
+        //fvm_mpm_moms_test(job);
 
         std::cout << "No arguments given. Exiting." << std::endl;
         usage(argv[0]);

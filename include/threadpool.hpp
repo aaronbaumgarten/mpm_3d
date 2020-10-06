@@ -57,6 +57,8 @@ public:
         for (int i = 0; i < other.threads_.size(); ++i){
             threads_.emplace_back (std::bind (&ThreadPool::threadEntry, this, i));
         }
+
+        return *this;
     }
 
     ThreadPool& operator= (const ThreadPool&& other){
@@ -67,6 +69,8 @@ public:
         for (int i = 0; i < other.threads_.size(); ++i){
             threads_.emplace_back (std::bind (&ThreadPool::threadEntry, this, i));
         }
+
+        return *this;
     }
 
     ~ThreadPool ()

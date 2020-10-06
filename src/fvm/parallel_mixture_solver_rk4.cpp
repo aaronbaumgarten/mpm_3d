@@ -29,6 +29,11 @@
 
 void ParallelMixtureSolverRK4::init(Job* job, FiniteVolumeDriver* driver){
 
+    //copy properties to parents to avoid ambiguity?
+    ThreadPoolExplicitUSL::int_props = FVMMixtureSolverRK4::int_props;
+    ThreadPoolExplicitUSL::fp64_props = FVMMixtureSolverRK4::fp64_props;
+    ThreadPoolExplicitUSL::str_props = FVMMixtureSolverRK4::str_props;
+
     //call parent initialization f'ns
     FVMMixtureSolverRK4::init(job, driver);
     ThreadPoolExplicitUSL::init(job);

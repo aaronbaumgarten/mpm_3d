@@ -230,15 +230,16 @@ double FVMSlurryFluidPhase::getSpeedOfSoundFromEnthalpy(Job *job, FiniteVolumeDr
 }
 
 double FVMSlurryFluidPhase::getPressureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Pt, double M){
-    std::cerr << "ERROR: FVMSlurryFluidPhase does not have getPressureFromStagnationProperties() implemented. Exiting." << std::endl;
-    exit(0);
+    //std::cerr << "ERROR: FVMSlurryFluidPhase does not have getPressureFromStagnationProperties() implemented. Exiting." << std::endl;
+    //exit(0);
 
-    return 0.0;
+    //see pg 123 nb #7
+    return Pt + kappa/2.0 * std::log(1.0 - M*M/2.0);
 }
 
 double FVMSlurryFluidPhase::getTemperatureFromStagnationProperties(Job*, FiniteVolumeDriver*, double Tt, double M){
-    std::cerr << "ERROR: FVMSlurryFluidPhase does not have getTemperatureFromStagnationProperties() implemented. Exiting." << std::endl;
-    exit(0);
+    //std::cerr << "ERROR: FVMSlurryFluidPhase does not have getTemperatureFromStagnationProperties() implemented. Exiting." << std::endl;
+    //exit(0);
 
     return 0.0;
 }

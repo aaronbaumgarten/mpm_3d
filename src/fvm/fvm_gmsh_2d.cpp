@@ -548,6 +548,9 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
                             } else if (block_type == 1) {
                                 //if entity is a line, it defines a set of physical tags for nodes
                                 for (int k=0; k<block_length; k++) {
+                                    std::getline(fin, line);
+                                    lvec = Parser::splitString(line, ' ');
+
                                     std::array<int, 3> tmp_array = std::array<int, 3>();
                                     tmp_array[0] = tag;
                                     tmp_array[1] = std::stoi(lvec[1]) - 1;
