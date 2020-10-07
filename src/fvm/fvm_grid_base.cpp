@@ -479,6 +479,7 @@ void FVMGridBase::mapMixturePropertiesToQuadraturePoints(Job* job, FiniteVolumeD
 }
 
 void FVMGridBase::constructVelocityField(Job* job, FiniteVolumeDriver* driver){
+    /*
     //reconstruct velocity field
     driver->fluid_body->L.setZero();
     KinematicVector u = KinematicVector(job->JOB_TYPE);
@@ -513,6 +514,111 @@ void FVMGridBase::constructVelocityField(Job* job, FiniteVolumeDriver* driver){
         }
 
     }
+     */
+
+    if (num_threads > 1){
+        //determine number of threads for element gradient calculation
+        int thread_count;
+        if (element_count >= num_threads){
+            thread_count = num_threads;
+        } else {
+            thread_count = element_count;
+        }
+
+        //boolean of completion status
+        volatile bool firstTaskComplete[thread_count] = {false};
+
+        //choose interval size
+        int k_max = element_count - 1;
+        int k_interval = (element_count/thread_count) + 1;
+        int k_begin, k_end;
+
+        for (int t=0; t<thread_count; t++) {
+            //set interval
+            k_begin = t * k_interval;
+            k_end = k_begin + k_interval - 1;
+            if (k_end > k_max){
+                k_end = k_max;
+            }
+
+            //send job to threadpool
+            jobThreadPool->doJob(std::bind(constructSubsetOfVelocityField,
+                                           job,
+                                           driver,
+                                           this,
+                                           k_begin,
+                                           k_end,
+                                           std::ref(firstTaskComplete[t])));
+        }
+
+        //join threads
+        bool taskDone = false;
+        //wait for task to complete
+        while (!taskDone){
+            //set flag to true
+            taskDone = true;
+            for (int t=0; t<thread_count; t++){
+                if (!firstTaskComplete[t]){
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
+        }
+    } else {
+        //call construction function
+        cSOVF(job, driver, 0, element_count - 1);
+    }
+
+    return;
+}
+
+void FVMGridBase::cSOVF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k_end){
+    //reconstruct velocity field
+    KinematicVector u = KinematicVector(job->JOB_TYPE);
+    KinematicVector p = KinematicVector(job->JOB_TYPE);
+    double rho, rho_0, tmp_dif;
+
+    Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
+    KinematicVector x_0, x;
+    KinematicVector u_0;
+
+    for (int e=k_begin; e<k_end; e++){
+        driver->fluid_body->L[e].setZero();
+
+        p = driver->fluid_body->p[e];
+        rho_0 = driver->fluid_body->rho(e);
+        u_0 = p/rho_0;
+
+        //least squares fit of u_x to neighbors of element e
+        x_0 = getElementCentroid(job, e);
+        for (int dir = 0; dir<GRID_DIM; dir++){
+            //create system of equations
+            for (int ii=0; ii<element_neighbors[e].size(); ii++){
+                rho = driver->fluid_body->rho(element_neighbors[e][ii]);
+                p = driver->fluid_body->p[element_neighbors[e][ii]];
+                b_e[e](ii) = p[dir]/rho - u_0[dir];
+            }
+
+            //solve for u_pos component of gradient
+            //sol = A_e[e].householderQr().solve(b_e[e]);
+            sol = A_inv[e]*b_e[e];
+            for (int pos = 0; pos<GRID_DIM; pos++){
+                driver->fluid_body->L(e, dir, pos) = sol(pos);
+            }
+        }
+
+    }
+    return;
+}
+
+void FVMGridBase::constructSubsetOfVelocityField(Job* job,
+                                           FiniteVolumeDriver* driver,
+                                           FVMGridBase* grid,
+                                           int k_begin, int k_end,
+                                           volatile bool &done){
+    grid->cSOVF(job, driver, k_begin, k_end);
+    done = true;
     return;
 }
 

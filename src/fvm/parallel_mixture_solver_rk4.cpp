@@ -47,7 +47,255 @@ void ParallelMixtureSolverRK4::init(Job* job, FiniteVolumeDriver* driver){
 void ParallelMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
 
     //tell mixture solver base class to take step
-    FVMMixtureSolverRK4::step(job, driver);
+    //FVMMixtureSolverRK4::step(job, driver);
+
+
+    /*----------------------*/
+    /*  Begin FVM-MPM Step  */
+    /*----------------------*/
+
+    //create map
+    FVMMixtureSolverRK4::createMappings(job);
+
+    //add body forces
+    driver->generateGravity(job);
+    driver->applyGravity(job);
+    //add specific body force to points
+    for (int i=0; i<job->bodies[solid_body_id]->points->b.size(); i++){
+        job->bodies[solid_body_id]->points->b[i] += job->bodies[solid_body_id]->points->v(i)/job->bodies[solid_body_id]->points->m(i)
+                                                    * driver->getSolidLoading(job, job->bodies[solid_body_id]->points->x(i));
+    }
+
+    //map particles to grid
+    mapPointsToNodes(job);
+
+    //enforce boundary conditions on solid body only
+    f_bc = -job->bodies[solid_body_id]->nodes->f;
+    job->bodies[solid_body_id]->boundary->generateRules(job,job->bodies[solid_body_id].get());
+    job->bodies[solid_body_id]->boundary->applyRules(job,job->bodies[solid_body_id].get());
+    //store difference in forces
+    f_bc += job->bodies[solid_body_id]->nodes->f;
+
+    //map mixture properties to finite volumes
+    mapMixturePropertiesToElements(job, driver);
+
+    /*----------------------*/
+    /*  Begin FVM-RK4 Step  */
+    /*----------------------*/
+
+    convertStateSpaceToVector(job,
+                              driver,
+                              u_0,
+                              driver->fluid_body->rho,
+                              driver->fluid_body->p,
+                              driver->fluid_body->rhoE);
+
+    //get drag and corrected coefficients from initial state
+    //driver->fluid_grid->calculateSplitIntegralDragForces(job, driver, f_d, f_d_e);
+    K_n = driver->fluid_grid->getCorrectedDragCoefficients(job, driver);
+
+    /*----------------------*/
+    /* Estimate k1 w/o drag */
+    /*----------------------*/
+
+    f_d.setZero();
+    f_d_e.setZero();
+    k1 = job->dt * F(job, driver, u_0);
+    f_i1 = f_i;                             //store intermediate drag calculations
+    f_b_e = f_e/6.0;                        //store intermediate buoyancy term
+
+    /*-----------------------*/
+    /* Estimate Drag at t+dt */
+    /*-----------------------*/
+
+    //assign u_0 + k1 to fluid phase
+    //assign v_0 + f_i to solid phase
+    convertVectorToStateSpace(job,
+                              driver,
+                              (u_0 + k1),
+                              driver->fluid_body->rho,
+                              driver->fluid_body->p,
+                              driver->fluid_body->rhoE);
+
+    for (int i = 0; i<job->bodies[solid_body_id]->nodes->mx_t.size(); i++){
+        if (job->bodies[solid_body_id]->nodes->m(i) > 0) {
+            job->bodies[solid_body_id]->nodes->x_t(i) = (job->bodies[solid_body_id]->nodes->mx_t(i) +
+                                                         job->dt*(job->bodies[solid_body_id]->nodes->f(i)
+                                                                  + f_i1(i)*job->grid->nodeVolume(job,i)))
+                                                        / job->bodies[solid_body_id]->nodes->m(i);
+        } else {
+            job->bodies[solid_body_id]->nodes->x_t(i).setZero();
+        }
+    }
+
+    driver->fluid_grid->mapMixturePropertiesToQuadraturePoints(job, driver);
+    driver->fluid_grid->constructDensityField(job, driver);
+    driver->fluid_grid->constructMomentumField(job, driver);
+    if (driver->TYPE == driver->THERMAL) {
+        driver->fluid_grid->constructEnergyField(job, driver);
+    }
+    driver->fluid_grid->constructPorosityField(job, driver);
+    driver->fluid_grid->constructVelocityField(job, driver);
+
+    //get corrected estimate for drag at t+dt
+    driver->fluid_grid->calculateSplitIntegralCorrectedDragForces(job, driver, f_d, f_d_e, K_n);
+
+    //reset v_0
+    for (int i = 0; i<job->bodies[solid_body_id]->nodes->mx_t.size(); i++){
+        if (job->bodies[solid_body_id]->nodes->m(i) > 0) {
+            job->bodies[solid_body_id]->nodes->x_t(i) = job->bodies[solid_body_id]->nodes->mx_t(i)
+                                                        / job->bodies[solid_body_id]->nodes->m(i);
+        } else {
+            job->bodies[solid_body_id]->nodes->x_t(i).setZero();
+        }
+    }
+
+    //add f_d to k1
+    convertVectorToStateSpace(job,
+                              driver,
+                              k1,
+                              density_fluxes,
+                              momentum_fluxes,
+                              energy_fluxes);
+
+    momentum_fluxes -= job->dt*f_d_e;
+
+    convertStateSpaceToVector(job,
+                              driver,
+                              k1,
+                              density_fluxes,
+                              momentum_fluxes,
+                              energy_fluxes);
+
+    f_i1 += f_d;
+
+    /*----------------------*/
+    /*    Find k2 to k4     */
+    /*----------------------*/
+
+    k2 = job->dt * F(job, driver, (u_0 + k1/2.0));
+    f_i2 = f_i;
+    f_b_e += (f_e - f_d_e)/3.0;
+
+    k3 = job->dt * F(job, driver, (u_0 + k2/2.0));
+    f_i3 = f_i;
+    f_b_e += (f_e - f_d_e)/3.0;
+
+    k4 = job->dt * F(job, driver, (u_0 + k3));
+    f_i4 = f_i;
+    f_b_e += (f_e - f_d_e)/6.0;
+
+    u_n = u_0 + (k1 + 2.0*k2 + 2.0*k3 + k4)/6.0;
+    f_i = (f_i1 + 2.0*f_i2 + 2.0*f_i3 + f_i4)/6.0;
+
+    convertVectorToStateSpace(job,
+                              driver,
+                              u_n,
+                              driver->fluid_body->rho,
+                              driver->fluid_body->p,
+                              driver->fluid_body->rhoE);
+
+    //add buoyant force contribution to solid phase
+    for (int i=0; i<job->grid->node_count; i++) {
+        job->bodies[solid_body_id]->nodes->f[i] += (f_i[i] - f_d[i])*job->grid->nodeVolume(job,i);
+    }
+
+    /*-----------------------*/
+    /* Estimate Drag at t+dt */
+    /*-----------------------*/
+
+    //assign v_plus grid velocity
+    for (int i = 0; i<job->bodies[solid_body_id]->nodes->mx_t.size(); i++){
+        if (job->bodies[solid_body_id]->nodes->m(i) > 0) {
+            job->bodies[solid_body_id]->nodes->x_t(i) = (job->bodies[solid_body_id]->nodes->mx_t(i) +
+                                                         job->dt*(job->bodies[solid_body_id]->nodes->f(i)))
+                                                        / job->bodies[solid_body_id]->nodes->m(i);
+        } else {
+            job->bodies[solid_body_id]->nodes->x_t(i).setZero();
+        }
+    }
+
+    //subtract predicted drag force from fluid to get u_plus
+    for (int e=0; e<driver->fluid_grid->element_count; e++) {
+        driver->fluid_body->p[e] += job->dt * f_d_e[e];
+    }
+
+    //tell fluid grid to update mixture properties
+    driver->fluid_grid->mapMixturePropertiesToQuadraturePoints(job, driver);
+    //reconstruct fluid fields
+    driver->fluid_grid->constructDensityField(job, driver);
+    driver->fluid_grid->constructMomentumField(job, driver);
+    if (driver->TYPE == driver->THERMAL) {
+        driver->fluid_grid->constructEnergyField(job, driver);
+    }
+    driver->fluid_grid->constructPorosityField(job, driver);
+    driver->fluid_grid->constructVelocityField(job, driver);
+
+    //get correction term
+    driver->fluid_grid->calculateSplitIntegralCorrectedDragForces(job, driver, second_drag_correction, f_d_e, K_n);
+
+    //add corrected drag to fluid momentum
+    double volume;
+    for (int e = 0; e < driver->fluid_grid->element_count; e++) {
+        driver->fluid_body->p[e] -= job->dt * f_d_e[e];
+    }
+
+    //get energy contribution at end of step
+    if (driver->TYPE == driver->THERMAL) {
+        energy_fluxes = driver->fluid_grid->calculateInterphaseEnergyFlux(job, driver);
+        for (int e=0; e<driver->fluid_grid->element_count; e++){
+            driver->fluid_body->rhoE(e) += job->dt * energy_fluxes(e) / driver->fluid_grid->getElementVolume(e);
+        }
+    }
+
+    //add correction to solid momentum and reset velocity
+    for (int i = 0; i<job->bodies[solid_body_id]->nodes->mx_t.size(); i++){
+        if (job->bodies[solid_body_id]->nodes->m(i) > 0) {
+            job->bodies[solid_body_id]->nodes->x_t(i) = job->bodies[solid_body_id]->nodes->mx_t(i)
+                                                        / job->bodies[solid_body_id]->nodes->m(i);
+
+            //only non-zero here
+            job->bodies[solid_body_id]->nodes->f[i] += second_drag_correction[i]*job->grid->nodeVolume(job,i);
+        }
+    }
+
+    //remove original BC forces from solid body
+    job->bodies[solid_body_id]->nodes->f -= f_bc;
+
+    /*----------------------*/
+    /*   End FVM-RK4 Step   */
+    /*----------------------*/
+
+    //add arbitrary loading conditions
+    FVMMixtureSolverRK4::generateLoads(job);
+    FVMMixtureSolverRK4::applyLoads(job);
+
+    //add contact forces
+    FVMMixtureSolverRK4::generateContacts(job);
+    FVMMixtureSolverRK4::addContacts(job);
+
+    //enforce boundary conditions
+    FVMMixtureSolverRK4::generateBoundaryConditions(job);
+    FVMMixtureSolverRK4::addBoundaryConditions(job);
+
+    //move grid
+    moveGrid(job);
+
+    //move particles
+    movePoints(job);
+
+    //calculate strainrate
+    calculateStrainRate(job);
+
+    //update density
+    FVMMixtureSolverRK4::updateDensity(job, Material::UPDATE);
+
+    //update stress
+    FVMMixtureSolverRK4::updateStress(job, Material::UPDATE);
+
+    /*----------------------*/
+    /*     End MPM Step     */
+    /*----------------------*/
 
     return;
 }

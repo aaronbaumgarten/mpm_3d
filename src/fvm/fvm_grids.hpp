@@ -272,6 +272,14 @@ public:
 
     virtual void constructVelocityField(Job* job, FiniteVolumeDriver* driver);
 
+    virtual void cSOVF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k_end);
+
+    static void constructSubsetOfVelocityField(Job* job,
+                                               FiniteVolumeDriver* driver,
+                                               FVMGridBase* grid,
+                                               int k_begin, int k_end,
+                                               volatile bool &done);
+
     //functions to compute element mass flux
     virtual Eigen::VectorXd calculateElementMassFluxes(Job *job, FiniteVolumeDriver *driver);
     virtual Eigen::VectorXd calculateElementMassFluxes(Job *job, FiniteVolumeDriver *driver, int f_start, int f_end);
@@ -468,6 +476,39 @@ public:
 
     virtual int whichElement(Job* job, KinematicVector xIN); //return which element this position is within
     virtual std::vector<double> getBoundingBox();  //return min/max of each coordinate
+
+    //parallel functions
+    virtual void cSOMF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k_end);
+    virtual void cSODF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k_end);
+    virtual void cSOEF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k_end);
+    virtual void cSOPF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k_end);
+
+    static void constructSubsetOfMomentumField(Job* job,
+                                               FiniteVolumeDriver* driver,
+                                               FVMCartesian* grid,
+                                               int k_begin, int k_end,
+                                               volatile bool &done);
+
+
+    static void constructSubsetOfDensityField(Job* job,
+                                              FiniteVolumeDriver* driver,
+                                              FVMCartesian* grid,
+                                              int k_begin, int k_end,
+                                              volatile bool &done);
+
+
+    static void constructSubsetOfEnergyField(Job* job,
+                                             FiniteVolumeDriver* driver,
+                                             FVMCartesian* grid,
+                                             int k_begin, int k_end,
+                                             volatile bool &done);
+
+
+    static void constructSubsetOfPorosityField(Job* job,
+                                               FiniteVolumeDriver* driver,
+                                               FVMCartesian* grid,
+                                               int k_begin, int k_end,
+                                               volatile bool &done);
 };
 
 /*----------------------------------------------------------------------------*/

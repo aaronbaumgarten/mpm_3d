@@ -334,8 +334,8 @@ void FVMMixtureSolver::calculateElementGradients(Job* job, FiniteVolumeDriver* d
         //call grid to reconstruct conserved fields
         driver->fluid_grid->constructDensityField(job, driver);
         driver->fluid_grid->constructMomentumField(job, driver);
-        driver->fluid_grid->constructPorosityField(job, driver);
         driver->fluid_grid->constructEnergyField(job, driver);
+        driver->fluid_grid->constructPorosityField(job, driver);
         driver->fluid_grid->constructVelocityField(job, driver);
 
     } else {

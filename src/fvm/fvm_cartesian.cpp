@@ -1452,8 +1452,236 @@ void FVMCartesian::writeHeader(std::ofstream& file, int SPEC){
 
 /*----------------------------------------------------------------------------*/
 void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
+    if (num_threads > 1){
+        //determine number of threads for element gradient calculation
+        int thread_count;
+        if (element_count >= num_threads){
+            thread_count = num_threads;
+        } else {
+            thread_count = element_count;
+        }
+
+        //boolean of completion status
+        volatile bool firstTaskComplete[thread_count] = {false};
+
+        //choose interval size
+        int k_max = element_count - 1;
+        int k_interval = (element_count/thread_count) + 1;
+        int k_begin, k_end;
+
+        for (int t=0; t<thread_count; t++) {
+            //set interval
+            k_begin = t * k_interval;
+            k_end = k_begin + k_interval - 1;
+            if (k_end > k_max){
+                k_end = k_max;
+            }
+
+            //send job to threadpool
+            jobThreadPool->doJob(std::bind(constructSubsetOfMomentumField,
+                                           job,
+                                           driver,
+                                           this,
+                                           k_begin,
+                                           k_end,
+                                           std::ref(firstTaskComplete[t])));
+        }
+
+        //join threads
+        bool taskDone = false;
+        //wait for task to complete
+        while (!taskDone){
+            //set flag to true
+            taskDone = true;
+            for (int t=0; t<thread_count; t++){
+                if (!firstTaskComplete[t]){
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
+        }
+    } else {
+        //call construction function
+        cSOMF(job, driver, 0, element_count - 1);
+    }
+}
+
+void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
+    if (num_threads > 1){
+        //determine number of threads for element gradient calculation
+        int thread_count;
+        if (element_count >= num_threads){
+            thread_count = num_threads;
+        } else {
+            thread_count = element_count;
+        }
+
+        //boolean of completion status
+        volatile bool firstTaskComplete[thread_count] = {false};
+
+        //choose interval size
+        int k_max = element_count - 1;
+        int k_interval = (element_count/thread_count) + 1;
+        int k_begin, k_end;
+
+        for (int t=0; t<thread_count; t++) {
+            //set interval
+            k_begin = t * k_interval;
+            k_end = k_begin + k_interval - 1;
+            if (k_end > k_max){
+                k_end = k_max;
+            }
+
+            //send job to threadpool
+            jobThreadPool->doJob(std::bind(constructSubsetOfDensityField,
+                                           job,
+                                           driver,
+                                           this,
+                                           k_begin,
+                                           k_end,
+                                           std::ref(firstTaskComplete[t])));
+        }
+
+        //join threads
+        bool taskDone = false;
+        //wait for task to complete
+        while (!taskDone){
+            //set flag to true
+            taskDone = true;
+            for (int t=0; t<thread_count; t++){
+                if (!firstTaskComplete[t]){
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
+        }
+    } else {
+        //call construction function
+        cSODF(job, driver, 0, element_count - 1);
+    }
+}
+
+void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
+    if (num_threads > 1){
+        //determine number of threads for element gradient calculation
+        int thread_count;
+        if (element_count >= num_threads){
+            thread_count = num_threads;
+        } else {
+            thread_count = element_count;
+        }
+
+        //boolean of completion status
+        volatile bool firstTaskComplete[thread_count] = {false};
+
+        //choose interval size
+        int k_max = element_count - 1;
+        int k_interval = (element_count/thread_count) + 1;
+        int k_begin, k_end;
+
+        for (int t=0; t<thread_count; t++) {
+            //set interval
+            k_begin = t * k_interval;
+            k_end = k_begin + k_interval - 1;
+            if (k_end > k_max){
+                k_end = k_max;
+            }
+
+            //send job to threadpool
+            jobThreadPool->doJob(std::bind(constructSubsetOfEnergyField,
+                                           job,
+                                           driver,
+                                           this,
+                                           k_begin,
+                                           k_end,
+                                           std::ref(firstTaskComplete[t])));
+        }
+
+        //join threads
+        bool taskDone = false;
+        //wait for task to complete
+        while (!taskDone){
+            //set flag to true
+            taskDone = true;
+            for (int t=0; t<thread_count; t++){
+                if (!firstTaskComplete[t]){
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
+        }
+    } else {
+        //call construction function
+        cSOEF(job, driver, 0, element_count - 1);
+    }
+}
+
+
+void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
+    if (num_threads > 1){
+        //determine number of threads for element gradient calculation
+        int thread_count;
+        if (element_count >= num_threads){
+            thread_count = num_threads;
+        } else {
+            thread_count = element_count;
+        }
+
+        //boolean of completion status
+        volatile bool firstTaskComplete[thread_count] = {false};
+
+        //choose interval size
+        int k_max = element_count - 1;
+        int k_interval = (element_count/thread_count) + 1;
+        int k_begin, k_end;
+
+        for (int t=0; t<thread_count; t++) {
+            //set interval
+            k_begin = t * k_interval;
+            k_end = k_begin + k_interval - 1;
+            if (k_end > k_max){
+                k_end = k_max;
+            }
+
+            //send job to threadpool
+            jobThreadPool->doJob(std::bind(constructSubsetOfPorosityField,
+                                           job,
+                                           driver,
+                                           this,
+                                           k_begin,
+                                           k_end,
+                                           std::ref(firstTaskComplete[t])));
+        }
+
+        //join threads
+        bool taskDone = false;
+        //wait for task to complete
+        while (!taskDone){
+            //set flag to true
+            taskDone = true;
+            for (int t=0; t<thread_count; t++){
+                if (!firstTaskComplete[t]){
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
+        }
+    } else {
+        //call construction function
+        cSOPF(job, driver, 0, element_count - 1);
+    }
+}
+
+//parallel functions
+void FVMCartesian::cSOMF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k_end){
     if (driver->ORDER == 1){
-        driver->fluid_body->p_x.setZero(); //let momentum be constant within an element
+        for (int e=k_begin; e<=k_end; e++) {
+            driver->fluid_body->p_x[e].setZero(); //let momentum be constant within an element
+        }
     } else if (driver->ORDER >= 2){
         if (driver->ORDER > 2) {
             std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER momentum reconstruction."
@@ -1465,7 +1693,7 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
         KinematicVector p_0, p, p_max, p_min, min_dif;
         min_dif = KinematicVector(job->JOB_TYPE);
         double tmp_dif, rho_0;
-        for (int e = 0; e<element_count; e++){
+        for (int e = k_begin; e<=k_end; e++){
             //least squares fit of u_x to neighbors of element e
             x_0 = getElementCentroid(job, e);
             p_0 = driver->fluid_body->p[e] / driver->fluid_body->n_e(e);
@@ -1525,9 +1753,12 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
     return;
 }
 
-void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
+
+void FVMCartesian::cSODF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k_end){
     if (driver->ORDER == 1){
-        driver->fluid_body->rho_x.setZero(); //let density be constant within an element
+        for (int e=k_begin; e<=k_end; e++) {
+            driver->fluid_body->rho_x[e].setZero(); //let density be constant within an element
+        }
     } if (driver->ORDER >= 2){
         if (driver->ORDER > 2) {
             std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER momentum reconstruction."
@@ -1538,7 +1769,7 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
         KinematicVector x_0, x;
         double rho_0, rho, rho_max, rho_min, min_dif;
         double tmp_dif;
-        for (int e = 0; e<element_count; e++){
+        for (int e = k_begin; e<=k_end; e++){
             //least squares fit of u_x to neighbors of element e
             x_0 = getElementCentroid(job, e);
             rho_0 = driver->fluid_body->rho(e) / driver->fluid_body->n_e(e);
@@ -1593,9 +1824,11 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
     return;
 }
 
-void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
+void FVMCartesian::cSOEF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k_end){
     if (driver->ORDER == 1){
-        driver->fluid_body->rhoE_x.setZero(); //let energy be constant within an element
+        for (int e=k_begin; e<=k_end; e++) {
+            driver->fluid_body->rhoE_x[e].setZero(); //let energy be constant within an element
+        }
     } if (driver->ORDER >= 2){
         if (driver->ORDER > 2) {
             std::cout << "ERROR: FVMCartesian does not currently implement higher ORDER momentum reconstruction."
@@ -1606,7 +1839,7 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
         KinematicVector x_0, x;
         double rhoE_0, rhoE, rhoE_max, rhoE_min, min_dif;
         double tmp_dif;
-        for (int e = 0; e<element_count; e++){
+        for (int e = k_begin; e <= k_end; e++){
             //least squares fit of u_x to neighbors of element e
             x_0 = getElementCentroid(job, e);
             rhoE_0 = driver->fluid_body->rhoE(e) / driver->fluid_body->n_e(e);
@@ -1661,8 +1894,7 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
     return;
 }
 
-
-void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
+void FVMCartesian::cSOPF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k_end){
     //use porosity field gradients to adjust field gradients
     if (USE_LOCAL_POROSITY_CORRECTION) {
         Eigen::VectorXd gradn_star = Eigen::VectorXd(GRID_DIM);
@@ -1676,7 +1908,7 @@ void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
         KinematicVector u_s = KinematicVector(job->JOB_TYPE);
 
         //loop over elements
-        for (int e = 0; e < element_count; e++) {
+        for (int e = k_begin; e <= k_end; e++) {
             //estimate gradn_star (reconstructed porosity gradient)
             if (driver->ORDER == 1) {
                 //gradients are initially zero
@@ -1789,5 +2021,48 @@ void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
         //do nothing
     }
 
+    return;
+}
+
+void FVMCartesian::constructSubsetOfMomentumField(Job* job,
+                                           FiniteVolumeDriver* driver,
+                                           FVMCartesian* grid,
+                                           int k_begin, int k_end,
+                                           volatile bool &done){
+    grid->cSOMF(job, driver, k_begin, k_end);
+    done = true;
+    return;
+}
+
+
+void FVMCartesian::constructSubsetOfDensityField(Job* job,
+                                          FiniteVolumeDriver* driver,
+                                          FVMCartesian* grid,
+                                          int k_begin, int k_end,
+                                          volatile bool &done){
+    grid->cSODF(job, driver, k_begin, k_end);
+    done = true;
+    return;
+}
+
+
+void FVMCartesian::constructSubsetOfEnergyField(Job* job,
+                                         FiniteVolumeDriver* driver,
+                                         FVMCartesian* grid,
+                                         int k_begin, int k_end,
+                                         volatile bool &done){
+    grid->cSOEF(job, driver, k_begin, k_end);
+    done = true;
+    return;
+}
+
+
+void FVMCartesian::constructSubsetOfPorosityField(Job* job,
+                                           FiniteVolumeDriver* driver,
+                                           FVMCartesian* grid,
+                                           int k_begin, int k_end,
+                                           volatile bool &done){
+    grid->cSOPF(job, driver, k_begin, k_end);
+    done = true;
     return;
 }
