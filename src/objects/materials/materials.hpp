@@ -148,6 +148,16 @@ public:
     virtual void writeFrame(Job* job, Body* body, Serializer* serializer);
     virtual std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
     virtual int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+
+    //function for parallel calculation of stresses
+    virtual void cSOS(Job* job, Body* body, int SPEC, int k_begin, int k_end);
+
+    static void calculateSubsetOfStresses(Job* job,
+                                               Body* body,
+                                               SlurryGranularPhase* material,
+                                               int SPEC,
+                                               int k_begin, int k_end,
+                                               volatile bool &done);
 };
 
 /*----------------------------------------------------------------------------*/

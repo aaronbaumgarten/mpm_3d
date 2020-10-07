@@ -174,6 +174,92 @@ int SlurryGranularPhase::loadState(Job* job, Body* body, Serializer* serializer,
 /*----------------------------------------------------------------------------*/
 //
 void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
+    //calculate packing fraction
+    for (int i=0;i<body->points->x.size();i++){
+        phi(i) = 1/grains_rho * body->points->m(i) / body->points->v(i);
+    }
+
+    //interpolate eta from fluid points
+    if (eta_0 > 0) {
+        if (fluid_body_id >= 0) {
+            Eigen::VectorXd pvec = job->bodies[fluid_body_id]->points->m * eta_0;
+            Eigen::VectorXd nvec(job->bodies[fluid_body_id]->nodes->m.rows());
+            nvec = job->bodies[fluid_body_id]->S * pvec;
+            for (int i = 0; i < nvec.rows(); i++) {
+                if (job->bodies[fluid_body_id]->nodes->m(i) > 0) {
+                    nvec(i) = nvec(i) / job->bodies[fluid_body_id]->nodes->m(i);
+                } else {
+                    nvec(i) = 0;
+                }
+            }
+            eta = body->S.operate(nvec, MPMSparseMatrixBase::TRANSPOSED);
+        } else {
+            for (int i=0;i<eta.rows();i++){
+                eta(i) = eta_0;
+            }
+        }
+    } else {
+        eta.setZero();
+    }
+
+    int point_count = body->points->x.size();
+    if (job->thread_count > 1){
+        //determine number of threads for element gradient calculation
+        int thread_count;
+        if (point_count >= job->thread_count){
+            thread_count = job->thread_count;
+        } else {
+            thread_count = point_count;
+        }
+
+        //boolean of completion status
+        volatile bool firstTaskComplete[thread_count] = {false};
+
+        //choose interval size
+        int k_max = point_count - 1;
+        int k_interval = (point_count/thread_count) + 1;
+        int k_begin, k_end;
+
+        for (int t=0; t<thread_count; t++) {
+            //set interval
+            k_begin = t * k_interval;
+            k_end = k_begin + k_interval - 1;
+            if (k_end > k_max){
+                k_end = k_max;
+            }
+
+            //send job to threadpool
+            job->threadPool.doJob(std::bind(calculateSubsetOfStresses,
+                                            job,
+                                            body,
+                                            this,
+                                            SPEC,
+                                            k_begin,
+                                            k_end,
+                                            std::ref(firstTaskComplete[t])));
+        }
+
+        //join threads
+        bool taskDone = false;
+        //wait for task to complete
+        while (!taskDone){
+            //set flag to true
+            taskDone = true;
+            for (int t=0; t<thread_count; t++){
+                if (!firstTaskComplete[t]){
+                    //if any task is not done, set flag to false
+                    taskDone = false;
+                    break;
+                }
+            }
+        }
+    } else {
+        //call construction function
+        cSOS(job, body, SPEC, 0, point_count - 1);
+    }
+}
+
+void SlurryGranularPhase::cSOS(Job* job, Body* body, int SPEC, int k_begin, int k_end){
     MaterialTensor T, T_tr, L, D, W;
     MaterialTensor tmpMat;
 
@@ -205,36 +291,8 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
     bool is_solved;
     int k, j;
 
-    //calculate packing fraction
-    for (int i=0;i<body->points->x.size();i++){
-        phi(i) = 1/grains_rho * body->points->m(i) / body->points->v(i);
-    }
-
-    //interpolate eta from fluid points
-    if (eta_0 > 0) {
-        if (fluid_body_id >= 0) {
-            Eigen::VectorXd pvec = job->bodies[fluid_body_id]->points->m * eta_0;
-            Eigen::VectorXd nvec(job->bodies[fluid_body_id]->nodes->m.rows());
-            nvec = job->bodies[fluid_body_id]->S * pvec;
-            for (int i = 0; i < nvec.rows(); i++) {
-                if (job->bodies[fluid_body_id]->nodes->m(i) > 0) {
-                    nvec(i) = nvec(i) / job->bodies[fluid_body_id]->nodes->m(i);
-                } else {
-                    nvec(i) = 0;
-                }
-            }
-            eta = body->S.operate(nvec, MPMSparseMatrixBase::TRANSPOSED);
-        } else {
-            for (int i=0;i<eta.rows();i++){
-                eta(i) = eta_0;
-            }
-        }
-    } else {
-        eta.setZero();
-    }
-
     //calculate stress state
-    for (int i=0;i<body->points->x.size();i++) {
+    for (int i=k_begin; i<=k_end; i++){ //(int i=0;i<body->points->x.size();i++) {
         if (body->points->active[i] == 0) {
             continue;
         }
@@ -835,6 +893,17 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
 
     }
 
+    return;
+}
+
+void SlurryGranularPhase::calculateSubsetOfStresses(Job* job,
+                                      Body* body,
+                                      SlurryGranularPhase* material,
+                                      int SPEC,
+                                      int k_begin, int k_end,
+                                      volatile bool &done){
+    material->cSOS(job, body, SPEC, k_begin, k_end);
+    done = true;
     return;
 }
 
