@@ -583,7 +583,7 @@ void FVMGridBase::cSOVF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k
     KinematicVector x_0, x;
     KinematicVector u_0;
 
-    for (int e=k_begin; e<k_end; e++){
+    for (int e=k_begin; e<=k_end; e++){
         driver->fluid_body->L[e].setZero();
 
         p = driver->fluid_body->p[e];
