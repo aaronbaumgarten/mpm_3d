@@ -18,5 +18,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_static_mixture_solver_rk4.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_linear_1d_nonuniform.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/parallel_mixture_solver_rk4.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_gmsh_3d.cpp
         PARENT_SCOPE
         )

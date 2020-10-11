@@ -190,6 +190,7 @@ Registry<FiniteVolumeGrid>::Registry() {
     object["FVMCartesian"] = &createInstance<FiniteVolumeGrid,FVMCartesian>;
     object["FVMGmsh2D"] = &createInstance<FiniteVolumeGrid,FVMGmsh2D>;
     object["FVMLinear1DNonUniform"] = &createInstance<FiniteVolumeGrid,FVMLinear1DNonUniform>;
+    object["FVMGmsh3D"] = &createInstance<FiniteVolumeGrid,FVMGmsh3D>;
 }
 
 template<>

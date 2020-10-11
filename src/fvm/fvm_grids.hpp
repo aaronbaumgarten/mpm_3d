@@ -570,4 +570,65 @@ public:
     virtual std::vector<double> getBoundingBox();  //return min/max of each coordinate
 };
 
+/*----------------------------------------------------------------------------*/
+
+class FVMGmsh3D : public FVMGridBase{
+public:
+    FVMGmsh3D(){
+        object_name = "FVMGmsh3D";
+    }
+
+    std::string filename;
+    Eigen::MatrixXi nodeIDs;        //element to node map
+    int npe = 4;                    //nodes per element
+    KinematicVectorArray x_n;       //node positions
+
+    //grid definitions
+    std::vector<std::array<int,3>> face_nodes;      //un-oriented list of nodes a---b---c
+
+    virtual void init(Job* job, FiniteVolumeDriver* driver);
+
+    virtual void writeHeader(std::ofstream& file, int TYPE);
+    virtual void constructMomentumField(Job* job, FiniteVolumeDriver* driver);
+    virtual void constructDensityField(Job* job, FiniteVolumeDriver* driver);
+    virtual void constructEnergyField(Job* job, FiniteVolumeDriver* driver);
+    virtual void constructPorosityField(Job* job, FiniteVolumeDriver* driver);
+
+    virtual int whichElement(Job* job, KinematicVector xIN); //return which element this position is within
+    virtual std::vector<double> getBoundingBox();  //return min/max of each coordinate
+
+    //parallel functions
+    virtual void cSOMF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k_end);
+    virtual void cSODF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k_end);
+    virtual void cSOEF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k_end);
+    virtual void cSOPF(Job* job, FiniteVolumeDriver* driver, int k_begin, int k_end);
+
+    static void constructSubsetOfMomentumField(Job* job,
+                                               FiniteVolumeDriver* driver,
+                                               FVMGmsh3D* grid,
+                                               int k_begin, int k_end,
+                                               volatile bool &done);
+
+
+    static void constructSubsetOfDensityField(Job* job,
+                                              FiniteVolumeDriver* driver,
+                                              FVMGmsh3D* grid,
+                                              int k_begin, int k_end,
+                                              volatile bool &done);
+
+
+    static void constructSubsetOfEnergyField(Job* job,
+                                             FiniteVolumeDriver* driver,
+                                             FVMGmsh3D* grid,
+                                             int k_begin, int k_end,
+                                             volatile bool &done);
+
+
+    static void constructSubsetOfPorosityField(Job* job,
+                                               FiniteVolumeDriver* driver,
+                                               FVMGmsh3D* grid,
+                                               int k_begin, int k_end,
+                                               volatile bool &done);
+};
+
 #endif //MPM_V3_FVM_GRIDS_HPP
