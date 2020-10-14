@@ -61,6 +61,7 @@ public:
     static const int DAMPED_WALL            = 12;
     static const int STAGNATION_INLET       = 13;
     static const int PULSE_STAGNATION_INLET = 14;
+    static const int RAMP_STAGNATION_INLET  = 15;
 
     //Harten entropy correction scale
     static constexpr double delta = 0.1;

@@ -56,4 +56,15 @@ public:
     virtual void init(Job* job, FiniteVolumeDriver* driver);
 };
 
+class FVMRocketBody : public FVMDefaultBody{
+public:
+    FVMRocketBody(){
+        object_name = "FVMRocketBody";
+    }
+
+    double h,r,rho_1,theta_1,v_1;
+
+    virtual void init(Job* job, FiniteVolumeDriver* driver);
+};
+
 #endif //MPM_V3_FVM_BODIES_HPP

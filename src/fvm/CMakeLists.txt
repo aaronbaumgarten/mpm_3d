@@ -19,5 +19,8 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_linear_1d_nonuniform.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/parallel_mixture_solver_rk4.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_gmsh_3d.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_rocket_body.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_variable_step_driver.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_artificial_viscosity.cpp
         PARENT_SCOPE
         )

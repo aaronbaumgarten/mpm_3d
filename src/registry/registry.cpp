@@ -24,6 +24,7 @@
 
 #include "fvm/fvm_grids.hpp"
 #include "fvm/fvm_bodies.hpp"
+#include "fvm/fvm_drivers.hpp"
 #include "fvm/fvm_materials.hpp"
 #include "fvm/fvm_solvers.hpp"
 #include "fvm/fvm_serializers.hpp"
@@ -59,6 +60,7 @@ Registry<Driver>::Registry() {
     object["FiniteVolumeDriver"] = &createInstance<Driver,FiniteVolumeDriver>;
     object["FishRandomSampleDriver"] = &createInstance<Driver,FishRandomSampleDriver>;
     object["FishMixtureModelRandomSampleDriver"] = &createInstance<Driver,FishMixtureModelRandomSampleDriver>;
+    object["FVMVariableStepDriver"] = &createInstance<Driver,FVMVariableStepDriver>;
 }
 
 
@@ -196,6 +198,7 @@ Registry<FiniteVolumeGrid>::Registry() {
 template<>
 Registry<FiniteVolumeBody>::Registry() {
     object["FVMDefaultBody"] = &createInstance<FiniteVolumeBody,FVMDefaultBody>;
+    object["FVMRocketBody"] = &createInstance<FiniteVolumeBody,FVMRocketBody>;
 }
 
 template<>

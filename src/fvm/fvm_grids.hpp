@@ -56,6 +56,7 @@ public:
     static const int DAMPED_WALL            = 12;
     static const int STAGNATION_INLET       = 13;
     static const int PULSE_STAGNATION_INLET = 14;
+    static const int RAMP_STAGNATION_INLET  = 15;
 
     //Harten entropy correction scale
     static constexpr double delta = 0.1;
@@ -180,6 +181,7 @@ public:
     bool USE_ENHANCED_M_MATRIX = false;
     bool USE_ENHANCED_QUADRATURE = false;
     bool USE_HYDROSTATIC_CORRECTION = false;
+    bool USE_MACH_LIMITER = false;
 
     //instantiate
     std::vector<parallelMemoryUnit> memoryUnits;
@@ -188,6 +190,7 @@ public:
     double damping_coefficient = 0.999;
     double damping_at_t0 = 0.999;
     double damping_time_cst = 1.0;
+    double mach_limit = 0.8;
 
     //enhanced m matrix calculation
     double hx_enhanced_quad = 1.0;

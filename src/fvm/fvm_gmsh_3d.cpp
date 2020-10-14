@@ -97,7 +97,8 @@ void FVMGmsh3D::init(Job* job, FiniteVolumeDriver* driver){
                 tmp_bc_info[i].tag != PERIODIC &&
                 tmp_bc_info[i].tag != DAMPED_WALL &&
                 tmp_bc_info[i].tag != STAGNATION_INLET &&
-                tmp_bc_info[i].tag != PULSE_STAGNATION_INLET){
+                tmp_bc_info[i].tag != PULSE_STAGNATION_INLET &&
+                tmp_bc_info[i].tag != RAMP_STAGNATION_INLET){
                 std::cerr << "ERROR: Boundary tag " << tmp_bc_info[i].tag << " not defined for FVMGmsh3D grid object! Exiting." << std::endl;
                 exit(0);
             }
@@ -391,6 +392,33 @@ void FVMGmsh3D::init(Job* job, FiniteVolumeDriver* driver){
                     std::cout << ", T_0 = " << tmp_bc_info[i].vector[1];
                     std::cout << ", t_0 = " << tmp_bc_info[i].vector[2] << std::endl;
                     break;
+
+                case RAMP_STAGNATION_INLET:
+                    //5 properties: P^t and T^t, P_0, T_0, t_0
+                    if (fp64_props.size() > fp64_iterator+4){
+                        tmp_bc_info[i].values[0] = fp64_props[fp64_iterator]; //P^t
+                        fp64_iterator++;
+                        tmp_bc_info[i].values[1] = fp64_props[fp64_iterator]; //T^t
+                        fp64_iterator++;
+                        tmp_bc_info[i].vector[0] = fp64_props[fp64_iterator]; //P_0
+                        fp64_iterator++;
+                        tmp_bc_info[i].vector[1] = fp64_props[fp64_iterator]; //T_0
+                        fp64_iterator++;
+                        tmp_bc_info[i].vector[2] = fp64_props[fp64_iterator]; //t_0
+                        fp64_iterator++;
+                    } else {
+                        std::cerr << "ERROR: Not enough fp64 properties given. Exiting." << std::endl;
+                        exit(0);
+                    }
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : RAMP_STAGNATION_INLET : P^t = " << tmp_bc_info[i].values[0];
+                    std::cout << ", T^t = " << tmp_bc_info[i].values[1];
+                    std::cout << ", P_0 = " << tmp_bc_info[i].vector[0];
+                    std::cout << ", T_0 = " << tmp_bc_info[i].vector[1];
+                    std::cout << ", t_0 = " << tmp_bc_info[i].vector[2] << std::endl;
+                    break;
+
                 default:
                     //do nothing
                     break;
@@ -808,15 +836,56 @@ void FVMGmsh3D::init(Job* job, FiniteVolumeDriver* driver){
 
     //define element neighbors map
     element_neighbors = std::vector<std::vector<int>>(element_count);
-    //use face neighbors only
-    int e_tmp;
-    bool in_list;
-    for (int f = 0; f < face_count; f++) {
-        //loop over faces
-        if (face_elements[f][0] > -1 && face_elements[f][1] > -1){
-            //these can only show up once
-            element_neighbors[face_elements[f][0]].push_back(face_elements[f][1]);
-            element_neighbors[face_elements[f][1]].push_back(face_elements[f][0]);
+    if (true) { //USE_NODE_NEIGHBORS) {
+        //use all connected nodes
+        std::vector<std::vector<int>> tmp_node_to_element_map = std::vector<std::vector<int>>(node_count);
+        for (int e = 0; e < element_count; e++) {
+            //fill in list of elements associated with each node
+            n0 = nodeIDs(e, 0);
+            n1 = nodeIDs(e, 1);
+            n2 = nodeIDs(e, 2);
+            n3 = nodeIDs(e, 3);
+
+            tmp_node_to_element_map[n0].push_back(e);
+            tmp_node_to_element_map[n1].push_back(e);
+            tmp_node_to_element_map[n2].push_back(e);
+            tmp_node_to_element_map[n3].push_back(e);
+        }
+        int e_tmp;
+        bool in_list;
+        for (int e = 0; e < element_count; e++) {
+            //loop over elements
+            for (int j = 0; j < npe; j++) {
+                //for each node
+                n0 = nodeIDs(e, j);
+                //check if elements associated with that node are already in the neighbor list
+                for (int i = 0; i < tmp_node_to_element_map[n0].size(); i++) {
+                    e_tmp = tmp_node_to_element_map[n0][i];
+                    in_list = false;
+                    for (int ii = 0; i < element_neighbors[e].size(); i++) {
+                        if (element_neighbors[e][ii] == e_tmp) {
+                            in_list = true;
+                            break;
+                        }
+                    }
+                    if (!in_list) {
+                        //if element is not in neighbor list, add it
+                        element_neighbors[e].push_back(e_tmp);
+                    }
+                }
+            }
+        }
+    } else {
+        //use face neighbors only
+        int e_tmp;
+        bool in_list;
+        for (int f = 0; f < face_count; f++) {
+            //loop over faces
+            if (face_elements[f][0] > -1 && face_elements[f][1] > -1) {
+                //these can only show up once
+                element_neighbors[face_elements[f][0]].push_back(face_elements[f][1]);
+                element_neighbors[face_elements[f][1]].push_back(face_elements[f][0]);
+            }
         }
     }
 
