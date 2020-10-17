@@ -24,6 +24,7 @@
 #include "mpm_objects.hpp"
 #include "fvm_objects.hpp"
 #include "fvm_serializers.hpp"
+#include "fvm_artificial_viscosity.hpp"
 
 #include "job.hpp"
 
@@ -124,6 +125,7 @@ int FVMDefaultVTK::writeFrame(Job* job, FiniteVolumeDriver* driver){
 
         //added this for debugging
         driver->solver->writeFrame(job, driver);
+        ArtificialViscosityCalculator::writeFrame(job, driver);
 
     } else {
         std::cerr << "Could not open frame: " << frameDirectory+filename << " !" << std::endl;

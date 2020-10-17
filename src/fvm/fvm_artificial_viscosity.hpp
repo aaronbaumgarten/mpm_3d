@@ -24,9 +24,9 @@
 #define MPM_V3_FVM_ARTIFICIAL_VISCOSITY_HPP
 
 namespace ArtificialViscosityCalculator {
-    double getS(Job* job,
-                FiniteVolumeDriver* driver,
-                int f);
+    double getAVCoeff(Job* job,
+                      FiniteVolumeDriver* driver,
+                      int f);
 
     struct fluxVector {
         double rho;
@@ -37,6 +37,8 @@ namespace ArtificialViscosityCalculator {
     fluxVector getArtificialViscosityFlux(Job* job,
                                       FiniteVolumeDriver* driver,
                                       int f);
+
+    void writeFrame(Job* job, FiniteVolumeDriver* driver);
 };
 
 #endif //MPM_V3_FVM_ARTIFICIAL_VISCOSITY_HPP

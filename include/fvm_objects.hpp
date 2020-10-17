@@ -64,7 +64,7 @@ public:
     static const int RAMP_STAGNATION_INLET  = 15;
 
     //Harten entropy correction scale
-    static constexpr double delta = 0.1;
+    static constexpr double delta = 0.2; //0.1;
 
     //grid definions
     int face_count;      //number of faces which define grid

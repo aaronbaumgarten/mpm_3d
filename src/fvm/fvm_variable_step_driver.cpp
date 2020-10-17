@@ -126,7 +126,7 @@ void FVMVariableStepDriver::run(Job* job) {
     }
 
     //temporary velocity magnitude and stable time step
-    double v, dts;
+    double c, v, dts;
 
     //artificial viscosity
     std::vector<ArtificialViscosityCalculator::fluxVector> fluxVectors;
@@ -140,7 +140,13 @@ void FVMVariableStepDriver::run(Job* job) {
         job->dt = dt0;
         for (int e=0; e<fluid_grid->element_count; e++){
             v = fluid_body->p(e).norm()/fluid_body->rho(e);
-            dts = lambda * l(e)/v;
+            c = fluid_material->getSpeedOfSound(job,
+                                                this,
+                                                fluid_body->rho(e),
+                                                fluid_body->p(e),
+                                                fluid_body->rhoE(e),
+                                                fluid_body->n_e(e));
+            dts = lambda * l(e)/(c+v);
             if (dts < job->dt){
                 job->dt = dts;
             }
@@ -220,7 +226,7 @@ void FVMVariableStepDriver::applyArtificialViscosityFluxes(Job* job,
             job->threadPool.doJob(std::bind(calculateSubsetOfAVFluxes,
                                            job,
                                            this,
-                                           fluxVectors,
+                                           std::ref(fluxVectors),
                                            k_begin,
                                            k_end,
                                            std::ref(firstTaskComplete[t])));

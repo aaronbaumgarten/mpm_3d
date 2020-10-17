@@ -973,6 +973,51 @@ void FVMGmsh3D::init(Job* job, FiniteVolumeDriver* driver){
             }
         }
 
+        //check for symmetric BCs and zero normal direction gradients
+        int f = -1;
+        std::array<int,2> f_list = std::array<int,2>();
+        int wall_count = 0;
+        std::vector<Eigen::Vector3d,Eigen::aligned_allocator<Eigen::Vector3d>> f_normals = std::vector<Eigen::Vector3d,Eigen::aligned_allocator<Eigen::Vector3d>>(2);
+        f_normals[0] = Eigen::Vector3d();
+        f_normals[1] = Eigen::Vector3d();
+        for (int i=0; i<4; i++){
+            //get face ID
+            f = element_faces[e][i];
+
+            //check if face is on symmetric boundary
+            if (bc_info[f].tag == SYMMETRIC_WALL){
+                //save index
+                f_list[wall_count] = f;
+
+                //get normal
+                f_normals[wall_count] = EIGEN_MAP_OF_KINEMATIC_VECTOR(face_normals[f]);
+
+                //count walls
+                wall_count += 1;
+            }
+        }
+        //what we do depends on number of symmetric walls
+        if (wall_count == 0){
+            //do nothing
+        } else if (wall_count == 1) {
+            //zero out components of A_e in normal direction
+            for (int ii = 0; ii < A_e[e].rows(); ii++) {
+                A_e[e].row(ii) = A_e[e].row(ii) - A_e[e].row(ii).dot(f_normals[f]) * f_normals[f].transpose();
+            }
+        } else if (wall_count == 2){
+            //only allow gradients normal to both faces
+            f_normals.push_back(f_normals[0].cross(f_normals[1]));
+            f_normals[2] = f_normals[2]/f_normals[2].norm();
+
+            //zero out components of A_e in normal directions
+            for (int ii = 0; ii < A_e[e].rows(); ii++) {
+                A_e[e].row(ii) = A_e[e].row(ii).dot(f_normals[2]) * f_normals[2].transpose();
+            }
+        } else {
+            //zero gradient matrix
+            A_e[e].setZero();
+        }
+
         //psuedo inverse
         A_inv[e] = Eigen::MatrixXd(GRID_DIM,A_e[e].rows());
         Eigen::MatrixXd AtA_inv = Eigen::MatrixXd(GRID_DIM,GRID_DIM);
