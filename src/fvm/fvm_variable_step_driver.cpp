@@ -56,9 +56,15 @@ void FVMVariableStepDriver::init(Job* job){
         //use default properties
         dt0 = job->dt;
         lambda = 0.5;
-    } else {
+        eta = 0;
+    } else if (fp64_props.size() == 2+GRID_DIM) {
         dt0 = job->dt;
         lambda = fp64_props[1+GRID_DIM];
+        eta = 0;
+    } else if (fp64_props.size() > 2+GRID_DIM) {
+        dt0 = job->dt;
+        lambda = fp64_props[1+GRID_DIM];
+        eta = fp64_props[2+GRID_DIM];
     }
 
     //loop over str-props and assign relevant flags
@@ -76,7 +82,7 @@ void FVMVariableStepDriver::init(Job* job){
         }
     }
 
-    std::cout << "Using variable time-stepping. Default: " << dt0 << "s, Mesh Quality: " << lambda << std::endl;
+    std::cout << "Using variable time-stepping. Default: " << dt0 << "s, Mesh Quality: " << lambda << ", Viscosity: " << eta << std::endl;
 
     return;
 }
@@ -134,11 +140,15 @@ void FVMVariableStepDriver::run(Job* job) {
         fluxVectors.resize(fluid_grid->face_count);
     }
 
+    //reality check
+    bool failed = false;
+
     //run simulation until stop_time
     while (job->t <= stop_time){
         //check time increment
         job->dt = dt0;
         for (int e=0; e<fluid_grid->element_count; e++){
+            //check advection
             v = fluid_body->p(e).norm()/fluid_body->rho(e);
             c = fluid_material->getSpeedOfSound(job,
                                                 this,
@@ -149,6 +159,39 @@ void FVMVariableStepDriver::run(Job* job) {
             dts = lambda * l(e)/(c+v);
             if (dts < job->dt){
                 job->dt = dts;
+            }
+
+            //check viscosity
+            if (eta > 0){
+                dts = (lambda * lambda * l(e) * l(e) * fluid_body->rho(e)) / eta;
+                if (dts < job->dt){
+                    job->dt = dts;
+                }
+            }
+
+            if (!failed && (fluid_material->getTemperature(job,
+                                                           this,
+                                                           fluid_body->rho(e),
+                                                           fluid_body->p(e),
+                                                           fluid_body->rhoE(e),
+                                                           fluid_body->n_e(e)) <= 0
+                            ||
+                            std::isnan(fluid_material->getTemperature(job,
+                                                           this,
+                                                           fluid_body->rho(e),
+                                                           fluid_body->p(e),
+                                                           fluid_body->rhoE(e),
+                                                           fluid_body->n_e(e))))){
+                failed = true;
+                std::cout << std::endl << std::endl;
+                std::cout << "    First failue: [" << e << "]" << std::endl;
+                std::cout << "    Density: " << fluid_body->rho(e) << std::endl;
+                std::cout << "    Momentum: " << fluid_body->p(e).norm() << std::endl;
+                std::cout << "    Energy: " << fluid_body->rhoE(e)<< std::endl;
+                std::cout << "    Position: " << EIGEN_MAP_OF_KINEMATIC_VECTOR(fluid_grid->getElementCentroid(job,e)).transpose();
+                std::cout << std::endl;
+                std::cout << "Exiting." << std::endl;
+                exit(0);
             }
         }
         //report step length to console

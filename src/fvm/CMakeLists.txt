@@ -22,5 +22,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_rocket_body.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_variable_step_driver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_artificial_viscosity.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_carman_kozeny_fluid.cpp
         PARENT_SCOPE
         )

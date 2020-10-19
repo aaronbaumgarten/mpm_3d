@@ -1002,7 +1002,7 @@ void FVMGmsh3D::init(Job* job, FiniteVolumeDriver* driver){
         } else if (wall_count == 1) {
             //zero out components of A_e in normal direction
             for (int ii = 0; ii < A_e[e].rows(); ii++) {
-                A_e[e].row(ii) = A_e[e].row(ii) - A_e[e].row(ii).dot(f_normals[f]) * f_normals[f].transpose();
+                A_e[e].row(ii) = A_e[e].row(ii) - A_e[e].row(ii).dot(f_normals[0]) * f_normals[0].transpose();
             }
         } else if (wall_count == 2){
             //only allow gradients normal to both faces

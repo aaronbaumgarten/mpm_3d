@@ -222,4 +222,15 @@ public:
     virtual double getInterphaseDragCoefficient(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& v_f, const KinematicVector& v_s, double n, int SPEC = REGULAR_DRAG);
 };
 
+class FVMCarmanKozenyFluid : public FVMSlurryFluidPhase{
+public:
+    FVMCarmanKozenyFluid(){
+        object_name = "FVMCarmanKozenyFluid";
+    }
+
+    //drag model functions
+    virtual KinematicVector getInterphaseDrag(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& v_f, const KinematicVector& v_s, double n);
+    virtual double getInterphaseDragCoefficient(Job*, FiniteVolumeDriver*, double rho, const KinematicVector& v_f, const KinematicVector& v_s, double n, int SPEC = REGULAR_DRAG);
+};
+
 #endif //MPM_V3_FVM_MATERIALS_HPP

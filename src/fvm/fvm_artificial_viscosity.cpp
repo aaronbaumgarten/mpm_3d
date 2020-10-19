@@ -190,7 +190,7 @@ double ArtificialViscosityCalculator::getAVCoeff(Job* job,
 
         //find maximum lambda
         double lambda_max = (std::abs(u_bar.dot(normal)) + c);
-        double beta = 0.05;
+        double beta = 0.01;
         double h_lambda = (u_plus - u_minus).dot(normal);
 
         if (h_lambda < 0){
@@ -199,6 +199,7 @@ double ArtificialViscosityCalculator::getAVCoeff(Job* job,
             return 0.0;
         }
     } else if (USE_CUSTOM) {
+        /*
         double P_plus = driver->fluid_material->getPressure(job, driver,
                                                             n_bar * rho_plus,
                                                             n_bar * rho_plus * u_plus,
@@ -239,14 +240,31 @@ double ArtificialViscosityCalculator::getAVCoeff(Job* job,
             std::cerr << "! Exiting." << std::endl;
             exit(0);
         }
+         */
+
+        double c_plus = driver->fluid_material->getSpeedOfSound(job, driver,
+                                                                n_bar * rho_plus,
+                                                                n_bar * rho_plus * u_plus,
+                                                                rho_plus * E_plus,
+                                                                n_bar);
+
+        double c_minus = driver->fluid_material->getSpeedOfSound(job, driver,
+                                                                 n_bar * rho_minus,
+                                                                 n_bar * rho_minus * u_minus,
+                                                                 rho_minus * E_minus,
+                                                                 n_bar);
 
         //find maximum lambda
-        double lambda_max = (std::abs(u_bar.dot(normal)) + c);
-        double beta = 0.1;
+        double lambda_max = std::max(std::abs(u_plus.dot(normal)) + c_plus,
+                                     std::abs(u_minus.dot(normal)) + c_minus); //(std::abs(u_bar.dot(normal)) + c);
+        double beta = 0.3;
         double h_lambda = (u_plus - u_minus).dot(normal);
 
         if (h_lambda < 0){
-            return lambda_max * std::min(1.0, -h_lambda/(beta * c));
+            double c_min = std::min(c_plus, c_minus);
+            double epsilon_v = -h_lambda + std::abs(c_plus - c_minus);
+            return lambda_max * std::min(1.0, epsilon_v*epsilon_v/(beta * beta * c_min * c_min));
+            //return lambda_max * std::min(1.0, epsilon_v / (beta * c_min));
         } else {
             return 0.0;
         }
@@ -434,7 +452,7 @@ void ArtificialViscosityCalculator::writeFrame(Job* job, FiniteVolumeDriver* dri
 
                     //find maximum lambda
                     double lambda_max = (std::abs(u_bar.dot(normal)) + c);
-                    double beta = 0.05;
+                    double beta = 0.01;
                     double h_lambda = (u_plus - u_minus).dot(normal);
 
                     if (h_lambda < 0){
@@ -443,6 +461,7 @@ void ArtificialViscosityCalculator::writeFrame(Job* job, FiniteVolumeDriver* dri
                         //do nothing
                     }
                 } else if (USE_CUSTOM) {
+                    /*
                     double P_plus = driver->fluid_material->getPressure(job, driver,
                                                                         n_bar * rho_plus,
                                                                         n_bar * rho_plus * u_plus,
@@ -483,14 +502,31 @@ void ArtificialViscosityCalculator::writeFrame(Job* job, FiniteVolumeDriver* dri
                         std::cerr << "! Exiting." << std::endl;
                         exit(0);
                     }
+                    */
+
+                    double c_plus = driver->fluid_material->getSpeedOfSound(job, driver,
+                                                                            n_bar * rho_plus,
+                                                                            n_bar * rho_plus * u_plus,
+                                                                            rho_plus * E_plus,
+                                                                            n_bar);
+
+                    double c_minus = driver->fluid_material->getSpeedOfSound(job, driver,
+                                                                             n_bar * rho_minus,
+                                                                             n_bar * rho_minus * u_minus,
+                                                                             rho_minus * E_minus,
+                                                                             n_bar);
 
                     //find maximum lambda
-                    double lambda_max = (std::abs(u_bar.dot(normal)) + c);
-                    double beta = 0.1;
+                    double lambda_max = std::max(std::abs(u_plus.dot(normal)) + c_plus,
+                                                 std::abs(u_minus.dot(normal)) + c_minus); //(std::abs(u_bar.dot(normal)) + c);
+                    double beta = 0.3;
                     double h_lambda = (u_plus - u_minus).dot(normal);
 
                     if (h_lambda < 0){
-                        tmp_s += std::min(1.0, -h_lambda/(beta * c));
+                        double c_min = std::min(c_plus, c_minus);
+                        double epsilon_v = -h_lambda + std::abs(c_plus - c_minus);
+                        tmp_s += std::min(1.0, epsilon_v*epsilon_v/(beta * beta * c_min * c_min));
+                        //tmp_s += std::min(1.0, epsilon_v / (beta * c_min));
                     } else {
                         //do nothing
                     }
