@@ -581,6 +581,8 @@ public:
         object_name = "FVMGmsh3D";
     }
 
+    bool USE_PHYSICALITY_CHECK = false;
+
     std::string filename;
     Eigen::MatrixXi nodeIDs;        //element to node map
     int npe = 4;                    //nodes per element

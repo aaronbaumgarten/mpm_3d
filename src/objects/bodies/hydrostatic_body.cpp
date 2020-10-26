@@ -38,6 +38,28 @@ void HydrostaticBody::init(Job* job){
                 "%s:%s: Need at least 2 properties defined ({g, effective_density}).\n",
                 __FILE__, __func__);
         exit(0);
+    } else if (fp64_props.size() == 1 + job->grid->GRID_DIM) {
+        //gravity vector given
+        KinematicVector gvec = KinematicVector(job->JOB_TYPE);
+        for (int ii = 0; ii<job->grid->GRID_DIM; ii++){
+            gvec[ii] = fp64_props[ii];
+        }
+        g = gvec.norm();
+        effective_density = fp64_props[job->grid->GRID_DIM];
+
+        //set hydrostatic pressure
+        double height = 0;
+        double pressure;
+        for (int i=0; i < points->x.size(); i++){
+            if (-points->x(i).dot(gvec)/g > height || i == 0){
+                height = -points->x(i).dot(gvec)/g;
+            }
+        }
+
+        for (int i = 0; i < points->x.size(); i++) {
+            pressure = (height*g + points->x(i).dot(gvec)) * effective_density;
+            material->assignPressure(job, this, pressure, i, Material::UPDATE);
+        }
     } else {
         g = fp64_props[0];
         effective_density = fp64_props[1];

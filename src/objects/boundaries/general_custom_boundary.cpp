@@ -69,12 +69,37 @@ void GeneralCustomBoundary::init(Job* job, Body* body){
             if (job->grid->nodeTag(job,i) < limit_props.rows()) {
                 //boundary condition defined by input
                 //check that boundary property is valid
-                if (limit_props(job->grid->nodeTag(job,i)) < 1){
+                if (limit_props(job->grid->nodeTag(job,i)) <= MAX_PROP_VALUE){
                     bcTag(i) = limit_props(job->grid->nodeTag(job,i));
                     bcValues[i] = limit_vals[job->grid->nodeTag(job,i)];
                 } else {
                     bcTag(i) = 0;
                 }
+            }
+        }
+    }
+
+    //if bcTag == SLIP_BOUNDARY, then bcValues are outward facing unit normal
+    //loop over str-props and assign relevant flags
+    std::vector<std::string> options = {"USE_Y_AXIS_ROTATION"};
+    for (int i=0; i<str_props.size(); i++){
+        switch (Parser::findStringID(options, str_props[i])){
+            case 0:
+                //USE_Y_AXIS_ROTATION
+                USE_Y_AXIS_SYMMETRY = true;
+                std::cout << "GeneralCustomBoundary using symmetric y-axis (i.e. y-direction motion only)." << std::endl;
+                break;
+            default:
+                //do nothing
+                break;
+        }
+    }
+    if (USE_Y_AXIS_SYMMETRY){
+        //loop over points for points on y-axis
+        for (int i=0; i<job->grid->node_count; i++){
+            if (body->nodes->x(i,0) == 0. && body->nodes->x(i,2) == 0.){
+                //node is on y-axis
+                bcTag(i) = Y_AXIS_SLIP;
             }
         }
     }
@@ -94,6 +119,11 @@ void GeneralCustomBoundary::applyRules(Job* job, Body* body){
         //assign force that will cancel out force
         if (bcTag(i) == DIRICHLET && body->nodes->m(i) > 0){
             body->nodes->f[i] = (bcValues[i]*body->nodes->m(i) - body->nodes->mx_t[i])/job->dt;
+        } else if (bcTag(i) == SLIP_BOUNDARY && body->nodes->m(i) > 0){
+            body->nodes->f[i] = -(bcValues[i]*body->nodes->mx_t[i].dot(bcValues[i])/job->dt);
+        } else if (bcTag(i) == Y_AXIS_SLIP && body->nodes->m(i) > 0){
+            body->nodes->f(i,0) = -body->nodes->mx_t(i,0)/job->dt;
+            body->nodes->f(i,2) = -body->nodes->mx_t(i,2)/job->dt;
         }
     }
     return;

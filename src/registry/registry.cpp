@@ -61,6 +61,7 @@ Registry<Driver>::Registry() {
     object["FishRandomSampleDriver"] = &createInstance<Driver,FishRandomSampleDriver>;
     object["FishMixtureModelRandomSampleDriver"] = &createInstance<Driver,FishMixtureModelRandomSampleDriver>;
     object["FVMVariableStepDriver"] = &createInstance<Driver,FVMVariableStepDriver>;
+    object["FVMNumericalDampingDriver"] = &createInstance<Driver,FVMNumericalDampingDriver>;
 }
 
 

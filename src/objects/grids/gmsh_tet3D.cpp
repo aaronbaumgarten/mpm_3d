@@ -37,9 +37,11 @@ int TetrahedralGridLinear::whichSearchCell(const KinematicVector &xIN){
 
     //adjust bounding nodes to avoid overflow
     for (int i=0; i<GRID_DIM; i++){
-        if (xIN[i] == Lx[i]){
+        if (xIN[i] == Lxmax[i]){
             xTMP[i] -= hx[i]/100.0;
         }
+        //rezero xtmp
+        xTMP[i] -= Lxmin[i];
     }
 
     int elementID = floor(xTMP[0] / hx[0]); //id in x-dimension
@@ -66,7 +68,7 @@ bool TetrahedralGridLinear::inElement(Job* job, const KinematicVector& xIN, int 
     //xi = Ainv * (x - x0)
     xi = Ainv(idIN)*(xIN - x_n(nodeIDs(idIN,0)));
 
-    return (xi(0) >= 0 && xi(1) >= 0 && xi(2) >= 0 && (xi(0) + xi(1) + xi(2)) <= 1);
+    return (xi(0) >= -1e-10 && xi(1) >= -1e-10 && xi(2) >= -1e-10 && (xi(0) + xi(1) + xi(2)) <= (1. + 1e-10));
 }
 
 
@@ -109,7 +111,7 @@ void TetrahedralGridLinear::init(Job* job){
         }
     }
 
-    int len;
+    int len, tag;
     std::string line; //read line
     std::vector<std::string> lvec;
     std::ifstream fin(msh_filename); //file to load from
@@ -134,6 +136,8 @@ void TetrahedralGridLinear::init(Job* job){
                         //nodeTags.resize(len);
                         x_n = KinematicVectorArray(len,job->JOB_TYPE);
                         node_count = len;
+                        nodeTags = Eigen::VectorXi(len);
+                        nodeTags.setConstant(-1);
 
                         //loop to read in all nodes
                         for (int i=0;i<len;i++){
@@ -151,6 +155,9 @@ void TetrahedralGridLinear::init(Job* job){
                         //nodeTags.resize(len);
                         x_n = KinematicVectorArray(len,job->JOB_TYPE);
                         node_count = len;
+                        nodeTags = Eigen::VectorXi(len);
+                        nodeTags.setConstant(-1);
+
                         //version 4 nodes are broken into blocks
                         int k = 0;
                         int block_length;
@@ -205,6 +212,15 @@ void TetrahedralGridLinear::init(Job* job){
                                 nodeIDs(i, 2) = std::stoi(lvec[5 + len]) - 1;
                                 nodeIDs(i, 3) = std::stoi(lvec[6 + len]) - 1;
                             }
+
+                            //if element type is triangle, set node tags according to line tag
+                            if (std::stoi(lvec[1]) == 2){
+                                len = std::stoi(lvec[2]);           //num tags
+                                tag = std::stoi(lvec[3]);           //first tag
+                                nodeTags(std::stoi(lvec[3 + len]) - 1) = tag;
+                                nodeTags(std::stoi(lvec[4 + len]) - 1) = tag;
+                                nodeTags(std::stoi(lvec[5 + len]) - 1) = tag;
+                            }
                         }
 
                         element_count = i + 1;
@@ -225,6 +241,7 @@ void TetrahedralGridLinear::init(Job* job){
 
                             lvec = Parser::splitString(line, ' ');
                             //block info
+                            tag = std::stoi(lvec[1]);
                             block_type = std::stoi(lvec[2]);
                             block_length = std::stoi(lvec[3]);
                             if (block_type == 4) {
@@ -237,6 +254,15 @@ void TetrahedralGridLinear::init(Job* job){
                                     nodeIDs(i, 1) = std::stoi(lvec[2]) - 1;
                                     nodeIDs(i, 2) = std::stoi(lvec[3]) - 1;
                                     nodeIDs(i, 3) = std::stoi(lvec[4]) - 1;
+                                }
+                            } else if (block_type == 2) {
+                                //if entity is a triangle, it defines a set of physical tags for nodes
+                                for (int k=0; k<block_length; k++){
+                                    std::getline(fin, line);
+                                    lvec = Parser::splitString(line, ' ');
+                                    nodeTags(std::stoi(lvec[1]) - 1) = tag;
+                                    nodeTags(std::stoi(lvec[2]) - 1) = tag;
+                                    nodeTags(std::stoi(lvec[3]) - 1) = tag;
                                 }
                             } else {
                                 //read through block and continue
@@ -364,14 +390,20 @@ void TetrahedralGridLinear::hiddenInit(Job* job){
     //setup search grid
     //store length, number of linear nodes, and deltas
     Lx = KinematicVector(job->JOB_TYPE);
-    Lx.setZero();
+    Lxmin = KinematicVector(job->JOB_TYPE);
+    Lxmax = KinematicVector(job->JOB_TYPE);
+    Lxmin.setZero();
+    Lxmax.setZero();
     for (int i = 0; i < x_n.size(); i++) {
         for (int pos = 0; pos < GRID_DIM; pos++) {
-            if (x_n(i, pos) > Lx(pos)) {
-                Lx(pos) = x_n(i, pos);
+            if (x_n(i, pos) > Lxmax(pos)) {
+                Lxmax(pos) = x_n(i, pos);
+            }else if (x_n(i, pos) < Lxmin(pos)) {
+                Lxmin(pos) = x_n(i, pos);
             }
         }
     }
+    Lx = Lxmax - Lxmin;
 
     if (lc != -1.) {
         Nx = Eigen::VectorXi(job->DIM);;
@@ -424,9 +456,9 @@ void TetrahedralGridLinear::hiddenInit(Job* job){
         */
 
         //get ijk from components of x_n
-        ijk[0] = floor(x_n(nodeIDs(e, 0))[0] / hx[0]);
-        ijk[1] = floor(x_n(nodeIDs(e, 0))[1] / hx[1]);
-        ijk[2] = floor(x_n(nodeIDs(e, 0))[2] / hx[2]);
+        ijk[0] = floor((x_n(nodeIDs(e, 0))[0] - Lxmin[0]) / hx[0]);
+        ijk[1] = floor((x_n(nodeIDs(e, 0))[1] - Lxmin[1]) / hx[1]);
+        ijk[2] = floor((x_n(nodeIDs(e, 0))[2] - Lxmin[2]) / hx[2]);
 
         //assign min/max from first node
         for (int pos = 0; pos < ijk.rows(); pos++) {
@@ -442,9 +474,9 @@ void TetrahedralGridLinear::hiddenInit(Job* job){
             //convert to ijk coords
             ijk = n_to_ijk(job, sc);
              */
-            ijk[0] = floor(x_n(nodeIDs(e, i))[0] / hx[0]);
-            ijk[1] = floor(x_n(nodeIDs(e, i))[1] / hx[1]);
-            ijk[2] = floor(x_n(nodeIDs(e, i))[2] / hx[2]);
+            ijk[0] = floor((x_n(nodeIDs(e, i))[0] - Lxmin[0]) / hx[0]);
+            ijk[1] = floor((x_n(nodeIDs(e, i))[1] - Lxmin[1]) / hx[1]);
+            ijk[2] = floor((x_n(nodeIDs(e, i))[2] - Lxmin[2]) / hx[2]);
 
             for (int pos = 0; pos < ijk.rows(); pos++) {
                 //if ijk < min, assign to min
@@ -837,7 +869,7 @@ double TetrahedralGridLinear::elementVolume(Job* job, int idIN){
 }
 
 int TetrahedralGridLinear::nodeTag(Job* job, int idIN){
-    return -1;
+    return nodeTags(idIN);
 }
 
 double TetrahedralGridLinear::nodeSurfaceArea(Job *job, int idIN) {

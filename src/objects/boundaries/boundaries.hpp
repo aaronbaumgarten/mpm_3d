@@ -168,8 +168,13 @@ public:
         object_name = "GeneralCustomBoundary";
     }
 
+    bool USE_Y_AXIS_SYMMETRY = false;
+    static const int Y_AXIS_SLIP        = 255;
+
     static const int FREE_BOUNDARY      = -1;
     static const int DIRICHLET          = 0;
+    static const int SLIP_BOUNDARY      = 1;
+    static const int MAX_PROP_VALUE     = 1;
 
     Eigen::VectorXi limit_props, bcTag;
     std::vector<KinematicVector> limit_vals;

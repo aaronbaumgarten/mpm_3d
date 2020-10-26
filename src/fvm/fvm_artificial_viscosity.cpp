@@ -33,6 +33,7 @@ double ArtificialViscosityCalculator::getAVCoeff(Job* job,
     bool USE_COUCHMAN = false;
     bool USE_MCCOR_COL_3 = false;
     bool USE_CUSTOM = true;
+    bool USE_ELEMENT_S = false;
 
     //get elements and face normal
     int e_minus = driver->fluid_grid->getOrientedElementsByFace(f)[0];
@@ -268,6 +269,36 @@ double ArtificialViscosityCalculator::getAVCoeff(Job* job,
         } else {
             return 0.0;
         }
+    } else if (USE_ELEMENT_S) {
+        double c_plus = driver->fluid_material->getSpeedOfSound(job, driver,
+                                                                n_bar * rho_plus,
+                                                                n_bar * rho_plus * u_plus,
+                                                                rho_plus * E_plus,
+                                                                n_bar);
+
+        double c_minus = driver->fluid_material->getSpeedOfSound(job, driver,
+                                                                 n_bar * rho_minus,
+                                                                 n_bar * rho_minus * u_minus,
+                                                                 rho_minus * E_minus,
+                                                                 n_bar);
+
+        //find maximum lambda
+        double lambda_max = std::max(std::abs(u_plus.dot(normal)) + c_plus,
+                                     std::abs(u_minus.dot(normal)) + c_minus); //(std::abs(u_bar.dot(normal)) + c);
+        double beta = 0.3;
+        KinematicVector h = driver->fluid_grid->getElementCentroid(job,e_plus) -
+                            driver->fluid_grid->getElementCentroid(job,e_minus);
+        double h_lambda = (u_plus - u_minus).dot(normal);
+        h_lambda = h.norm() * 0.5 * ((driver->fluid_body->L[e_plus] + driver->fluid_body->L[e_minus])*normal).dot(normal); //
+
+        if (h_lambda < 0){
+            double c_min = std::min(c_plus, c_minus);
+            double epsilon_v = -h_lambda + std::abs(c_plus - c_minus);
+            return lambda_max * std::min(1.0, epsilon_v*epsilon_v/(beta * beta * c_min * c_min));
+            //return lambda_max * std::min(1.0, epsilon_v / (beta * c_min));
+        } else {
+            return 0.0;
+        }
     }
 
     return 0.0;
@@ -337,6 +368,7 @@ void ArtificialViscosityCalculator::writeFrame(Job* job, FiniteVolumeDriver* dri
             bool USE_COUCHMAN = false;
             bool USE_MCCOR_COL_3 = false;
             bool USE_CUSTOM = true;
+            bool USE_ELEMENT_S = false;
 
             //get elements and face normal
             int e_minus = driver->fluid_grid->getOrientedElementsByFace(f)[0];
@@ -527,6 +559,34 @@ void ArtificialViscosityCalculator::writeFrame(Job* job, FiniteVolumeDriver* dri
                         double epsilon_v = -h_lambda + std::abs(c_plus - c_minus);
                         tmp_s += std::min(1.0, epsilon_v*epsilon_v/(beta * beta * c_min * c_min));
                         //tmp_s += std::min(1.0, epsilon_v / (beta * c_min));
+                    } else {
+                        //do nothing
+                    }
+                } else if (USE_ELEMENT_S){
+                    double c_plus = driver->fluid_material->getSpeedOfSound(job, driver,
+                                                                            n_bar * rho_plus,
+                                                                            n_bar * rho_plus * u_plus,
+                                                                            rho_plus * E_plus,
+                                                                            n_bar);
+
+                    double c_minus = driver->fluid_material->getSpeedOfSound(job, driver,
+                                                                             n_bar * rho_minus,
+                                                                             n_bar * rho_minus * u_minus,
+                                                                             rho_minus * E_minus,
+                                                                             n_bar);
+
+                    //find maximum lambda
+                    double beta = 0.3;
+                    KinematicVector h = driver->fluid_grid->getElementCentroid(job,e_plus) -
+                                        driver->fluid_grid->getElementCentroid(job,e_minus);
+                    double h_lambda = h.norm() * 0.5 * (driver->fluid_body->L[e_plus].trace()
+                                                        + driver->fluid_body->L[e_minus].trace()); //(u_plus - u_minus).dot(normal);
+
+                    if (h_lambda < 0){
+                        double c_min = std::min(c_plus, c_minus);
+                        double epsilon_v = -h_lambda + std::abs(c_plus - c_minus);
+                        tmp_s += std::min(1.0, epsilon_v*epsilon_v/(beta * beta * c_min * c_min));
+                        //return lambda_max * std::min(1.0, epsilon_v / (beta * c_min));
                     } else {
                         //do nothing
                     }

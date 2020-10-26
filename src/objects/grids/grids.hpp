@@ -299,6 +299,9 @@ public:
         npe = 4;
     }
 
+    //Lxmin and Lxmax for non-positive meshes
+    KinematicVector Lxmin, Lxmax;
+
     //cutoff for number of search cells to switch to large domain version of code.
     const static int LARGE_DOMAIN_CUTOFF = 200000;
 

@@ -23,5 +23,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_variable_step_driver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_artificial_viscosity.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_carman_kozeny_fluid.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_numerical_damping_driver.cpp
         PARENT_SCOPE
         )

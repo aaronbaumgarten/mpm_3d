@@ -329,7 +329,7 @@ void CartesianBoxCustom::applyRules(Job* job, Body* body){
                 body->nodes->f(i,pos) = 0;
             } else if (bcNodalMask(i,pos) == -1){
                 //zero out boundary forces only
-                body->nodes->f(i,pos) = 0;
+                //body->nodes->f(i,pos) = 0;
             } else if (bcNodalMask(i,pos) == -2){
                 //zero out velocity on lower boundary
                 //only add friction for closing velocity

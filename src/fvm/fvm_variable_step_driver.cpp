@@ -188,6 +188,7 @@ void FVMVariableStepDriver::run(Job* job) {
                 std::cout << "    Density: " << fluid_body->rho(e) << std::endl;
                 std::cout << "    Momentum: " << fluid_body->p(e).norm() << std::endl;
                 std::cout << "    Energy: " << fluid_body->rhoE(e)<< std::endl;
+                std::cout << "    Porosity: " << fluid_body->n_e(e)<< std::endl;
                 std::cout << "    Position: " << EIGEN_MAP_OF_KINEMATIC_VECTOR(fluid_grid->getElementCentroid(job,e)).transpose();
                 std::cout << std::endl;
                 std::cout << "Exiting." << std::endl;

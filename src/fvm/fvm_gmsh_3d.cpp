@@ -1138,6 +1138,22 @@ void FVMGmsh3D::init(Job* job, FiniteVolumeDriver* driver){
     //initialize grid mappings
     generateMappings(job, driver);
 
+    //flags
+    //loop over str-props and assign relevant flags
+    std::vector<std::string> options = {"USE_PHYSICALITY_CHECK"};
+    for (int i=0; i<str_props.size(); i++){
+        switch (Parser::findStringID(options, str_props[i])){
+            case 0:
+                //USE_PHYSICALITY_CHECK
+                USE_PHYSICALITY_CHECK = true;
+                std::cout << "FVMGmsh3d using physicality checker." << std::endl;
+                break;
+            default:
+                //do nothing
+                break;
+        }
+    }
+
     std::cout << "FiniteVolumeGrid initialized." << std::endl;
 
     return;
@@ -1558,9 +1574,10 @@ void FVMGmsh3D::cSOEF(Job *job, FiniteVolumeDriver *driver, int k_begin, int k_e
         }
         //initialize least squares fields
         Eigen::VectorXd sol = Eigen::VectorXd(GRID_DIM);
-        KinematicVector x_0, x;
+        KinematicVector x_0, x, p;
         double rhoE_0, rhoE, rhoE_max, rhoE_min, min_dif;
-        double tmp_val;
+        double tmp_val, rho;
+        bool do_calculation = true;
         for (int e = k_begin; e<=k_end; e++){
             //least squares fit of rho_x to neighbors of element e
             x_0 = getElementCentroid(job, e);
@@ -1568,47 +1585,69 @@ void FVMGmsh3D::cSOEF(Job *job, FiniteVolumeDriver *driver, int k_begin, int k_e
             rhoE_max = rhoE_0;
             rhoE_min = rhoE_0;
 
-            //create system of equations
-            for (int ii=0; ii<element_neighbors[e].size(); ii++){
-                //fill in b vector
-                rhoE = driver->fluid_body->rhoE(element_neighbors[e][ii]) / driver->fluid_body->n_e(element_neighbors[e][ii]);
-                b_e[e](ii) = rhoE - rhoE_0;
-
-                //update maximum and minimum velocities
-                if (rhoE > rhoE_max){
-                    rhoE_max = rhoE;
-                } else if (rhoE < rhoE_min){
-                    rhoE_min = rhoE;
-                }
-            }
-
-            //solve for components of gradient
-            sol = A_inv[e]*b_e[e];
-            for (int pos = 0; pos<GRID_DIM; pos++){
-                driver->fluid_body->rhoE_x(e, pos) = sol(pos);
-            }
-
-            //limit gradient to ensure monotonicity
-            //check max, min at each node
-            for (int n=0; n<npe; n++){
-                //p(x) = grad(p) * (x - x_0)
-                tmp_val = driver->fluid_body->rhoE_x[e].dot(x_n[nodeIDs(e,n)] - x_e[e]);
-                //check for both overshoot and undershoot
-                if (tmp_val > (rhoE_max - rhoE_0)){
-                    //limit gradient
-                    for (int pos=0; pos<GRID_DIM; pos++) {
-                        driver->fluid_body->rhoE_x[e] *= (rhoE_max - rhoE_0)/tmp_val;
-                    }
-                } else if (tmp_val < (rhoE_min - rhoE_0)){
-                    //limit gradient
-                    for (int pos=0; pos<GRID_DIM; pos++) {
-                        driver->fluid_body->rhoE_x[e] *= (rhoE_min - rhoE_0)/tmp_val;
+            do_calculation = true;
+            if (USE_PHYSICALITY_CHECK){
+                //check that reconstructed density and momentum result in positive temp
+                for (int n=0; n<npe; n++){
+                    //p(x) = grad(p) * (x - x_0)
+                    rho = driver->fluid_body->rho(e) + driver->fluid_body->rho_x[e].dot(x_n[nodeIDs(e,n)] - x_e[e]);
+                    p = driver->fluid_body->p(e) + driver->fluid_body->p_x[e]*(x_n[nodeIDs(e,n)] - x_e[e]);
+                    //check for undershoot
+                    tmp_val = rho * rhoE_0 - 0.5*(p.dot(p));
+                    if (tmp_val <= 0){
+                        //limit gradients and don't calculate grad(rhoE)
+                        driver->fluid_body->rho_x[e].setZero();
+                        driver->fluid_body->p_x[e].setZero();
+                        driver->fluid_body->rhoE_x[e].setZero();
+                        do_calculation = false;
                     }
                 }
             }
 
-            //transform true energy gradient to effectiv energy gradient
-            driver->fluid_body->rhoE_x[e] *= driver->fluid_body->n_e(e);
+            if (do_calculation) {
+                //create system of equations
+                for (int ii = 0; ii < element_neighbors[e].size(); ii++) {
+                    //fill in b vector
+                    rhoE = driver->fluid_body->rhoE(element_neighbors[e][ii]) /
+                           driver->fluid_body->n_e(element_neighbors[e][ii]);
+                    b_e[e](ii) = rhoE - rhoE_0;
+
+                    //update maximum and minimum velocities
+                    if (rhoE > rhoE_max) {
+                        rhoE_max = rhoE;
+                    } else if (rhoE < rhoE_min) {
+                        rhoE_min = rhoE;
+                    }
+                }
+
+                //solve for components of gradient
+                sol = A_inv[e] * b_e[e];
+                for (int pos = 0; pos < GRID_DIM; pos++) {
+                    driver->fluid_body->rhoE_x(e, pos) = sol(pos);
+                }
+
+                //limit gradient to ensure monotonicity
+                //check max, min at each node
+                for (int n = 0; n < npe; n++) {
+                    //p(x) = grad(p) * (x - x_0)
+                    tmp_val = driver->fluid_body->rhoE_x[e].dot(x_n[nodeIDs(e, n)] - x_e[e]);
+                    //check for both overshoot and undershoot
+                    if (tmp_val > (rhoE_max - rhoE_0)) {
+                        //limit gradient
+                        for (int pos = 0; pos < GRID_DIM; pos++) {
+                            driver->fluid_body->rhoE_x[e] *= (rhoE_max - rhoE_0) / tmp_val;
+                        }
+                    } else if (tmp_val < (rhoE_min - rhoE_0)) {
+                        //limit gradient
+                        for (int pos = 0; pos < GRID_DIM; pos++) {
+                            driver->fluid_body->rhoE_x[e] *= (rhoE_min - rhoE_0) / tmp_val;
+                        }
+                    }
+                }
+
+                //transform true energy gradient to effectiv energy gradient
+                driver->fluid_body->rhoE_x[e] *= driver->fluid_body->n_e(e);
+            }
         }
     }
     return;

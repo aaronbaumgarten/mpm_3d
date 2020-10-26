@@ -95,4 +95,25 @@ public:
                                                volatile bool &done);
 };
 
+class FVMNumericalDampingDriver : public FiniteVolumeDriver{
+public:
+    FVMNumericalDampingDriver(){
+        object_name = "FVMNumericalDampingDriver"; //set object name here
+    }
+
+    double t0 = 1.0; //damping decay rate
+    double C0 = 0.0; //damping scale
+
+    bool AVOID_FLUID_DAMPING = false;
+    bool LOAD_SOLID_DIRECTLY = false;
+
+    KinematicVector xmax, load;
+
+    //initialize from job
+    virtual void init(Job* job);
+    virtual void run(Job* job);
+    virtual KinematicVector getSolidLoading(Job *job, const KinematicVector &x);
+
+};
+
 #endif //MPM_V3_FVM_DRIVERS_HPP
