@@ -894,6 +894,9 @@ void FVMGmsh2D::init(Job* job, FiniteVolumeDriver* driver){
                 bc_info[f_tmp] = tmp_bc_info[which_boundary];
             }
         }
+
+        //debug
+        // std::cout << "Face: " << f_tmp << ", BC: " << bc_info[f_tmp].tag << std::endl;
     }
 
     //penultimately, need to form least squares system of equations

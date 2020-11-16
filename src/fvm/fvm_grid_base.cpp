@@ -2444,7 +2444,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
                     n_minus = driver->fluid_body->n_e(e_minus);
 
-                    p_minus = p_minus - p_minus.dot(normal)*normal; //bc_info[f].vector * rho_minus;
+                    //p_minus = p_minus - p_minus.dot(normal)*normal; //bc_info[f].vector * rho_minus;
 
                     P_minus = driver->fluid_material->getPressure(job, driver,
                                                                   n_q(q_list[q])*rho_minus/n_minus,
@@ -2467,7 +2467,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
                     n_plus = driver->fluid_body->n_e(e_plus);
 
-                    p_plus = p_plus - p_plus.dot(normal)*normal; //bc_info[f].vector*rho_plus;
+                    //p_plus = p_plus - p_plus.dot(normal)*normal; //bc_info[f].vector*rho_plus;
 
                     P_plus = driver->fluid_material->getPressure(job, driver,
                                                                  n_q(q_list[q])*rho_plus/n_plus,
