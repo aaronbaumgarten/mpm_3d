@@ -251,7 +251,11 @@ void FVMVariableStepDriver::applyArtificialViscosityFluxes(Job* job,
         }
 
         //boolean of completion status
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         //choose interval size
         int k_max = fluid_grid->face_count - 1;
@@ -290,6 +294,9 @@ void FVMVariableStepDriver::applyArtificialViscosityFluxes(Job* job,
                 }
             }
         }
+
+        delete[] firstTaskComplete;
+
     } else {
         //call construction function
         volatile bool taskDone = false;

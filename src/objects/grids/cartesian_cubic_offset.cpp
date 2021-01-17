@@ -24,7 +24,7 @@
 /*----------------------------------------------------------------------------*/
 //initialize grid assuming that job is set up
 void CartesianCubic_Offset::init(Job* job){
-    if (job->JOB_TYPE != job->JOB_TYPE){
+    if (job->JOB_TYPE != job->JOB_AXISYM){
         std::cerr << "ERROR: CartesianCubic_Offset requires JOB_TYPE = JOB_AXISYM. Exiting." << std::endl;
     }
 

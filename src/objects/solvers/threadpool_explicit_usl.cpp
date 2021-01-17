@@ -303,7 +303,11 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     /*for (int t=0; t<thread_count; t++){
         taskComplete[t] = false;
     }*/
-    volatile bool firstTaskComplete[thread_count] = {false};
+    //volatile bool firstTaskComplete[thread_count] = {false};
+    volatile bool *firstTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        firstTaskComplete[t] = false;
+    }
 
     //choose interval size
     int k_interval = (S.size()/thread_count) + 1;
@@ -360,7 +364,11 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     for (int t=0; t<thread_count; t++){
         taskComplete[t] = false;
     }*/
-    volatile bool secondTaskComplete[thread_count] = {false};
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
 
     //choose interval size
     int i_interval = (lhs.rows()/thread_count) + 1;
@@ -396,6 +404,10 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
         }
     }
 
+    //delete booleans
+    delete[] firstTaskComplete;
+    delete[] secondTaskComplete;
+
     //should be all done
     return;
 }
@@ -425,7 +437,11 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     }
 
     //boolean of completion status
-    volatile bool firstTaskComplete[thread_count] = {false};
+    //volatile bool firstTaskComplete[thread_count] = {false};
+    volatile bool *firstTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        firstTaskComplete[t] = false;
+    }
 
     //choose interval size
     int k_interval = (S.size()/thread_count) + 1;
@@ -475,7 +491,11 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     }
 
     //boolean of completion status
-    volatile bool secondTaskComplete[thread_count] = {false};
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
 
     //choose interval size
     int i_interval = (lhs.size()/thread_count) + 1;
@@ -511,6 +531,9 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
         }
     }
 
+    delete[] firstTaskComplete;
+    delete[] secondTaskComplete;
+
     //should be all done
     return;
 }
@@ -544,7 +567,11 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
     for (int t=0; t<thread_count; t++){
         taskComplete[t] = false;
     }*/
-    volatile bool firstTaskComplete[thread_count] = {false};
+    //volatile bool firstTaskComplete[thread_count] = {false};
+    volatile bool *firstTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        firstTaskComplete[t] = false;
+    }
 
     //choose interval size
     int k_interval = (gradS.size()/thread_count) + 1;
@@ -598,7 +625,11 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
     for (int t=0; t<thread_count; t++){
         taskComplete[t] = false;
     }*/
-    volatile bool secondTaskComplete[thread_count] = {false};
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
 
     //choose interval size
     int i_interval = (lhs.size()/thread_count) + 1;
@@ -635,6 +666,9 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
         }
     }
 
+    delete[] firstTaskComplete;
+    delete[] secondTaskComplete;
+
     //should be all done
     return;
 }
@@ -664,7 +698,11 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
     }
 
     //boolean array to track task completion
-    volatile bool firstTaskComplete[thread_count] = {false};
+    //volatile bool firstTaskComplete[thread_count] = {false};
+    volatile bool *firstTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        firstTaskComplete[t] = false;
+    }
 
     //choose interval size
     int k_interval = (gradS.size()/thread_count) + 1;
@@ -713,7 +751,11 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
     }
 
     //boolean array for second task
-    volatile bool secondTaskComplete[thread_count] = {false};
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
 
     //choose interval size
     int i_interval = (L.size()/thread_count) + 1;
@@ -749,6 +791,9 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
         }
     }
 
+    delete[] firstTaskComplete;
+    delete[] secondTaskComplete;
+
     //should be all done
     return;
 }
@@ -778,7 +823,11 @@ void ThreadPoolExplicitUSL::parallelMultiply(KinematicVectorArray &kv,
 
     //clear
     if (clear){
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         for (int t=0; t<thread_count; t++){
             //set interval
@@ -808,10 +857,16 @@ void ThreadPoolExplicitUSL::parallelMultiply(KinematicVectorArray &kv,
                 }
             }
         }
+
+        delete[] firstTaskComplete;
     }
 
     //boolean array for second task
-    volatile bool secondTaskComplete[thread_count] = {false};
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
 
     for (int t=0; t<thread_count; t++){
         //set interval
@@ -839,6 +894,8 @@ void ThreadPoolExplicitUSL::parallelMultiply(KinematicVectorArray &kv,
         }
     }
 
+    delete[] secondTaskComplete;
+
     return;
 }
 
@@ -864,7 +921,11 @@ void ThreadPoolExplicitUSL::parallelDivide(KinematicVectorArray &kv,
 
     //clear
     if (clear){
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         for (int t=0; t<thread_count; t++){
             //set interval
@@ -891,10 +952,16 @@ void ThreadPoolExplicitUSL::parallelDivide(KinematicVectorArray &kv,
                 }
             }
         }
+
+        delete[] firstTaskComplete;
     }
 
     //boolean array for second task completion
-    volatile bool secondTaskComplete[thread_count] = {false};
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
 
     for (int t=0; t<thread_count; t++){
         //set interval
@@ -922,6 +989,8 @@ void ThreadPoolExplicitUSL::parallelDivide(KinematicVectorArray &kv,
         }
     }
 
+    delete[] secondTaskComplete;
+
     return;
 }
 
@@ -947,7 +1016,11 @@ void ThreadPoolExplicitUSL::parallelMultiply(Eigen::VectorXd &a,
 
     //clear
     if (clear){
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         for (int t=0; t<thread_count; t++){
             //set interval
@@ -974,10 +1047,16 @@ void ThreadPoolExplicitUSL::parallelMultiply(Eigen::VectorXd &a,
                 }
             }
         }
+
+        delete[] firstTaskComplete;
     }
 
     //boolean array for second task
-    volatile bool secondTaskComplete[thread_count] = {false};
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
 
     for (int t=0; t<thread_count; t++){
         //set interval
@@ -1005,6 +1084,8 @@ void ThreadPoolExplicitUSL::parallelMultiply(Eigen::VectorXd &a,
         }
     }
 
+    delete[] secondTaskComplete;
+
     return;
 }
 
@@ -1030,7 +1111,11 @@ void ThreadPoolExplicitUSL::parallelMultiply(MaterialTensorArray &mt,
 
     //clear
     if (clear){
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         for (int t=0; t<thread_count; t++){
             //set interval
@@ -1057,10 +1142,16 @@ void ThreadPoolExplicitUSL::parallelMultiply(MaterialTensorArray &mt,
                 }
             }
         }
+
+        delete[] firstTaskComplete;
     }
 
     //second boolean array
-    volatile bool secondTaskComplete[thread_count] = {false};
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
 
     //multipy MaterialTensor by Scalar and add to output
     for (int t=0; t<thread_count; t++){
@@ -1089,6 +1180,8 @@ void ThreadPoolExplicitUSL::parallelMultiply(MaterialTensorArray &mt,
         }
     }
 
+    delete[] secondTaskComplete;
+
     return;
 }
 
@@ -1115,7 +1208,11 @@ void ThreadPoolExplicitUSL::parallelAdd(Eigen::VectorXd &a,
 
     //clear
     if (clear){
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         for (int t=0; t<thread_count; t++){
             //set interval
@@ -1142,10 +1239,16 @@ void ThreadPoolExplicitUSL::parallelAdd(Eigen::VectorXd &a,
                 }
             }
         }
+
+        delete[] firstTaskComplete;
     }
 
     //second task completion boolean array
-    volatile bool secondTaskComplete[thread_count] = {false};
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
 
     for (int t=0; t<thread_count; t++){
         //set interval
@@ -1173,6 +1276,8 @@ void ThreadPoolExplicitUSL::parallelAdd(Eigen::VectorXd &a,
         }
     }
 
+    delete[] secondTaskComplete;
+
     return;
 }
 
@@ -1198,7 +1303,11 @@ void ThreadPoolExplicitUSL::parallelSubtract(Eigen::VectorXd &a,
 
     //clear
     if (clear){
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         for (int t=0; t<thread_count; t++){
             //set interval
@@ -1225,10 +1334,16 @@ void ThreadPoolExplicitUSL::parallelSubtract(Eigen::VectorXd &a,
                 }
             }
         }
+
+        delete[] firstTaskComplete;
     }
 
     //second boolean array for task completion
-    volatile bool secondTaskComplete[thread_count] = {false};
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
 
     for (int t=0; t<thread_count; t++){
         //set interval
@@ -1255,6 +1370,8 @@ void ThreadPoolExplicitUSL::parallelSubtract(Eigen::VectorXd &a,
             }
         }
     }
+
+    delete[] secondTaskComplete;
 
     return;
 }

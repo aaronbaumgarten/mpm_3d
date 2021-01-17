@@ -230,7 +230,11 @@ void ThreadPoolPoints::generateMap(Job* job, Body* body, int SPEC) {
     }
 
     //task completion boolean
-    volatile bool firstTaskComplete[thread_count] = {false};
+    //volatile bool firstTaskComplete[thread_count] = {false};
+    volatile bool *firstTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        firstTaskComplete[t] = false;
+    }
 
     //choose interval size
     int i_interval = (x.size()/thread_count) + 1;
@@ -280,7 +284,11 @@ void ThreadPoolPoints::generateMap(Job* job, Body* body, int SPEC) {
     }
 
     //thread_count is the same, but the intervals need to change based on the size of containers
-    volatile bool secondTaskComplete[thread_count] = {false};
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
 
     //determine size of S and gradS
     int sizeS = 0;
@@ -333,6 +341,9 @@ void ThreadPoolPoints::generateMap(Job* job, Body* body, int SPEC) {
             }
         }
     }
+
+    delete[] firstTaskComplete;
+    delete[] secondTaskComplete;
 
     return;
 }

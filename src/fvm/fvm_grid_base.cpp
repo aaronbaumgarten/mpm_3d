@@ -533,7 +533,11 @@ void FVMGridBase::constructVelocityField(Job* job, FiniteVolumeDriver* driver){
         }
 
         //boolean of completion status
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         //choose interval size
         int k_max = element_count - 1;
@@ -572,6 +576,8 @@ void FVMGridBase::constructVelocityField(Job* job, FiniteVolumeDriver* driver){
                 }
             }
         }
+
+        delete[] firstTaskComplete;
     } else {
         //call construction function
         cSOVF(job, driver, 0, element_count - 1);
@@ -652,7 +658,11 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
         }
 
         //boolean of completion status
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         //choose interval size
         int k_max = face_count - 1;
@@ -706,7 +716,11 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
         }
 
         //boolean of completion status
-        volatile bool secondTaskComplete[thread_count] = {false};
+        //volatile bool secondTaskComplete[thread_count] = {false};
+        volatile bool *secondTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            secondTaskComplete[t] = false;
+        }
 
         //choose interval size
         int i_max = element_count - 1;
@@ -744,6 +758,9 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                 }
             }
         }
+
+        delete[] firstTaskComplete;
+        delete[] secondTaskComplete;
 
         return lhs;
 
@@ -1383,7 +1400,11 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
         }
 
         //boolean of completion status
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         //choose interval size
         int k_max = face_count - 1;
@@ -1437,7 +1458,11 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
         }
 
         //boolean of completion status
-        volatile bool secondTaskComplete[thread_count] = {false};
+        //volatile bool secondTaskComplete[thread_count] = {false};
+        volatile bool *secondTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            secondTaskComplete[t] = false;
+        }
 
         //choose interval size
         int i_max = element_count - 1;
@@ -1475,6 +1500,9 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                 }
             }
         }
+
+        delete[] firstTaskComplete;
+        delete[] secondTaskComplete;
 
         return lhs;
 
@@ -2786,7 +2814,11 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
         }
 
         //boolean of completion status
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         //choose interval size
         int k_max = face_count - 1;
@@ -2839,7 +2871,11 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
         }
 
         //boolean of completion status
-        volatile bool secondTaskComplete[thread_count] = {false};
+        //volatile bool secondTaskComplete[thread_count] = {false};
+        volatile bool *secondTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            secondTaskComplete[t] = false;
+        }
 
         //choose interval size
         int i_max = element_count - 1;
@@ -2877,6 +2913,9 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                 }
             }
         }
+
+        delete[] firstTaskComplete;
+        delete[] secondTaskComplete;
 
         return lhs;
 
@@ -5156,7 +5195,11 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
         }
 
         //boolean of completion status
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         //choose interval size
         int k_max = element_count - 1;
@@ -5212,7 +5255,11 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
         }
 
         //boolean of completion status
-        volatile bool secondTaskComplete[thread_count] = {false};
+        //volatile bool secondTaskComplete[thread_count] = {false};
+        volatile bool *secondTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            secondTaskComplete[t] = false;
+        }
 
         //choose interval size
         int i_max = element_count - 1;
@@ -5250,6 +5297,9 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
                 }
             }
         }
+
+        delete[] firstTaskComplete;
+        delete[] secondTaskComplete;
 
         /*
 
@@ -5474,7 +5524,11 @@ void FVMGridBase::parallelMultiply(const MPMScalarSparseMatrix &S,
     }
 
     //boolean of completion status
-    volatile bool firstTaskComplete[thread_count] = {false};
+    //volatile bool firstTaskComplete[thread_count] = {false};
+    volatile bool *firstTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        firstTaskComplete[t] = false;
+    }
 
     //choose interval size
     int k_interval = (S.size()/thread_count) + 1;
@@ -5525,7 +5579,11 @@ void FVMGridBase::parallelMultiply(const MPMScalarSparseMatrix &S,
         thread_count = lhs.rows();
     }
 
-    volatile bool secondTaskComplete[thread_count] = {false};
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
 
     //choose interval size
     int i_interval = (lhs.rows()/thread_count) + 1;
@@ -5563,6 +5621,9 @@ void FVMGridBase::parallelMultiply(const MPMScalarSparseMatrix &S,
         }
     }
 
+    delete[] firstTaskComplete;
+    delete[] secondTaskComplete;
+
     //should be all done
     return;
 }
@@ -5595,7 +5656,11 @@ void FVMGridBase::parallelMultiply(const MPMScalarSparseMatrix &S,
     }
 
     //boolean of completion status
-    volatile bool firstTaskComplete[thread_count] = {false};
+    //volatile bool firstTaskComplete[thread_count] = {false};
+    volatile bool *firstTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        firstTaskComplete[t] = false;
+    }
 
     //choose interval size
     int k_interval = (S.size()/thread_count) + 1;
@@ -5648,7 +5713,11 @@ void FVMGridBase::parallelMultiply(const MPMScalarSparseMatrix &S,
     }
 
     //boolean of completion status
-    volatile bool secondTaskComplete[thread_count] = {false};
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
 
     //choose interval size
     int i_interval = (lhs.size()/thread_count) + 1;
@@ -5686,6 +5755,9 @@ void FVMGridBase::parallelMultiply(const MPMScalarSparseMatrix &S,
         }
     }
 
+    delete[] firstTaskComplete;
+    delete[] secondTaskComplete;
+
     //should be all done
     return;
 }
@@ -5718,7 +5790,11 @@ void FVMGridBase::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
     }
 
     //boolean of completion status
-    volatile bool firstTaskComplete[thread_count] = {false};
+    //volatile bool firstTaskComplete[thread_count] = {false};
+    volatile bool *firstTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        firstTaskComplete[t] = false;
+    }
 
     //choose interval size
     int k_interval = (gradS.size()/thread_count) + 1;
@@ -5771,7 +5847,11 @@ void FVMGridBase::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
     }
 
     //boolean of completion status
-    volatile bool secondTaskComplete[thread_count] = {false};
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
 
     //choose interval size
     int i_interval = (lhs.size()/thread_count) + 1;
@@ -5808,6 +5888,9 @@ void FVMGridBase::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
             }
         }
     }
+
+    delete[] firstTaskComplete;
+    delete[] secondTaskComplete;
 
     //should be all done
     return;

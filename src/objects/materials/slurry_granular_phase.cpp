@@ -213,7 +213,11 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
         }
 
         //boolean of completion status
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         //choose interval size
         int k_max = point_count - 1;
@@ -253,6 +257,8 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
                 }
             }
         }
+
+        delete[] firstTaskComplete;
     } else {
         //call construction function
         cSOS(job, body, SPEC, 0, point_count - 1);

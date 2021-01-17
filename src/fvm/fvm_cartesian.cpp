@@ -1489,7 +1489,11 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
         }
 
         //boolean of completion status
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         //choose interval size
         int k_max = element_count - 1;
@@ -1528,6 +1532,8 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
                 }
             }
         }
+
+        delete[] firstTaskComplete;
     } else {
         //call construction function
         cSOMF(job, driver, 0, element_count - 1);
@@ -1545,7 +1551,11 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
         }
 
         //boolean of completion status
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         //choose interval size
         int k_max = element_count - 1;
@@ -1584,6 +1594,9 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
                 }
             }
         }
+
+        delete[] firstTaskComplete;
+
     } else {
         //call construction function
         cSODF(job, driver, 0, element_count - 1);
@@ -1601,7 +1614,11 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
         }
 
         //boolean of completion status
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         //choose interval size
         int k_max = element_count - 1;
@@ -1640,6 +1657,9 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
                 }
             }
         }
+
+        delete[] firstTaskComplete;
+
     } else {
         //call construction function
         cSOEF(job, driver, 0, element_count - 1);
@@ -1658,7 +1678,11 @@ void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
         }
 
         //boolean of completion status
-        volatile bool firstTaskComplete[thread_count] = {false};
+        //volatile bool firstTaskComplete[thread_count] = {false};
+        volatile bool *firstTaskComplete = new volatile bool[thread_count];
+        for (int t=0; t<thread_count; t++){
+            firstTaskComplete[t] = false;
+        }
 
         //choose interval size
         int k_max = element_count - 1;
@@ -1697,6 +1721,8 @@ void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
                 }
             }
         }
+
+        delete[] firstTaskComplete;
     } else {
         //call construction function
         cSOPF(job, driver, 0, element_count - 1);
