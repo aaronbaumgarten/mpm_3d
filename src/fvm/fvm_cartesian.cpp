@@ -1481,7 +1481,7 @@ void FVMCartesian::writeHeader(std::ofstream& file, int SPEC){
 void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
     if (num_threads > 1){
         //determine number of threads for element gradient calculation
-        int thread_count;
+        int thread_count = 0;
         if (element_count >= num_threads){
             thread_count = num_threads;
         } else {
@@ -1537,7 +1537,7 @@ void FVMCartesian::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
 void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
     if (num_threads > 1){
         //determine number of threads for element gradient calculation
-        int thread_count;
+        int thread_count = 0;
         if (element_count >= num_threads){
             thread_count = num_threads;
         } else {
@@ -1593,7 +1593,7 @@ void FVMCartesian::constructDensityField(Job* job, FiniteVolumeDriver* driver){
 void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
     if (num_threads > 1){
         //determine number of threads for element gradient calculation
-        int thread_count;
+        int thread_count = 0;
         if (element_count >= num_threads){
             thread_count = num_threads;
         } else {
@@ -1650,7 +1650,7 @@ void FVMCartesian::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
 void FVMCartesian::constructPorosityField(Job* job, FiniteVolumeDriver* driver){
     if (num_threads > 1){
         //determine number of threads for element gradient calculation
-        int thread_count;
+        int thread_count = 0;
         if (element_count >= num_threads){
             thread_count = num_threads;
         } else {

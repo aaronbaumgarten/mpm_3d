@@ -243,7 +243,7 @@ void FVMVariableStepDriver::applyArtificialViscosityFluxes(Job* job,
                                                            std::vector<ArtificialViscosityCalculator::fluxVector> &fluxVectors){
     if (job->thread_count > 1){
         //determine number of threads for element gradient calculation
-        int thread_count;
+        int thread_count = 0;
         if (fluid_grid->face_count >= job->thread_count){
             thread_count = job->thread_count;
         } else {

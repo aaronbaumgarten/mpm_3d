@@ -1198,7 +1198,7 @@ void FVMGmsh3D::writeHeader(std::ofstream& file, int SPEC){
 void FVMGmsh3D::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
     if (num_threads > 1){
         //determine number of threads for element gradient calculation
-        int thread_count;
+        int thread_count = 0;
         if (element_count >= num_threads){
             thread_count = num_threads;
         } else {
@@ -1254,7 +1254,7 @@ void FVMGmsh3D::constructMomentumField(Job* job, FiniteVolumeDriver* driver){
 void FVMGmsh3D::constructDensityField(Job* job, FiniteVolumeDriver* driver){
     if (num_threads > 1){
         //determine number of threads for element gradient calculation
-        int thread_count;
+        int thread_count = 0;
         if (element_count >= num_threads){
             thread_count = num_threads;
         } else {
@@ -1310,7 +1310,7 @@ void FVMGmsh3D::constructDensityField(Job* job, FiniteVolumeDriver* driver){
 void FVMGmsh3D::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
     if (num_threads > 1){
         //determine number of threads for element gradient calculation
-        int thread_count;
+        int thread_count = 0;
         if (element_count >= num_threads){
             thread_count = num_threads;
         } else {
@@ -1367,7 +1367,7 @@ void FVMGmsh3D::constructEnergyField(Job* job, FiniteVolumeDriver* driver){
 void FVMGmsh3D::constructPorosityField(Job* job, FiniteVolumeDriver* driver) {
     if (num_threads > 1) {
         //determine number of threads for element gradient calculation
-        int thread_count;
+        int thread_count = 0;
         if (element_count >= num_threads) {
             thread_count = num_threads;
         } else {

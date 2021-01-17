@@ -285,7 +285,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     int i_max = lhs.rows() - 1;
 
     //determine number of threads for matrix vector mult
-    int thread_count;
+    int thread_count = 0;
     if (S.size() >= num_threads){
         thread_count = num_threads;
     } else {
@@ -411,7 +411,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const MPMScalarSparseMatrix &S,
     int i_max = lhs.size() - 1;
 
     //determine number of threads for matrix vector mult
-    int thread_count;
+    int thread_count = 0;
     if (S.size() >= num_threads){
         thread_count = num_threads;
     } else {
@@ -526,7 +526,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
     int i_max = lhs.size() - 1;
 
     //determine number of threads for matrix vector mult
-    int thread_count;
+    int thread_count = 0;
     if (gradS.size() >= num_threads){
         thread_count = num_threads;
     } else {
@@ -650,7 +650,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(const KinematicVectorSparseMatrix &
     int i_max = L.size() - 1;
 
     //determine number of threads for matrix vector mult
-    int thread_count;
+    int thread_count = 0;
     if (gradS.size() >= num_threads){
         thread_count = num_threads;
     } else {
@@ -762,7 +762,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(KinematicVectorArray &kv,
                                            KinematicVectorArray &out,
                                            bool clear){
     //determine maximum index
-    int thread_count;
+    int thread_count = 0;
     int i_max = kv.size() - 1;
 
     //determine number of threads for addition
@@ -848,7 +848,7 @@ void ThreadPoolExplicitUSL::parallelDivide(KinematicVectorArray &kv,
                                          KinematicVectorArray &out,
                                          bool clear){
     //determine maximum index
-    int thread_count;
+    int thread_count = 0;
     int i_max = kv.size() - 1;
 
     //determine number of threads for addition
@@ -931,7 +931,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(Eigen::VectorXd &a,
                                            Eigen::VectorXd &out,
                                            bool clear){
     //determine maximum index
-    int thread_count;
+    int thread_count = 0;
     int i_max = a.size() - 1;
 
     //determine number of threads for addition
@@ -1014,7 +1014,7 @@ void ThreadPoolExplicitUSL::parallelMultiply(MaterialTensorArray &mt,
                                            MaterialTensorArray &out,
                                            bool clear){
     //determine maximum index
-    int thread_count;
+    int thread_count = 0;
     int i_max = mt.size() - 1;
 
     //determine number of threads for addition
@@ -1099,7 +1099,7 @@ void ThreadPoolExplicitUSL::parallelAdd(Eigen::VectorXd &a,
                                       bool clear){
 
     //determine maximum index
-    int thread_count;
+    int thread_count = 0;
     int i_max = a.size() - 1;
 
     //determine number of threads for addition
@@ -1182,7 +1182,7 @@ void ThreadPoolExplicitUSL::parallelSubtract(Eigen::VectorXd &a,
                                            Eigen::VectorXd &out,
                                            bool clear){
     //determine maximum index
-    int thread_count;
+    int thread_count = 0;
     int i_max = a.size() - 1;
 
     //determine number of threads for addition

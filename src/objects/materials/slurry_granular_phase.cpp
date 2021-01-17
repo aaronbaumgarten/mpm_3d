@@ -205,7 +205,7 @@ void SlurryGranularPhase::calculateStress(Job* job, Body* body, int SPEC){
     int point_count = body->points->x.size();
     if (job->thread_count > 1){
         //determine number of threads for element gradient calculation
-        int thread_count;
+        int thread_count = 0;
         if (point_count >= job->thread_count){
             thread_count = job->thread_count;
         } else {

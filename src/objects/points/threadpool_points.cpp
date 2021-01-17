@@ -214,7 +214,7 @@ void ThreadPoolPoints::generateMap(Job* job, Body* body, int SPEC) {
     int i_max = x.size() - 1;
 
     //determine number of threads to use
-    int thread_count;
+    int thread_count = 0;
     if (x.size() >= job->thread_count){
         thread_count = job->thread_count;
     } else {

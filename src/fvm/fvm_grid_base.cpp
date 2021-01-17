@@ -525,7 +525,7 @@ void FVMGridBase::constructVelocityField(Job* job, FiniteVolumeDriver* driver){
 
     if (num_threads > 1){
         //determine number of threads for element gradient calculation
-        int thread_count;
+        int thread_count = 0;
         if (element_count >= num_threads){
             thread_count = num_threads;
         } else {
@@ -638,7 +638,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
         Eigen::VectorXd lhs = Eigen::VectorXd(element_count);
 
         //determine number of threads for face flux evaluation
-        int thread_count;
+        int thread_count = 0;
         if (face_count >= num_threads){
             thread_count = num_threads;
         } else {
@@ -1369,7 +1369,7 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
         KinematicVectorArray lhs = KinematicVectorArray(element_count, job->JOB_TYPE);
 
         //determine number of threads for face flux evaluation
-        int thread_count;
+        int thread_count = 0;
         if (face_count >= num_threads) {
             thread_count = num_threads;
         } else {
@@ -2772,7 +2772,7 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
         Eigen::VectorXd lhs = Eigen::VectorXd(element_count);
 
         //determine number of threads for face flux evaluation
-        int thread_count;
+        int thread_count = 0;
         if (face_count >= num_threads){
             thread_count = num_threads;
         } else {
@@ -5142,7 +5142,7 @@ Eigen::VectorXd FVMGridBase::calculateInterphaseEnergyFlux(Job* job, FiniteVolum
 
     if (num_threads > 1) {
         //determine number of threads for element flux evaluation
-        int thread_count;
+        int thread_count = 0;
         if (element_count >= num_threads) {
             thread_count = num_threads;
         } else {
@@ -5457,7 +5457,7 @@ void FVMGridBase::parallelMultiply(const MPMScalarSparseMatrix &S,
     int i_max = lhs.rows() - 1;
 
     //determine number of threads for matrix vector mult
-    int thread_count;
+    int thread_count = 0;
     if (S.size() >= num_threads){
         thread_count = num_threads;
     } else {
@@ -5578,7 +5578,7 @@ void FVMGridBase::parallelMultiply(const MPMScalarSparseMatrix &S,
     int i_max = lhs.size() - 1;
 
     //determine number of threads for matrix vector mult
-    int thread_count;
+    int thread_count = 0;
     if (S.size() >= num_threads){
         thread_count = num_threads;
     } else {
@@ -5701,7 +5701,7 @@ void FVMGridBase::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
     int i_max = lhs.size() - 1;
 
     //determine number of threads for matrix vector mult
-    int thread_count;
+    int thread_count = 0;
     if (gradS.size() >= num_threads){
         thread_count = num_threads;
     } else {
