@@ -1,0 +1,11 @@
+# point generation for two blocks
+msh_file = "tmp_3D.msh"
+out_file = "out.points"
+lmpp = 3
+rho = 1000 #kg/m^3
+
+part
+{
+    class = "Box"
+    properties = {0.4,0.4,0.4,0.6,0.6,0.6}
+}
