@@ -551,6 +551,138 @@ void TetrahedralGridLinear::hiddenInit(Job* job){
     return;
 }
 
+/*----------------------------------------------------------------------------*/
+//
+std::vector<int> TetrahedralGridLinear::getEdgeList(Job* job){
+    std::vector<int> result = std::vector<int>(0);
+
+    std::vector<std::vector<int>> node_neighbors = std::vector<std::vector<int>>(node_count);
+
+    //loop over triangles and identify edges
+    int n0, n1, n2, n3;
+    bool already_counted = false;
+    for (int e=0; e<element_count; e++) {
+        //get node ids
+        n0 = nodeIDs(e,0);
+        n1 = nodeIDs(e,1);
+        n2 = nodeIDs(e,2);
+        n3 = nodeIDs(e,3);
+
+        //for each edge, check if already accounted for in edge list
+        //if not, add edge
+
+        //EDGE 1 (n0 --- n1)
+        already_counted = false;
+        for (int i = 0; i<node_neighbors[n0].size(); i++){
+            if (n1 == node_neighbors[n0][i]){
+                already_counted = true;
+                break;
+            }
+        }
+        if (!already_counted){
+            //add ids to neighbor lists
+            node_neighbors[n0].push_back(n1);
+            node_neighbors[n1].push_back(n0);
+
+            //add edge to list
+            result.push_back(n0);
+            result.push_back(n1);
+        }
+
+        //EDGE 2 (n1 --- n2)
+        already_counted = false;
+        for (int i = 0; i<node_neighbors[n1].size(); i++){
+            if (n2 == node_neighbors[n1][i]){
+                already_counted = true;
+                break;
+            }
+        }
+        if (!already_counted){
+            //add ids to neighbor lists
+            node_neighbors[n1].push_back(n2);
+            node_neighbors[n2].push_back(n1);
+
+            //add edge to list
+            result.push_back(n1);
+            result.push_back(n2);
+        }
+
+        //EDGE 3 (n2 --- n0)
+        already_counted = false;
+        for (int i = 0; i<node_neighbors[n2].size(); i++){
+            if (n0 == node_neighbors[n2][i]){
+                already_counted = true;
+                break;
+            }
+        }
+        if (!already_counted){
+            //add ids to neighbor lists
+            node_neighbors[n2].push_back(n0);
+            node_neighbors[n0].push_back(n2);
+
+            //add edge to list
+            result.push_back(n2);
+            result.push_back(n0);
+        }
+
+        //EDGE 4 (n0 --- n3)
+        already_counted = false;
+        for (int i = 0; i<node_neighbors[n0].size(); i++){
+            if (n3 == node_neighbors[n0][i]){
+                already_counted = true;
+                break;
+            }
+        }
+        if (!already_counted){
+            //add ids to neighbor lists
+            node_neighbors[n3].push_back(n0);
+            node_neighbors[n0].push_back(n3);
+
+            //add edge to list
+            result.push_back(n0);
+            result.push_back(n3);
+        }
+
+        //EDGE 5 (n1 --- n3)
+        already_counted = false;
+        for (int i = 0; i<node_neighbors[n1].size(); i++){
+            if (n3 == node_neighbors[n1][i]){
+                already_counted = true;
+                break;
+            }
+        }
+        if (!already_counted){
+            //add ids to neighbor lists
+            node_neighbors[n3].push_back(n1);
+            node_neighbors[n1].push_back(n3);
+
+            //add edge to list
+            result.push_back(n1);
+            result.push_back(n3);
+        }
+
+        //EDGE 6 (n2 --- n3)
+        already_counted = false;
+        for (int i = 0; i<node_neighbors[n2].size(); i++){
+            if (n3 == node_neighbors[n2][i]){
+                already_counted = true;
+                break;
+            }
+        }
+        if (!already_counted){
+            //add ids to neighbor lists
+            node_neighbors[n3].push_back(n2);
+            node_neighbors[n2].push_back(n3);
+
+            //add edge to list
+            result.push_back(n2);
+            result.push_back(n3);
+        }
+    }
+
+    return result;
+}
+
 
 /*----------------------------------------------------------------------------*/
 //

@@ -39,24 +39,43 @@ static bool DEBUG_IMPROVED_QUAD = false;
      * 2 -- cpGIMP
      * 3 -- CPDI
      * 4 -- CPDI2
-     * 5 -- Avoid-a-void
-     * 6 -- \delta-correction, constant strain
-     * 7 -- \delta-correction, constant time
+     */
+
+/* second input to this file denotes the type of position correction to use
+     * 1 -- Avoid-a-void
+     * 2 -- SPH correction
+     * 3 -- \delta-correction, strain
+     * 4 -- \delta-correction, displacement
+     */
+/*
+    * static const int STANDARD = 0;
+    * static const int UGIMP = 1;
+    * static const int CPGIMP = 2;
+    * static const int CPDI = 3;
+    * static const int CPDI2 = 4;
+    *
+    * static const int NO_CORRECTION = 0;
+    * static const int AVAV = 1;
+    * static const int SPH_LIKE = 2;
+    * static const int DELTA_STRAIN = 3;
+    * static const int DELTA_DISP = 4;
      */
 
 /*----------------------------------------------------------------------------*/
 //initialize point state (assumes that readFromFile has been called)
 //no safety check on this, so be careful please
 void ImprovedQuadraturePoints::init(Job* job, Body* body){
-    if (int_props.size() < 1 && str_props.size() < 1){
+    if (int_props.size() < 2 && str_props.size() < 1){
         std::cout << int_props.size() << "\n";
         fprintf(stderr,
-                "%s:%s: Need at least 2 properties defined (QUADRULE, outputFolder).\n",
+                "%s:%s: Need at least 3 properties defined (QUADRULE, outputFolder).\n",
                 __FILE__, __func__);
         exit(0);
     } else {
         //assign quadrature rule
         QUADRULE = int_props[0];
+        //assing position rule
+        POSITIONRULE = int_props[1];
         //assign output folder
         outputFolder = Parser::makeDirectory(str_props[0]);
     }
@@ -163,8 +182,73 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
         }
     }
 
+    if (POSITIONRULE == DELTA_STRAIN || POSITIONRULE == DELTA_DISP || POSITIONRULE == SPH_LIKE) {
+        //initialize position correction measure
+        del_pos = KinematicVectorArray(body->points->x.size(), job->JOB_TYPE);
+        del_pos.setZero();
+    }
+
+    //avoid-a-void algorithm requires radius, merge_dist
+    if (POSITIONRULE == AVAV){
+        if (fp64_props.size() < 3 && int_props.size() < 3){
+            std::cout << fp64_props.size() << ", " << int_props.size() << "\n";
+            fprintf(stderr,
+                    "%s:%s: Need at least 4 properties defined (r, merge_factor, buffer_scale) and skip value.\n",
+                    __FILE__, __func__);
+            exit(0);
+        } else {
+            //assign values
+            r = fp64_props[0];
+            merge_dist = r*fp64_props[1];
+            buffer_scale = fp64_props[2];
+
+            skip_value = int_props[2];
+            skip_counter = 0;
+        }
+
+        //initialize grid variables
+        d = Eigen::VectorXd(job->grid->node_count);
+
+        //edge_list
+        edge_list = job->grid->getEdgeList(job);
+
+        //increase point size by buffer
+        int old_len = x.size();
+        int len = (int)(x.size()*(1.0 + buffer_scale));
+
+        //allocate space for extra points
+        x.resize(len);
+        u.resize(len);
+        x_t.resize(len);
+        mx_t.resize(len);
+        b.resize(len);
+
+        //size scalar vectors
+        m.resize(len);
+        v.resize(len);
+        v0.resize(len);
+        active.resize(len);
+        extent.resize(len);
+
+        //size tensor arrays
+        T.resize(len);
+        L.resize(len);
+
+        //if using CPDI2, do this:
+        if (QUADRULE == CPDI2) {
+            corner_positions.resize(x.size() * cpmp);
+        }
+
+        //fill active with zeros and update buffer indices
+        buffer_list.resize(len - old_len);
+        for (int i=old_len; i<len; i++){
+            buffer_list[i-old_len] = i;
+            active(i) = 0;
+        }
+    }
+
     //delta correction for constant strain requires h and alpha
-    if (QUADRULE == DELTA_CS){
+    if (POSITIONRULE == DELTA_STRAIN){
         if (fp64_props.size() < 2){
             std::cout << fp64_props.size() << "\n";
             fprintf(stderr,
@@ -176,10 +260,6 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
             h = fp64_props[0];
             alpha = fp64_props[1];
         }
-
-        //initialize position correction measure
-        del_pos = KinematicVectorArray(body->points->x.size(),job->JOB_TYPE);
-        del_pos.setZero();
     }
 
     //Avoid-a-void not implemented yet
@@ -187,9 +267,18 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
             (QUADRULE != UGIMP) &&
             (QUADRULE != CPGIMP) &&
             (QUADRULE != CPDI) &&
-            (QUADRULE != CPDI2) &&
-            (QUADRULE != DELTA_CS)){
-        std::cerr << "ERROR: Rule " << QUADRULE << " not implemented in ImprovedQuadraturePoints yet. Exiting." << std::endl;
+            (QUADRULE != CPDI2)){
+        std::cerr << "ERROR: Quadrature Rule " << QUADRULE << " not implemented in ImprovedQuadraturePoints yet. Exiting." << std::endl;
+        exit(0);
+    }
+
+    if ((POSITIONRULE != NO_CORRECTION)
+        && (POSITIONRULE != AVAV)
+        //&& (POSITIONRULE != SPH_LIKE)
+        && (POSITIONRULE != DELTA_STRAIN)
+        //&& (POSITIONRULE != DELTA_DISP)
+        ){
+        std::cerr << "ERROR: Position Rule " << POSITIONRULE << " not implemented in ImprovedQuadraturePoints yet. Exiting." << std::endl;
         exit(0);
     }
 
@@ -236,7 +325,7 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
 
     int ith_cpdi;
 
-    if (QUADRULE == STANDARD || QUADRULE == DELTA_CS) {
+    if (QUADRULE == STANDARD) {
         /*---------------------------------------------------------------------------------------*/
         //standard mpm
         for (int i = 0; i < x.size(); i++) {
@@ -672,7 +761,7 @@ void ImprovedQuadraturePoints::writeFrame(Job* job, Body* body, Serializer* seri
     serializer->writeScalarArray(V_i, "grid_volume");
     serializer->writeScalarArray(e, "err");
 
-    if (QUADRULE == DELTA_CS) {
+    if (POSITIONRULE != NO_CORRECTION) {
         serializer->writeVectorArray(del_pos, "del_pos");
     }
 
@@ -969,7 +1058,15 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                 }
             }
         }
-    } else if (QUADRULE == DELTA_CS){
+    }
+
+    //apply position correction
+    if (POSITIONRULE == NO_CORRECTION){
+        //do nothing
+    } else if (POSITIONRULE == AVAV) {
+        //do something!
+        std::cout << "avoid-a-void need to be implemented!" << std::endl;
+    } else if (POSITIONRULE == DELTA_STRAIN){
         KinematicVector delta = KinematicVector(x.VECTOR_TYPE);
         for (int i=0; i<x.size(); i++) {
             double trD = L[i].trace();

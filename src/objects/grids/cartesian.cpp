@@ -378,6 +378,76 @@ double CartesianLinear::nodeSurfaceArea(Job *job, int idIN) {
     return s_n(idIN);
 }
 
+/*----------------------------------------------------------------------------*/
+// return edge list
+std::vector<int> CartesianLinear::getEdgeList(Job* job){
+    std::vector<int> result = std::vector<int>(0);
+
+    if (GRID_DIM == 1){
+        result.resize(element_count);
+        for (int i=0; i<element_count; i++){
+            result[2*i] = i;
+            result[2*i + 1] = i+1;
+        }
+    } else if (GRID_DIM == 2){
+        //(nx+1)*ny + (ny+1)*nx
+        result.resize((Nx(0) + 1)*Nx(1) + (Nx(1) + 1)*Nx(0));
+
+        //fill in x-oriented faces
+        for (int i=0; i<Nx(0); i++){
+            for (int j=0; j<Nx(1)+1; j++){
+                result[2*(j*Nx(0) + i)]     = j*(Nx(0)+1) + i;
+                result[2*(j*Nx(0) + i) + 1] = j*(Nx(0)+1) + i + 1;
+            }
+        }
+
+        //fill in y-oriented faces
+        for (int j=0; j<Nx(1); j++){
+            for (int i=0; i<Nx(0)+1; i++){
+                result[2*(Nx(0)*(Nx(1)+1) + i*Nx(1) + j)]       = j*(Nx(0)+1) + i;
+                result[2*(Nx(0)*(Nx(1)+1) + i*Nx(1) + j) + 1]   = (j+1)*(Nx(0)+1) + i;
+            }
+        }
+    } else if (GRID_DIM == 3){
+        //nx*(ny+1)*(nz+1) + ...
+        result.resize(Nx(0) * (Nx(1) + 1) * (Nx(2) + 1)
+                       + Nx(1) * (Nx(2) + 1) * (Nx(0) + 1)
+                       + Nx(2) * (Nx(0) + 1) * (Nx(1) + 1));
+
+        //fill in x-oriented faces
+        for (int i=0; i<Nx(0); i++){
+            for (int j=0; j<Nx(1)+1; j++){
+                for (int k=0; k<Nx(2)+1; k++) {
+                    result[2 * (k*Nx(0)*(Nx(1)+1) + j * Nx(0) + i)] = k*(Nx(0)+1)*(Nx(1)+1) + j * (Nx(0)+1) + i;
+                    result[2 * (k*Nx(0)*(Nx(1)+1) + j * Nx(0) + i) + 1] = k*(Nx(0)+1)*(Nx(1)+1) + j * (Nx(0)+1) + i + 1;
+                }
+            }
+        }
+
+        int offset = 2*Nx(0)*(Nx(1) + 1)*(Nx(2) + 1);
+        for (int i=0; i<Nx(0)+1; i++){
+            for (int j=0; j<Nx(1); j++){
+                for (int k=0; k<Nx(2)+1; k++) {
+                    result[offset + 2 * (k*Nx(1)*(Nx(0)+1) + i * Nx(1) + j)] = k*(Nx(0)+1)*(Nx(1)+1) + j * (Nx(0)+1) + i;
+                    result[offset + 2 * (k*Nx(1)*(Nx(0)+1) + i * Nx(1) + j) + 1] = k*(Nx(0)+1)*(Nx(1)+1) + (j+1) * (Nx(0)+1) + i;
+                }
+            }
+        }
+
+        offset += 2*Nx(1)*(Nx(0) + 1)*(Nx(2) + 1);
+        for (int i=0; i<Nx(0)+1; i++){
+            for (int j=0; j<Nx(1)+1; j++){
+                for (int k=0; k<Nx(2); k++) {
+                    result[offset + 2*(i*Nx(2)*(Nx(1)+1) + j*(Nx(2)) + k)] = k*(Nx(0)+1)*(Nx(1)+1) + j * (Nx(0)+1) + i;
+                    result[offset + 2*(i*Nx(2)*(Nx(1)+1) + j*(Nx(2)) + k) + 1] = (k+1)*(Nx(0)+1)*(Nx(1)+1) + j * (Nx(0)+1) + i;
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
 
 /*----------------------------------------------------------------------------*/
 //

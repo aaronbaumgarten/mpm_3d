@@ -330,6 +330,13 @@ double Linear1DNonUniform::nodeSurfaceArea(Job *job, int idIN) {
     }
 }
 
+/*----------------------------------------------------------------------------*/
+//
+std::vector<int> Linear1DNonUniform::getEdgeList(Job* job){
+    //not implemented, too lazy
+    return std::vector<int>(0);
+}
+
 
 /*----------------------------------------------------------------------------*/
 //

@@ -50,7 +50,9 @@ public:
     virtual double elementVolume(Job*, int) = 0;                                                                //return element volume of id
     virtual int nodeTag(Job*, int) = 0;                                                                         //return 'tag' of node id
     virtual double nodeSurfaceArea(Job*, int) = 0;                                                          //return node surface volume
-};
+
+    virtual std::vector<int> getEdgeList(Job*) = 0;
+ };
  */
 
 class CartesianLinear : public Grid{
@@ -90,6 +92,8 @@ public:
     virtual double elementVolume(Job* job, int idIN);
     virtual int nodeTag(Job* job, int idIN);
     virtual double nodeSurfaceArea(Job* job, int idIN);
+
+    virtual std::vector<int> getEdgeList(Job* job);
 };
 
 /*----------------------------------------------------------------------------*/
@@ -185,6 +189,8 @@ public:
     virtual double elementVolume(Job* job, int idIN);
     virtual int nodeTag(Job* job, int idIN);
     virtual double nodeSurfaceArea(Job* job, int idIN);
+
+    virtual std::vector<int> getEdgeList(Job* job);
 };
 
 /*----------------------------------------------------------------------------*/
@@ -288,6 +294,8 @@ public:
     virtual double elementVolume(Job* job, int idIN);
     virtual int nodeTag(Job* job, int idIN);
     virtual double nodeSurfaceArea(Job* job, int idIN);
+
+    virtual std::vector<int> getEdgeList(Job* job);
 };
 
 /*----------------------------------------------------------------------------*/
@@ -344,6 +352,7 @@ public:
     virtual void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL, int& elem_guess);     //fill id and value for nodal weights of position
     virtual void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD, int& elem_guess); //fill id and gradient for nodal gradient of position
 
+    virtual std::vector<int> getEdgeList(Job* job);
 };
 
 class Linear1DNonUniform : public Grid{
@@ -381,6 +390,8 @@ public:
     virtual double elementVolume(Job* job, int idIN);
     virtual int nodeTag(Job* job, int idIN);
     virtual double nodeSurfaceArea(Job* job, int idIN);
+
+    virtual std::vector<int> getEdgeList(Job* job);
 };
 
 /*----------------------------------------------------------------------------*/

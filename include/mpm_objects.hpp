@@ -256,6 +256,8 @@ public:
     virtual int nodeTag(Job*, int) = 0;                                                                         //return 'tag' of node id
     virtual double nodeSurfaceArea(Job*, int) = 0;                                                          //return node surface volume
 
+    virtual std::vector<int> getEdgeList(Job*) = 0;
+
     //functions which take argument guessing which element point is in.
     //updates guess with new element value.
     virtual int whichElement(Job* job, KinematicVector& xIN, int&){

@@ -245,9 +245,13 @@ public:
      * 2 -- cpGIMP
      * 3 -- CPDI
      * 4 -- CPDI2
-     * 5 -- Avoid-a-void
-     * 6 -- \delta-correction, constant strain
-     * 7 -- \delta-correction, constant time
+     */
+
+    /* second input to this file denotes the type of position correction to use
+     * 1 -- Avoid-a-void
+     * 2 -- SPH correction
+     * 3 -- \delta-correction, strain
+     * 4 -- \delta-correction, displacement
      */
 
     static const int STANDARD = 0;
@@ -255,11 +259,15 @@ public:
     static const int CPGIMP = 2;
     static const int CPDI = 3;
     static const int CPDI2 = 4;
-    static const int AVAV = 5;
-    static const int DELTA_CS = 6;
-    static const int DELTA_CT = 7;
+
+    static const int NO_CORRECTION = 0;
+    static const int AVAV = 1;
+    static const int SPH_LIKE = 2;
+    static const int DELTA_STRAIN = 3;
+    static const int DELTA_DISP = 4;
 
     int QUADRULE = 0;
+    int POSITIONRULE = 0;
 
     //uGIMP already implemented
     //cpGIMP requires adjusting F on each point
@@ -284,6 +292,13 @@ public:
     //grid variables for delta correction scheme
     double alpha, h;
     KinematicVectorArray del_pos;
+
+    //variables for avoid-a-void scheme
+    double buffer_scale, r, merge_dist;
+    int skip_counter, skip_value;
+    Eigen::VectorXd d;                      //grid point distance f'n value
+    std::vector<int> edge_list;             //list of indices associated with each edge
+    std::vector<int> buffer_list;           //list of points in buffer (inactive)
 
     //internal variables for i/o
     int sampledFrames = 0;
