@@ -30,6 +30,7 @@
 
 #include "points.hpp"
 #include "objects/bodies/bodies.hpp"
+#include "objects/grids/grids.hpp"
 
 static bool DEBUG_IMPROVED_QUAD = false;
 
@@ -60,6 +61,41 @@ static bool DEBUG_IMPROVED_QUAD = false;
     * static const int DELTA_STRAIN = 3;
     * static const int DELTA_DISP = 4;
      */
+
+/*--------*/
+//search cell functions for avoid-a-void
+int ImprovedQuadraturePoints::pos_to_cell(Job* job, KinematicVector x){
+    KinematicVector tmpX = x - x_min;
+    return CartesianLinear::cartesianWhichElement(job, tmpX, Lx, hx, Nx, job->grid->GRID_DIM);
+}
+
+std::vector<int> ImprovedQuadraturePoints::cell_to_ijk(Job* job, int i){
+    std::vector<int> ijk = std::vector<int>(job->grid->GRID_DIM);
+    int tmp = i;
+    //find i,j,k count for element position
+    for (int i=0;i<ijk.size();i++){
+        ijk[i] = tmp % Nx(i);
+        tmp = tmp / Nx(i);
+    }
+
+    return ijk;
+}
+
+int ImprovedQuadraturePoints::ijk_to_cell(Job* job, std::vector<int> ijk){
+    int cell = 0;
+    for (int i=0;i<job->grid->GRID_DIM;i++) {
+        //n = i + j*imax + k*imax*jmax
+        //hardcode
+        if (i==0) {
+            cell += ijk[i];
+        } else if (i==1) {
+            cell += ijk[i] * Nx(0);
+        } else if (i==2) {
+            cell += ijk[i] * Nx(0) * Nx(1);
+        }
+    }
+    return cell;
+}
 
 /*----------------------------------------------------------------------------*/
 //initialize point state (assumes that readFromFile has been called)
@@ -208,6 +244,7 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
 
         //initialize grid variables
         d = Eigen::VectorXd(job->grid->node_count);
+        node_to_cell_map = std::vector<int>(job->grid->node_count);
 
         //edge_list
         edge_list = job->grid->getEdgeList(job);
@@ -215,6 +252,9 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
         //increase point size by buffer
         int old_len = x.size();
         int len = (int)(x.size()*(1.0 + buffer_scale));
+
+        //allocate point to cell map
+        point_to_cell_map = std::vector<int>(len);
 
         //allocate space for extra points
         x.resize(len);
@@ -245,6 +285,40 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
             buffer_list[i-old_len] = i;
             active(i) = 0;
         }
+
+        //generate search cell definitions
+        x_min = body->nodes->x[0];
+        x_max = body->nodes->x[0];
+        for (int i=1; i<job->grid->node_count; i++){
+            for (int pos=0; pos<job->grid->GRID_DIM; pos++){
+                if (body->nodes->x(i,pos) < x_min[pos]){
+                    x_min[pos] = body->nodes->x(i,pos);
+                } else if (body->nodes->x(i,pos) > x_max[pos]){
+                    x_max[pos] = body->nodes->x(i,pos);
+                }
+            }
+        }
+        Lx = KinematicVector(job->JOB_TYPE);
+        hx = KinematicVector(job->JOB_TYPE);
+        Nx = Eigen::VectorXi(job->grid->GRID_DIM);
+        for (int pos=0; pos<job->grid->GRID_DIM; pos++){
+            Lx(pos) = x_max[pos] - x_min[pos];
+            Nx(pos) = (int)(Lx(pos) / r);
+            hx(pos) = Lx(pos)/Nx(pos);
+        }
+
+        //allocate space for cell to point map
+        int cell_count = 1;
+        for (int pos=0; pos<job->grid->GRID_DIM; pos++){
+            cell_count *= Nx(pos);
+        }
+        cell_to_point_map = std::vector<std::vector<int>>(cell_count);
+
+        //get list of search cell ids
+        for (int i=0; i<job->grid->node_count; i++){
+            node_to_cell_map[i] = pos_to_cell(job, body->nodes->x[i]);
+        }
+
     }
 
     //delta correction for constant strain requires h and alpha
@@ -1065,6 +1139,36 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
         //do nothing
     } else if (POSITIONRULE == AVAV) {
         //do something!
+
+        //iterate counter
+        skip_counter += 1;
+
+        //check if counter % skip_value = 0
+        if (skip_counter % skip_value == 0){
+            //run avoid-a-void algorithms
+            //step 0: create cell/point map
+            for (int i=0; i<cell_to_point_map.size(); i++){
+                cell_to_point_map[i].clear(); //clear previous map
+            }
+            int tmp_id = -1;
+            for (int p=0; p<x.size(); p++){
+                if (active(p) == 0){
+                    point_to_cell_map[p] = -1; //do not track this point
+                } else {
+                    tmp_id = pos_to_cell(job, x[p]);
+                    point_to_cell_map[p] = tmp_id;          //add cell to point list
+                    cell_to_point_map[tmp_id].push_back(p); //add point to cell list
+                }
+            }
+
+            //step 1: create signed dist. field
+            for (int i=0; i<job->grid->node_count; i++){
+                d(i) = alg_inf; //initialize with p.d = inf
+            }
+
+            //step 2: determine regions which need more points
+            //step 3: determine points which should be merged
+        }
         std::cout << "avoid-a-void need to be implemented!" << std::endl;
     } else if (POSITIONRULE == DELTA_STRAIN){
         KinematicVector delta = KinematicVector(x.VECTOR_TYPE);

@@ -294,11 +294,23 @@ public:
     KinematicVectorArray del_pos;
 
     //variables for avoid-a-void scheme
+    double alg_inf = 1e10; // a really big number
     double buffer_scale, r, merge_dist;
     int skip_counter, skip_value;
     Eigen::VectorXd d;                      //grid point distance f'n value
     std::vector<int> edge_list;             //list of indices associated with each edge
     std::vector<int> buffer_list;           //list of points in buffer (inactive)
+
+    //avoid-a-void search cell definitions and functions
+    KinematicVector x_min, x_max, Lx, hx;
+    Eigen::VectorXi Nx;
+    std::vector<int> node_to_cell_map;
+    std::vector<int> point_to_cell_map;
+    std::vector<std::vector<int>> cell_to_point_map;
+
+    int pos_to_cell(Job* job, KinematicVector x);  //function to identify which cell 'x' is in
+    std::vector<int> cell_to_ijk(Job* job, int i); //function to switch between cell id's and ijk position
+    int ijk_to_cell(Job* job, std::vector<int> ijk);   //function to switch between ijk positions and cell id
 
     //internal variables for i/o
     int sampledFrames = 0;
