@@ -301,9 +301,10 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
         Lx = KinematicVector(job->JOB_TYPE);
         hx = KinematicVector(job->JOB_TYPE);
         Nx = Eigen::VectorXi(job->grid->GRID_DIM);
+        double cell_width = 2.0*r;
         for (int pos=0; pos<job->grid->GRID_DIM; pos++){
             Lx(pos) = x_max[pos] - x_min[pos];
-            Nx(pos) = (int)(Lx(pos) / r);
+            Nx(pos) = (int)(Lx(pos) / cell_width);
             hx(pos) = Lx(pos)/Nx(pos);
         }
 
@@ -313,10 +314,23 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
             cell_count *= Nx(pos);
         }
         cell_to_point_map = std::vector<std::vector<int>>(cell_count);
+        cell_to_node_map = std::vector<std::vector<int>>(cell_count);
 
         //get list of search cell ids
+        //for (int i=0; i<job->grid->node_count; i++){
+        //    node_to_cell_map[i] = pos_to_cell(job, body->nodes->x[i]);
+        //}
+        int tmp_id = -1;
         for (int i=0; i<job->grid->node_count; i++){
-            node_to_cell_map[i] = pos_to_cell(job, body->nodes->x[i]);
+            tmp_id = pos_to_cell(job, body->nodes->x[i]);
+            node_to_cell_map[i] = tmp_id;
+            cell_to_node_map[tmp_id].push_back(i);
+        }
+
+        //set number of neighbors for search
+        number_of_neighbors = 3;
+        for (int dir=0; dir<job->grid->GRID_DIM; dir++){
+            number_of_neighbors *= 3;
         }
 
     }
@@ -1162,9 +1176,63 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
             }
 
             //step 1: create signed dist. field
+            KinematicVectorArray avavS = KinematicVectorArray(0, job->JOB_TYPE); //set of zero crossings
+            std::vector<int> ijk, rst, iijjkk;
+            double dist = 0;
             for (int i=0; i<job->grid->node_count; i++){
                 d(i) = alg_inf; //initialize with p.d = inf
+
+                ijk = cell_to_ijk(job, node_to_cell_map[i]); //get ijk position of node in search grid
+                rst = ijk;
+                iijjkk = std::vector<int>(ijk.size(),-1); //initialize offset counter
+
+                for (int cell = 0; cell<number_of_neighbors; cell++){
+                    //determine direction of next search cell
+                    for (int dir = 0; dir<ijk.size(); dir++){
+                        if (iijjkk[dir] < 1){
+                            iijjkk[dir] += 1;
+                            break;
+                        } else {
+                            iijjkk[dir] = -1;
+                        }
+                    }
+
+                    //ijk position of search cell
+                    for (int dir=0; dir<ijk.size(); dir++){
+                        rst[dir] = ijk[dir]+iijjkk[dir];
+                    }
+
+                    //search cell id
+                    tmp_id = ijk_to_cell(job, rst);
+
+                    //find min dist. of mpm points
+                    for (int p=0; p<cell_to_point_map[tmp_id].size(); p++){
+                        dist = (body->nodes->x[i] - body->points->x[p]).norm() - r;
+                        if (dist < d(i)){
+                            d(i) = dist;
+                        }
+                    }
+                }
             }
+
+            int n0, n1;
+            double a;
+            KinematicVector zero_crossing_pos(job->JOB_TYPE);
+            for (int e=0; e<(edge_list.size()/2); e++){
+                n0 = edge_list[2*e];
+                n1 = edge_list[2*e+1];
+                if (d(n0)*d(n1) < 0){
+                    //if dist fields have opposite signs, then find zero crossing
+                    a = d(n1)/(d(n1) - d(n0));
+
+                    //calculate position
+                    zero_crossing_pos = a*body->nodes->x[n0] + (1.0-a)*body->nodes->x[n1];
+
+                    //add to list
+                    avavS.push_back(zero_crossing_pos);
+                }
+            }
+
 
             //step 2: determine regions which need more points
             //step 3: determine points which should be merged
