@@ -303,12 +303,14 @@ public:
 
     //avoid-a-void search cell definitions and functions
     int number_of_neighbors = 3;
+    int number_of_second_neighbors = 5;
     KinematicVector x_min, x_max, Lx, hx;
     Eigen::VectorXi Nx;
     std::vector<int> node_to_cell_map;
     std::vector<int> point_to_cell_map;
     std::vector<std::vector<int>> cell_to_point_map;
     std::vector<std::vector<int>> cell_to_node_map;
+    Eigen::VectorXd point_dist;
 
     int pos_to_cell(Job* job, KinematicVector x);  //function to identify which cell 'x' is in
     std::vector<int> cell_to_ijk(Job* job, int i); //function to switch between cell id's and ijk position

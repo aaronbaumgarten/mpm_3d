@@ -274,6 +274,9 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
         T.resize(len);
         L.resize(len);
 
+        //initialize point variables
+        point_dist = Eigen::VectorXd(len);
+
         //if using CPDI2, do this:
         if (QUADRULE == CPDI2) {
             corner_positions.resize(x.size() * cpmp);
@@ -328,9 +331,11 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
         }
 
         //set number of neighbors for search
-        number_of_neighbors = 3;
+        number_of_neighbors = 1;
+        number_of_second_neighbors = 1;
         for (int dir=0; dir<job->grid->GRID_DIM; dir++){
             number_of_neighbors *= 3;
+            number_of_second_neighbors *= 5;
         }
 
     }
@@ -849,8 +854,12 @@ void ImprovedQuadraturePoints::writeFrame(Job* job, Body* body, Serializer* seri
     serializer->writeScalarArray(V_i, "grid_volume");
     serializer->writeScalarArray(e, "err");
 
-    if (POSITIONRULE != NO_CORRECTION) {
+    if (POSITIONRULE == DELTA_STRAIN || POSITIONRULE == DELTA_DISP || POSITIONRULE == SPH_LIKE) {
         serializer->writeVectorArray(del_pos, "del_pos");
+    } else if (POSITIONRULE == AVAV){
+        point_dist = body->S*d; //map distance field to points
+        serializer->writeScalarArray(d, "grid_dist");
+        serializer->writeScalarArray(point_dist, "point_dist");
     }
 
     //create temporary kinematicvector
@@ -1207,7 +1216,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
 
                     //find min dist. of mpm points
                     for (int p=0; p<cell_to_point_map[tmp_id].size(); p++){
-                        dist = (body->nodes->x[i] - body->points->x[p]).norm() - r;
+                        dist = (body->nodes->x[i] - body->points->x[cell_to_point_map[tmp_id][p]]).norm() - r;
                         if (dist < d(i)){
                             d(i) = dist;
                         }
@@ -1233,8 +1242,261 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                 }
             }
 
+            for (int i=0; i<job->grid->node_count; i++){
+                d(i) = ((d(i) > 0) - (d(i) < 0))*alg_inf;
+            }
 
-            //step 2: determine regions which need more points
+            for (int c=0; c<avavS.size(); c++){
+                tmp_id = pos_to_cell(job, avavS[c]); //find search cell of grid point
+
+                ijk = cell_to_ijk(job, tmp_id); //get ijk position of zero crossing
+                rst = ijk;
+                iijjkk = std::vector<int>(ijk.size(),-2); //initialize offset counter
+
+                for (int cell = 0; cell<number_of_second_neighbors; cell++){
+                    //determine direction of next search cell
+                    for (int dir = 0; dir<ijk.size(); dir++){
+                        if (iijjkk[dir] < 2){
+                            iijjkk[dir] += 1;
+                            break;
+                        } else {
+                            iijjkk[dir] = -2;
+                        }
+                    }
+
+                    //ijk position of search cell
+                    for (int dir=0; dir<ijk.size(); dir++){
+                        rst[dir] = ijk[dir]+iijjkk[dir];
+                    }
+
+                    //search cell id (overwrites tmp_id in previous scope, so be careful)
+                    tmp_id = ijk_to_cell(job, rst);
+
+                    //find min dist. of mpm points
+                    for (int n=0; n<cell_to_node_map[tmp_id].size(); n++){
+                        n0 = cell_to_node_map[tmp_id][n];
+                        dist = (body->nodes->x[n0] - avavS[c]).norm();
+                        if (dist < std::abs(d(n0))){
+                            d(n0) = ((d(n0) > 0) - (d(n0) < 0))*dist;
+                        }
+                    }
+                }
+            }
+
+            //step 2: add more points to interior (if they fit)
+            //use search cell grid for insertion of points
+            KinematicVector x_new = KinematicVector(job->JOB_TYPE);
+            std::vector<int> n_list = std::vector<int>(0);
+            std::vector<double> s_list = std::vector<double>(0);
+            std::vector<int> neighbor_point_indices;
+            int p0, p1;
+            double theta, z, l, p_d, s_sum;
+            KinematicVector v_sum;
+            MaterialTensor t_sum;
+            bool accept_point;
+            for (int c=0; c<cell_to_point_map.size(); c++){
+                if (cell_to_point_map[c].size() > 0){
+                    //pick a random point from point to cell map
+                    p1 = cell_to_point_map[c][0];                   //zero is 'random' enough to test the alg.
+                    x_new = x(p1);
+                    if (job->grid->GRID_DIM == 1){
+                        std::cerr << "UNSURE HOW TO PROCEED WITH AVOID-A-VOID ALGORITHM! Exiting." << std::endl;
+                    } else if (job->grid->GRID_DIM == 2){
+                        theta = 2.0*M_PI*std::rand()/RAND_MAX; //random angle
+                        x_new[0] += r*(std::sqrt(3.0)/2.0 + 0.01)*std::cos(theta);
+                        x_new[1] += r*(std::sqrt(3.0)/2.0 + 0.01)*std::sin(theta);
+                    } else {
+                        z = 1.0 - 2.0*std::rand()/RAND_MAX;     //random height
+                        theta = 2.0*M_PI*std::rand()/RAND_MAX;  //random angle
+                        l = (1.0 - z*z);
+                        x_new[0] += l*r*(std::sqrt(3.0)/2.0 + 0.01)*std::cos(theta);
+                        x_new[1] += l*r*(std::sqrt(3.0)/2.0 + 0.01)*std::sin(theta);
+                        x_new[2] += z*r*(std::sqrt(3.0)/2.0 + 0.01);
+                    }
+                } else {
+                    //pick cell center
+                    ijk = cell_to_ijk(job, c);
+                    for (int dir=0; dir<ijk.size(); dir++){
+                        x_new[dir] = (ijk[dir] + 0.5)*hx[dir];
+                    }
+                }
+
+                //check that point is in domain
+                accept_point = true;
+                if (!job->grid->inDomain(job, x_new)){
+                    accept_point = false;
+                }
+
+                //check that point is in domain
+                if (accept_point) {
+                    n_list.clear();
+                    s_list.clear();
+                    p_d = 0;
+                    job->grid->evaluateBasisFnValue(job, x_new, n_list, s_list); //get shape function values
+                    for (int ii = 0; ii < n_list.size(); ii++) {
+                        if (n_list[ii] > -1) {
+                            p_d = d(n_list[ii])*s_list[ii];
+                        }
+                    }
+
+                    if (p_d >= -2.2*r){
+                        //point isn't interior enough
+                        accept_point = false;
+                    }
+                }
+
+                if (accept_point) {
+                    //check if point is within \alpha*r of any other points
+                    ijk = cell_to_ijk(job, c); //get ijk position of search cell
+                    rst = ijk;
+                    iijjkk = std::vector<int>(ijk.size(), -1); //initialize offset counter
+
+                    for (int cell = 0; cell < number_of_neighbors; cell++) {
+                        //determine direction of next search cell
+                        for (int dir = 0; dir < ijk.size(); dir++) {
+                            if (iijjkk[dir] < 1) {
+                                iijjkk[dir] += 1;
+                                break;
+                            } else {
+                                iijjkk[dir] = -1;
+                            }
+                        }
+
+                        //ijk position of search cell
+                        for (int dir = 0; dir < ijk.size(); dir++) {
+                            rst[dir] = ijk[dir] + iijjkk[dir];
+                        }
+
+                        //search cell id
+                        tmp_id = ijk_to_cell(job, rst);
+
+                        //find min dist. of mpm points to new point
+                        for (int p = 0; p < cell_to_point_map[tmp_id].size(); p++) {
+                            dist = (x_new - body->points->x[cell_to_point_map[tmp_id][p]]).norm();
+                            if (dist < (std::sqrt(3.0) / 2.0 + 0.01) * r) {
+                                accept_point = false;
+                                break;
+                            }
+                        }
+
+                        //if accept_point false, not need to continue search
+                        if (!accept_point) {
+                            break;
+                        }
+                    }
+                }
+
+                //if new point is acceptable, we need to create it
+                if (accept_point){
+                    //find nearest neighbor points
+                    neighbor_point_indices.clear();
+                    for (int cell = 0; cell < number_of_neighbors; cell++) {
+                        //determine direction of next search cell
+                        for (int dir = 0; dir < ijk.size(); dir++) {
+                            if (iijjkk[dir] < 1) {
+                                iijjkk[dir] += 1;
+                                break;
+                            } else {
+                                iijjkk[dir] = -1;
+                            }
+                        }
+
+                        //ijk position of search cell
+                        for (int dir = 0; dir < ijk.size(); dir++) {
+                            rst[dir] = ijk[dir] + iijjkk[dir];
+                        }
+
+                        //search cell id
+                        tmp_id = ijk_to_cell(job, rst);
+
+                        //add points to neighbor list
+                        for (int p = 0; p < cell_to_point_map[tmp_id].size(); p++) {
+                            neighbor_point_indices.push_back(cell_to_point_map[tmp_id][p]);
+                        }
+                    }
+
+                    //get new point index from buffer
+                    tmp_id = buffer_list.back();
+                    //delete index from buffer
+                    buffer_list.pop_back();
+
+                    //initialize point
+                    point_to_cell_map[tmp_id] = c;
+                    cell_to_point_map[c].push_back(tmp_id);
+                    x[tmp_id] = x_new;
+                    active[tmp_id] = 1;
+
+                    //assign values as weighted sum of neighbors
+                    //extent is averaged
+                    s_sum = 0;
+                    for (int p=0; p<neighbor_point_indices.size(); p++){
+                        s_sum += extent[p];
+                    }
+                    extent[tmp_id] = s_sum/neighbor_point_indices.size();
+
+                    //volume is conserved
+                    s_sum = 0;
+                    for (int p=0; p<neighbor_point_indices.size(); p++){
+                        s_sum += v[p];
+                        v[p] -= v[p]/(neighbor_point_indices.size()+1);
+                    }
+                    v[tmp_id] = (s_sum/neighbor_point_indices.size()+1);
+
+                    //mass is conserved
+                    s_sum = 0;
+                    for (int p=0; p<neighbor_point_indices.size(); p++){
+                        s_sum += m[p];
+                        m[p] -= m[p]/(neighbor_point_indices.size()+1);
+                    }
+                    m[tmp_id] = (s_sum/neighbor_point_indices.size()+1);
+
+                    //initial volume is conserved
+                    s_sum = 0;
+                    for (int p=0; p<neighbor_point_indices.size(); p++){
+                        s_sum += v0[p];
+                        v0[p] -= v0[p]/(neighbor_point_indices.size()+1);
+                    }
+                    v0[tmp_id] = (s_sum/neighbor_point_indices.size()+1);
+
+                    //body force is volume averaged
+                    s_sum = 0;
+                    v_sum = KinematicVector(job->JOB_TYPE);
+                    for (int p=0; p<neighbor_point_indices.size(); p++){
+                        v_sum += v[p]*b[p];
+                        s_sum += v[p];
+                    }
+                    b[tmp_id] = v_sum/s_sum;
+
+                    //displacement is volume averaged
+                    s_sum = 0;
+                    v_sum.setZero();
+                    for (int p=0; p<neighbor_point_indices.size(); p++){
+                        v_sum += v[p]*u[p];
+                        s_sum += v[p];
+                    }
+                    u[tmp_id] = v_sum/s_sum;
+
+                    //velocity is volume averaged
+                    s_sum = 0;
+                    v_sum.setZero();
+                    for (int p=0; p<neighbor_point_indices.size(); p++){
+                        v_sum += v[p]*x_t[p];
+                        s_sum += v[p];
+                    }
+                    x_t[tmp_id] = v_sum/s_sum;
+                    mx_t[tmp_id] = m[tmp_id]*x_t[tmp_id];
+
+                    //stress is volume averaged
+                    s_sum = 0;
+                    t_sum = MaterialTensor();
+                    for (int p=0; p<neighbor_point_indices.size(); p++){
+                        t_sum += v[p]*T[p];
+                        s_sum += v[p];
+                    }
+                    T[tmp_id] = t_sum/s_sum;
+                }
+            }
+
             //step 3: determine points which should be merged
         }
         std::cout << "avoid-a-void need to be implemented!" << std::endl;
