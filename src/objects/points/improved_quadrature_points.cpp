@@ -1424,46 +1424,46 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     point_to_cell_map[tmp_id] = c;
                     cell_to_point_map[c].push_back(tmp_id);
                     x[tmp_id] = x_new;
-                    active[tmp_id] = 1;
+                    active(tmp_id) = 1;
 
                     //assign values as weighted sum of neighbors
                     //extent is averaged
                     s_sum = 0;
                     for (int p=0; p<neighbor_point_indices.size(); p++){
-                        s_sum += extent[p];
+                        s_sum += extent(p);
                     }
-                    extent[tmp_id] = s_sum/neighbor_point_indices.size();
+                    extent(tmp_id) = s_sum/neighbor_point_indices.size();
 
                     //volume is conserved
                     s_sum = 0;
                     for (int p=0; p<neighbor_point_indices.size(); p++){
-                        s_sum += v[p];
-                        v[p] -= v[p]/(neighbor_point_indices.size()+1);
+                        s_sum += v(p);
+                        v(p) -= v(p)/(neighbor_point_indices.size()+1);
                     }
-                    v[tmp_id] = (s_sum/neighbor_point_indices.size()+1);
+                    v(tmp_id) = (s_sum/neighbor_point_indices.size()+1);
 
                     //mass is conserved
                     s_sum = 0;
                     for (int p=0; p<neighbor_point_indices.size(); p++){
-                        s_sum += m[p];
-                        m[p] -= m[p]/(neighbor_point_indices.size()+1);
+                        s_sum += m(p);
+                        m(p) -= m(p)/(neighbor_point_indices.size()+1);
                     }
                     m[tmp_id] = (s_sum/neighbor_point_indices.size()+1);
 
                     //initial volume is conserved
                     s_sum = 0;
                     for (int p=0; p<neighbor_point_indices.size(); p++){
-                        s_sum += v0[p];
-                        v0[p] -= v0[p]/(neighbor_point_indices.size()+1);
+                        s_sum += v0(p);
+                        v0(p) -= v0(p)/(neighbor_point_indices.size()+1);
                     }
-                    v0[tmp_id] = (s_sum/neighbor_point_indices.size()+1);
+                    v0(tmp_id) = (s_sum/neighbor_point_indices.size()+1);
 
                     //body force is volume averaged
                     s_sum = 0;
                     v_sum = KinematicVector(job->JOB_TYPE);
                     for (int p=0; p<neighbor_point_indices.size(); p++){
-                        v_sum += v[p]*b[p];
-                        s_sum += v[p];
+                        v_sum += v(p)*b[p];
+                        s_sum += v(p);
                     }
                     b[tmp_id] = v_sum/s_sum;
 
@@ -1471,8 +1471,8 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     s_sum = 0;
                     v_sum.setZero();
                     for (int p=0; p<neighbor_point_indices.size(); p++){
-                        v_sum += v[p]*u[p];
-                        s_sum += v[p];
+                        v_sum += v(p)*u[p];
+                        s_sum += v(p);
                     }
                     u[tmp_id] = v_sum/s_sum;
 
@@ -1480,26 +1480,96 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     s_sum = 0;
                     v_sum.setZero();
                     for (int p=0; p<neighbor_point_indices.size(); p++){
-                        v_sum += v[p]*x_t[p];
-                        s_sum += v[p];
+                        v_sum += v(p)*x_t[p];
+                        s_sum += v(p);
                     }
                     x_t[tmp_id] = v_sum/s_sum;
-                    mx_t[tmp_id] = m[tmp_id]*x_t[tmp_id];
+                    mx_t[tmp_id] = m(tmp_id)*x_t[tmp_id];
 
                     //stress is volume averaged
                     s_sum = 0;
                     t_sum = MaterialTensor();
                     for (int p=0; p<neighbor_point_indices.size(); p++){
-                        t_sum += v[p]*T[p];
-                        s_sum += v[p];
+                        t_sum += v(p)*T[p];
+                        s_sum += v(p);
                     }
                     T[tmp_id] = t_sum/s_sum;
                 }
             }
 
             //step 3: determine points which should be merged
+            int p_other = -1;
+            int c = -1;
+            bool remove_point = false;
+            for (int p=0; p<x.size(); p++){
+                if (active(p) != 0) {
+                    remove_point = false;
+                    c = point_to_cell_map[p];
+                    if (c < 0) {
+                        //uh oh
+                        std::cerr << "[" << p << "] is active, but hasn't identified a search cell. Exiting." << std::endl;
+                        exit(0);
+                    }
+
+                    //check if point is within 0.03*r of any other points
+                    ijk = cell_to_ijk(job, c); //get ijk position of search cell
+                    rst = ijk;
+                    iijjkk = std::vector<int>(ijk.size(), -1); //initialize offset counter
+
+                    for (int cell = 0; cell < number_of_neighbors; cell++) {
+                        //determine direction of next search cell
+                        for (int dir = 0; dir < ijk.size(); dir++) {
+                            if (iijjkk[dir] < 1) {
+                                iijjkk[dir] += 1;
+                                break;
+                            } else {
+                                iijjkk[dir] = -1;
+                            }
+                        }
+
+                        //ijk position of search cell
+                        for (int dir = 0; dir < ijk.size(); dir++) {
+                            rst[dir] = ijk[dir] + iijjkk[dir];
+                        }
+
+                        //search cell id
+                        tmp_id = ijk_to_cell(job, rst);
+
+                        //find min dist. of mpm points to new point
+                        for (int q = 0; q < cell_to_point_map[tmp_id].size(); q++) {
+                            dist = (x[p] - x[cell_to_point_map[tmp_id][q]]).norm();
+                            if (dist < 0.03 * r) {
+                                p_other = cell_to_point_map[tmp_id][q];
+                                remove_point = true;
+                                break;
+                            }
+                        }
+
+                        //if remove_point true, do not need to continue search
+                        if (remove_point) {
+                            break;
+                        }
+                    }
+
+                    if (remove_point){
+                        //need to merge point with neighbor
+                        m(p_other) += m(p);
+                        v(p_other) += v(p);
+                        v0(p_other) += v0(p);
+                        mx_t[p_other] += mx_t[p];
+                        x_t[p_other] = mx_t[p_other]/m(p_other);
+                        T[p_other] = ((v(p_other) - v(p))*T[p_other] + v(p)*T[p])/v(p_other);
+
+                        //need to remove myself from simulation
+                        active(p) = 0;
+                        point_to_cell_map[p] = -1;
+
+                        //need to add myself to buffer
+                        buffer_list.push_back(p);
+                    }
+                }
+            }
         }
-        std::cout << "avoid-a-void need to be implemented!" << std::endl;
     } else if (POSITIONRULE == DELTA_STRAIN){
         KinematicVector delta = KinematicVector(x.VECTOR_TYPE);
         for (int i=0; i<x.size(); i++) {
