@@ -101,6 +101,8 @@ int ImprovedQuadraturePoints::ijk_to_cell(Job* job, std::vector<int> ijk){
 //initialize point state (assumes that readFromFile has been called)
 //no safety check on this, so be careful please
 void ImprovedQuadraturePoints::init(Job* job, Body* body){
+    int int_prop_counter = 2;
+    int fp64_prop_counter = 0;
     if (int_props.size() < 2 && str_props.size() < 1){
         std::cout << int_props.size() << "\n";
         fprintf(stderr,
@@ -114,6 +116,9 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
         POSITIONRULE = int_props[1];
         //assign output folder
         outputFolder = Parser::makeDirectory(str_props[0]);
+        //counter for mixing properties from different flags
+        int_prop_counter = 2;
+        fp64_prop_counter = 0;
     }
 
     //all points require v0 initialization
@@ -141,8 +146,9 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
 
         //adjust width of integration region (only for uGIMP)
         double scale_factor = 1.0;
-        if (fp64_props.size() > 1 && QUADRULE == UGIMP) {
+        if (fp64_props.size() > (1+fp64_prop_counter) && QUADRULE == UGIMP) {
             scale_factor = fp64_props[0];
+            fp64_prop_counter += 1;
         }
 
         //initialize extent of GIMP box
@@ -226,7 +232,7 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
 
     //avoid-a-void algorithm requires radius, merge_dist
     if (POSITIONRULE == AVAV){
-        if (fp64_props.size() < 3 && int_props.size() < 3){
+        if (fp64_props.size() < (fp64_prop_counter+3) || int_props.size() < (1+int_prop_counter)){
             std::cout << fp64_props.size() << ", " << int_props.size() << "\n";
             fprintf(stderr,
                     "%s:%s: Need at least 4 properties defined (r, merge_factor, buffer_scale) and skip value.\n",
@@ -234,12 +240,14 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
             exit(0);
         } else {
             //assign values
-            r = fp64_props[0];
-            merge_dist = r*fp64_props[1];
-            buffer_scale = fp64_props[2];
+            r = fp64_props[fp64_prop_counter];
+            merge_dist = r*fp64_props[fp64_prop_counter + 1];
+            buffer_scale = fp64_props[fp64_prop_counter + 2];
+            fp64_prop_counter += 3;
 
-            skip_value = int_props[2];
+            skip_value = int_props[int_prop_counter];
             skip_counter = 0;
+            int_prop_counter += 1;
         }
 
         //initialize grid variables
@@ -263,12 +271,12 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
         mx_t.resize(len);
         b.resize(len);
 
-        //size scalar vectors
-        m.resize(len);
-        v.resize(len);
-        v0.resize(len);
-        active.resize(len);
-        extent.resize(len);
+        //size scalar vectors (need to be careful with these)
+        m.conservativeResize(len);
+        v.conservativeResize(len);
+        v0.conservativeResize(len);
+        active.conservativeResize(len);
+        extent.conservativeResize(len);
 
         //size tensor arrays
         T.resize(len);
@@ -290,14 +298,14 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
         }
 
         //generate search cell definitions
-        x_min = body->nodes->x[0];
-        x_max = body->nodes->x[0];
+        x_min = job->grid->nodeIDToPosition(job,0);
+        x_max = job->grid->nodeIDToPosition(job,0);
         for (int i=1; i<job->grid->node_count; i++){
             for (int pos=0; pos<job->grid->GRID_DIM; pos++){
-                if (body->nodes->x(i,pos) < x_min[pos]){
-                    x_min[pos] = body->nodes->x(i,pos);
-                } else if (body->nodes->x(i,pos) > x_max[pos]){
-                    x_max[pos] = body->nodes->x(i,pos);
+                if (job->grid->nodeIDToPosition(job,i)[pos] < x_min[pos]){
+                    x_min[pos] = job->grid->nodeIDToPosition(job,i)[pos];
+                } else if (job->grid->nodeIDToPosition(job,i)[pos] > x_max[pos]){
+                    x_max[pos] = job->grid->nodeIDToPosition(job,i)[pos];
                 }
             }
         }
@@ -318,16 +326,33 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
         }
         cell_to_point_map = std::vector<std::vector<int>>(cell_count);
         cell_to_node_map = std::vector<std::vector<int>>(cell_count);
+        for (int cell=0; cell<cell_count; cell++){
+            cell_to_point_map[cell] = std::vector<int>(0);
+            cell_to_node_map[cell] = std::vector<int>(0);
+        }
 
         //get list of search cell ids
         //for (int i=0; i<job->grid->node_count; i++){
         //    node_to_cell_map[i] = pos_to_cell(job, body->nodes->x[i]);
         //}
         int tmp_id = -1;
+        KinematicVector tmpPos;
         for (int i=0; i<job->grid->node_count; i++){
-            tmp_id = pos_to_cell(job, body->nodes->x[i]);
-            node_to_cell_map[i] = tmp_id;
-            cell_to_node_map[tmp_id].push_back(i);
+            tmp_id = pos_to_cell(job, job->grid->nodeIDToPosition(job,i));
+            if (tmp_id < 0){
+                //check if point is merely too close to boundary
+                tmpPos = job->grid->nodeIDToPosition(job,i);
+                for (int pos = 0; pos<job->grid->GRID_DIM; pos++){
+                    tmpPos[pos] *= (1.0-1e-10);
+                }
+                tmp_id = pos_to_cell(job, tmpPos);
+            }
+            if (tmp_id < 0){
+                node_to_cell_map[i] = tmp_id;
+            } else {
+                node_to_cell_map[i] = tmp_id;
+                cell_to_node_map[tmp_id].push_back(i);
+            }
         }
 
         //set number of neighbors for search
@@ -342,7 +367,7 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
 
     //delta correction for constant strain requires h and alpha
     if (POSITIONRULE == DELTA_STRAIN){
-        if (fp64_props.size() < 2){
+        if (fp64_props.size() < 2+fp64_prop_counter){
             std::cout << fp64_props.size() << "\n";
             fprintf(stderr,
                     "%s:%s: Need at least 2 properties defined (h, alpha).\n",
@@ -350,8 +375,9 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
             exit(0);
         } else {
             //assign grid scale and rate scale
-            h = fp64_props[0];
-            alpha = fp64_props[1];
+            h = fp64_props[fp64_prop_counter];
+            alpha = fp64_props[fp64_prop_counter+1];
+            fp64_prop_counter += 2;
         }
     }
 
@@ -375,10 +401,10 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
         exit(0);
     }
 
-    if (int_props.size() < 2){
+    if (int_props.size() < int_prop_counter+1){
         //standard behavior
         use_elem = false;
-    } else if (int_props[1] == 1){
+    } else if (int_props[int_prop_counter] == 1){
         //create point-wise element list
         use_elem = true;
         elem = Eigen::MatrixXi(x.size(),cp);
@@ -386,14 +412,19 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
         std::cout << object_name << " using point-element history." << std::endl;
     }
 
-    std::cout << "Points Initialized: [" << file << "]. Using Quadrature Rule " << QUADRULE << "." << std::endl;
+    std::cout << "Points Initialized: [" << file << "]. Using Quadrature Rule " << QUADRULE << ".";
+    std::cout << " Using Position Rule " << POSITIONRULE << "." << std::endl;
     std::cout << " * 0 -- standard MPM\n";
     std::cout << " * 1 -- uGIMP\n";
     std::cout << " * 2 -- cpGIMP\n";
     std::cout << " * 3 -- CPDI\n";
     std::cout << " * 4 -- CPDI2\n";
-    std::cout << " * 5 -- Avoid-a-void\n";
-    std::cout << " * 6 -- \\delta-correction, constant strain" << std::endl;
+    std::cout << " * \n";
+    std::cout << " * 0 -- standard MPM\n";
+    std::cout << " * 1 -- Avoid-a-void\n";
+    std::cout << " * 2 -- SPH-like shifting\n";
+    std::cout << " * 3 -- \\delta-correction, strain" << std::endl;
+    std::cout << " * 4 -- \\delta-correction, displacement" << std::endl;
 
     return;
 }
@@ -857,7 +888,7 @@ void ImprovedQuadraturePoints::writeFrame(Job* job, Body* body, Serializer* seri
     if (POSITIONRULE == DELTA_STRAIN || POSITIONRULE == DELTA_DISP || POSITIONRULE == SPH_LIKE) {
         serializer->writeVectorArray(del_pos, "del_pos");
     } else if (POSITIONRULE == AVAV){
-        point_dist = body->S*d; //map distance field to points
+        point_dist = body->S.operate(d,MPMSparseMatrixBase::TRANSPOSED); //map distance field to points
         serializer->writeScalarArray(d, "grid_dist");
         serializer->writeScalarArray(point_dist, "point_dist");
     }
@@ -1169,6 +1200,25 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
         //check if counter % skip_value = 0
         if (skip_counter % skip_value == 0){
             //run avoid-a-void algorithms
+            //step -1: create grid based b, u, x_t, T fields
+            Eigen::VectorXd v_nodes = body->S*v;       //apparent volume at node positions
+            KinematicVectorArray vb_points = b;
+            KinematicVectorArray vu_points = u;
+            MaterialTensorArray vT_points = T;
+            for (int p=0; p<x.size(); p++){
+                vb_points[p] *= v(p);
+                vu_points[p] *= v(p);
+                vT_points[p] *= v(p);
+            }
+            KinematicVectorArray b_nodes = body->S*vb_points; //integrated b field at node
+            KinematicVectorArray u_nodes = body->S*vu_points; //integrated u field at node
+            MaterialTensorArray T_nodes = body->S*vT_points;  //integrated T field at node
+            for (int i=0; i<body->nodes->x.size(); i++){
+                b_nodes[i] /= v_nodes(i);
+                u_nodes[i] /= v_nodes(i);
+                T_nodes[i] /= v_nodes(i);
+            }
+
             //step 0: create cell/point map
             for (int i=0; i<cell_to_point_map.size(); i++){
                 cell_to_point_map[i].clear(); //clear previous map
@@ -1214,11 +1264,13 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     //search cell id
                     tmp_id = ijk_to_cell(job, rst);
 
-                    //find min dist. of mpm points
-                    for (int p=0; p<cell_to_point_map[tmp_id].size(); p++){
-                        dist = (body->nodes->x[i] - body->points->x[cell_to_point_map[tmp_id][p]]).norm() - r;
-                        if (dist < d(i)){
-                            d(i) = dist;
+                    if (tmp_id > 0 && tmp_id < cell_to_point_map.size()) {
+                        //find min dist. of mpm points
+                        for (int p = 0; p < cell_to_point_map[tmp_id].size(); p++) {
+                            dist = (body->nodes->x[i] - body->points->x[cell_to_point_map[tmp_id][p]]).norm() - r;
+                            if (dist < d(i)) {
+                                d(i) = dist;
+                            }
                         }
                     }
                 }
@@ -1272,12 +1324,14 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     //search cell id (overwrites tmp_id in previous scope, so be careful)
                     tmp_id = ijk_to_cell(job, rst);
 
-                    //find min dist. of mpm points
-                    for (int n=0; n<cell_to_node_map[tmp_id].size(); n++){
-                        n0 = cell_to_node_map[tmp_id][n];
-                        dist = (body->nodes->x[n0] - avavS[c]).norm();
-                        if (dist < std::abs(d(n0))){
-                            d(n0) = ((d(n0) > 0) - (d(n0) < 0))*dist;
+                    if (tmp_id > 0 && tmp_id < cell_to_node_map.size()){
+                        //find min dist. of mpm points
+                        for (int n=0; n<cell_to_node_map[tmp_id].size(); n++){
+                            n0 = cell_to_node_map[tmp_id][n];
+                            dist = (body->nodes->x[n0] - avavS[c]).norm();
+                            if (dist < std::abs(d(n0))){
+                                d(n0) = ((d(n0) > 0) - (d(n0) < 0))*dist;
+                            }
                         }
                     }
                 }
@@ -1335,7 +1389,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     job->grid->evaluateBasisFnValue(job, x_new, n_list, s_list); //get shape function values
                     for (int ii = 0; ii < n_list.size(); ii++) {
                         if (n_list[ii] > -1) {
-                            p_d = d(n_list[ii])*s_list[ii];
+                            p_d += d(n_list[ii])*s_list[ii];
                         }
                     }
 
@@ -1370,12 +1424,14 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         //search cell id
                         tmp_id = ijk_to_cell(job, rst);
 
-                        //find min dist. of mpm points to new point
-                        for (int p = 0; p < cell_to_point_map[tmp_id].size(); p++) {
-                            dist = (x_new - body->points->x[cell_to_point_map[tmp_id][p]]).norm();
-                            if (dist < (std::sqrt(3.0) / 2.0 + 0.01) * r) {
-                                accept_point = false;
-                                break;
+                        if (tmp_id > 0 && tmp_id < cell_to_point_map.size()) {
+                            //find min dist. of mpm points to new point
+                            for (int p = 0; p < cell_to_point_map[tmp_id].size(); p++) {
+                                dist = (x_new - body->points->x[cell_to_point_map[tmp_id][p]]).norm();
+                                if (dist < (std::sqrt(3.0) / 2.0 + 0.01) * r) {
+                                    accept_point = false;
+                                    break;
+                                }
                             }
                         }
 
@@ -1386,8 +1442,8 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     }
                 }
 
-                //if new point is acceptable, we need to create it
-                if (accept_point){
+                //if new point is acceptable and there are points in the buffer, we need to create it
+                if (accept_point && !buffer_list.empty()){
                     //find nearest neighbor points
                     neighbor_point_indices.clear();
                     for (int cell = 0; cell < number_of_neighbors; cell++) {
@@ -1410,8 +1466,10 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         tmp_id = ijk_to_cell(job, rst);
 
                         //add points to neighbor list
-                        for (int p = 0; p < cell_to_point_map[tmp_id].size(); p++) {
-                            neighbor_point_indices.push_back(cell_to_point_map[tmp_id][p]);
+                        if (tmp_id > 0 && tmp_id < cell_to_point_map.size()) {
+                            for (int p = 0; p < cell_to_point_map[tmp_id].size(); p++) {
+                                neighbor_point_indices.push_back(cell_to_point_map[tmp_id][p]);
+                            }
                         }
                     }
 
@@ -1430,70 +1488,62 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     //extent is averaged
                     s_sum = 0;
                     for (int p=0; p<neighbor_point_indices.size(); p++){
-                        s_sum += extent(p);
+                        s_sum += extent(neighbor_point_indices[p]);
                     }
                     extent(tmp_id) = s_sum/neighbor_point_indices.size();
 
                     //volume is conserved
                     s_sum = 0;
                     for (int p=0; p<neighbor_point_indices.size(); p++){
-                        s_sum += v(p);
-                        v(p) -= v(p)/(neighbor_point_indices.size()+1);
+                        s_sum += v(neighbor_point_indices[p]);
+                        v(neighbor_point_indices[p]) -= v(neighbor_point_indices[p])/(neighbor_point_indices.size()+1);
                     }
-                    v(tmp_id) = (s_sum/neighbor_point_indices.size()+1);
+                    v(tmp_id) = s_sum/(neighbor_point_indices.size()+1);
 
                     //mass is conserved
                     s_sum = 0;
                     for (int p=0; p<neighbor_point_indices.size(); p++){
-                        s_sum += m(p);
-                        m(p) -= m(p)/(neighbor_point_indices.size()+1);
+                        s_sum += m(neighbor_point_indices[p]);
+                        m(neighbor_point_indices[p]) -= m(neighbor_point_indices[p])/(neighbor_point_indices.size()+1);
                     }
-                    m[tmp_id] = (s_sum/neighbor_point_indices.size()+1);
+                    m(tmp_id) = s_sum/(neighbor_point_indices.size()+1);
 
                     //initial volume is conserved
                     s_sum = 0;
                     for (int p=0; p<neighbor_point_indices.size(); p++){
-                        s_sum += v0(p);
-                        v0(p) -= v0(p)/(neighbor_point_indices.size()+1);
+                        s_sum += v0(neighbor_point_indices[p]);
+                        v0(neighbor_point_indices[p]) -= v0(neighbor_point_indices[p])/(neighbor_point_indices.size()+1);
                     }
-                    v0(tmp_id) = (s_sum/neighbor_point_indices.size()+1);
+                    v0(tmp_id) = s_sum/(neighbor_point_indices.size()+1);
 
-                    //body force is volume averaged
-                    s_sum = 0;
-                    v_sum = KinematicVector(job->JOB_TYPE);
-                    for (int p=0; p<neighbor_point_indices.size(); p++){
-                        v_sum += v(p)*b[p];
-                        s_sum += v(p);
-                    }
-                    b[tmp_id] = v_sum/s_sum;
 
-                    //displacement is volume averaged
-                    s_sum = 0;
-                    v_sum.setZero();
-                    for (int p=0; p<neighbor_point_indices.size(); p++){
-                        v_sum += v(p)*u[p];
-                        s_sum += v(p);
+                    //b, u, x_t, mx_t, T mapped from grid
+                    n_list.clear();
+                    s_list.clear();
+                    b[tmp_id].setZero();
+                    u[tmp_id].setZero();
+                    x_t[tmp_id].setZero();
+                    T[tmp_id].setZero();
+                    job->grid->evaluateBasisFnValue(job, x_new, n_list, s_list); //get shape function values
+                    for (int ii = 0; ii < n_list.size(); ii++) {
+                        if (n_list[ii] > -1) {
+                            b[tmp_id] += b_nodes[n_list[ii]]*s_list[ii];
+                            u[tmp_id] += u_nodes[n_list[ii]]*s_list[ii];
+                            x_t[tmp_id] += body->nodes->x_t[n_list[ii]]*s_list[ii];
+                            T[tmp_id] += T_nodes[n_list[ii]]*s_list[ii];
+                        }
                     }
-                    u[tmp_id] = v_sum/s_sum;
-
-                    //velocity is volume averaged
-                    s_sum = 0;
-                    v_sum.setZero();
-                    for (int p=0; p<neighbor_point_indices.size(); p++){
-                        v_sum += v(p)*x_t[p];
-                        s_sum += v(p);
-                    }
-                    x_t[tmp_id] = v_sum/s_sum;
                     mx_t[tmp_id] = m(tmp_id)*x_t[tmp_id];
 
-                    //stress is volume averaged
-                    s_sum = 0;
-                    t_sum = MaterialTensor();
-                    for (int p=0; p<neighbor_point_indices.size(); p++){
-                        t_sum += v(p)*T[p];
-                        s_sum += v(p);
+                    if (p_d >= -2.2*r){
+                        //point isn't interior enough
+                        accept_point = false;
                     }
-                    T[tmp_id] = t_sum/s_sum;
+
+                } else if (buffer_list.empty()){
+                    //no more buffer points
+                    std::cout << "Buffer list empty. No more points pre-allocated. May need to implement dynamic allocation" << std::endl;
+                    break; //exit creation loop
                 }
             }
 
@@ -1535,10 +1585,15 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         //search cell id
                         tmp_id = ijk_to_cell(job, rst);
 
+                        //check that tmp_id is valid
+                        if (tmp_id < 0 || tmp_id > cell_to_point_map.size()){
+                            continue; //skip this cell
+                        }
+
                         //find min dist. of mpm points to new point
                         for (int q = 0; q < cell_to_point_map[tmp_id].size(); q++) {
                             dist = (x[p] - x[cell_to_point_map[tmp_id][q]]).norm();
-                            if (dist < 0.03 * r) {
+                            if (dist < merge_dist && cell_to_point_map[tmp_id][q] != p) {
                                 p_other = cell_to_point_map[tmp_id][q];
                                 remove_point = true;
                                 break;
@@ -1563,6 +1618,13 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         //need to remove myself from simulation
                         active(p) = 0;
                         point_to_cell_map[p] = -1;
+
+                        //need to remove myself from cell_to_point map
+                        for (int pp=0; pp<cell_to_point_map[c].size(); pp++){
+                            if (cell_to_point_map[c][pp] == p){
+                                cell_to_point_map[c].erase(cell_to_point_map[c].begin()+pp);
+                            }
+                        }
 
                         //need to add myself to buffer
                         buffer_list.push_back(p);
