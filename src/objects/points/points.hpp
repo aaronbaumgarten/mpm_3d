@@ -265,6 +265,7 @@ public:
     static const int SPH_LIKE = 2;
     static const int DELTA_STRAIN = 3;
     static const int DELTA_DISP = 4;
+    static const int DELTA_NEWTON = 5;
 
     int QUADRULE = 0;
     int POSITIONRULE = 0;
@@ -275,10 +276,10 @@ public:
     //CPDI2 requires corner positions be advected
 
     //error measure, true integral of node basis function, estimated integral of node basis function
-    Eigen::VectorXd e, V_i, v_i;
+    Eigen::VectorXd e, H, V_i, v_i, eonV;
 
     //gradient of error measure
-    KinematicVectorArray grad_e;
+    KinematicVectorArray grad_e, grad_H, grad_eonV;
 
     //deformation gradient (points)
     KinematicTensorArray F;
@@ -290,8 +291,9 @@ public:
     KinematicVectorArray corner_positions;
 
     //grid variables for delta correction scheme
-    double alpha, h;
+    double alpha, h, REL_TOL;
     KinematicVectorArray del_pos;
+    int max_iter;
 
     //variables for avoid-a-void scheme
     double alg_inf = 1e10; // a really big number

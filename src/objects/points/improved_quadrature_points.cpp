@@ -60,6 +60,7 @@ static bool DEBUG_IMPROVED_QUAD = false;
     * static const int SPH_LIKE = 2;
     * static const int DELTA_STRAIN = 3;
     * static const int DELTA_DISP = 4;
+    * static const int DELTA_NEWTON = 5;
      */
 
 /*--------*/
@@ -129,6 +130,10 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
     v_i.resize(job->grid->node_count,1);
     e.resize(job->grid->node_count,1);
     grad_e = KinematicVectorArray(body->points->x.size(),job->JOB_TYPE);
+    eonV.resize(job->grid->node_count,1);
+    grad_eonV = KinematicVectorArray(body->points->x.size(),job->JOB_TYPE);
+    H.resize(job->grid->node_count,1);
+    grad_H = KinematicVectorArray(body->points->x.size(),job->JOB_TYPE);
 
     for (int i=0; i<job->grid->node_count;i++){
         V_i(i) = job->grid->nodeVolume(job,i);
@@ -224,7 +229,10 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
         }
     }
 
-    if (POSITIONRULE == DELTA_STRAIN || POSITIONRULE == DELTA_DISP || POSITIONRULE == SPH_LIKE) {
+    if (POSITIONRULE == DELTA_STRAIN
+        || POSITIONRULE == DELTA_DISP
+        || POSITIONRULE == SPH_LIKE
+        || POSITIONRULE == DELTA_NEWTON) {
         //initialize position correction measure
         del_pos = KinematicVectorArray(body->points->x.size(), job->JOB_TYPE);
         del_pos.setZero();
@@ -433,8 +441,8 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
 
     }
 
-    //delta correction for constant strain requires h and alpha
-    if (POSITIONRULE == DELTA_STRAIN){
+    //delta correction for constant strain and constant displacement requires h and alpha
+    if (POSITIONRULE == DELTA_STRAIN || POSITIONRULE == DELTA_DISP){
         if (fp64_props.size() < 2+fp64_prop_counter){
             std::cout << fp64_props.size() << "\n";
             fprintf(stderr,
@@ -446,6 +454,25 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
             h = fp64_props[fp64_prop_counter];
             alpha = fp64_props[fp64_prop_counter+1];
             fp64_prop_counter += 2;
+        }
+    }
+
+    if (POSITIONRULE == DELTA_NEWTON){
+        if (fp64_props.size() < 3+fp64_prop_counter || int_props.size() < 1+int_prop_counter){
+            std::cout << fp64_props.size() << ", " << int_props.size() << "\n";
+            fprintf(stderr,
+                    "%s:%s: Need at least 3 properties defined (h, alpha, max_iter).\n",
+                    __FILE__, __func__);
+            exit(0);
+        } else {
+            //assign grid scale and rate scale
+            h = fp64_props[fp64_prop_counter];
+            alpha = fp64_props[fp64_prop_counter+1];
+            REL_TOL = fp64_props[fp64_prop_counter+2];
+            fp64_prop_counter += 3;
+
+            max_iter = int_props[int_prop_counter];
+            int_prop_counter += 1;
         }
     }
 
@@ -463,7 +490,8 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
         && (POSITIONRULE != AVAV)
         && (POSITIONRULE != SPH_LIKE)
         && (POSITIONRULE != DELTA_STRAIN)
-        //&& (POSITIONRULE != DELTA_DISP)
+        && (POSITIONRULE != DELTA_DISP)
+        && (POSITIONRULE != DELTA_NEWTON)
         ){
         std::cerr << "ERROR: Position Rule " << POSITIONRULE << " not implemented in ImprovedQuadraturePoints yet. Exiting." << std::endl;
         exit(0);
@@ -933,10 +961,14 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
     for (int i = 0; i < V_i.rows(); i++) {
         tmpNum = (v_i(i) - V_i(i)) / (V_i(i));
         e(i) = std::max(0.0, tmpNum);
+        eonV(i) = e(i)*std::sqrt(V_i(i));
+        H(i) = e(i)*V_i(i);
     }
 
     //calculate gradient of nodal overshoot
     grad_e = body->gradS.operate(e, MPMSparseMatrixBase::TRANSPOSED);
+    grad_eonV = body->gradS.operate(eonV, MPMSparseMatrixBase::TRANSPOSED);
+    grad_H = body->gradS.operate(H, MPMSparseMatrixBase::TRANSPOSED);
 
     return;
 }
@@ -952,8 +984,13 @@ void ImprovedQuadraturePoints::writeFrame(Job* job, Body* body, Serializer* seri
     serializer->writeVectorArray(grad_e, "grad_err");
     serializer->writeScalarArray(V_i, "grid_volume");
     serializer->writeScalarArray(e, "err");
+    serializer->writeVectorArray(grad_H, "grad_H");
+    serializer->writeScalarArray(H, "H");
 
-    if (POSITIONRULE == DELTA_STRAIN || POSITIONRULE == DELTA_DISP || POSITIONRULE == SPH_LIKE) {
+    if (POSITIONRULE == DELTA_STRAIN
+        || POSITIONRULE == DELTA_DISP
+        || POSITIONRULE == SPH_LIKE
+        || POSITIONRULE == DELTA_NEWTON) {
         serializer->writeVectorArray(del_pos, "del_pos");
     } else if (POSITIONRULE == AVAV){
         point_dist = body->S.operate(d,MPMSparseMatrixBase::TRANSPOSED); //map distance field to points
@@ -1835,7 +1872,8 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
         KinematicVector delta = KinematicVector(x.VECTOR_TYPE);
         for (int i=0; i<x.size(); i++) {
             double trD = L[i].trace();
-            delta = -alpha * job->dt * (L[i] - (trD / 3.0) * KinematicTensor::Identity(x.VECTOR_TYPE)).norm() * grad_e(i) * h * h;
+            //delta = -alpha * job->dt * (L[i] - (trD / 3.0) * KinematicTensor::Identity(x.VECTOR_TYPE)).norm() * grad_e(i) * h * h;
+            delta = -alpha * job->dt * v(i) * (L[i] - (trD / 3.0) * KinematicTensor::Identity(x.VECTOR_TYPE)).norm() * grad_eonV(i) * h * h;
 
             for (int pos = 0; pos < delta.rows(); pos++) {
                 if (//((body->points->x(i, pos) + delta(pos)) >= Lx(pos)) ||
@@ -1851,6 +1889,86 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
 
             body->points->x_t(i) += body->points->L(i) * delta;
             body->points->mx_t(i) = body->points->m(i) * body->points->x_t(i);
+        }
+    } else if (POSITIONRULE == DELTA_DISP){
+        KinematicVector delta = KinematicVector(x.VECTOR_TYPE);
+        for (int i=0; i<x.size(); i++) {
+            delta = -alpha * job->dt * x_t[i].norm() * v(i) * grad_eonV(i) * h;
+
+            for (int pos = 0; pos < delta.rows(); pos++) {
+                if (//((body->points->x(i, pos) + delta(pos)) >= Lx(pos)) ||
+                    //((body->points->x(i, pos) + delta(pos)) <= 0) ||
+                        !std::isfinite(delta(pos))) {
+                    delta(pos) = 0;
+                }
+            }
+
+            body->points->x(i) += delta;
+            body->points->u(i) += delta;
+            del_pos(i) += delta;
+
+            body->points->x_t(i) += body->points->L(i) * delta;
+            body->points->mx_t(i) = body->points->m(i) * body->points->x_t(i);
+        }
+    } else if (POSITIONRULE == DELTA_NEWTON){
+        //iteration counter for newton solve
+        int iter_count = 0;
+
+        //error measure for newton solve
+        double relative_error = 0;
+
+        //position update vector
+        KinematicVector delta = KinematicVector(x.VECTOR_TYPE);
+
+        //calculate relative error measure (||H/V_i||_\infty)
+        for (int i=0; i<body->nodes->x.size(); i++){
+            if (e(i) > relative_error){
+                relative_error = e(i);
+            }
+        }
+
+        //newton scheme
+        double step_length;
+        while (iter_count <= max_iter && relative_error < REL_TOL){
+            //calculate step length from pg 88 nb #8
+            step_length = 0;
+            for (int p=0; p<x.size(); p++){
+                step_length += v(p) * grad_H[p].dot(grad_H[p]);
+            }
+            step_length = H.squaredNorm()/step_length;
+
+            //make sure step_length is not nan
+            if (!std::isfinite(step_length)){
+                //do nothing
+                break;
+            }
+
+            //apply limiter to make gradient descent
+            step_length *= alpha;
+
+            //step in that direction
+            for (int i=0; i<x.size(); i++) {
+                delta = -step_length * v(i) * grad_H(i);
+
+                if (delta.norm() > h){
+                    delta *= h/delta.norm();
+                }
+
+                for (int pos = 0; pos < delta.rows(); pos++) {
+                    if (//((body->points->x(i, pos) + delta(pos)) >= Lx(pos)) ||
+                        //((body->points->x(i, pos) + delta(pos)) <= 0) ||
+                            !std::isfinite(delta(pos))) {
+                        delta(pos) = 0;
+                    }
+                }
+
+                body->points->x(i) += delta;
+                body->points->u(i) += delta;
+                del_pos(i) += delta;
+
+                body->points->x_t(i) += body->points->L(i) * delta;
+                body->points->mx_t(i) = body->points->m(i) * body->points->x_t(i);
+            }
         }
     }
 
