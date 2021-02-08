@@ -365,6 +365,74 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
 
     }
 
+
+    //sph-like algorithm requires radius, constant, skip counter
+    if (POSITIONRULE == SPH_LIKE){
+        if (fp64_props.size() < (fp64_prop_counter+2) || int_props.size() < (1+int_prop_counter)){
+            std::cout << fp64_props.size() << ", " << int_props.size() << "\n";
+            fprintf(stderr,
+                    "%s:%s: Need at least 3 properties defined (r, C) and skip value.\n",
+                    __FILE__, __func__);
+            exit(0);
+        } else {
+            //assign values
+            r = fp64_props[fp64_prop_counter];
+            sph_const = r*fp64_props[fp64_prop_counter + 1];
+            fp64_prop_counter += 2;
+
+            skip_value = int_props[int_prop_counter];
+            skip_counter = 0;
+            int_prop_counter += 1;
+        }
+
+        //allocate point to cell map
+        point_to_cell_map = std::vector<int>(x.size());
+
+        //generate search cell definitions
+        x_min = job->grid->nodeIDToPosition(job,0);
+        x_max = job->grid->nodeIDToPosition(job,0);
+        for (int i=1; i<job->grid->node_count; i++){
+            for (int pos=0; pos<job->grid->GRID_DIM; pos++){
+                if (job->grid->nodeIDToPosition(job,i)[pos] < x_min[pos]){
+                    x_min[pos] = job->grid->nodeIDToPosition(job,i)[pos];
+                } else if (job->grid->nodeIDToPosition(job,i)[pos] > x_max[pos]){
+                    x_max[pos] = job->grid->nodeIDToPosition(job,i)[pos];
+                }
+            }
+        }
+        Lx = KinematicVector(job->JOB_TYPE);
+        hx = KinematicVector(job->JOB_TYPE);
+        Nx = Eigen::VectorXi(job->grid->GRID_DIM);
+        double cell_width = 2.0*r;
+        for (int pos=0; pos<job->grid->GRID_DIM; pos++){
+            Lx(pos) = x_max[pos] - x_min[pos];
+            Nx(pos) = (int)(Lx(pos) / cell_width);
+            hx(pos) = Lx(pos)/Nx(pos);
+        }
+
+        //allocate space for cell to point map
+        int cell_count = 1;
+        for (int pos=0; pos<job->grid->GRID_DIM; pos++){
+            cell_count *= Nx(pos);
+        }
+        cell_to_point_map = std::vector<std::vector<int>>(cell_count);
+        for (int cell=0; cell<cell_count; cell++){
+            cell_to_point_map[cell] = std::vector<int>(0);
+        }
+
+        int tmp_id = -1;
+        KinematicVector tmpPos;
+
+        //set number of neighbors for search
+        number_of_neighbors = 1;
+        number_of_second_neighbors = 1;
+        for (int dir=0; dir<job->grid->GRID_DIM; dir++){
+            number_of_neighbors *= 3;
+            number_of_second_neighbors *= 5;
+        }
+
+    }
+
     //delta correction for constant strain requires h and alpha
     if (POSITIONRULE == DELTA_STRAIN){
         if (fp64_props.size() < 2+fp64_prop_counter){
@@ -393,7 +461,7 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
 
     if ((POSITIONRULE != NO_CORRECTION)
         && (POSITIONRULE != AVAV)
-        //&& (POSITIONRULE != SPH_LIKE)
+        && (POSITIONRULE != SPH_LIKE)
         && (POSITIONRULE != DELTA_STRAIN)
         //&& (POSITIONRULE != DELTA_DISP)
         ){
@@ -1230,7 +1298,9 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                 } else {
                     tmp_id = pos_to_cell(job, x[p]);
                     point_to_cell_map[p] = tmp_id;          //add cell to point list
-                    cell_to_point_map[tmp_id].push_back(p); //add point to cell list
+                    if (tmp_id >= 0 && tmp_id < cell_to_point_map.size()) {
+                        cell_to_point_map[tmp_id].push_back(p); //add point to cell list
+                    }
                 }
             }
 
@@ -1264,7 +1334,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     //search cell id
                     tmp_id = ijk_to_cell(job, rst);
 
-                    if (tmp_id > 0 && tmp_id < cell_to_point_map.size()) {
+                    if (tmp_id >= 0 && tmp_id < cell_to_point_map.size()) {
                         //find min dist. of mpm points
                         for (int p = 0; p < cell_to_point_map[tmp_id].size(); p++) {
                             dist = (body->nodes->x[i] - body->points->x[cell_to_point_map[tmp_id][p]]).norm() - r;
@@ -1324,7 +1394,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     //search cell id (overwrites tmp_id in previous scope, so be careful)
                     tmp_id = ijk_to_cell(job, rst);
 
-                    if (tmp_id > 0 && tmp_id < cell_to_node_map.size()){
+                    if (tmp_id >= 0 && tmp_id < cell_to_node_map.size()){
                         //find min dist. of mpm points
                         for (int n=0; n<cell_to_node_map[tmp_id].size(); n++){
                             n0 = cell_to_node_map[tmp_id][n];
@@ -1424,7 +1494,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         //search cell id
                         tmp_id = ijk_to_cell(job, rst);
 
-                        if (tmp_id > 0 && tmp_id < cell_to_point_map.size()) {
+                        if (tmp_id >= 0 && tmp_id < cell_to_point_map.size()) {
                             //find min dist. of mpm points to new point
                             for (int p = 0; p < cell_to_point_map[tmp_id].size(); p++) {
                                 dist = (x_new - body->points->x[cell_to_point_map[tmp_id][p]]).norm();
@@ -1466,7 +1536,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         tmp_id = ijk_to_cell(job, rst);
 
                         //add points to neighbor list
-                        if (tmp_id > 0 && tmp_id < cell_to_point_map.size()) {
+                        if (tmp_id >= 0 && tmp_id < cell_to_point_map.size()) {
                             for (int p = 0; p < cell_to_point_map[tmp_id].size(); p++) {
                                 neighbor_point_indices.push_back(cell_to_point_map[tmp_id][p]);
                             }
@@ -1586,7 +1656,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         tmp_id = ijk_to_cell(job, rst);
 
                         //check that tmp_id is valid
-                        if (tmp_id < 0 || tmp_id > cell_to_point_map.size()){
+                        if (tmp_id < 0 || tmp_id >= cell_to_point_map.size()){
                             continue; //skip this cell
                         }
 
@@ -1630,6 +1700,135 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         buffer_list.push_back(p);
                     }
                 }
+            }
+        }
+    } else if (POSITIONRULE == SPH_LIKE) {
+        KinematicVectorArray delta = KinematicVectorArray(x.size(), x.VECTOR_TYPE);
+
+        //iterate counter
+        skip_counter += 1;
+
+        //check if counter % skip_value = 0
+        if (skip_counter % skip_value == 0) {
+            //run sph-like algorithms
+            //step -1: find max velocity
+            u_max = 0;
+            for (int p=0; p<x.size(); p++){
+                if (x_t[p].norm() > u_max){
+                    u_max = x_t[p].norm();
+                }
+            }
+
+            //step 0: create cell/point map
+            for (int i = 0; i < cell_to_point_map.size(); i++) {
+                cell_to_point_map[i].clear(); //clear previous map
+            }
+            int tmp_id = -1;
+            for (int p = 0; p < x.size(); p++) {
+                if (active(p) == 0) {
+                    point_to_cell_map[p] = -1; //do not track this point
+                } else {
+                    tmp_id = pos_to_cell(job, x[p]);
+                    point_to_cell_map[p] = tmp_id;          //add cell to point list
+                    if (tmp_id >= 0 && tmp_id < cell_to_point_map.size()) {
+                        cell_to_point_map[tmp_id].push_back(p); //add point to cell list
+                    }
+                }
+            }
+
+            //step 1: calculate point-wise position correction
+            int p_other = -1;
+            int c = -1;
+            std::vector<int> ijk, rst, iijjkk;
+            double dist, r_bar_i;
+            KinematicVector R_i = KinematicVector(job->JOB_TYPE);
+            int M_i;
+            std::vector<int> point_neighbor_list = std::vector<int>(0);
+
+            for (int p=0; p<x.size(); p++){
+                if (active(p) != 0) {
+                    //zero out point neighbors list
+                    point_neighbor_list.clear();
+
+                    c = point_to_cell_map[p];
+                    if (c < 0) {
+                        //uh oh
+                        std::cerr << "[" << p << "] is active, but hasn't identified a search cell. Exiting." << std::endl;
+                        exit(0);
+                    }
+
+                    ijk = cell_to_ijk(job, c); //get ijk position of search cell
+                    rst = ijk;
+                    iijjkk = std::vector<int>(ijk.size(), -1); //initialize offset counter
+
+                    for (int cell = 0; cell < number_of_neighbors; cell++) {
+                        //determine direction of next search cell
+                        for (int dir = 0; dir < ijk.size(); dir++) {
+                            if (iijjkk[dir] < 1) {
+                                iijjkk[dir] += 1;
+                                break;
+                            } else {
+                                iijjkk[dir] = -1;
+                            }
+                        }
+
+                        //ijk position of search cell
+                        for (int dir = 0; dir < ijk.size(); dir++) {
+                            rst[dir] = ijk[dir] + iijjkk[dir];
+                        }
+
+                        //search cell id
+                        tmp_id = ijk_to_cell(job, rst);
+
+                        //check that tmp_id is valid
+                        if (tmp_id < 0 || tmp_id >= cell_to_point_map.size()){
+                            continue; //skip this cell
+                        }
+
+                        //add neighbors to list
+                        for (int q = 0; q < cell_to_point_map[tmp_id].size(); q++) {
+                            dist = (x[p] - x[cell_to_point_map[tmp_id][q]]).norm();
+                            if (cell_to_point_map[tmp_id][q] != p) {
+                                if (dist < 2.0*r){
+                                    //add point to neighbor list
+                                    point_neighbor_list.push_back(cell_to_point_map[tmp_id][q]);
+                                }
+                            }
+                        }
+                    }
+
+                    //calculate M_i, r_bar_i
+                    M_i = point_neighbor_list.size();
+                    if (M_i > 0){
+                        //calculate delta
+                        r_bar_i = 0;
+                        for (int q=0; q<M_i; q++){
+                            r_bar_i += (x[p] - x[point_neighbor_list[q]]).norm()/M_i;
+                        }
+
+                        R_i.setZero();
+                        for (int q=0; q<M_i; q++){
+                            dist = (x[p] - x[point_neighbor_list[q]]).norm();
+                            R_i += r_bar_i*r_bar_i*(x[p] - x[point_neighbor_list[q]])/(dist*dist*dist);
+                        }
+
+                        delta[p] = sph_const*u_max*skip_value*job->dt*R_i;
+
+                    } else {
+                        //no position correction
+                        delta[p].setZero();
+                    }
+                }
+            }
+
+            //step 2: adjust positions
+            for (int p=0; p<x.size(); p++){
+                body->points->x(p) += delta(p);
+                body->points->u(p) += delta(p);
+                del_pos(p) += delta(p);
+
+                body->points->x_t(p) += body->points->L(p) * delta(p);
+                body->points->mx_t(p) = body->points->m(p) * body->points->x_t(p);
             }
         }
     } else if (POSITIONRULE == DELTA_STRAIN){

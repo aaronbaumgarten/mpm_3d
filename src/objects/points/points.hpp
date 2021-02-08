@@ -316,6 +316,10 @@ public:
     std::vector<int> cell_to_ijk(Job* job, int i); //function to switch between cell id's and ijk position
     int ijk_to_cell(Job* job, std::vector<int> ijk);   //function to switch between ijk positions and cell id
 
+    //sph-like needs additional contasnt
+    double sph_const = 0.1;
+    double u_max;
+
     //internal variables for i/o
     int sampledFrames = 0;
     std::string outputFolder;
