@@ -114,6 +114,8 @@ Registry<Grid>::Registry() {
     object["CartesianCubic_Offset"] = &createInstance<Grid,CartesianCubic_Offset>;
     object["TetrahedralGridLinear"] = &createInstance<Grid,TetrahedralGridLinear>;
     object["Linear1DNonUniform"] = &createInstance<Grid,Linear1DNonUniform>;
+    object["CartesianQuadratic"] = &createInstance<Grid,CartesianQuadratic>;
+    object["CartesianQuadraticCustom"] = &createInstance<Grid,CartesianQuadraticCustom>;
 }
 
 
