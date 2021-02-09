@@ -104,7 +104,7 @@ int ImprovedQuadraturePoints::ijk_to_cell(Job* job, std::vector<int> ijk){
 void ImprovedQuadraturePoints::init(Job* job, Body* body){
     int int_prop_counter = 2;
     int fp64_prop_counter = 0;
-    if (int_props.size() < 2 && str_props.size() < 1){
+    if (int_props.size() < 2 || str_props.size() < 1){
         std::cout << int_props.size() << "\n";
         fprintf(stderr,
                 "%s:%s: Need at least 3 properties defined (QUADRULE, outputFolder).\n",
@@ -1929,13 +1929,16 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
 
         //newton scheme
         double step_length;
-        while (iter_count <= max_iter && relative_error < REL_TOL){
+        while (iter_count <= max_iter && relative_error > REL_TOL){
+            //increment iter_count
+            iter_count += 1;
+
             //calculate step length from pg 88 nb #8
             step_length = 0;
             for (int p=0; p<x.size(); p++){
-                step_length += v(p) * grad_H[p].dot(grad_H[p]);
+                step_length += v(p) * v(p) * grad_H[p].dot(grad_H[p]);
             }
-            step_length = H.squaredNorm()/step_length;
+            step_length = H.squaredNorm()/(2.0*step_length);
 
             //make sure step_length is not nan
             if (!std::isfinite(step_length)){
@@ -1954,6 +1957,8 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     delta *= h/delta.norm();
                 }
 
+                //std::cout << delta.norm() << ", " << v(i) << ", " << grad_H(i).norm() << std::endl;
+
                 for (int pos = 0; pos < delta.rows(); pos++) {
                     if (//((body->points->x(i, pos) + delta(pos)) >= Lx(pos)) ||
                         //((body->points->x(i, pos) + delta(pos)) <= 0) ||
@@ -1969,6 +1974,26 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                 body->points->x_t(i) += body->points->L(i) * delta;
                 body->points->mx_t(i) = body->points->m(i) * body->points->x_t(i);
             }
+
+            //update mappings
+            generateMap(job, body, 0);
+
+            //calculate strain rate
+            L = body->gradS.tensor_product_transpose(body->nodes->x_t, MPMSparseMatrixBase::TRANSPOSED);
+
+            //calculate relative error measure (||H/V_i||_\infty)
+            relative_error = 0;
+            for (int i=0; i<body->nodes->x.size(); i++){
+                if (e(i) > relative_error){
+                    relative_error = e(i);
+                }
+            }
+
+            /*
+            std::cout << "t: " << job->t << ", i: " << iter_count;
+            std::cout << ", step_length: " << step_length << ", err: " << relative_error;
+            std::cout << ", H: " << H.norm() << std::endl;
+             */
         }
     }
 
