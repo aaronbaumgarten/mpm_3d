@@ -780,7 +780,7 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
                                 }
                             } else if (QUADRULE == CPDI){
                                 tmpGrad2 = tmpGrad;
-                                tmpGrad = (F(i).inverse())*tmpGrad2;
+                                tmpGrad = (F(i).inverse()).transpose()*tmpGrad2;
                             }
 
                             //add to point gradient
@@ -920,8 +920,9 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
                             body->S.push_back(nvec[j], i, w * valvec[j]);// / A.rows()); //node, point, value
 
                             //gradient contribution from corner
-                            tmpGrad[0] = valvec[j]*(A(c,0)*b2 - A(c,1)*(a2 + a3*A(c,0)/3.0))/vp;
-                            tmpGrad[1] = valvec[j]*(-A(c,0)*(b1 + b3*A(c,1)/3.0) + A(c,1)*a1)/vp;
+                            //pg 109 nb #8
+                            tmpGrad[0] = 0.25*valvec[j]/vp * ((A(c,0) + A(c,1))*(y4-y2) + (A(c,0) - A(c,1))*(y3-y1));
+                            tmpGrad[1] = 0.25*valvec[j]/vp * ((A(c,0) + A(c,1))*(x2-x4) + (A(c,0) - A(c,1))*(x1-x3));
                             for (int pos = job->grid->GRID_DIM; pos < tmpGrad.DIM; pos++) {
                                 tmpGrad[pos] = 0;
                             }
@@ -940,7 +941,33 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
         //check for partition of unity in mapping
         Eigen::VectorXd unity_nodes = Eigen::VectorXd::Ones(body->nodes->x.size());
         Eigen::VectorXd unity_points = body->S.operate(unity_nodes, MPMSparseMatrixBase::TRANSPOSED);
-        std::cout << "min: " << unity_points.minCoeff() << ", max: " << unity_points.maxCoeff() << std::endl;
+        std::cout << "1? : min: " << unity_points.minCoeff() << ", max: " << unity_points.maxCoeff() << std::endl;
+        KinematicVectorArray zero_points = body->gradS.operate(unity_nodes, MPMSparseMatrixBase::TRANSPOSED);
+        double max_coeff = 0;
+        for (int i=0; i<x.size(); i++){
+            if (zero_points[i].norm() > max_coeff){
+                max_coeff = zero_points[i].norm();
+            }
+        }
+        std::cout << "0? : max: " << max_coeff << std::endl;
+        Eigen::VectorXd x_nodes = Eigen::VectorXd(body->nodes->x.size());
+        for (int i=0; i<body->nodes->x.size(); i++){
+            x_nodes(i) = body->nodes->x(i,0);
+        }
+        KinematicVectorArray grad_points = body->gradS.operate(x_nodes, MPMSparseMatrixBase::TRANSPOSED);
+        max_coeff = 0;
+        double min_coeff = 0;
+        for (int i=0; i<x.size(); i++){
+            if (i==0) {
+                max_coeff = grad_points[i].norm();
+                min_coeff = grad_points[i].norm();
+            } else if (grad_points[i].norm() < min_coeff){
+                min_coeff = grad_points[i].norm();
+            } else if (grad_points[i].norm() > max_coeff){
+                max_coeff = grad_points[i].norm();
+            }
+        }
+        std::cout << "1? : min: " << min_coeff << ", max: " << max_coeff << std::endl;
     }
 
     //for all methods, calculate error measures
