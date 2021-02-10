@@ -1634,13 +1634,19 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     }
                     v(tmp_id) = s_sum/(neighbor_point_indices.size()+1);
 
-                    //mass is conserved
+                    //mass, momentum is conserved
                     s_sum = 0;
+                    v_sum = KinematicVector(job->JOB_TYPE);
+                    v_sum.setZero();
                     for (int p=0; p<neighbor_point_indices.size(); p++){
                         s_sum += m(neighbor_point_indices[p]);
+                        v_sum += mx_t[neighbor_point_indices[p]];
                         m(neighbor_point_indices[p]) -= m(neighbor_point_indices[p])/(neighbor_point_indices.size()+1);
+                        mx_t[neighbor_point_indices[p]] *= (1.0 - 1.0/(neighbor_point_indices.size()+1));
                     }
                     m(tmp_id) = s_sum/(neighbor_point_indices.size()+1);
+                    mx_t[tmp_id] = v_sum/((float)neighbor_point_indices.size()+1.0);
+                    x_t[tmp_id] = mx_t[tmp_id]/m(tmp_id);
 
                     //initial volume is conserved
                     s_sum = 0;
@@ -1656,18 +1662,18 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     s_list.clear();
                     b[tmp_id].setZero();
                     u[tmp_id].setZero();
-                    x_t[tmp_id].setZero();
+                    //x_t[tmp_id].setZero();
                     T[tmp_id].setZero();
                     job->grid->evaluateBasisFnValue(job, x_new, n_list, s_list); //get shape function values
                     for (int ii = 0; ii < n_list.size(); ii++) {
                         if (n_list[ii] > -1) {
                             b[tmp_id] += b_nodes[n_list[ii]]*s_list[ii];
                             u[tmp_id] += u_nodes[n_list[ii]]*s_list[ii];
-                            x_t[tmp_id] += body->nodes->x_t[n_list[ii]]*s_list[ii];
+                            //x_t[tmp_id] += body->nodes->x_t[n_list[ii]]*s_list[ii];
                             T[tmp_id] += T_nodes[n_list[ii]]*s_list[ii];
                         }
                     }
-                    mx_t[tmp_id] = m(tmp_id)*x_t[tmp_id];
+                    //mx_t[tmp_id] = m(tmp_id)*x_t[tmp_id];
 
                     if (p_d >= -2.2*r){
                         //point isn't interior enough
