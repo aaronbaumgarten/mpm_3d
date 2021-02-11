@@ -224,4 +224,40 @@ public:
     //virtual void applyLoads(Job* job);
 };
 
+/*----------------------------------------------------------------------------*/
+//taylor-green vortex error calculator
+
+class TGVErrorSolver : public Solver{
+public:
+    TGVErrorSolver(){
+        object_name = "TGVErrorSolver"; //set name of object from registry
+    }
+
+    //domain should be square and periodic
+    double u_max = 0;
+    double a = 2.0*M_PI;
+    double density = 1000;
+
+    //need to create and write an output file
+    std::string output_filename;
+
+    virtual void init(Job* job);
+    virtual void step(Job* job);
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    KinematicVector getVelocity(Job* job, KinematicVector const &x);
+    KinematicVector getAcceleration(Job* job, KinematicVector const &x);
+    double getPressure(Job* job, KinematicVector const &x);
+
+    virtual void createMappings(Job* job);
+    virtual void assignPressure(Job* job);
+    virtual void calculateAcceleration(Job* job);
+    virtual void assignVelocity(Job* job);
+    virtual void movePoints(Job* job);
+    virtual void calculateStrainRate(Job* job);
+    virtual void updateDensity(Job* job);
+    virtual void writeErrorInfo(Job* job);
+};
+
 #endif //MPM_V3_SOLVERS_HPP
