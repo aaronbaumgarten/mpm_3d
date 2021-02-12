@@ -44,7 +44,7 @@ void TGVErrorSolver::init(Job* job){
     if (file.is_open()){
         //success!
         //write file header
-        file << "t, ||H||_2^2, ||e||_\\infty, ||a^* - a^Q||_L2, ||g||_\\infty \n";
+        file << "t, ||H||_2^2, ||e||_\\infty, ||a^* - a^Q||_L2, ||g||_\\infty, ||G_rel||_\\infty \n";
 
         file.close();
     } else {
@@ -73,12 +73,36 @@ KinematicVector TGVErrorSolver::getAcceleration(Job* job, KinematicVector const 
 
 
 double TGVErrorSolver::getPressure(Job* job, KinematicVector const &x){
-    return density * u_max * u_max * 0.25 * (std::cos(2.0*a*x[0]) + std::cos(2.0*a*x[1]));
+    return -density * u_max * u_max * 0.25 * (std::cos(2.0*a*x[0]) + std::cos(2.0*a*x[1]));
+}
+
+void TGVErrorSolver::setGridLengths(Job* job){
+    //get grid dimensions
+    KinematicVector x_min = job->grid->nodeIDToPosition(job, 0);
+    KinematicVector x_max = x_min;
+    KinematicVector tmp_x;
+    for (int i=1; i<job->grid->node_count; i++){
+        tmp_x = job->grid->nodeIDToPosition(job, i);
+        for (int pos=0; pos<job->grid->GRID_DIM; pos++){
+            if (tmp_x[pos] > x_max[pos]){
+                x_max[pos] = tmp_x[pos];
+            } else if (tmp_x[pos] < x_min[pos]){
+                x_min[pos] = tmp_x[pos];
+            }
+        }
+    }
+    Lx = x_max - x_min;
+    return;
 }
 
 /*----------------------------------------------------------------------------*/
 //
 void TGVErrorSolver::step(Job* job){
+    //get grid dimensions on first step
+    if (job->t < job->dt){
+        setGridLengths(job);
+    }
+
     //create map
     createMappings(job);
 
@@ -175,6 +199,7 @@ void TGVErrorSolver::calculateAcceleration(Job* job){
         nodes->m = body->S * points->m; //m_i = S_ip * m_p
 
         //map divergence of stress
+        nodes->f.setZero();
         tmpMat = points->T;
         for (int i = 0; i < tmpMat.size(); i++) {
             tmpMat[i] *= points->v[i];
@@ -288,6 +313,7 @@ void TGVErrorSolver::writeErrorInfo(Job* job){
     Eigen::VectorXd v_i = Eigen::VectorXd(job->grid->node_count);
     Eigen::VectorXd e = Eigen::VectorXd(job->grid->node_count);
     Eigen::VectorXd H = Eigen::VectorXd(job->grid->node_count);
+    Eigen::VectorXd G_rel = Eigen::VectorXd(job->grid->node_count);
     KinematicVectorArray g = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
 
     //initialize figures of merit
@@ -295,6 +321,7 @@ void TGVErrorSolver::writeErrorInfo(Job* job){
     double e_norm = 0;
     double a_L2 = 0;
     double g_max = 0;
+    double G_norm = 0;
 
     //get exact node volumes form grid
     for (int i=0; i<job->grid->node_count;i++){
@@ -306,6 +333,35 @@ void TGVErrorSolver::writeErrorInfo(Job* job){
 
     //get integrated gradient from points
     g = job->bodies[0]->gradS * job->bodies[0]->points->v;
+
+    //get node-wise integral of (x-x_i).grad(N_i(x))
+    G_rel.setZero();
+    int p = 0;
+    int n = 0;
+    KinematicVector dx = KinematicVector(job->JOB_TYPE);
+    KinematicVector gradN = KinematicVector(job->JOB_TYPE);
+    for (int j = 0; j<job->bodies[0]->gradS.size(); j++){
+        n = job->bodies[0]->gradS.i_vec[j];
+        p = job->bodies[0]->gradS.j_vec[j];
+        gradN = job->bodies[0]->gradS.buffer[j];
+        dx = (job->bodies[0]->points->x[p] - job->bodies[0]->nodes->x[n]);
+
+        //check that dx is valid (for periodic domains)
+        for (int pos=0; pos<job->grid->GRID_DIM; pos++){
+            if (dx[pos] > Lx[pos]/2.0){
+                dx[pos] -= Lx[pos];
+            } else if (dx[pos] < -Lx[pos]/2.0){
+                dx[pos] += Lx[pos];
+            }
+        }
+
+        G_rel(n) += job->bodies[0]->points->v(p)*dx.dot(gradN);
+    }
+    for (int i=0; i<job->grid->node_count; i++){
+        G_rel(i) += job->grid->GRID_DIM*V_i(i);
+        G_rel(i) /= job->grid->GRID_DIM*V_i(i);
+        G_rel(i) = std::min(G_rel(i), 0.0); //G_rel >=0 for all i
+    }
 
     //calculate arrays
     double tmpNum;
@@ -338,6 +394,11 @@ void TGVErrorSolver::writeErrorInfo(Job* job){
         if (g[i].norm() > g_max){
             g_max = g[i].norm();
         }
+
+        //grid dimension is 2
+        if (G_rel(i) < G_norm){
+            G_norm = G_rel(i);
+        }
     }
     //sqrt of ||a_err||_L2^2
     a_L2 = std::sqrt(a_L2);
@@ -351,7 +412,8 @@ void TGVErrorSolver::writeErrorInfo(Job* job){
         file << H_norm << ", ";
         file << e_norm << ", ";
         file << a_L2 << ", ";
-        file << g_max << "\n";
+        file << g_max << ", ";
+        file << -G_norm << "\n";
 
         file.close();
     } else {

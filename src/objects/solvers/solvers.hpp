@@ -241,6 +241,9 @@ public:
     //need to create and write an output file
     std::string output_filename;
 
+    //for some math, need domain size
+    KinematicVector Lx;
+
     virtual void init(Job* job);
     virtual void step(Job* job);
     virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
@@ -249,6 +252,7 @@ public:
     KinematicVector getVelocity(Job* job, KinematicVector const &x);
     KinematicVector getAcceleration(Job* job, KinematicVector const &x);
     double getPressure(Job* job, KinematicVector const &x);
+    void setGridLengths(Job* job);
 
     virtual void createMappings(Job* job);
     virtual void assignPressure(Job* job);
