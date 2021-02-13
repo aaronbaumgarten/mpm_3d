@@ -890,9 +890,9 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
                     for (int c = 0; c < A.rows(); c++) {
                         /* CALCULATE S_ip */
                         //initialize storage vectors
-                        nvec.resize(0);
-                        valvec.resize(0);
-                        gradvec.resize(0);
+                        nvec.clear();
+                        valvec.clear();
+                        gradvec.clear();
 
                         //determine corner positions
                         tmpVec = corner_positions(i * cpmp + c);
@@ -915,7 +915,6 @@ void ImprovedQuadraturePoints::generateMap(Job* job, Body* body, int SPEC) {
 
                         //add corner contribution to S and gradS
                         for (int j = 0; j < nvec.size(); j++) {
-
                             //mapping contribution from corner
                             body->S.push_back(nvec[j], i, w * valvec[j]);// / A.rows()); //node, point, value
 

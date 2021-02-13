@@ -357,6 +357,12 @@ void CartesianCubicCustom::evaluateBasisFnValue(Job* job, KinematicVector& xIN, 
         //r = (x_p - x_n)/hx
         rst = tmpX - x_n(nodeIDs(elementID,n));
         for (int i=0;i<GRID_DIM;i++){
+            if (rst(i) > 0.5*Lx(i)){
+                rst(i) -= Lx(i);
+            } else if (rst(i) < -0.5*Lx(i)){
+                rst(i) += Lx(i);
+            }
+
             //check proximity to edge
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmp *= s(rst(i), hx(i));
@@ -410,6 +416,12 @@ void CartesianCubicCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xI
         //r = (x_p - x_n)
         rst = tmpX - x_n(nodeIDs(elementID,n));
         for (int i=0;i<GRID_DIM;i++){
+            if (rst(i) > 0.5*Lx(i)){
+                rst(i) -= Lx(i);
+            } else if (rst(i) < -0.5*Lx(i)){
+                rst(i) += Lx(i);
+            }
+
             //check proximity to edge
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
                 tmpVec(i) = g(rst(i), hx(i));

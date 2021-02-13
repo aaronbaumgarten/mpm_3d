@@ -334,6 +334,19 @@ void TGVErrorSolver::writeErrorInfo(Job* job){
     //get integrated gradient from points
     g = job->bodies[0]->gradS * job->bodies[0]->points->v;
 
+    /*
+    Eigen::VectorXd cst_field = Eigen::VectorXd::Ones(job->grid->node_count);
+    KinematicVectorArray g_points = job->bodies[0]->gradS.operate(cst_field, MPMSparseMatrixBase::TRANSPOSED);
+    Eigen::VectorXd e_points = job->bodies[0]->S.operate(cst_field, MPMSparseMatrixBase::TRANSPOSED);
+    double g_points_max = 1e-10;
+    for (int p=0; p<job->bodies[0]->points->x.size(); p++){
+        if (g_points[p].norm() > 0.25*g_points_max){
+            g_points_max = g_points[p].norm();
+            std::cout << "[" << p << "]* : " << g_points[p].norm() << " ? " << e_points(p) << std::endl;
+        }
+    }
+     */
+
     //get node-wise integral of (x-x_i).grad(N_i(x))
     G_rel.setZero();
     int p = 0;
@@ -375,29 +388,29 @@ void TGVErrorSolver::writeErrorInfo(Job* job){
     KinematicVector tmpAcc = KinematicVector(job->JOB_TYPE);
     KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
     for (int i=0; i<V_i.rows(); i++){
-        //||H||_2^2
-        H_norm += H(i)*H(i);
-
-        //||e||_\infty
-        if (e(i) > e_norm){
-            e_norm = e(i);
-        }
-
-        //||a^* - a^Q||_L2
-        tmpAcc = getAcceleration(job, job->bodies[0]->nodes->x[i]);
         if (job->bodies[0]->nodes->m(i) > 0) {
+            //||H||_2^2
+            H_norm += H(i) * H(i);
+
+            //||e||_\infty
+            if (e(i) > e_norm) {
+                e_norm = e(i);
+            }
+
+            //||a^* - a^Q||_L2
+            tmpAcc = getAcceleration(job, job->bodies[0]->nodes->x[i]);
             tmpVec = (tmpAcc - job->bodies[0]->nodes->f[i] / job->bodies[0]->nodes->m(i));
             a_L2 += tmpVec.dot(tmpVec) * V_i(i);
-        }
 
-        //||g||_\infty
-        if (g[i].norm() > g_max){
-            g_max = g[i].norm();
-        }
+            //||g||_\infty
+            if (g[i].norm() > g_max) {
+                g_max = g[i].norm();
+            }
 
-        //grid dimension is 2
-        if (G_rel(i) < G_norm){
-            G_norm = G_rel(i);
+            //grid dimension is 2
+            if (G_rel(i) < G_norm) {
+                G_norm = G_rel(i);
+            }
         }
     }
     //sqrt of ||a_err||_L2^2

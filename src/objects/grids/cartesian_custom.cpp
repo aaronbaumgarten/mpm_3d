@@ -297,6 +297,12 @@ void CartesianCustom::evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::
         //r = (x_p - x_n)/hx
         rst = tmpVec - x_n(nodeIDs(elementID,n));
         for (int i=0;i<GRID_DIM;i++){
+            if (rst(i) > 0.5*Lx(i)){
+                rst(i) -= Lx(i);
+            } else if (rst(i) < -0.5*Lx(i)){
+                rst(i) += Lx(i);
+            }
+
             //adjust rst length measures
             rst[i] /= hx[i];
             //standard linear hat function
@@ -326,6 +332,12 @@ void CartesianCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
         for (int i=0;i<GRID_DIM;i++){
             //r = (x_p - x_n)/hx
             rst[i] = (tmpX[i] - x_n(nodeIDs(elementID,n),i)) / hx(i);
+
+            if (rst(i) > 0.5*Lx(i)){
+                rst(i) -= Lx(i);
+            } else if (rst(i) < -0.5*Lx(i)){
+                rst(i) += Lx(i);
+            }
 
             //standard linear hat function
             //evaluate at point
