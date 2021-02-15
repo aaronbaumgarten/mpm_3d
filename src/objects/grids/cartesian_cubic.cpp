@@ -510,14 +510,14 @@ std::vector<int> CartesianCubic::getEdgeList(Job* job){
     std::vector<int> result = std::vector<int>(0);
 
     if (GRID_DIM == 1){
-        result.resize(element_count);
+        result.resize(2*element_count);
         for (int i=0; i<element_count; i++){
             result[2*i] = i;
             result[2*i + 1] = i+1;
         }
     } else if (GRID_DIM == 2){
         //(nx+1)*ny + (ny+1)*nx
-        result.resize((Nx(0) + 1)*Nx(1) + (Nx(1) + 1)*Nx(0));
+        result.resize(2*(Nx(0) + 1)*Nx(1) + 2*(Nx(1) + 1)*Nx(0));
 
         //fill in x-oriented faces
         for (int i=0; i<Nx(0); i++){
@@ -536,9 +536,9 @@ std::vector<int> CartesianCubic::getEdgeList(Job* job){
         }
     } else if (GRID_DIM == 3){
         //nx*(ny+1)*(nz+1) + ...
-        result.resize(Nx(0) * (Nx(1) + 1) * (Nx(2) + 1)
-                      + Nx(1) * (Nx(2) + 1) * (Nx(0) + 1)
-                      + Nx(2) * (Nx(0) + 1) * (Nx(1) + 1));
+        result.resize(2*Nx(0) * (Nx(1) + 1) * (Nx(2) + 1)
+                      + 2*Nx(1) * (Nx(2) + 1) * (Nx(0) + 1)
+                      + 2*Nx(2) * (Nx(0) + 1) * (Nx(1) + 1));
 
         //fill in x-oriented faces
         for (int i=0; i<Nx(0); i++){

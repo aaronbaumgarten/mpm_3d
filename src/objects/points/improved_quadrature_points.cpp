@@ -473,6 +473,29 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
 
             max_iter = int_props[int_prop_counter];
             int_prop_counter += 1;
+
+            //check for string flags
+            for (int s=0; s<str_props.size(); s++){
+                if (str_props[s].compare("USE_VELOCITY_LIMITER") == 0){
+                    std::cout << "Using velocity limiter." << std::endl;
+                    //use limiter
+                    use_velocity_limiter = true;
+                    if (fp64_props.size() > fp64_prop_counter){
+                        limiter = fp64_props[fp64_prop_counter];
+                        fp64_prop_counter += 1;
+                    }
+                    break;
+                } else if (str_props[s].compare("USE_STRAIN_LIMITER") == 0){
+                    std::cout << "Using strain limiter." << std::endl;
+                    //use limiter
+                    use_strain_limiter = true;
+                    if (fp64_props.size() > fp64_prop_counter){
+                        limiter = fp64_props[fp64_prop_counter];
+                        fp64_prop_counter += 1;
+                    }
+                    break;
+                }
+            }
         }
     }
 
@@ -1977,7 +2000,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
         }
 
         //newton scheme
-        double step_length;
+        double step_length, point_length;
         while (iter_count < max_iter && relative_error > REL_TOL){
             //increment iter_count
             iter_count += 1;
@@ -2002,7 +2025,19 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
             for (int i=0; i<x.size(); i++) {
                 delta = -step_length * v(i) * grad_H(i);
 
-                if (delta.norm() > h){
+                if (job->grid->GRID_DIM == 1){
+                    point_length = v(i);
+                } else if (job->grid->GRID_DIM == 2){
+                    point_length = std::sqrt(v(i));
+                } else {
+                    point_length = std::cbrt(v(i));
+                }
+
+                if (use_velocity_limiter && delta.norm() > limiter*x_t[i].norm()*job->dt){
+                    delta *= limiter*x_t[i].norm()*job->dt/delta.norm();
+                } else if (use_strain_limiter && delta.norm() > limiter*point_length*L[i].norm()*job->dt){
+                    delta *= limiter*point_length*L[i].norm()*job->dt/delta.norm();
+                } else if (delta.norm() > h){
                     delta *= h/delta.norm();
                 }
 

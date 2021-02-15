@@ -294,6 +294,9 @@ public:
     double alpha, h, REL_TOL;
     KinematicVectorArray del_pos;
     int max_iter;
+    bool use_velocity_limiter = false;
+    bool use_strain_limiter = false;
+    double limiter = 1.0;
 
     //variables for avoid-a-void scheme
     double alg_inf = 1e10; // a really big number
