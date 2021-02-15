@@ -1363,6 +1363,9 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     point_to_cell_map[p] = tmp_id;          //add cell to point list
                     if (tmp_id >= 0 && tmp_id < cell_to_point_map.size()) {
                         cell_to_point_map[tmp_id].push_back(p); //add point to cell list
+                    } else {
+                        //uh oh
+                        point_to_cell_map[p] = -1;
                     }
                 }
             }
@@ -1512,6 +1515,13 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                 accept_point = true;
                 if (!job->grid->inDomain(job, x_new)){
                     accept_point = false;
+                }
+                //double check that point is in domain
+                for (int dir=0; dir<job->grid->GRID_DIM; dir++){
+                    if (x_new[dir] >= x_max[dir] || x_new[dir] <= x_min[dir]){
+                        accept_point = false;
+                        break;
+                    }
                 }
 
                 //check that point is in domain
@@ -1696,8 +1706,10 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     c = point_to_cell_map[p];
                     if (c < 0) {
                         //uh oh
-                        std::cerr << "[" << p << "] is active, but hasn't identified a search cell. Exiting." << std::endl;
-                        exit(0);
+                        //std::cerr << "[" << p << "] is active, but hasn't identified a search cell. Exiting." << std::endl;
+                        //exit(0);
+                        //do nothing
+                        continue;
                     }
 
                     //check if point is within 0.03*r of any other points
@@ -1801,6 +1813,9 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     point_to_cell_map[p] = tmp_id;          //add cell to point list
                     if (tmp_id >= 0 && tmp_id < cell_to_point_map.size()) {
                         cell_to_point_map[tmp_id].push_back(p); //add point to cell list
+                    } else {
+                        //uh oh
+                        point_to_cell_map[p] = -1;
                     }
                 }
             }
@@ -1822,8 +1837,10 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     c = point_to_cell_map[p];
                     if (c < 0) {
                         //uh oh
-                        std::cerr << "[" << p << "] is active, but hasn't identified a search cell. Exiting." << std::endl;
-                        exit(0);
+                        //std::cerr << "[" << p << "] is active, but hasn't identified a search cell. Exiting." << std::endl;
+                        //exit(0);
+                        //do nothing
+                        continue;
                     }
 
                     ijk = cell_to_ijk(job, c); //get ijk position of search cell
@@ -1961,7 +1978,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
 
         //newton scheme
         double step_length;
-        while (iter_count <= max_iter && relative_error > REL_TOL){
+        while (iter_count < max_iter && relative_error > REL_TOL){
             //increment iter_count
             iter_count += 1;
 
@@ -2005,6 +2022,11 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
 
                 body->points->x_t(i) += body->points->L(i) * delta;
                 body->points->mx_t(i) = body->points->m(i) * body->points->x_t(i);
+            }
+
+            if (iter_count >= max_iter){
+                //do not calculate any more (save time)
+                break;
             }
 
             //update mappings

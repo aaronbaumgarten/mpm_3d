@@ -44,7 +44,7 @@ void TGVErrorSolver::init(Job* job){
     if (file.is_open()){
         //success!
         //write file header
-        file << "t, ||H||_2^2, ||e||_\\infty, ||a^* - a^Q||_L2, ||g||_\\infty, ||G_rel||_\\infty \n";
+        file << "t, ||H||_2^2, ||e||_\\infty, ||a^* - a^Q||_L2, ||a^M - a^Q||_L2, ||g||_\\infty, ||G_rel||_\\infty \n";
 
         file.close();
     } else {
@@ -95,12 +95,50 @@ void TGVErrorSolver::setGridLengths(Job* job){
     return;
 }
 
+void TGVErrorSolver::setSolutionCoeffs(Job* job){
+    a_M = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+    //generate 2D field of points evaluate integral expressions
+    //for now, hard-code (1600 points around each node, 2 elements in each direction)
+    int samples = 40;
+    double dx = 4.0/(50.0 * samples);
+
+    std::cout << "Calculating exact lumped mass solution..." << std::endl;
+    KinematicVector tmpX = KinematicVector(job->JOB_TYPE);
+    std::vector<double> valvec = std::vector<double>(0);
+    std::vector<int> ivec = std::vector<int>(0);
+    for (int i=0; i<job->grid->node_count; i++){
+        //for each node, sum contribution from each sample point
+        for (int ii=0; ii<samples; ii++){
+            tmpX[0] = job->bodies[0]->nodes->x(i,0) - 2.0/50.0 + dx*(ii+0.5);
+            for (int jj=0; jj<samples; jj++){
+                tmpX[1] = job->bodies[0]->nodes->x(i,1) - 2.0/50.0 + dx*(jj+0.5);
+
+                //get basis function values and add to node sum
+                //will duplicate work, but is simple to code
+                valvec.clear();
+                ivec.clear();
+                job->grid->evaluateBasisFnValue(job, tmpX, ivec, valvec);
+
+                for (int k=0; k<ivec.size(); k++){
+                    if (ivec[k] == i){
+                        a_M[i] += getAcceleration(job, tmpX)*dx*dx*valvec[k];
+                    }
+                }
+            }
+        }
+        a_M[i] /= job->grid->nodeVolume(job, i); //hard code
+    }
+    std::cout << "Calculated exact solution. Continuing." << std::endl;
+    return;
+}
+
 /*----------------------------------------------------------------------------*/
 //
 void TGVErrorSolver::step(Job* job){
     //get grid dimensions on first step
     if (job->t < job->dt){
         setGridLengths(job);
+        setSolutionCoeffs(job);
     }
 
     //create map
@@ -123,6 +161,9 @@ void TGVErrorSolver::step(Job* job){
 
     //calculate material strain
     calculateStrainRate(job);
+
+    //generate BCs (for periodic domain, this should wrap points
+    generateBoundaryConditions(job);
 
     //update density and integrators
     updateDensity(job);
@@ -229,6 +270,17 @@ void TGVErrorSolver::assignVelocity(Job* job){
     return;
 }
 
+
+void TGVErrorSolver::generateBoundaryConditions(Job* job){
+    for (int b=0;b<job->bodies.size();b++){
+        if (job->activeBodies[b] == 0 || job->bodies[b]->activeBoundary == 0){
+            continue;
+        }
+        job->bodies[b]->boundary->generateRules(job,job->bodies[b].get());
+    }
+    return;
+}
+
 void TGVErrorSolver::movePoints(Job* job){
     Body* body;
     Points* points;
@@ -320,6 +372,7 @@ void TGVErrorSolver::writeErrorInfo(Job* job){
     double H_norm = 0;
     double e_norm = 0;
     double a_L2 = 0;
+    double aM_L2 = 0;
     double g_max = 0;
     double G_norm = 0;
 
@@ -402,6 +455,10 @@ void TGVErrorSolver::writeErrorInfo(Job* job){
             tmpVec = (tmpAcc - job->bodies[0]->nodes->f[i] / job->bodies[0]->nodes->m(i));
             a_L2 += tmpVec.dot(tmpVec) * V_i(i);
 
+            //||a^M - a^Q||_L2
+            tmpVec = (a_M[i] - job->bodies[0]->nodes->f[i] / job->bodies[0]->nodes->m(i));
+            aM_L2 += tmpVec.dot(tmpVec) * V_i(i);
+
             //||g||_\infty
             if (g[i].norm() > g_max) {
                 g_max = g[i].norm();
@@ -415,6 +472,7 @@ void TGVErrorSolver::writeErrorInfo(Job* job){
     }
     //sqrt of ||a_err||_L2^2
     a_L2 = std::sqrt(a_L2);
+    aM_L2 = std::sqrt(aM_L2);
 
     //open and write to file
     std::ofstream file (output_filename,std::ios::app);
@@ -425,6 +483,7 @@ void TGVErrorSolver::writeErrorInfo(Job* job){
         file << H_norm << ", ";
         file << e_norm << ", ";
         file << a_L2 << ", ";
+        file << aM_L2 << ", ";
         file << g_max << ", ";
         file << -G_norm << "\n";
 

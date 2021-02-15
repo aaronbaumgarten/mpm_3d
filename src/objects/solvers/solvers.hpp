@@ -244,6 +244,9 @@ public:
     //for some math, need domain size
     KinematicVector Lx;
 
+    //for other math I need exact solution coefficients
+    KinematicVectorArray a_M;
+
     virtual void init(Job* job);
     virtual void step(Job* job);
     virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
@@ -253,6 +256,7 @@ public:
     KinematicVector getAcceleration(Job* job, KinematicVector const &x);
     double getPressure(Job* job, KinematicVector const &x);
     void setGridLengths(Job* job);
+    void setSolutionCoeffs(Job* job);
 
     virtual void createMappings(Job* job);
     virtual void assignPressure(Job* job);
@@ -260,6 +264,7 @@ public:
     virtual void assignVelocity(Job* job);
     virtual void movePoints(Job* job);
     virtual void calculateStrainRate(Job* job);
+    virtual void generateBoundaryConditions(Job* job); //wrap points
     virtual void updateDensity(Job* job);
     virtual void writeErrorInfo(Job* job);
 };
