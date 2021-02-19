@@ -62,6 +62,7 @@ Registry<Driver>::Registry() {
     object["FishMixtureModelRandomSampleDriver"] = &createInstance<Driver,FishMixtureModelRandomSampleDriver>;
     object["FVMVariableStepDriver"] = &createInstance<Driver,FVMVariableStepDriver>;
     object["FVMNumericalDampingDriver"] = &createInstance<Driver,FVMNumericalDampingDriver>;
+    object["ChuteFlowDriver"] = &createInstance<Driver,ChuteFlowDriver>;
 }
 
 
@@ -73,6 +74,7 @@ Registry<Solver>::Registry() {
     object["ParallelExplicitUSL"] = &createInstance<Solver,ParallelExplicitUSL>;
     object["ThreadPoolExplicitUSL"] = &createInstance<Solver,ThreadPoolExplicitUSL>;
     object["TGVErrorSolver"] = &createInstance<Solver,TGVErrorSolver>;
+    object["ShiftedTGVErrorSolver"] = &createInstance<Solver,ShiftedTGVErrorSolver>;
 }
 
 

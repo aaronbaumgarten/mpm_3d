@@ -7,5 +7,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/ballistic_driver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fish_random_sample_driver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fish_mixture_model_random_sample_driver.cpp.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/chute_flow_driver.cpp
         PARENT_SCOPE
         )

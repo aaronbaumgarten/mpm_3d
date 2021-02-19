@@ -209,4 +209,30 @@ public:
     virtual void applyGravity(Job* job);
 };
 
+/*----------------------------------------------------------------------------*/
+//driver for chute flow with Sachith's sand model
+class ChuteFlowDriver : public DefaultDriver{
+public:
+    ChuteFlowDriver(){
+        object_name = "ChuteFlowDriver"; //set object name here
+    }
+
+    double stop_time;
+    KinematicVector gravity;
+
+    double g, theta, mu_1, mu_2, b, d, rho_s, h, phi;
+
+    //need to create and write an output file
+    std::string output_filename;
+
+    void init(Job* job);
+
+    void run(Job* job);
+    void generateGravity(Job* job);
+    void applyGravity(Job* job);
+
+    KinematicVector getVelocity(Job* job, KinematicVector const &x);
+    void writeErrorInfo(Job* job);
+};
+
 #endif //MPM_V3_DRIVERS_HPP

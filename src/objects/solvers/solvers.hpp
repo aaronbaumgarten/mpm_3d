@@ -252,11 +252,11 @@ public:
     virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
     virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
 
-    KinematicVector getVelocity(Job* job, KinematicVector const &x);
-    KinematicVector getAcceleration(Job* job, KinematicVector const &x);
-    double getPressure(Job* job, KinematicVector const &x);
-    void setGridLengths(Job* job);
-    void setSolutionCoeffs(Job* job);
+    virtual KinematicVector getVelocity(Job* job, KinematicVector const &x);
+    virtual KinematicVector getAcceleration(Job* job, KinematicVector const &x);
+    virtual double getPressure(Job* job, KinematicVector const &x);
+    virtual void setGridLengths(Job* job);
+    virtual void setSolutionCoeffs(Job* job);
 
     virtual void createMappings(Job* job);
     virtual void assignPressure(Job* job);
@@ -267,6 +267,19 @@ public:
     virtual void generateBoundaryConditions(Job* job); //wrap points
     virtual void updateDensity(Job* job);
     virtual void writeErrorInfo(Job* job);
+};
+
+class ShiftedTGVErrorSolver : public TGVErrorSolver{
+public:
+    ShiftedTGVErrorSolver(){
+        object_name = "ShiftedTGVErrorSolver"; //set name of object from registry
+    }
+
+    virtual KinematicVector getVelocity(Job* job, KinematicVector const &x);
+    virtual KinematicVector getAcceleration(Job* job, KinematicVector const &x);
+    virtual double getPressure(Job* job, KinematicVector const &x);
+
+    virtual void calculateAcceleration(Job* job);
 };
 
 #endif //MPM_V3_SOLVERS_HPP

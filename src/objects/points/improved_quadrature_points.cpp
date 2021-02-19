@@ -151,8 +151,9 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
 
         //adjust width of integration region (only for uGIMP)
         double scale_factor = 1.0;
-        if (fp64_props.size() > (1+fp64_prop_counter) && QUADRULE == UGIMP) {
+        if (fp64_props.size() >= (1+fp64_prop_counter) && QUADRULE == UGIMP) {
             scale_factor = fp64_props[0];
+            std::cout << "Using uGIMP w/ scale " << scale_factor << "." << std::endl;
             fp64_prop_counter += 1;
         }
 
