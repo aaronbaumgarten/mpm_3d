@@ -1809,6 +1809,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
         }
     } else if (POSITIONRULE == SPH_LIKE) {
         KinematicVectorArray delta = KinematicVectorArray(x.size(), x.VECTOR_TYPE);
+        KinematicVector tmpX;
 
         //iterate counter
         skip_counter += 1;
@@ -1933,6 +1934,11 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
 
             //step 2: adjust positions
             for (int p=0; p<x.size(); p++){
+                tmpX = (body->points->x(p)+delta(p));
+                if (!job->grid->inDomain(job, tmpX)) {
+                    delta(p).setZero();
+                    continue;
+                }
                 body->points->x(p) += delta(p);
                 body->points->u(p) += delta(p);
                 del_pos(p) += delta(p);
@@ -1943,6 +1949,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
         }
     } else if (POSITIONRULE == DELTA_STRAIN){
         KinematicVector delta = KinematicVector(x.VECTOR_TYPE);
+        KinematicVector tmpX;
         for (int i=0; i<x.size(); i++) {
             double trD = L[i].trace();
             //delta = -alpha * job->dt * (L[i] - (trD / 3.0) * KinematicTensor::Identity(x.VECTOR_TYPE)).norm() * grad_e(i) * h * h;
@@ -1956,6 +1963,11 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                 }
             }
 
+            tmpX = body->points->x(i) + delta;
+            if (!job->grid->inDomain(job, tmpX)) {
+                delta.setZero();
+                continue;
+            }
             body->points->x(i) += delta;
             body->points->u(i) += delta;
             del_pos(i) += delta;
@@ -1965,6 +1977,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
         }
     } else if (POSITIONRULE == DELTA_DISP){
         KinematicVector delta = KinematicVector(x.VECTOR_TYPE);
+        KinematicVector tmpX;
         for (int i=0; i<x.size(); i++) {
             delta = -alpha * job->dt * x_t[i].norm() * v(i) * grad_eonV(i) * h;
 
@@ -1974,6 +1987,12 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         !std::isfinite(delta(pos))) {
                     delta(pos) = 0;
                 }
+            }
+
+            tmpX = body->points->x(i) + delta;
+            if (!job->grid->inDomain(job, tmpX)) {
+                delta.setZero();
+                continue;
             }
 
             body->points->x(i) += delta;
@@ -1992,6 +2011,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
 
         //position update vector
         KinematicVector delta = KinematicVector(x.VECTOR_TYPE);
+        KinematicVector tmpX;
 
         //calculate relative error measure (||H/V_i||_\infty)
         for (int i=0; i<body->nodes->x.size(); i++){
@@ -2050,6 +2070,12 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                             !std::isfinite(delta(pos))) {
                         delta(pos) = 0;
                     }
+                }
+
+                tmpX = body->points->x(i) + delta;
+                if (!job->grid->inDomain(job, tmpX)) {
+                    delta.setZero();
+                    continue;
                 }
 
                 body->points->x(i) += delta;

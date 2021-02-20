@@ -221,6 +221,7 @@ public:
     KinematicVector gravity;
 
     double g, theta, mu_1, mu_2, b, d, rho_s, h, phi;
+    Eigen::VectorXd V_0;
 
     //need to create and write an output file
     std::string output_filename;

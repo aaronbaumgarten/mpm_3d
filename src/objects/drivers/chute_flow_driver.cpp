@@ -141,6 +141,28 @@ void ChuteFlowDriver::run(Job* job) {
         job->bodies[0]->points->T[i] = rho_s*phi*gravity[1]*(h - job->bodies[0]->points->x(i,1))*MaterialTensor::Identity();
     }
 
+    //determine grid weights
+    double v_max = 0;
+    V_0 = Eigen::VectorXd(job->grid->node_count);
+    for (int i=0; i<job->grid->node_count; i++){
+        if (job->grid->nodeVolume(job, i) > v_max){
+            v_max = job->grid->nodeVolume(job,i);
+        }
+        if (job->bodies[0]->nodes->x(i,1) < (h - 1e-7)){
+            //node entirely in domain (assuming cartesian)
+            V_0(i) = job->grid->nodeVolume(job, i);
+        } else if (job->bodies[0]->nodes->x(i,1) < (h+1e-7)){
+            if (job->grid->nodeVolume(job,i) > (v_max - 1e-7)) {
+                //node partially in domain (assuming cartesian)
+                V_0(i) = job->grid->nodeVolume(job, i) * 0.5;
+            } else {
+                //node entirely in domain (assuming cartesian)
+                V_0(i) = job->grid->nodeVolume(job, i);
+            }
+        }
+    }
+
+
     //run simulation until stop_time
     while (job->t <= stop_time){
         //run solver
@@ -218,7 +240,7 @@ void ChuteFlowDriver::writeErrorInfo(Job* job){
     KinematicVector tmpVel = KinematicVector(job->JOB_TYPE);
     KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
     for (int i=0; i<V_i.rows(); i++){
-        if (job->bodies[0]->nodes->m(i) > 0) {
+        if (V_0(i) > 0) {
             //||e||_\infty
             if (e(i) > e_norm) {
                 e_norm = e(i);
@@ -228,7 +250,7 @@ void ChuteFlowDriver::writeErrorInfo(Job* job){
             tmpVel = getVelocity(job, job->bodies[0]->nodes->x[i]);
             tmpVec = (tmpVel - job->bodies[0]->nodes->x_t[i]);
             //std::cout << "[" << i << "] " << tmpVel[0] << " ?= " << job->bodies[0]->nodes->x_t(i,0) << std::endl;
-            v_L2 += tmpVec.dot(tmpVec) * V_i(i);
+            v_L2 += tmpVec.dot(tmpVec) * V_0(i);
 
             m_sum += job->bodies[0]->nodes->m(i);
             v_avg += job->bodies[0]->nodes->m(i) * job->bodies[0]->nodes->x_t(i,0);

@@ -208,7 +208,10 @@ void CartesianQuadraticCustom::hiddenInit(Job* job){
 
             if ((ijk(i) > 1 && ijk(i) < (Nx(i)-1)) || periodic_props(i) == 1){
                 v_n(n) *= hx(i);
-                if (ijk(i) == 1) {
+                if (ijk(i) == Nx(i)){
+                    v_n(n) = 0;
+                    edge_n(n, i) = 2; //excluded interior
+                } else if (ijk(i) == 1) {
                     edge_n(n, i) = 3; //next to periodic boundary at start
                 } else if (ijk(i) == Nx(i)-1) {
                     edge_n(n, i) = -3; //next to periodic boundary at end
@@ -357,6 +360,12 @@ void CartesianQuadraticCustom::evaluateBasisFnValue(Job* job, KinematicVector& x
         //r = (x_p - x_n)/hx
         rst = tmpX - x_n(nodeIDs(elementID,n));
         for (int i=0;i<GRID_DIM;i++){
+            //special check for Nx(i) == 1
+            if (Nx(i) == 1){
+                tmp *= 0.25;
+                continue;
+            }
+
             if (rst(i) > 0.5*Lx(i)){
                 rst(i) -= Lx(i);
             } else if (rst(i) < -0.5*Lx(i)){
@@ -416,6 +425,12 @@ void CartesianQuadraticCustom::evaluateBasisFnGradient(Job* job, KinematicVector
         //r = (x_p - x_n)
         rst = tmpX - x_n(nodeIDs(elementID,n));
         for (int i=0;i<GRID_DIM;i++){
+            //special check for Nx(i) == 1
+            if (Nx(i) == 1){
+                tmpVec(i) = 0;
+                continue;
+            }
+
             if (rst(i) > 0.5*Lx(i)){
                 rst(i) -= Lx(i);
             } else if (rst(i) < -0.5*Lx(i)){
@@ -465,6 +480,16 @@ void CartesianQuadraticCustom::evaluateBasisFnGradient(Job* job, KinematicVector
                 tmpVec(i) /= (s(rst(i), hx(i)) + s(rst(i) + Lx(i), hx(i))); //sum of two
             }
              */
+
+            //special check for Nx(i) == 1
+            if (Nx(i) == 1){
+                for (int j=0; j<GRID_DIM; j++) {
+                    if (j != i) {
+                        tmpVec(j) *= 0.25;
+                    }
+                }
+                continue;
+            }
 
             //more stable when s << 1
             if (edge_n(nodeIDs(elementID,n),i) == 2) {
