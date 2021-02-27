@@ -5,5 +5,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/threadpool_explicit_usl.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/tgv_error_solver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/shifted_tgv_error_solver.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/explicit_usl_with_volumetric_strain_smoothing.cpp
         PARENT_SCOPE
         )

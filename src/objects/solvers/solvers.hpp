@@ -282,4 +282,20 @@ public:
     virtual void calculateAcceleration(Job* job);
 };
 
+class ExplicitUSLwithVolumetricStrainSmoothing : public ExplicitUSL{
+public:
+    ExplicitUSLwithVolumetricStrainSmoothing(){
+        object_name = "ExplicitUSLwithVolumetricStrainSmoothing"; //set name of object from registry
+    }
+
+    //booleans for different methods
+    bool use_zhang_cells = true;
+    bool anti_locking_only = false;
+    bool use_mast_cells = false;
+
+    virtual void init(Job* job);
+    virtual void updateDensity(Job* job);
+    virtual void updateStress(Job* job);
+};
+
 #endif //MPM_V3_SOLVERS_HPP

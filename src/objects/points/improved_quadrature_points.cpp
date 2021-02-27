@@ -440,6 +440,15 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
             number_of_second_neighbors *= 5;
         }
 
+        //check for string flags
+        for (int s=0; s<str_props.size(); s++){
+            if (str_props[s].compare("USE_WALL_BUFFER") == 0){
+                std::cout << "Using wall buffer." << std::endl;
+                //use buffer
+                use_wall_buffer = true;
+            }
+        }
+
     }
 
     //delta correction for constant strain and constant displacement requires h and alpha
@@ -485,7 +494,6 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
                         limiter = fp64_props[fp64_prop_counter];
                         fp64_prop_counter += 1;
                     }
-                    break;
                 } else if (str_props[s].compare("USE_STRAIN_LIMITER") == 0){
                     std::cout << "Using strain limiter." << std::endl;
                     //use limiter
@@ -494,7 +502,28 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
                         limiter = fp64_props[fp64_prop_counter];
                         fp64_prop_counter += 1;
                     }
-                    break;
+                } else if (str_props[s].compare("USE_WALL_BUFFER") == 0){
+                    std::cout << "Using wall buffer." << std::endl;
+                    //use buffer
+                    use_wall_buffer = true;
+                    if (fp64_props.size() > fp64_prop_counter){
+                        wall_buffer = fp64_props[fp64_prop_counter];
+                        fp64_prop_counter += 1;
+                    }
+
+                    //generate search cell definitions
+                    x_min = job->grid->nodeIDToPosition(job,0);
+                    x_max = job->grid->nodeIDToPosition(job,0);
+                    for (int i=1; i<job->grid->node_count; i++){
+                        for (int pos=0; pos<job->grid->GRID_DIM; pos++){
+                            if (job->grid->nodeIDToPosition(job,i)[pos] < x_min[pos]){
+                                x_min[pos] = job->grid->nodeIDToPosition(job,i)[pos];
+                            } else if (job->grid->nodeIDToPosition(job,i)[pos] > x_max[pos]){
+                                x_max[pos] = job->grid->nodeIDToPosition(job,i)[pos];
+                            }
+                        }
+                    }
+
                 }
             }
         }
@@ -1939,6 +1968,18 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     delta(p).setZero();
                     continue;
                 }
+
+                //add buffer around x_min, x_max
+                if (use_wall_buffer) {
+                    for (int pos = 0; pos < job->grid->GRID_DIM; pos++) {
+                        if (x(p, pos) + delta(p, pos) < x_min(pos) + r) {
+                            delta(p, pos) = x_min(pos) + r - x(p, pos);
+                        } else if (x(p, pos) + delta(p, pos) > x_max(pos) - r) {
+                            delta(p, pos) = x_max(pos) - r - x(p, pos);
+                        }
+                    }
+                }
+
                 body->points->x(p) += delta(p);
                 body->points->u(p) += delta(p);
                 del_pos(p) += delta(p);
@@ -2076,6 +2117,17 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                 if (!job->grid->inDomain(job, tmpX)) {
                     delta.setZero();
                     continue;
+                }
+
+                //add buffer around x_min, x_max
+                if (use_wall_buffer) {
+                    for (int pos = 0; pos < job->grid->GRID_DIM; pos++) {
+                        if (x(i, pos) + delta(pos) < x_min(pos) + wall_buffer) {
+                            delta(pos) = x_min(pos) + wall_buffer - x(i, pos);
+                        } else if (x(i, pos) + delta(pos) > x_max(pos) - wall_buffer) {
+                            delta(pos) = x_max(pos) - wall_buffer - x(i, pos);
+                        }
+                    }
                 }
 
                 body->points->x(i) += delta;

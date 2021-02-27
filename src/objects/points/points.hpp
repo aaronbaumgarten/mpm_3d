@@ -296,7 +296,9 @@ public:
     int max_iter;
     bool use_velocity_limiter = false;
     bool use_strain_limiter = false;
+    bool use_wall_buffer = false;
     double limiter = 1.0;
+    double wall_buffer = 0.0;
 
     //variables for avoid-a-void scheme
     double alg_inf = 1e10; // a really big number

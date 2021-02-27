@@ -138,12 +138,14 @@ void ChuteFlowDriver::run(Job* job) {
         std::cout << "Hmmmm... Too many bodies in simulation for ChuteFlowDriver..." << std::endl;
     }
     for (int i=0; i<job->bodies[0]->points->x.size(); i++){
-        job->bodies[0]->points->T[i] = rho_s*phi*gravity[1]*(h - job->bodies[0]->points->x(i,1))*MaterialTensor::Identity();
+        //job->bodies[0]->points->T[i] = rho_s*phi*gravity[1]*(h - job->bodies[0]->points->x(i,1))*MaterialTensor::Identity();
+        job->bodies[0]->material->assignPressure(job, job->bodies[0].get(), -rho_s*phi*gravity[1]*(h - job->bodies[0]->points->x(i,1)), i, 0);
     }
 
     //determine grid weights
     double v_max = 0;
     V_0 = Eigen::VectorXd(job->grid->node_count);
+    V_0.setZero();
     for (int i=0; i<job->grid->node_count; i++){
         if (job->grid->nodeVolume(job, i) > v_max){
             v_max = job->grid->nodeVolume(job,i);

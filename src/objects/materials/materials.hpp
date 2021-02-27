@@ -88,6 +88,10 @@ public:
         object_name = "Sand_SachithLocal";
     }
 
+    //boolean flag for pressure smoothing (i.e. combining with ExplicitUSLwithVolumetricStrainSmoothing)
+    //assign pressure by density
+    bool use_density_to_determine_pressure = false;
+
     //material properties
     double E, nu, G, K, lambda;
     double grains_d;

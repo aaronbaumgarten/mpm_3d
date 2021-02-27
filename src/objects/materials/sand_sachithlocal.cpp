@@ -104,6 +104,15 @@ void Sand_SachithLocal::init(Job* job, Body* body){
     gammap.resize(body->points->x.size());
     gammap.setZero();
 
+    //check for flag to use material point density to assign pressure
+    for (int s=0; s<str_props.size(); s++){
+        if (str_props[s].compare("USE_DENSITY_FOR_PRESSURE") == 0){
+            use_density_to_determine_pressure = true;
+            std::cout << "Using density to determine pressure." << std::endl;
+            continue;
+        }
+    }
+
     std::cout << "Material Initialized: [" << body->name << "]." << std::endl;
 
     return;
@@ -172,6 +181,11 @@ void Sand_SachithLocal::calculateStress(Job* job, Body* body, int SPEC){
         t0_tr = s_tr + p_tr * MaterialTensor::Identity();
         tau_tr = t0_tr.norm()/std::sqrt(2.0);
 
+        //if using density to determine the pressure, do so now
+        if (use_density_to_determine_pressure){
+            p_tr = K*((body->points->m(i)/body->points->v(i) - RHO_CRITICAL)/RHO_CRITICAL);
+        }
+
         density_flag = false;
         if ((body->points->m(i) / body->points->v(i)) < RHO_CRITICAL){
             density_flag = true;
@@ -223,6 +237,12 @@ void Sand_SachithLocal::assignStress(Job* job, Body* body, MaterialTensor& stres
     for (int pos=0;pos<stressIN.size();pos++){
         body->points->T(idIN,pos) = stressIN(pos);
     }
+
+    if (use_density_to_determine_pressure){
+        //need to adjust density, too
+        body->points->v(idIN) = -body->points->m(idIN) / (RHO_CRITICAL*body->points->T(idIN).trace()/(3.0*K) + RHO_CRITICAL);
+    }
+
     return;
 }
 
@@ -238,6 +258,12 @@ void Sand_SachithLocal::assignPressure(Job* job, Body* body, double pressureIN, 
     trT = tmpMat.trace();
     tmpMat = tmpMat - (trT/3.0 + pressureIN) * MaterialTensor::Identity();
     body->points->T(idIN) = tmpMat;
+
+    if (use_density_to_determine_pressure){
+        //need to adjust density, too
+        body->points->v(idIN) = body->points->m(idIN) / (RHO_CRITICAL*pressureIN/K + RHO_CRITICAL);
+    }
+
     return;
 }
 

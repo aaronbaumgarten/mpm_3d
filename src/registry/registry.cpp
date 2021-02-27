@@ -75,6 +75,7 @@ Registry<Solver>::Registry() {
     object["ThreadPoolExplicitUSL"] = &createInstance<Solver,ThreadPoolExplicitUSL>;
     object["TGVErrorSolver"] = &createInstance<Solver,TGVErrorSolver>;
     object["ShiftedTGVErrorSolver"] = &createInstance<Solver,ShiftedTGVErrorSolver>;
+    object["ExplicitUSLwithVolumetricStrainSmoothing"] = &createInstance<Solver,ExplicitUSLwithVolumetricStrainSmoothing>;
 }
 
 
