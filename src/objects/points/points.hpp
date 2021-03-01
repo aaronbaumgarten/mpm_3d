@@ -297,6 +297,7 @@ public:
     bool use_velocity_limiter = false;
     bool use_strain_limiter = false;
     bool use_wall_buffer = false;
+    bool x_periodic = false;
     double limiter = 1.0;
     double wall_buffer = 0.0;
 
@@ -307,6 +308,8 @@ public:
     Eigen::VectorXd d;                      //grid point distance f'n value
     std::vector<int> edge_list;             //list of indices associated with each edge
     std::vector<int> buffer_list;           //list of points in buffer (inactive)
+    //for x-periodic simulations
+    int i_max = 0;
 
     //avoid-a-void search cell definitions and functions
     int number_of_neighbors = 3;

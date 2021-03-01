@@ -372,6 +372,15 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
             number_of_second_neighbors *= 5;
         }
 
+        //check for string flags
+        for (int s=0; s<str_props.size(); s++){
+            if (str_props[s].compare("X_PERIODIC") == 0){
+                std::cout << "Assuming x-direction is periodic." << std::endl;
+                x_periodic = true;
+                i_max = Nx(0);
+            }
+        }
+
     }
 
 
@@ -523,7 +532,12 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
                             }
                         }
                     }
+                } else if (str_props[s].compare("X_PERIODIC") == 0){
+                    std::cout << "Assuming periodic x-boundaries." << std::endl;
+                    //x periodic
+                    x_periodic = true;
 
+                    //useful for sph and delta corrections with wall buffers
                 }
             }
         }
@@ -1427,6 +1441,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
             KinematicVectorArray avavS = KinematicVectorArray(0, job->JOB_TYPE); //set of zero crossings
             std::vector<int> ijk, rst, iijjkk;
             double dist = 0;
+            KinematicVector tmpX;
             for (int i=0; i<job->grid->node_count; i++){
                 d(i) = alg_inf; //initialize with p.d = inf
 
@@ -1449,6 +1464,9 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     for (int dir=0; dir<ijk.size(); dir++){
                         rst[dir] = ijk[dir]+iijjkk[dir];
                     }
+                    if (x_periodic && rst[0] >= i_max){
+                        rst[0] -= i_max;
+                    }
 
                     //search cell id
                     tmp_id = ijk_to_cell(job, rst);
@@ -1456,7 +1474,13 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     if (tmp_id >= 0 && tmp_id < cell_to_point_map.size()) {
                         //find min dist. of mpm points
                         for (int p = 0; p < cell_to_point_map[tmp_id].size(); p++) {
-                            dist = (body->nodes->x[i] - body->points->x[cell_to_point_map[tmp_id][p]]).norm() - r;
+                            tmpX = body->nodes->x[i] - body->points->x[cell_to_point_map[tmp_id][p]];
+                            if (x_periodic && tmpX(0) > Lx(0)/2.0){
+                                tmpX(0) -= Lx(0);
+                            } else if (x_periodic && tmpX(0) < -Lx(0)/2.0){
+                                tmpX(0) += Lx(0);
+                            }
+                            dist = tmpX.norm() - r;
                             if (dist < d(i)) {
                                 d(i) = dist;
                             }
@@ -1508,6 +1532,9 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     //ijk position of search cell
                     for (int dir=0; dir<ijk.size(); dir++){
                         rst[dir] = ijk[dir]+iijjkk[dir];
+                    }
+                    if (x_periodic && rst[0] >= i_max){
+                        rst[0] -= i_max;
                     }
 
                     //search cell id (overwrites tmp_id in previous scope, so be careful)
@@ -1616,6 +1643,9 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         for (int dir = 0; dir < ijk.size(); dir++) {
                             rst[dir] = ijk[dir] + iijjkk[dir];
                         }
+                        if (x_periodic && rst[0] >= i_max){
+                            rst[0] -= i_max;
+                        }
 
                         //search cell id
                         tmp_id = ijk_to_cell(job, rst);
@@ -1623,7 +1653,13 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         if (tmp_id >= 0 && tmp_id < cell_to_point_map.size()) {
                             //find min dist. of mpm points to new point
                             for (int p = 0; p < cell_to_point_map[tmp_id].size(); p++) {
-                                dist = (x_new - body->points->x[cell_to_point_map[tmp_id][p]]).norm();
+                                tmpX = x_new - body->points->x[cell_to_point_map[tmp_id][p]];
+                                if (x_periodic && tmpX(0) > Lx(0)/2.0){
+                                    tmpX(0) -= Lx(0);
+                                } else if (x_periodic && tmpX(0) < -Lx(0)/2.0){
+                                    tmpX(0) += Lx(0);
+                                }
+                                dist = tmpX.norm();
                                 if (dist < (std::sqrt(3.0) / 2.0 + 0.01) * r) {
                                     accept_point = false;
                                     break;
@@ -1656,6 +1692,9 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         //ijk position of search cell
                         for (int dir = 0; dir < ijk.size(); dir++) {
                             rst[dir] = ijk[dir] + iijjkk[dir];
+                        }
+                        if (x_periodic && rst[0] >= i_max){
+                            rst[0] -= i_max;
                         }
 
                         //search cell id
@@ -1785,6 +1824,9 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         for (int dir = 0; dir < ijk.size(); dir++) {
                             rst[dir] = ijk[dir] + iijjkk[dir];
                         }
+                        if (x_periodic && rst[0] >= i_max){
+                            rst[0] -= i_max;
+                        }
 
                         //search cell id
                         tmp_id = ijk_to_cell(job, rst);
@@ -1883,6 +1925,11 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
             int M_i;
             std::vector<int> point_neighbor_list = std::vector<int>(0);
 
+            int pos_0 = 0;
+            if (x_periodic){
+                pos_0 = 1;
+            }
+
             for (int p=0; p<x.size(); p++){
                 if (active(p) != 0) {
                     //zero out point neighbors list
@@ -1915,6 +1962,9 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         //ijk position of search cell
                         for (int dir = 0; dir < ijk.size(); dir++) {
                             rst[dir] = ijk[dir] + iijjkk[dir];
+                        }
+                        if (x_periodic && rst[0] >= i_max){
+                            rst[0] -= i_max;
                         }
 
                         //search cell id
@@ -1971,7 +2021,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
 
                 //add buffer around x_min, x_max
                 if (use_wall_buffer) {
-                    for (int pos = 0; pos < job->grid->GRID_DIM; pos++) {
+                    for (int pos = pos_0; pos < job->grid->GRID_DIM; pos++) {
                         if (x(p, pos) + delta(p, pos) < x_min(pos) + r) {
                             delta(p, pos) = x_min(pos) + r - x(p, pos);
                         } else if (x(p, pos) + delta(p, pos) > x_max(pos) - r) {
@@ -2063,6 +2113,10 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
 
         //newton scheme
         double step_length, point_length;
+        int pos_0 = 0;
+        if (x_periodic){
+            pos_0 = 1;
+        }
         while (iter_count < max_iter && relative_error > REL_TOL){
             //increment iter_count
             iter_count += 1;
@@ -2121,7 +2175,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
 
                 //add buffer around x_min, x_max
                 if (use_wall_buffer) {
-                    for (int pos = 0; pos < job->grid->GRID_DIM; pos++) {
+                    for (int pos = pos_0; pos < job->grid->GRID_DIM; pos++) {
                         if (x(i, pos) + delta(pos) < x_min(pos) + wall_buffer) {
                             delta(pos) = x_min(pos) + wall_buffer - x(i, pos);
                         } else if (x(i, pos) + delta(pos) > x_max(pos) - wall_buffer) {
