@@ -241,6 +241,53 @@ public:
 
 /*----------------------------------------------------------------------------*/
 
+class CartesianUGIMP : public Grid{
+public:
+    CartesianUGIMP(){
+        object_name = "CartesianUGIMP";
+    }
+
+    double l = 0; //point half-length
+    KinematicVector Lx, hx;
+    Eigen::VectorXi Nx;
+    KinematicVectorArray x_n, edge_n;
+    Eigen::MatrixXi nodeIDs; //element to node map
+    Eigen::MatrixXi A; //0,1 for directions
+    int npe; //nodes per element
+    Eigen::VectorXd v_n; //nodal volume
+    double v_e; //element volume
+    Eigen::VectorXd s_n; //surface integral
+
+    MPMScalarSparseMatrix S_grid = MPMScalarSparseMatrix(0,0); //node value to function value map
+
+    static double s(double, double, double);
+    static double g(double, double, double);
+
+    virtual void init(Job* job);
+    virtual void hiddenInit(Job* job);
+
+    virtual void writeFrame(Job* job, Serializer* serializer);
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    virtual void writeHeader(Job* job, Body* body, Serializer* serializer, std::ofstream& nfile, int SPEC); //write cell types
+
+    virtual int whichElement(Job* job, KinematicVector& xIN);
+    virtual bool inDomain(Job* job, KinematicVector& xIN);
+    virtual KinematicVector nodeIDToPosition(Job* job, int idIN);
+
+    virtual void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL);
+    virtual void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD);
+    virtual double nodeVolume(Job* job, int idIN);
+    virtual double elementVolume(Job* job, int idIN);
+    virtual int nodeTag(Job* job, int idIN);
+    virtual double nodeSurfaceArea(Job* job, int idIN);
+
+    virtual std::vector<int> getEdgeList(Job* job);
+};
+
+/*----------------------------------------------------------------------------*/
+
 class CartesianCubicCustom : public CartesianCubic{
 public:
     CartesianCubicCustom(){
@@ -273,6 +320,34 @@ class CartesianQuadraticCustom : public CartesianQuadratic{
 public:
     CartesianQuadraticCustom(){
         object_name = "CartesianQuadraticCustom";
+    }
+
+    static const int WALL = 0; //for periodic props definition
+    static const int PERIODIC = 1; //for periodic definition
+
+    Eigen::VectorXi periodic_props; //boundary props
+    Eigen::VectorXi nntoni; //node number to node id
+
+    virtual void init(Job* job);
+    virtual void hiddenInit(Job* job);
+
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    virtual void fixPosition(Job* job, KinematicVector& xIN);
+    virtual int whichElement(Job* job, KinematicVector& xIN);
+    virtual bool inDomain(Job* job, KinematicVector& xIN);
+
+    virtual void evaluateBasisFnValue(Job* job, KinematicVector& xIN, std::vector<int>& nID, std::vector<double>& nVAL);
+    virtual void evaluateBasisFnGradient(Job* job, KinematicVector& xIN, std::vector<int>& nID, KinematicVectorArray& nGRAD);
+};
+
+/*----------------------------------------------------------------------------*/
+
+class CartesianUGIMPCustom : public CartesianUGIMP{
+public:
+    CartesianUGIMPCustom(){
+        object_name = "CartesianUGIMPCustom";
     }
 
     static const int WALL = 0; //for periodic props definition

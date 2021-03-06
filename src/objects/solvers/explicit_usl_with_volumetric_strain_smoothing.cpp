@@ -13,6 +13,7 @@
 
 #include "solvers.hpp"
 #include "objects/bodies/bodies.hpp"
+#include "objects/grids/grids.hpp"
 
 #include <iostream>
 #include <stdlib.h>
@@ -43,7 +44,53 @@ void ExplicitUSLwithVolumetricStrainSmoothing::init(Job* job){
             anti_locking_only = true;
             std::cout << "Anti-locking only! No strain smoothing." << std::endl;
             continue;
+        } else if (str_props[s].compare("USE_ZHANG_FLUX")==0){
+            //use flux based smoothing from Zhang et al (2018)
+            use_zhang_flux = true;
+            use_zhang_cells = false;
+            use_mast_cells = false;
+            std::cout << "Using Zhang et al. (2018) flux-based anti-locking." << std::endl;
+            if (job->JOB_TYPE != job->JOB_2D){
+                std::cerr << "ERROR! Zhang et al. (2018) flux-based smoothing algorithm requires 2D problem! Exiting." << std::endl;
+                exit(0);
+            }
+            continue;
         }
+    }
+
+    if (use_zhang_flux){
+        //initialize grid properties
+        Nx = Eigen::VectorXi(2);
+        if (int_props.size() == 2){
+            Nx(0) = int_props[0];
+            Nx(1) = int_props[1];
+        } else if (int_props.size() >= 4){
+            Nx(0) = int_props[2];
+            Nx(1) = int_props[3];
+        } else {
+            std::cerr << "ERROR! USE_ZHANG_FLUX given with insufficient int-props! Exiting: " << int_props.size() << std::endl;
+            exit(0);
+        }
+
+        Lx = KinematicVector(job->JOB_TYPE);
+        hx = Lx;
+        if (fp64_props.size() == 2){
+            Lx(0) = fp64_props[0];
+            Lx(1) = fp64_props[1];
+        } else {
+            std::cerr << "ERROR! USE_ZHANG_FLUX given with insufficient properties! Exiting: " << fp64_props.size() << std::endl;
+            exit(0);
+        }
+        hx(0) = Lx(0)/Nx(0);
+        hx(1) = Lx(1)/hx(1);
+
+        //initialize cell storage
+        int cell_count = Nx(0)*Nx(1);
+        vc = Eigen::VectorXd(cell_count);
+        v0c = Eigen::VectorXd(cell_count);
+        dc = Eigen::VectorXd(cell_count);
+        ddc = Eigen::VectorXd(cell_count);
+        Sc = Eigen::VectorXd(cell_count);
     }
 }
 
@@ -73,6 +120,11 @@ void ExplicitUSLwithVolumetricStrainSmoothing::updateDensity(Job* job){
         }
 
         if (use_zhang_cells){
+            //apply normal volume update
+            for (int i=0;i<job->bodies[b]->points->v.rows();i++) {
+                job->bodies[b]->points->v(i) *= std::exp(job->dt * job->bodies[b]->points->L(i).trace());
+            }
+
             //intialize vector
             p_to_c = std::vector<int>(job->bodies[b]->points->v.rows());
 
@@ -102,11 +154,6 @@ void ExplicitUSLwithVolumetricStrainSmoothing::updateDensity(Job* job){
                 if (p_to_c[p] >= 0 && p_to_c[p] < job->grid->element_count) {
                     job->bodies[b]->points->v(p) = job->bodies[b]->points->v0(p) * d_c(p_to_c[p]);
                 }
-            }
-
-            //apply normal volume update
-            for (int i=0;i<job->bodies[b]->points->v.rows();i++) {
-                job->bodies[b]->points->v(i) *= std::exp(job->dt * job->bodies[b]->points->L(i).trace());
             }
 
         } else if (use_mast_cells){
@@ -163,6 +210,160 @@ void ExplicitUSLwithVolumetricStrainSmoothing::updateDensity(Job* job){
                 dp = S.operate(dn,MPMSparseMatrixBase::TRANSPOSED);
                 for (int q = 0; q<c_to_p[i].size(); q++){
                     job->bodies[b]->points->v(c_to_p[i][q]) = job->bodies[b]->points->v0(c_to_p[i][q]) * dp(c_to_p[i][q]);
+                }
+            }
+        } else if (use_zhang_flux) {
+            //apply normal volume update
+            for (int i = 0; i < job->bodies[b]->points->v.rows(); i++) {
+                job->bodies[b]->points->v(i) *= std::exp(job->dt * job->bodies[b]->points->L(i).trace());
+            }
+
+            //intialize vector
+            p_to_c = std::vector<int>(job->bodies[b]->points->v.rows());
+
+            for (int p = 0; p < job->bodies[b]->points->v.rows(); p++) {
+                //find the element id
+                tmpX = job->bodies[b]->points->x[p];
+                c = CartesianLinear::cartesianWhichElement(job, tmpX, Lx, hx, Nx); //job->grid->whichElement(job, tmpX);
+
+                //add id to map
+                p_to_c[p] = c;
+
+                if (c >= 0 && c < Nx(0)*Nx(1)) {
+                    //add point volumes to cell-wise sum
+                    vc(c) += job->bodies[b]->points->v(p);
+                    v0c(c) += job->bodies[b]->points->v0(p);
+                }
+            }
+
+            //determine cell-wise strain
+            for (int i = 0; i <  Nx(0)*Nx(1); i++) {
+                ddc(i) = 0;
+                if (v0c(i) > 0) {
+                    dc(i) = vc(i) / v0c(i);
+                } else {
+                    dc(i) = 0;
+                }
+            }
+
+            //calculate fluxes in each direction, x-first, y-second
+            int c_id = 0;
+            bool plus_osc, minus_osc;
+            int i_plus, i_minus, i_plus_plus;
+            double g;
+            //loop over each row of grid
+            for (int j = 0; j < Nx(1); j++) {
+
+                //determine Sc in each cell
+                c_id = j*Nx(0);
+                Sc(c_id) = (dc(c_id + 1) - dc(c_id))/hx(0);
+                c_id = (j+1)*Nx(0) - 1;
+                Sc(c_id) = (dc(c_id) - dc(c_id - 1))/hx(0);
+                for (int i = 1; i < Nx(0)-1; i++) {
+                    c_id = j*Nx(0) + i;
+                    Sc(c_id) = (dc(c_id + 1) - dc(c_id - 1))/(2.0*hx(0));
+                }
+
+                //loop over edges
+                plus_osc = true;
+                for (int f=0; f<Nx(0)-1; f++){
+                    minus_osc = plus_osc;
+                    i_plus_plus = j*Nx(0) + f + 2;
+                    i_plus = j*Nx(0) + f + 1;
+                    i_minus = j*Nx(0) + f;
+
+                    //check if plus side cell is oscillating
+                    if (i_plus_plus == (j+1)*Nx(0) || (dc(i_plus) - dc(i_minus))*(dc(i_plus_plus) - dc(i_plus)) < 0){
+                        plus_osc = true;
+                    } else {
+                        plus_osc = false;
+                    }
+
+                    //if oscillating, determine gamma
+                    if (plus_osc && minus_osc){
+                        g = (dc(i_minus) - dc(i_plus) + hx(0)*(Sc(i_minus) + Sc(i_plus))/2.0)/(dc(i_minus) - dc(i_plus));
+                    } else {
+                        g = 0;
+                    }
+
+                    //make sure g is valid
+                    if (!std::isfinite(g)){
+                        g = 0;
+                    } else if (g < 0){
+                        g = 0;
+                    } else if (g > 1){
+                        g = 1;
+                    }
+
+                    //adjust g by relevant scale:
+                    g *= 0.25;
+
+                    //calculate strain increment
+                    ddc(i_minus) -= g * v0c(i_plus) * (dc(i_minus) - dc(i_plus)) / (v0c(i_minus) + v0c(i_plus));
+                    ddc(i_plus) += g * v0c(i_minus) * (dc(i_minus) - dc(i_plus)) / (v0c(i_minus) + v0c(i_plus));
+                }
+            }
+
+            //loop over each column of grid
+            for (int i = 0; i < Nx(0); i++) {
+
+                //determine Sc in each cell
+                Sc(i) = (dc(Nx(0)+i) - dc(i))/hx(1);
+                Sc((Nx(1)-1)*Nx(0) + i) = (dc((Nx(1)-1)*Nx(0) + i)) - dc((Nx(1)-2)*Nx(0) + i)/hx(1);
+                for (int j = 1; j < Nx(1)-1; j++) {
+                    c_id = j*Nx(0) + i;
+                    Sc(c_id) = (dc(c_id + Nx(0)) - dc(c_id - Nx(0)))/(2.0*hx(1));
+                }
+
+                //loop over edges
+                plus_osc = true;
+                for (int f=0; f<Nx(1)-1; f++){
+                    minus_osc = plus_osc;
+                    i_plus_plus = (f+2)*Nx(0) + i;
+                    i_plus = (f+1)*Nx(0) + i;
+                    i_minus = f*Nx(0) + i;
+
+                    //check if plus side cell is oscillating
+                    if (i_plus_plus >= Nx(1)*Nx(0) || (dc(i_plus) - dc(i_minus))*(dc(i_plus_plus) - dc(i_plus)) < 0){
+                        plus_osc = true;
+                    } else {
+                        plus_osc = false;
+                    }
+
+                    //if oscillating, determine gamma
+                    if (plus_osc && minus_osc){
+                        g = (dc(i_minus) - dc(i_plus) + hx(0)*(Sc(i_minus) + Sc(i_plus))/2.0)/(dc(i_minus) - dc(i_plus));
+                    } else {
+                        g = 0;
+                    }
+
+                    //make sure g is valid
+                    if (!std::isfinite(g)){
+                        g = 0;
+                    } else if (g < 0){
+                        g = 0;
+                    } else if (g > 1){
+                        g = 1;
+                    }
+
+                    //adjust g by relevant scale:
+                    g *= 0.25;
+
+                    //calculate strain increment
+                    ddc(i_minus) -= g * v0c(i_plus) * (dc(i_minus) - dc(i_plus)) / (v0c(i_minus) + v0c(i_plus));
+                    ddc(i_plus) += g * v0c(i_minus) * (dc(i_minus) - dc(i_plus)) / (v0c(i_minus) + v0c(i_plus));
+                }
+            }
+
+            //update cell-wise averages
+            for (int i=0; i<Nx(0)*Nx(1); i++){
+                dc(i) += ddc(i);
+            }
+
+            //apply smoothing
+            for (int p = 0; p < job->bodies[b]->points->v.rows(); p++) {
+                if (p_to_c[p] >= 0 && p_to_c[p] < Nx(0)*Nx(1)) {
+                    job->bodies[b]->points->v(p) = job->bodies[b]->points->v0(p) * dc(p_to_c[p]);
                 }
             }
         }

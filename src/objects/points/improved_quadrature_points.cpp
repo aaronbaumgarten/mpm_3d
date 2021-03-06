@@ -378,6 +378,14 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
                 std::cout << "Assuming x-direction is periodic." << std::endl;
                 x_periodic = true;
                 i_max = Nx(0);
+            } else if (str_props[s].compare("USE_WALL_BUFFER") == 0){
+                std::cout << "Using wall buffer." << std::endl;
+                //use buffer
+                use_wall_buffer = true;
+                if (fp64_props.size() > fp64_prop_counter){
+                    wall_buffer = fp64_props[fp64_prop_counter];
+                    fp64_prop_counter += 1;
+                }
             }
         }
 
@@ -1426,6 +1434,12 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                 if (active(p) == 0){
                     point_to_cell_map[p] = -1; //do not track this point
                 } else {
+                    //adjust position if periodic
+                    if (x_periodic && x(p,0) > x_max(0)){
+                        x(p,0) -= Lx(0);
+                    } else if (x_periodic && x(p,0) < x_min(0)){
+                        x(p,0) += Lx(0);
+                    }
                     tmp_id = pos_to_cell(job, x[p]);
                     point_to_cell_map[p] = tmp_id;          //add cell to point list
                     if (tmp_id >= 0 && tmp_id < cell_to_point_map.size()) {
@@ -1466,6 +1480,8 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     }
                     if (x_periodic && rst[0] >= i_max){
                         rst[0] -= i_max;
+                    } else if (x_periodic && rst[0] < 0){
+                        rst[0] += i_max;
                     }
 
                     //search cell id
@@ -1535,6 +1551,8 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                     }
                     if (x_periodic && rst[0] >= i_max){
                         rst[0] -= i_max;
+                    } else if (x_periodic && rst[0] < 0){
+                        rst[0] += i_max;
                     }
 
                     //search cell id (overwrites tmp_id in previous scope, so be careful)
@@ -1598,7 +1616,12 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                 }
                 //double check that point is in domain
                 for (int dir=0; dir<job->grid->GRID_DIM; dir++){
-                    if (x_new[dir] >= x_max[dir] || x_new[dir] <= x_min[dir]){
+                    if (use_wall_buffer && (dir != 0 || !x_periodic)){
+                        if (x_new[dir] >= x_max[dir]-wall_buffer || x_new[dir] <= x_min[dir]+wall_buffer){
+                            accept_point = false;
+                            break;
+                        }
+                    } else if (x_new[dir] >= x_max[dir] || x_new[dir] <= x_min[dir]){
                         accept_point = false;
                         break;
                     }
@@ -1645,6 +1668,8 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         }
                         if (x_periodic && rst[0] >= i_max){
                             rst[0] -= i_max;
+                        } else if (x_periodic && rst[0] < 0){
+                            rst[0] += i_max;
                         }
 
                         //search cell id
@@ -1695,6 +1720,8 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         }
                         if (x_periodic && rst[0] >= i_max){
                             rst[0] -= i_max;
+                        } else if (x_periodic && rst[0] < 0){
+                            rst[0] += i_max;
                         }
 
                         //search cell id
@@ -1826,6 +1853,8 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         }
                         if (x_periodic && rst[0] >= i_max){
                             rst[0] -= i_max;
+                        } else if (x_periodic && rst[0] < 0){
+                            rst[0] += i_max;
                         }
 
                         //search cell id
@@ -1965,6 +1994,8 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         }
                         if (x_periodic && rst[0] >= i_max){
                             rst[0] -= i_max;
+                        } else if (x_periodic && rst[0] < 0){
+                            rst[0] += i_max;
                         }
 
                         //search cell id

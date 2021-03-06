@@ -11,5 +11,7 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/linear_1d_nonuniform.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_quadratic.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_quadratic_custom.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_uGIMP.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cartesian_uGIMP_custom.cpp
         PARENT_SCOPE
         )

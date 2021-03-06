@@ -292,6 +292,16 @@ public:
     bool use_zhang_cells = true;
     bool anti_locking_only = false;
     bool use_mast_cells = false;
+    bool use_zhang_flux = false;
+
+    //zhang flux calculations:
+    //only for 2D problems, need to create artificial cells
+    KinematicVector x_min, x_max;
+    KinematicVector Lx, hx;
+    Eigen::VectorXi Nx;
+    Eigen::VectorXd vc, v0c; //cell volumes
+    Eigen::VectorXd dc, ddc; //cell strains
+    Eigen::VectorXd Sc; //cell-wise strain derivative (one direction at a time)
 
     virtual void init(Job* job);
     virtual void updateDensity(Job* job);

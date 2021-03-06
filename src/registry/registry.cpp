@@ -120,6 +120,8 @@ Registry<Grid>::Registry() {
     object["Linear1DNonUniform"] = &createInstance<Grid,Linear1DNonUniform>;
     object["CartesianQuadratic"] = &createInstance<Grid,CartesianQuadratic>;
     object["CartesianQuadraticCustom"] = &createInstance<Grid,CartesianQuadraticCustom>;
+    object["CartesianUGIMP"] = &createInstance<Grid,CartesianUGIMP>;
+    object["CartesianUGIMPCustom"] = &createInstance<Grid,CartesianUGIMPCustom>;
 }
 
 
