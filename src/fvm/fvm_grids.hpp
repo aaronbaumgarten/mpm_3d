@@ -182,6 +182,7 @@ public:
     bool USE_ENHANCED_QUADRATURE = false;
     bool USE_HYDROSTATIC_CORRECTION = false;
     bool USE_MACH_LIMITER = false;
+    bool USE_CORRECT_INTERPHASE_ENERGY_FLUX = false;
 
     //instantiate
     std::vector<parallelMemoryUnit> memoryUnits;
@@ -208,7 +209,7 @@ public:
     std::vector<bool> q_b;          //flag for bounding quadrature point or interior quadrature point
 
     //quadrature point porosity and solid velocity
-    Eigen::VectorXd n_q;
+    Eigen::VectorXd n_q, div_v_sq;
     KinematicVectorArray gradn_q, v_sq;
 
     //boundary conditions
@@ -396,6 +397,17 @@ public:
     virtual void
     parallelMultiply(const KinematicVectorSparseMatrix &gradS, const Eigen::VectorXd &x, KinematicVectorArray &lhs,
                      int SPEC, bool clear = true, int memUnitID = 0);
+
+    virtual void
+    parallelMultiply(const KinematicVectorSparseMatrix &gradS, const KinematicVectorArray &v, Eigen::VectorXd &lhs,
+                     int SPEC, bool clear = true, int memUnitID = 0);
+
+    //kinematic vecotr sparse matrix multiplying scalar vector
+    static void kvsmOperateVtoS(const KinematicVectorSparseMatrix &gradS,
+                                              const KinematicVectorArray &v,
+                                              Eigen::VectorXd &lhs,
+                                              int SPEC,
+                                              int k_begin, int k_end, volatile bool &done);
 
     //parallel energy flux functions
     static void calcMassFluxes(Job *job,

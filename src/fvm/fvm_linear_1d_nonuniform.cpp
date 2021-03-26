@@ -505,6 +505,8 @@ void FVMLinear1DNonUniform::init(Job* job, FiniteVolumeDriver* driver){
     //initialize porosity and solid velocity fields
     n_q = Eigen::VectorXd(int_quad_count + ext_quad_count);
     n_q.setConstant(1.0);
+    div_v_sq = Eigen::VectorXd(int_quad_count + ext_quad_count);
+    div_v_sq.setZero();
     gradn_q = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE);
     gradn_q.setZero();
     v_sq = KinematicVectorArray(int_quad_count + ext_quad_count, job->JOB_TYPE);

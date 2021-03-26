@@ -50,7 +50,8 @@ void FVMGridBase::init(Job* job, FiniteVolumeDriver* driver){
                                         "USE_ENHANCED_M_MATRIX",
                                         "USE_ENHANCED_QUADRATURE",
                                         "USE_HYDROSTATIC_CORRECTION",
-                                        "USE_MACH_LIMITER"};
+                                        "USE_MACH_LIMITER",
+                                        "USE_CORRECT_INTERPHASE_ENERGY_FLUX"};
     for (int i=0; i<str_props.size(); i++){
         switch (Parser::findStringID(options, str_props[i])){
             case 0:
@@ -111,6 +112,11 @@ void FVMGridBase::init(Job* job, FiniteVolumeDriver* driver){
                 USE_MACH_LIMITER = true;
                 std::cout << "FiniteVolumeGrid using Mach limiter for stagnation BCs." << std::endl;
                 //do not use with USE_CUSTOM_DAMPING flag!!!
+                break;
+            case 10:
+                //USE_CORRECT_INTERPHASE_ENERGY_FLUX
+                USE_CORRECT_INTERPHASE_ENERGY_FLUX = true;
+                std::cout << "FiniteVolumeGrid using correct inter-phaseergy flux for fluid (from thesis)." << std::endl;
                 break;
             default:
                 //do nothing
@@ -474,8 +480,14 @@ void FVMGridBase::mapMixturePropertiesToQuadraturePoints(Job* job, FiniteVolumeD
         //successful update of solid velocity
         if (num_threads > 1){
             parallelMultiply(Q, driver->fluid_body->v_s, v_sq, MPMSparseMatrixBase::TRANSPOSED, true);
+            if (USE_CORRECT_INTERPHASE_ENERGY_FLUX) {
+                parallelMultiply(gradQ, driver->fluid_body->v_s, div_v_sq, MPMSparseMatrixBase::TRANSPOSED, true);
+            }
         } else {
             v_sq = Q.operate(driver->fluid_body->v_s, MPMSparseMatrixBase::TRANSPOSED);       //v_sq = Q_iq * v_si
+            if (USE_CORRECT_INTERPHASE_ENERGY_FLUX) {
+                div_v_sq = gradQ.dot(driver->fluid_body->v_s, MPMSparseMatrixBase::TRANSPOSED);
+            }
         }
     } else {
         //no porosity calculation performed
@@ -5468,6 +5480,11 @@ Eigen::VectorXd FVMGridBase::calculateElementIntegrandsForInterphaseEnergyFlux(J
             u = p/rho;
             //result(e) += getQuadratureWeight(e*qpe + q) * P * u.dot(gradn_q[e*qpe + q]);
             result(e) += getQuadratureWeight(e*qpe + q) * P * v_sq[e*qpe + q].dot(gradn_q[e*qpe + q]);
+
+            //CORRECTION pg 42, nb #9
+            if (USE_CORRECT_INTERPHASE_ENERGY_FLUX){
+                result(e) -= getQuadratureWeight(e*qpe + q) * P * (1.0 - n_q(e*qpe + q)) * div_v_sq(e*qpe + q);
+            }
         }
     }
 
@@ -5893,6 +5910,164 @@ void FVMGridBase::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
     delete[] secondTaskComplete;
 
     //should be all done
+    return;
+}
+
+void FVMGridBase::parallelMultiply(const KinematicVectorSparseMatrix &gradS,
+                                   const KinematicVectorArray &v,
+                                   Eigen::VectorXd &lhs,
+                                   int SPEC, bool clear, int memUnitID){
+    //get length of sparse matrix storage
+    int k_max = gradS.size() - 1;
+
+    //get length of output vector
+    int i_max = lhs.rows() - 1;
+
+    //determine number of threads for matrix vector mult
+    int thread_count = 0;
+    if (gradS.size() >= num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = gradS.size();
+    }
+
+    //intermediate storage vector
+    //check that memUnitID is valid
+    if (memUnitID >= memoryUnits.size()){
+        std::cerr << "ERROR! Invalid memUnitID passed to parallelMultiply! " << memUnitID << " >= " << memoryUnits.size() << std::endl;
+    }
+    if (memoryUnits[memUnitID].s.size() != thread_count){
+        memoryUnits[memUnitID].s.resize(thread_count);
+    }
+
+    //boolean of completion status
+    //volatile bool firstTaskComplete[thread_count] = {false};
+    volatile bool *firstTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        firstTaskComplete[t] = false;
+    }
+
+    //choose interval size
+    int k_interval = (gradS.size()/thread_count) + 1;
+    int k_begin, k_end;
+
+    for (int t=0; t<thread_count; t++) {
+        //initialize lhs
+        //lhs_vec[t] = KinematicVectorArray(lhs.size(),lhs.VECTOR_TYPE);
+        if (memoryUnits[memUnitID].s[t].size() != lhs.rows()){
+            memoryUnits[memUnitID].s[t] = Eigen::VectorXd(lhs.rows());
+        }
+
+        //set interval
+        k_begin = t * k_interval;
+        k_end = k_begin + k_interval - 1;
+        if (k_end > k_max){
+            k_end = k_max;
+        }
+        //send job to threadpool
+        jobThreadPool->doJob(std::bind(kvsmOperateVtoS,
+                                       std::ref(gradS),
+                                       std::ref(v),
+                                       std::ref(memoryUnits[memUnitID].s[t]),
+                                       SPEC,
+                                       k_begin,
+                                       k_end,
+                                       std::ref(firstTaskComplete[t])));
+    }
+
+    //join threads
+    bool taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!firstTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
+    }
+
+    //determine number of threads for addition
+    if (lhs.rows() > num_threads){
+        thread_count = num_threads;
+    } else {
+        thread_count = lhs.rows();
+    }
+
+    //boolean of completion status
+    //volatile bool secondTaskComplete[thread_count] = {false};
+    volatile bool *secondTaskComplete = new volatile bool[thread_count];
+    for (int t=0; t<thread_count; t++){
+        secondTaskComplete[t] = false;
+    }
+
+    //choose interval size
+    int i_interval = (lhs.rows()/thread_count) + 1;
+    int i_begin, i_end;
+
+    for (int t=0; t<thread_count; t++){
+        //set interval
+        i_begin = t*i_interval;
+        i_end = i_begin + i_interval-1;
+        if (i_end > i_max){
+            i_end = i_max;
+        }
+        //send job to thread pool
+        jobThreadPool->doJob(std::bind(ThreadPoolExplicitUSL::scalarAddwithFlag,
+                                       std::ref(memoryUnits[memUnitID].s),
+                                       std::ref(lhs),
+                                       i_begin,
+                                       i_end,
+                                       clear,
+                                       std::ref(secondTaskComplete[t])));
+    }
+
+    //join threads
+    taskDone = false;
+    //wait for task to complete
+    while (!taskDone){
+        //set flag to true
+        taskDone = true;
+        for (int t=0; t<thread_count; t++){
+            if (!secondTaskComplete[t]){
+                //if any task is not done, set flag to false
+                taskDone = false;
+                break;
+            }
+        }
+    }
+
+    delete[] firstTaskComplete;
+    delete[] secondTaskComplete;
+
+    //should be all done
+    return;
+}
+
+//kinematic vecotr sparse matrix multiplying scalar vector
+void FVMGridBase::kvsmOperateVtoS(const KinematicVectorSparseMatrix &gradS,
+                                          const KinematicVectorArray &v,
+                                          Eigen::VectorXd &lhs,
+                                          int SPEC,
+                                          int k_begin, int k_end, volatile bool &done){
+    assert(v.size() == gradS.cols(SPEC) && v.VECTOR_TYPE == gradS.VECTOR_TYPE && "Vector sparse matrix multiplication (dot product) failed.");
+    lhs.setZero();
+
+    int i_tmp, j_tmp;
+    const std::vector<int>& i_ref = gradS.get_i_index_ref(SPEC);
+    const std::vector<int>& j_ref = gradS.get_j_index_ref(SPEC);
+
+    for (int k=k_begin;k<=k_end;k++){
+        i_tmp = i_ref[k];
+        j_tmp = j_ref[k];
+        lhs(i_tmp) += gradS.buffer[k].dot(v[j_tmp]);
+    }
+
+    done = true;
+
     return;
 }
 
