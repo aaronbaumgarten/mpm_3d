@@ -463,6 +463,13 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
                 std::cout << "Using wall buffer." << std::endl;
                 //use buffer
                 use_wall_buffer = true;
+            } else if (str_props[s].compare("X_PERIODIC") == 0){
+                std::cout << "Assuming periodic x-boundaries." << std::endl;
+                //x periodic
+                x_periodic = true;
+                i_max = Nx(0);
+
+                //useful for sph and delta corrections with wall buffers
             }
         }
 

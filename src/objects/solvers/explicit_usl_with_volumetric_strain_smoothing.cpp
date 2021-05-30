@@ -55,6 +55,29 @@ void ExplicitUSLwithVolumetricStrainSmoothing::init(Job* job){
                 exit(0);
             }
             continue;
+        } else if (str_props[s].compare("WRITE_ERROR_METRICS") == 0){
+            //write out error metrics
+            write_error_metrics = true;
+            //assume index 0 has output filename
+            output_file = str_props[0];
+            //assume end of int_props includes stride
+            if (int_props.size() > 1) {
+                stride = int_props[int_props.size() - 1];
+            } else {
+                stride = 1;
+            }
+            skip_counter = stride-1;
+            //open file and write header
+            std::ofstream file (output_file,std::ios::trunc);
+            if (file.is_open()){
+                //success!
+                //write to file
+                file << "Time, ||E||_2^2, max(E_i/V_i), ||v||_L2\n";
+
+                file.close();
+            } else {
+                std::cerr << "ERROR! Cannot open " << output_file << "!" << std::endl;;
+            }
         }
     }
 
@@ -392,5 +415,77 @@ void ExplicitUSLwithVolumetricStrainSmoothing::updateDensity(Job* job){
 
 void ExplicitUSLwithVolumetricStrainSmoothing::updateStress(Job* job){
     //do not update stress here
+
+    //but maybe write out error info if flag is set
+    skip_counter += 1;
+    if (write_error_metrics && skip_counter == stride){
+        skip_counter = 0;
+        //calculate and write error measures to output file for first body in simulation
+        //BE CAREFUL!!!
+
+        //initialize arrays
+        Eigen::VectorXd V_i = Eigen::VectorXd(job->grid->node_count);
+        Eigen::VectorXd v_i = Eigen::VectorXd(job->grid->node_count);
+        Eigen::VectorXd e = Eigen::VectorXd(job->grid->node_count);
+        Eigen::VectorXd H = Eigen::VectorXd(job->grid->node_count);
+
+        //initialize figures of merit
+        double H_norm = 0;
+        double e_norm = 0;
+        double v_L2 = 0;
+
+        //get exact node volumes form grid
+        for (int i=0; i<job->grid->node_count;i++){
+            V_i(i) = job->grid->nodeVolume(job,i);
+        }
+
+        //get integrated node volume from points
+        v_i = job->bodies[0]->S * job->bodies[0]->points->v;
+
+        //calculate arrays
+        double tmpNum;
+        for (int i = 0; i < V_i.rows(); i++) {
+            tmpNum = (v_i(i) - V_i(i));
+            H(i) = std::max(0.0, tmpNum);
+            e(i) = H(i) / V_i(i);
+        }
+
+        //calculate error measures
+        KinematicVector tmpAcc = KinematicVector(job->JOB_TYPE);
+        KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
+        for (int i=0; i<V_i.rows(); i++){
+            if (job->bodies[0]->nodes->m(i) > 0) {
+                //||H||_2^2
+                H_norm += H(i) * H(i);
+
+                //||e||_\infty
+                if (e(i) > e_norm) {
+                    e_norm = e(i);
+                }
+
+                //||a^* - a^Q||_L2
+                tmpVec = job->bodies[0]->nodes->x_t[i];
+                v_L2 += tmpVec.dot(tmpVec) * V_i(i);
+            }
+        }
+        //sqrt of ||v_err||_L2^2
+        v_L2 = std::sqrt(v_L2);
+
+        //open and write to file
+        std::ofstream file (output_file,std::ios::app);
+        if (file.is_open()){
+            //success!
+            //write to file
+            file << job->t << ", ";
+            file << H_norm << ", ";
+            file << e_norm << ", ";
+            file << v_L2 << "\n";
+
+            file.close();
+        } else {
+            std::cerr << "ERROR! Cannot open " << output_file << "!" << std::endl;;
+        }
+    }
+
     return;
 }

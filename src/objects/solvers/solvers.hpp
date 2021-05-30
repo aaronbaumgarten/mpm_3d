@@ -294,6 +294,11 @@ public:
     bool use_mast_cells = false;
     bool use_zhang_flux = false;
 
+    //string for writing velocity magnitude and error metrics
+    bool write_error_metrics = false;
+    std::string output_file;
+    int skip_counter, stride;
+
     //zhang flux calculations:
     //only for 2D problems, need to create artificial cells
     KinematicVector x_min, x_max;
