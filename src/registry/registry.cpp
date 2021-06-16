@@ -29,7 +29,25 @@
 #include "fvm/fvm_solvers.hpp"
 #include "fvm/fvm_serializers.hpp"
 
-template<typename Base, typename Derived> std::unique_ptr<Base> createInstance() { return std::unique_ptr<Base>(new Derived); }
+template<typename Base, typename Derived>
+static std::unique_ptr<Base> createInstance() {
+    return std::unique_ptr<Base>(new Derived);
+}
+
+// REGISTER allows the usage of DERIVED (with the name of DERIVED as a string)
+// by placing it into the appropriate registry based on BASE. As a concrete
+// example, calling
+//
+// REGISTER(Serializer, DefaultVTK)
+//
+// allows you to specify the string "DefaultVTK" as the Serializer class in the
+// configuration file.
+//
+// Note that it is a macro, not a template, so we can use the stringization
+// operator `#` to automatically generate the name from DERIVED.
+#define REGISTER(BASE, DERIVED) do { \
+    object[#DERIVED] = &createInstance<BASE, DERIVED>; \
+} while (0)
 
 /*template<>
 Registry<Base>::Registry() {
@@ -41,10 +59,10 @@ Registry<Base>::Registry() {
 //serializers
 template<>
 Registry<Serializer>::Registry() {
-    object["DefaultVTK"] = &createInstance<Serializer,DefaultVTK>;
-    object["MinimalVTK"] = &createInstance<Serializer,MinimalVTK>;
-    object["SlicePointsVTK"] = &createInstance<Serializer,SlicePointsVTK>;
-    object["DebugVTK"] = &createInstance<Serializer,DebugVTK>;
+    REGISTER(Serializer, DefaultVTK);
+    REGISTER(Serializer, MinimalVTK);
+    REGISTER(Serializer, SlicePointsVTK);
+    REGISTER(Serializer, DebugVTK);
 }
 
 
@@ -52,17 +70,17 @@ Registry<Serializer>::Registry() {
 //drivers
 template<>
 Registry<Driver>::Registry() {
-    object["DefaultDriver"] = &createInstance<Driver,DefaultDriver>;
-    object["ColumnCollapseDriver"] = &createInstance<Driver,ColumnCollapseDriver>;
-    object["UserDefinedGravityDriver"] = &createInstance<Driver,UserDefinedGravityDriver>;
-    object["CavityFlowDriver"] = &createInstance<Driver,CavityFlowDriver>;
-    object["BallisticDriver"] = &createInstance<Driver,BallisticDriver>;
-    object["FiniteVolumeDriver"] = &createInstance<Driver,FiniteVolumeDriver>;
-    object["FishRandomSampleDriver"] = &createInstance<Driver,FishRandomSampleDriver>;
-    object["FishMixtureModelRandomSampleDriver"] = &createInstance<Driver,FishMixtureModelRandomSampleDriver>;
-    object["FVMVariableStepDriver"] = &createInstance<Driver,FVMVariableStepDriver>;
-    object["FVMNumericalDampingDriver"] = &createInstance<Driver,FVMNumericalDampingDriver>;
-    object["ChuteFlowDriver"] = &createInstance<Driver,ChuteFlowDriver>;
+    REGISTER(Driver, DefaultDriver);
+    REGISTER(Driver, ColumnCollapseDriver);
+    REGISTER(Driver, UserDefinedGravityDriver);
+    REGISTER(Driver, CavityFlowDriver);
+    REGISTER(Driver, BallisticDriver);
+    REGISTER(Driver, FiniteVolumeDriver);
+    REGISTER(Driver, FishRandomSampleDriver);
+    REGISTER(Driver, FishMixtureModelRandomSampleDriver);
+    REGISTER(Driver, FVMVariableStepDriver);
+    REGISTER(Driver, FVMNumericalDampingDriver);
+    REGISTER(Driver, ChuteFlowDriver);
 }
 
 
@@ -70,12 +88,12 @@ Registry<Driver>::Registry() {
 //solvers
 template<>
 Registry<Solver>::Registry() {
-    object["ExplicitUSL"] = &createInstance<Solver,ExplicitUSL>;
-    object["ParallelExplicitUSL"] = &createInstance<Solver,ParallelExplicitUSL>;
-    object["ThreadPoolExplicitUSL"] = &createInstance<Solver,ThreadPoolExplicitUSL>;
-    object["TGVErrorSolver"] = &createInstance<Solver,TGVErrorSolver>;
-    object["ShiftedTGVErrorSolver"] = &createInstance<Solver,ShiftedTGVErrorSolver>;
-    object["ExplicitUSLwithVolumetricStrainSmoothing"] = &createInstance<Solver,ExplicitUSLwithVolumetricStrainSmoothing>;
+    REGISTER(Solver, ExplicitUSL);
+    REGISTER(Solver, ParallelExplicitUSL);
+    REGISTER(Solver, ThreadPoolExplicitUSL);
+    REGISTER(Solver, TGVErrorSolver);
+    REGISTER(Solver, ShiftedTGVErrorSolver);
+    REGISTER(Solver, ExplicitUSLwithVolumetricStrainSmoothing);
 }
 
 
@@ -83,11 +101,11 @@ Registry<Solver>::Registry() {
 //
 template<>
 Registry<Body>::Registry() {
-    object["DefaultBody"] = &createInstance<Body,DefaultBody>;
-    object["WheelBody"] = &createInstance<Body,WheelBody>;
-    object["HydrostaticBody"] = &createInstance<Body,HydrostaticBody>;
-    object["LaunchedBody"] = &createInstance<Body,LaunchedBody>;
-    object["PrestressedBody"] = &createInstance<Body,PrestressedBody>;
+    REGISTER(Body, DefaultBody);
+    REGISTER(Body, WheelBody);
+    REGISTER(Body, HydrostaticBody);
+    REGISTER(Body, LaunchedBody);
+    REGISTER(Body, PrestressedBody);
 }
 
 
@@ -95,13 +113,13 @@ Registry<Body>::Registry() {
 //contacts
 template<>
 Registry<Contact>::Registry() {
-    object["ContactHuang"] = &createInstance<Contact,ContactHuang>;
-    object["SlurryMixture"] = &createInstance<Contact,SlurryMixture>;
-    object["SlurryContact"] = &createInstance<Contact,SlurryContact>;
-    object["SlurryContact_ReflectedBoundary"] = &createInstance<Contact,SlurryContact_ReflectedBoundary>;
-    object["ContactHuang_ReflectedBoundary"] = &createInstance<Contact,ContactHuang_ReflectedBoundary>;
-    object["ContactRigid_ReflectedBoundary"] = &createInstance<Contact,ContactRigid_ReflectedBoundary>;
-    object["ContactLinked"] = &createInstance<Contact,ContactLinked>;
+    REGISTER(Contact, ContactHuang);
+    REGISTER(Contact, SlurryMixture);
+    REGISTER(Contact, SlurryContact);
+    REGISTER(Contact, SlurryContact_ReflectedBoundary);
+    REGISTER(Contact, ContactHuang_ReflectedBoundary);
+    REGISTER(Contact, ContactRigid_ReflectedBoundary);
+    REGISTER(Contact, ContactLinked);
 }
 
 
@@ -109,19 +127,19 @@ Registry<Contact>::Registry() {
 //grids
 template<>
 Registry<Grid>::Registry() {
-    object["CartesianLinear"] = &createInstance<Grid,CartesianLinear>;
-    object["CartesianCubic"] = &createInstance<Grid,CartesianCubic>;
-    object["CartesianPeriodic"] = &createInstance<Grid,CartesianPeriodic>;
-    object["CartesianCustom"] = &createInstance<Grid,CartesianCustom>;
-    object["CartesianCubicCustom"] = &createInstance<Grid,CartesianCubicCustom>;
-    object["TriangularGridLinear"] = &createInstance<Grid,TriangularGridLinear>;
-    object["CartesianCubic_Offset"] = &createInstance<Grid,CartesianCubic_Offset>;
-    object["TetrahedralGridLinear"] = &createInstance<Grid,TetrahedralGridLinear>;
-    object["Linear1DNonUniform"] = &createInstance<Grid,Linear1DNonUniform>;
-    object["CartesianQuadratic"] = &createInstance<Grid,CartesianQuadratic>;
-    object["CartesianQuadraticCustom"] = &createInstance<Grid,CartesianQuadraticCustom>;
-    object["CartesianUGIMP"] = &createInstance<Grid,CartesianUGIMP>;
-    object["CartesianUGIMPCustom"] = &createInstance<Grid,CartesianUGIMPCustom>;
+    REGISTER(Grid, CartesianLinear);
+    REGISTER(Grid, CartesianCubic);
+    REGISTER(Grid, CartesianPeriodic);
+    REGISTER(Grid, CartesianCustom);
+    REGISTER(Grid, CartesianCubicCustom);
+    REGISTER(Grid, TriangularGridLinear);
+    REGISTER(Grid, CartesianCubic_Offset);
+    REGISTER(Grid, TetrahedralGridLinear);
+    REGISTER(Grid, Linear1DNonUniform);
+    REGISTER(Grid, CartesianQuadratic);
+    REGISTER(Grid, CartesianQuadraticCustom);
+    REGISTER(Grid, CartesianUGIMP);
+    REGISTER(Grid, CartesianUGIMPCustom);
 }
 
 
@@ -129,11 +147,11 @@ Registry<Grid>::Registry() {
 //points
 template<>
 Registry<Points>::Registry() {
-    object["DefaultPoints"] = &createInstance<Points,DefaultPoints>;
-    object["GmshPoints"] = &createInstance<Points,GmshPoints>;
-    object["CartesianPoints"] = &createInstance<Points,CartesianPoints>;
-    object["ThreadPoolPoints"] = &createInstance<Points,ThreadPoolPoints>;
-    object["ImprovedQuadraturePoints"] = &createInstance<Points,ImprovedQuadraturePoints>;
+    REGISTER(Points, DefaultPoints);
+    REGISTER(Points, GmshPoints);
+    REGISTER(Points, CartesianPoints);
+    REGISTER(Points, ThreadPoolPoints);
+    REGISTER(Points, ImprovedQuadraturePoints);
 }
 
 
@@ -141,7 +159,7 @@ Registry<Points>::Registry() {
 //nodes
 template<>
 Registry<Nodes>::Registry() {
-    object["DefaultNodes"] = &createInstance<Nodes,DefaultNodes>;
+    REGISTER(Nodes, DefaultNodes);
 }
 
 
@@ -149,15 +167,15 @@ Registry<Nodes>::Registry() {
 //materials
 template<>
 Registry<Material>::Registry() {
-    object["IsotropicLinearElasticity"] = &createInstance<Material,IsotropicLinearElasticity>;
-    object["Sand_SachithLocal"] = &createInstance<Material,Sand_SachithLocal>;
-    object["SlurryGranularPhase"] = &createInstance<Material,SlurryGranularPhase>;
-    object["SlurryFluidPhase"] = &createInstance<Material,SlurryFluidPhase>;
-    object["BarotropicViscousFluid"] = &createInstance<Material,BarotropicViscousFluid>;
-    object["Cornstarch"] = &createInstance<Material,Cornstarch>;
-    object["SlurryGranularPhase_wUnderCompaction"] = &createInstance<Material,SlurryGranularPhase_wUnderCompaction>;
-    object["Fish"] = &createInstance<Material,Fish>;
-    object["CompressibleNeohookeanElasticity"] = &createInstance<Material,CompressibleNeohookeanElasticity>;
+    REGISTER(Material, IsotropicLinearElasticity);
+    REGISTER(Material, Sand_SachithLocal);
+    REGISTER(Material, SlurryGranularPhase);
+    REGISTER(Material, SlurryFluidPhase);
+    REGISTER(Material, BarotropicViscousFluid);
+    REGISTER(Material, Cornstarch);
+    REGISTER(Material, SlurryGranularPhase_wUnderCompaction);
+    REGISTER(Material, Fish);
+    REGISTER(Material, CompressibleNeohookeanElasticity);
 }
 
 
@@ -165,61 +183,61 @@ Registry<Material>::Registry() {
 //boundaries
 template<>
 Registry<Boundary>::Registry() {
-    object["CartesianBox"] = &createInstance<Boundary,CartesianBox>;
-    object["CartesianSmoothBox"] = &createInstance<Boundary,CartesianSmoothBox>;
-    object["CartesianFrictionalBox"] = &createInstance<Boundary,CartesianFrictionalBox>;
-    object["CartesianBoxCustom"] = &createInstance<Boundary,CartesianBoxCustom>;
-    object["AssignedVelocity"] = &createInstance<Boundary,AssignedVelocity>;
-    object["GeneralCustomBoundary"] = &createInstance<Boundary,GeneralCustomBoundary>;
+    REGISTER(Boundary, CartesianBox);
+    REGISTER(Boundary, CartesianSmoothBox);
+    REGISTER(Boundary, CartesianFrictionalBox);
+    REGISTER(Boundary, CartesianBoxCustom);
+    REGISTER(Boundary, AssignedVelocity);
+    REGISTER(Boundary, GeneralCustomBoundary);
 }
 
 /*----------------------------------------------------------------------------*/
 //parts
 template<>
 Registry<Part>::Registry() {
-    object["Ball"] = &createInstance<Part,Ball>;
-    object["Box"] = &createInstance<Part,Box>;
-    object["SineWave"] = &createInstance<Part,SineWave>;
-    object["SandPile"] = &createInstance<Part,SandPile>;
+    REGISTER(Part, Ball);
+    REGISTER(Part, Box);
+    REGISTER(Part, SineWave);
+    REGISTER(Part, SandPile);
 }
 
 /*----------------------------------------------------------------------------*/
 //finite volume objects
 template<>
 Registry<FiniteVolumeSolver>::Registry() {
-    object["FVMDefaultSolver"] = &createInstance<FiniteVolumeSolver,FVMDefaultSolver>;
-    object["FVMRungeKuttaSolver"] = &createInstance<FiniteVolumeSolver,FVMRungeKuttaSolver>;
-    object["FVMSteadyStateSolver"] = &createInstance<FiniteVolumeSolver,FVMSteadyStateSolver>;
-    object["FVMMixtureSolver"] = &createInstance<FiniteVolumeSolver, FVMMixtureSolver>;
-    object["FVMMixtureSolverRK4"] = &createInstance<FiniteVolumeSolver, FVMMixtureSolverRK4>;
-    object["FVMStaticMixtureSolverRK4"] = &createInstance<FiniteVolumeSolver, FVMStaticMixtureSolverRK4>;
-    object["ParallelMixtureSolverRK4"] = &createInstance<FiniteVolumeSolver, ParallelMixtureSolverRK4>;
+    REGISTER(FiniteVolumeSolver, FVMDefaultSolver);
+    REGISTER(FiniteVolumeSolver, FVMRungeKuttaSolver);
+    REGISTER(FiniteVolumeSolver, FVMSteadyStateSolver);
+    REGISTER(FiniteVolumeSolver, FVMMixtureSolver);
+    REGISTER(FiniteVolumeSolver, FVMMixtureSolverRK4);
+    REGISTER(FiniteVolumeSolver, FVMStaticMixtureSolverRK4);
+    REGISTER(FiniteVolumeSolver, ParallelMixtureSolverRK4);
 }
 
 template<>
 Registry<FiniteVolumeGrid>::Registry() {
-    object["FVMCartesian"] = &createInstance<FiniteVolumeGrid,FVMCartesian>;
-    object["FVMGmsh2D"] = &createInstance<FiniteVolumeGrid,FVMGmsh2D>;
-    object["FVMLinear1DNonUniform"] = &createInstance<FiniteVolumeGrid,FVMLinear1DNonUniform>;
-    object["FVMGmsh3D"] = &createInstance<FiniteVolumeGrid,FVMGmsh3D>;
+    REGISTER(FiniteVolumeGrid, FVMCartesian);
+    REGISTER(FiniteVolumeGrid, FVMGmsh2D);
+    REGISTER(FiniteVolumeGrid, FVMLinear1DNonUniform);
+    REGISTER(FiniteVolumeGrid, FVMGmsh3D);
 }
 
 template<>
 Registry<FiniteVolumeBody>::Registry() {
-    object["FVMDefaultBody"] = &createInstance<FiniteVolumeBody,FVMDefaultBody>;
-    object["FVMRocketBody"] = &createInstance<FiniteVolumeBody,FVMRocketBody>;
+    REGISTER(FiniteVolumeBody, FVMDefaultBody);
+    REGISTER(FiniteVolumeBody, FVMRocketBody);
 }
 
 template<>
 Registry<FiniteVolumeMaterial>::Registry() {
-    object["FVMBarotropicViscousFluid"] = &createInstance<FiniteVolumeMaterial,FVMBarotropicViscousFluid>;
-    object["FVMSlurryFluidPhase"] = &createInstance<FiniteVolumeMaterial,FVMSlurryFluidPhase>;
-    object["FVMIdealGas"] = &createInstance<FiniteVolumeMaterial,FVMIdealGas>;
-    object["FVMSlurryGasPhase"] = &createInstance<FiniteVolumeMaterial,FVMSlurryGasPhase>;
-    object["FVMCarmanKozenyFluid"] = &createInstance<FiniteVolumeMaterial,FVMCarmanKozenyFluid>;
+    REGISTER(FiniteVolumeMaterial, FVMBarotropicViscousFluid);
+    REGISTER(FiniteVolumeMaterial, FVMSlurryFluidPhase);
+    REGISTER(FiniteVolumeMaterial, FVMIdealGas);
+    REGISTER(FiniteVolumeMaterial, FVMSlurryGasPhase);
+    REGISTER(FiniteVolumeMaterial, FVMCarmanKozenyFluid);
 }
 
 template<>
 Registry<FiniteVolumeSerializer>::Registry() {
-    object["FVMDefaultVTK"] = &createInstance<FiniteVolumeSerializer,FVMDefaultVTK>;
+    REGISTER(FiniteVolumeSerializer, FVMDefaultVTK);
 }
