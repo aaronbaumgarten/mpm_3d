@@ -300,6 +300,7 @@ public:
     bool x_periodic = false;
     double limiter = 1.0;
     double wall_buffer = 0.0;
+    bool adjust_velocities = true;
 
     //variables for avoid-a-void scheme
     double alg_inf = 1e10; // a really big number

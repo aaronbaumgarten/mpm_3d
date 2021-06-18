@@ -470,6 +470,10 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
                 i_max = Nx(0);
 
                 //useful for sph and delta corrections with wall buffers
+            } else if (str_props[s].compare("NO_VELOCITY_CORRECTION") == 0){
+                std::cout << "Stopping update of point velocites after shift." << std::endl;
+                //do not update point velocities with gradient
+                adjust_velocities = false;
             }
         }
 
@@ -553,6 +557,10 @@ void ImprovedQuadraturePoints::init(Job* job, Body* body){
                     x_periodic = true;
 
                     //useful for sph and delta corrections with wall buffers
+                } else if (str_props[s].compare("NO_VELOCITY_CORRECTION") == 0){
+                    std::cout << "Stopping update of point velocites after shift." << std::endl;
+                    //do not update point velocities with gradient
+                    adjust_velocities = false;
                 }
             }
         }
@@ -2072,8 +2080,10 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                 body->points->u(p) += delta(p);
                 del_pos(p) += delta(p);
 
-                body->points->x_t(p) += body->points->L(p) * delta(p);
-                body->points->mx_t(p) = body->points->m(p) * body->points->x_t(p);
+                if (adjust_velocities) {
+                    body->points->x_t(p) += body->points->L(p) * delta(p);
+                    body->points->mx_t(p) = body->points->m(p) * body->points->x_t(p);
+                }
             }
         }
     } else if (POSITIONRULE == DELTA_STRAIN){
@@ -2226,8 +2236,10 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                 body->points->u(i) += delta;
                 del_pos(i) += delta;
 
-                body->points->x_t(i) += body->points->L(i) * delta;
-                body->points->mx_t(i) = body->points->m(i) * body->points->x_t(i);
+                if (adjust_velocities) {
+                    body->points->x_t(i) += body->points->L(i) * delta;
+                    body->points->mx_t(i) = body->points->m(i) * body->points->x_t(i);
+                }
             }
 
             if (iter_count >= max_iter){

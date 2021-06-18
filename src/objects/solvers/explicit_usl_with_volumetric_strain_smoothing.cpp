@@ -72,7 +72,7 @@ void ExplicitUSLwithVolumetricStrainSmoothing::init(Job* job){
             if (file.is_open()){
                 //success!
                 //write to file
-                file << "Time, ||E||_2^2, max(E_i/V_i), ||v||_L2\n";
+                file << "Time, ||E||_2^2, max(E_i/V_i), KE, y_cm, ||v||_L2\n";
 
                 file.close();
             } else {
@@ -471,6 +471,17 @@ void ExplicitUSLwithVolumetricStrainSmoothing::updateStress(Job* job){
         //sqrt of ||v_err||_L2^2
         v_L2 = std::sqrt(v_L2);
 
+        double ke = 0;
+        double y_cm = 0;
+        double m_cm = 0;
+        for (int p=0; p<job->bodies[0]->points->x.size(); p++){
+            ke += job->bodies[0]->points->m(p) * job->bodies[0]->points->x_t[p].dot(job->bodies[0]->points->x_t[p]);
+            y_cm += job->bodies[0]->points->m(p) * job->bodies[0]->points->x(p,1);
+            m_cm += job->bodies[0]->points->m(p);
+        }
+        ke *= 0.5;
+        y_cm /= m_cm;
+
         //open and write to file
         std::ofstream file (output_file,std::ios::app);
         if (file.is_open()){
@@ -479,6 +490,8 @@ void ExplicitUSLwithVolumetricStrainSmoothing::updateStress(Job* job){
             file << job->t << ", ";
             file << H_norm << ", ";
             file << e_norm << ", ";
+            file << ke << ", ";
+            file << y_cm << ", ";
             file << v_L2 << "\n";
 
             file.close();

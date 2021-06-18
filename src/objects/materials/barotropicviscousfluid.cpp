@@ -177,7 +177,9 @@ void BarotropicViscousFluid::assignPressure(Job* job, Body* body, double pressur
     tmpMat = tmpMat - (trT/3.0 + pressureIN) * MaterialTensor::Identity();
     body->points->T(idIN) = tmpMat;
 
-    body->points->v(idIN) = body->points->v0(idIN)*std::exp(-pressureIN/K); //p = -K*log(J)
+    //body->points->v(idIN) = body->points->v0(idIN)*std::exp(-pressureIN/K); //p = -K*log(J)
+    body->points->v0(idIN) = body->points->v(idIN)*std::exp(pressureIN/K); //p = -K*log(J)
+    body->points->m(idIN) = body->points->m(idIN)*std::exp(pressureIN/K); //p = -K*log(J)
 
     return;
 }
