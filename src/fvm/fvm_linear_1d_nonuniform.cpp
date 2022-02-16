@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string>
 #include <vector>
-#include <eigen3/Eigen/Core>
+#include <Eigen/Core>
 #include <Eigen/Dense>
 #include <fstream>
 #include <job.hpp>
