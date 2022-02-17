@@ -7,6 +7,7 @@
 #define MPM_V3_REGISTRY_HPP
 
 #include <stdlib.h>
+#include <stdexcept>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -28,11 +29,10 @@ public:
         auto search = object.find(strIn);
         if(search == object.end()) {
             std::cerr << "Undefined registry string: \"" << strIn << "\". Are you sure this class has been added to the registry in registry.cpp?" << std::endl;
-            return std::unique_ptr<T>(nullptr);
+            throw std::invalid_argument("String \"" + strIn + "\" not found in registry.");
         } else {
             return search->second();
         }
-        //return object[strIn]();
     }
 };
 
