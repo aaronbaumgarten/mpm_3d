@@ -298,4 +298,52 @@ public:
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
 };
 
+
+class BreakageMechanicsSand : public Material {
+public:
+    BreakageMechanicsSand(){
+        object_name = "BreakageMechanicsSand";
+    }
+
+    //material properties
+    double pr, K, G, Ec, M_0, g, phi_l, phi_u, l, u, theta, rho_0;
+
+    //history variables
+    Eigen::VectorXd B, phi;     //breakage measure, internal porosity
+    MaterialTensorArray Be;     //elastic left cauchy-green tensor
+
+    //scalar outputs
+    Eigen::VectorXd evDot, esDot, BDot;
+
+    //debug variables
+    Eigen::VectorXd kVec, yVec;
+
+    //state struct for computation
+    struct MaterialState {
+        double B;       //Breakage
+        double rho;     //Effective Density
+        double phi;     //Porosity
+        double ev;      //Volumetric Strain (Elastic)
+        double es;      //Shear Strain (Elastic)
+    };
+
+    //computational crutches apadted from MATLAB
+    double CriticalStatePorosityFromMaterialState(MaterialState mat_state);
+    double EBFromMaterialState(MaterialState mat_state);
+    double FFromMaterialState(MaterialState mat_state);
+    std::vector<double> PQFromMaterialState(MaterialState mat_state);
+    std::vector<double> RelativePlasticityRatesFromMaterialStateandDeformation(MaterialState mat_state, MaterialTensor Be);
+    double YieldFunctionFromMaterialStateandDeformation(MaterialState mat_state, MaterialTensor Be);
+    MaterialTensor CauchyStressFromMaterialStateandDeformation(MaterialState mat_state, MaterialTensor Be);
+
+    void init(Job* job, Body* body);
+    void calculateStress(Job* job, Body* body, int SPEC);
+    void assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC);
+    void assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
 #endif //MPM_V3_MATERIALS_HPP

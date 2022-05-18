@@ -176,6 +176,7 @@ Registry<Material>::Registry() {
     REGISTER(Material, SlurryGranularPhase_wUnderCompaction);
     REGISTER(Material, Fish);
     REGISTER(Material, CompressibleNeohookeanElasticity);
+    REGISTER(Material, BreakageMechanicsSand);
 }
 
 

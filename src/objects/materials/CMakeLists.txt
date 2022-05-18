@@ -9,5 +9,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/slurry_granular_phase_w_under_compaction.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fish.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/compressible_neohookean_elasticity.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/breakage_mechanics_sand.cpp
         PARENT_SCOPE
         )

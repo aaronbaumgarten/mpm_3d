@@ -28,9 +28,9 @@ im = imgfile.convert("1")
 print "File", sys.argv[-2], "has size", im.size, "pixels."
 
 #assign length and lower left position.
-Length = 0.3;
-X_LL = 0.15;
-Y_LL = 0.15;
+Length = 0.4;
+X_LL = 0.1;
+Y_LL = 0.075;
 
 dx = float(Length) / im.size[0]
 dy = dx
