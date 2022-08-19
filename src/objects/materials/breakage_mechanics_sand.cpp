@@ -571,8 +571,8 @@ void BreakageMechanicsSand::writeFrame(Job* job, Body* body, Serializer* seriali
     // Interpolate Q onto Points
     qvec = body->S.operate(nvec, MPMSparseMatrixBase::TRANSPOSED);
 
-    serializer->writeScalarArray(p, "p_smooth");
-    serializer->writeScalarArray(q, "q_smooth");
+    serializer->writeScalarArray(pvec, "p_smooth");
+    serializer->writeScalarArray(qvec, "q_smooth");
 
     return;
 }
@@ -657,7 +657,7 @@ std::vector<double> BreakageMechanicsSand::PQFromMaterialState(MaterialState sta
 
     // Compute Pressure
     //pq[0] = (stateIN.rho/rho_0) * pr * (1.0 - theta * stateIN.B) * (A*A + 3.0 * G * K * stateIN.es * stateIN.es / 4.0);
-    pq[0] = (stateIN.rho/rho_0) * pr * (1.0 - theta * stateIN.B) * (A*A + 3.0 * G * K * stateIN.es * stateIN.es / 4.0)
+    pq[0] = (stateIN.rho/rho_0) * pr * (1.0 - theta * stateIN.B) * (2.0 * A * A / K + 3.0 * G * stateIN.es * stateIN.es / 2.0)
             * (-K / 2.0 * stateIN.ev / (e0 - stateIN.ev));
 
     // Compute Shear Stress
