@@ -525,6 +525,55 @@ void BreakageMechanicsSand::writeFrame(Job* job, Body* body, Serializer* seriali
     serializer->writeTensorArray(Be, "Be");
     serializer->writeTensorArray(Ee, "Ee");
 
+    // Double Projection
+    Eigen::VectorXd v_i(body->nodes->x.size());
+    Eigen::VectorXd nvec(body->nodes->x.size());
+    Eigen::VectorXd qvec(body->points->x.size());
+    Eigen::VectorXd pvec(body->points->x.size());
+
+    // Multiply P by Volume
+    for (int i=0;i<body->points->x.size();i++) {
+        if (body->points->active[i] == 0) {
+            pvec(i) = 0;
+            continue;
+        }
+
+        pvec(i) = p(i) * body->points->v(i);
+    }
+    // Integrate P onto Nodes
+    nvec = body->S * pvec;
+    // Integrate Volume onto Nodes
+    v_i = body->S * body->points->v;
+    // Volume Average P on Nodes
+    for (int i=0;i<nvec.size();i++){
+        nvec(i) = nvec(i) / v_i(i);
+    }
+    // Interpolate P onto Points
+    pvec = body->S.operate(nvec, MPMSparseMatrixBase::TRANSPOSED);
+
+    // Multiply Q by Volume
+    for (int i=0;i<body->points->x.size();i++) {
+        if (body->points->active[i] == 0) {
+            qvec(i) = 0;
+            continue;
+        }
+
+        qvec(i) = q(i) * body->points->v(i);
+    }
+    // Integrate Q onto Nodes
+    nvec = body->S * qvec;
+    // Integrate Volume onto Nodes
+    v_i = body->S * body->points->v;
+    // Volume Average P on Nodes
+    for (int i=0;i<nvec.size();i++){
+        nvec(i) = nvec(i) / v_i(i);
+    }
+    // Interpolate Q onto Points
+    qvec = body->S.operate(nvec, MPMSparseMatrixBase::TRANSPOSED);
+
+    serializer->writeScalarArray(p, "p_smooth");
+    serializer->writeScalarArray(q, "q_smooth");
+
     return;
 }
 
@@ -560,7 +609,8 @@ double BreakageMechanicsSand::EBFromMaterialState(MaterialState stateIN){
 //Compute EB from Scalar Elastic Strains
 //  Returns the breakage energy value EB computed from Material State
 
-    double A = -K * stateIN.ev / 2.0;
+    //double A = -K * stateIN.ev / 2.0;
+    double A = -K / 2.0 * (stateIN.ev + e0 * std::log(1 - stateIN.ev/e0));
     if (A < 0) {
         A = 0;
     }
@@ -599,16 +649,25 @@ std::vector<double> BreakageMechanicsSand::PQFromMaterialState(MaterialState sta
     std::vector<double> pq(2);
 
     // Compression Coeff.
-    double A = -K * stateIN.ev / 2.0;
+    //double A = -K * stateIN.ev / 2.0;
+    double A = -K / 2.0 * (stateIN.ev + e0 * std::log(1 - stateIN.ev/e0));
     if (A < 0) {
         A = 0;
     }
 
     // Compute Pressure
-    pq[0] = (stateIN.rho/rho_0) * pr * (1.0 - theta * stateIN.B) * (A*A + 3.0 * G * K * stateIN.es * stateIN.es / 4.0);
+    //pq[0] = (stateIN.rho/rho_0) * pr * (1.0 - theta * stateIN.B) * (A*A + 3.0 * G * K * stateIN.es * stateIN.es / 4.0);
+    pq[0] = (stateIN.rho/rho_0) * pr * (1.0 - theta * stateIN.B) * (A*A + 3.0 * G * K * stateIN.es * stateIN.es / 4.0)
+            * (-K / 2.0 * stateIN.ev / (e0 - stateIN.ev));
 
     // Compute Shear Stress
     pq[1] = (stateIN.rho/rho_0) * pr * (1.0 - theta * stateIN.B) * 3.0 * G * (A * stateIN.es + std::sqrt(3.0 * G * K) * stateIN.es * stateIN.es / 4.0);
+
+    // Zero Out Stresses for Positive Volumetric Strain
+    if (stateIN.ev > 0){
+        pq[0] = 0;
+        pq[1] = 0;
+    }
 
     return pq;
 }
@@ -659,7 +718,17 @@ std::vector<double> BreakageMechanicsSand::RelativePlasticityRatesFromMaterialSt
         // Coupling Angle
         double w = M_PI / 2.0 * (1 - tau);
 
+        // Plasticity Rates
+        Rates[0] = -EB * (1.0 - stateIN.B) * (1.0 - stateIN.B) * std::sin(w) * std::sin(w) / Ec
+                   * p / (p*p + q*q)
+                   + q * M_d / ((M_0 + M_d)*p * (M_0 + M_d)*p);
+        Rates[1] = EB * (1.0 - stateIN.B) * (1.0 - stateIN.B) * std::sin(w) * std::sin(w) / Ec
+                   * q / (p*p + q*q)
+                   + q / ((M_0 + M_d)*p * (M_0 + M_d)*p);
+        Rates[2] = (1.0 - stateIN.B) * (1.0 - stateIN.B) * std::cos(w) * std::cos(w) / Ec;
+
         // Check for Compaction
+        /*
         if (F <= 0) {
             Rates[0] = q * M_d / ((M_0 + M_d)*p * (M_0 + M_d)*p);   //evRate
             Rates[1] = q / ((M_0 + M_d)*p * (M_0 + M_d)*p);         //esRate
@@ -670,6 +739,7 @@ std::vector<double> BreakageMechanicsSand::RelativePlasticityRatesFromMaterialSt
             Rates[1] = q / ((M_0 + M_d)*p * (M_0 + M_d)*p);
             Rates[2] = (1.0 - stateIN.B) * (1.0 - stateIN.B) * F * std::cos(w) * std::cos(w) / Ec;
         }
+         */
     }
 
     return Rates;
@@ -708,7 +778,7 @@ double BreakageMechanicsSand::YieldFunctionFromMaterialStateandDeformation(Mater
     double tp = M_PI / 15.0 + std::asin(3.0 * M_0 / (6.0 + M_0));
 
     // Dilation Angle
-    double M_d = - (stateIN.phi - phi_cs) / (phi_max - phi_min) * (6.0 * std::sin(tp) / (3.0 - std::sin(tp)) - M_0);
+    double M_d = - g * (stateIN.phi - phi_cs) / (phi_max - phi_min) * (6.0 * std::sin(tp) / (3.0 - std::sin(tp)) - M_0);
 
     // Coupling Angle
     double w = M_PI / 2.0 * (1 - tau);

@@ -308,6 +308,9 @@ public:
     //material properties
     double pr, K, G, Ec, M_0, g, phi_l, phi_u, l, u, theta, rho_0;
 
+    //additional material properties
+    double e0 = 0.001;          //regularization strain for low pressures
+
     //history variables
     Eigen::VectorXd B, phi;     //breakage measure, internal porosity
     MaterialTensorArray Be;     //elastic left cauchy-green tensor
@@ -323,6 +326,7 @@ public:
         double B;       //Breakage
         double rho;     //Effective Density
         double phi;     //Porosity
+        double phiP;    //Plastic Porosity
         double ev;      //Volumetric Strain (Elastic)
         double es;      //Shear Strain (Elastic)
     };
