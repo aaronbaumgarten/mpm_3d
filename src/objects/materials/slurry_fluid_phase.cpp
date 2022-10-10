@@ -171,8 +171,8 @@ void SlurryFluidPhase::calculateStress(Job* job, Body* body, int SPEC){
             /*if (n(i) < 0.2){
                 n(i) = 0.2; //keep packing from overestimates...
             }*/
-            if (n(i) < 1e-3){
-                n(i) = 1e-3; //keep packing from overestimates...
+            if (n(i) < 1e-2){
+                n(i) = 1e-2; //keep packing from overestimates...
             }
 
             nMat(i) = (1-n(i))/m1 * mv1i + n(i)/m2 * mv2i;

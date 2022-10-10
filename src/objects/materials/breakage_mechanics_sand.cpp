@@ -108,7 +108,7 @@ void BreakageMechanicsSand::calculateStress(Job* job, Body* body, int SPEC){
     std::vector<double> pq, Rates;
     double p, q, EB, evRate, esRate, BRate, phi_max;
     double lambda, lambdaA, lambdaB, lambdaC, lambdaMAX, lambdaMAXEST;
-    double y, yA, yB, yC;
+    double y, y0, yA, yB, yC;
 
     //iteration variables
     int k;
@@ -266,6 +266,7 @@ void BreakageMechanicsSand::calculateStress(Job* job, Body* body, int SPEC){
 
             // Compute Yield Function Value
             y = YieldFunctionFromMaterialStateandDeformation(mat_state, BeS);
+            y0 = y;
 
             // Initial Guess for Plastic Deformation
             lambda = 0;
@@ -401,6 +402,21 @@ void BreakageMechanicsSand::calculateStress(Job* job, Body* body, int SPEC){
                 } else {
                     lambda = lambdaC;
                     y = yC;
+                }
+
+                // Check for Valid Final State
+                if (!std::isfinite(y)){
+                    // this implies y = yC and yC is not finite
+                    // need to check yA
+                    if ((std::abs(y0) < std::abs(yA)) || !std::isfinite(yA)){
+                        // either y0 is less than yA or yA is not finite
+                        lambda = 0;
+                        y = y0;
+                    } else {
+                        // yA is finite and less than y0
+                        lambda = lambdaA;
+                        y = yA;
+                    }
                 }
                 
                 // Check for Maximum Iterations

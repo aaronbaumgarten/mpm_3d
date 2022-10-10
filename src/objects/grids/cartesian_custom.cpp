@@ -328,15 +328,16 @@ void CartesianCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
     if (elementID < 0){
         return;
     }
+
     for (int n=0;n<nodeIDs.cols();n++){
         //find local coordinates relative to nodal position
         for (int i=0;i<GRID_DIM;i++){
             //r = (x_p - x_n)/hx
             rst[i] = (tmpX[i] - x_n(nodeIDs(elementID,n),i)) / hx(i);
 
-            if (Nx(i) > 2 && rst(i) > 0.5*Lx(i)){
+            if (Nx(i) > 2 && hx(i)*rst(i) > 0.5*Lx(i)){
                 rst(i) -= Lx(i);
-            } else if (Nx(i) > 2 && rst(i) < -0.5*Lx(i)){
+            } else if (Nx(i) > 2 && hx(i)*rst(i) < -0.5*Lx(i)){
                 rst(i) += Lx(i);
             }
 
@@ -347,7 +348,12 @@ void CartesianCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
 
         for (int i=0;i<GRID_DIM;i++){
             //replace i-direction contribution with sign function
-            //tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
+            tmpVec(i) = -tmp / (1 - std::abs(rst(i))) * rst(i)/std::abs(rst(i)) / hx(i);
+            if (std::abs(rst(i)) >= 1){
+                tmpVec(i) = 0.0;
+            }
+
+            /*
             if (std::abs(rst(i)) > 0){
                 tmpVec(i) = -1.0*rst(i)/std::abs(rst(i)) / hx(i);
             } else {
@@ -358,6 +364,7 @@ void CartesianCustom::evaluateBasisFnGradient(Job* job, KinematicVector& xIN, st
                     tmpVec(i) *= (1 - std::abs(rst(j)));
                 }
             }
+            */
         }
 
         for (int i=GRID_DIM;i<xIN.DIM;i++){

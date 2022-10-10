@@ -122,8 +122,8 @@ void SlurryMixture::generateRules(Job* job){
             /*if (n(i) < 0.2) {
                 n(i) = 0.2; //keep packing from overestimates...
             }*/
-            if (n(i) < 1e-3){
-                n(i) = 1e-3; //keep packing from overestimates...
+            if (n(i) < 1e-2){
+                n(i) = 1e-2; //keep packing from overestimates...
             }
         }
 
@@ -143,8 +143,8 @@ void SlurryMixture::generateRules(Job* job){
             /*if (n(i) < 0.2) {
                 n(i) = 0.2; //keep packing from overestimates...
             }*/
-            if (n(i) < 1e-3){
-                n(i) = 1e-3; //keep packing from overestimates...
+            if (n(i) < 1e-2){
+                n(i) = 1e-2; //keep packing from overestimates...
             }
         }
 
