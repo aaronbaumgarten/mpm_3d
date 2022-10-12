@@ -61,10 +61,11 @@ void CompressibleNeohookeanElasticity::calculateStress(Job* job, Body* body, int
         B = F[i]*F[i].transpose();
 
         //calculation of J
-        J = B.det();
+        J = std::sqrt(B.det());
 
-        //T = G*B_0 + K*log(J)*I
-        body->points->T[i] = G*B.deviator() + K*std::log(J)*MaterialTensor::Identity();
+        //T = G*B_0/J + K*log(J)/J*I
+        body->points->T[i] = G/J * (B - MaterialTensor::Identity())
+                             + (K - 2.0*G/3.0)*std::log(J)/J*MaterialTensor::Identity();
     }
 
     return;
@@ -74,7 +75,60 @@ void CompressibleNeohookeanElasticity::calculateStress(Job* job, Body* body, int
 /*----------------------------------------------------------------------------*/
 //define stress assignement for consistency with history dependent materials
 void CompressibleNeohookeanElasticity::assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC){
-    std::cout << "WARNING: assignStress() not implemented in CompressibleNeohookeanElasticity!" << std::endl;
+    if (SPEC != 22766) {
+        std::cout << "WARNING: assignStress() not implemented in CompressibleNeohookeanElasticity!" << std::endl;
+    } else {
+        //do not use this section of code UNLESS using 2D avoid-a-void algorithm
+        //forgive me for the messiness...
+
+        //compute volume ratio
+        double J = body->points->v(idIN) / body->points->v0(idIN);
+
+        //get s33
+        double s33 = stressIN(2,2);
+
+        //recompute J using fixed point iteration
+        for (int n = 0; n < 5; n++){
+            J = std::exp(J * s33 / (K - 2.0 * G / 3.0));
+            //std::cout << idIN << ", " << n << " : " << J << std::endl;
+        }
+
+        //compute B
+        MaterialTensor B = J / G * (stressIN - s33 * MaterialTensor::Identity())
+                           + MaterialTensor::Identity();
+
+        //compute F?
+        double detF = std::sqrt(B(0, 0) * B(1, 1) - B(0, 1) * B(0, 1));
+        double trF = std::sqrt(B(0, 0) + B(1, 1) + 2.0 * detF);
+        double b = B(0, 1) / trF;
+        double a = std::sqrt(B(0, 0) - b * b);
+        double c = std::sqrt(B(1, 1) - b * b);
+
+        MaterialTensor tmpF = MaterialTensor::Identity();
+        tmpF(0, 0) = a;
+        tmpF(0, 1) = b;
+        tmpF(1, 0) = b;
+        tmpF(1, 1) = c;
+
+        //assign F
+        F[idIN] = tmpF;
+
+        //if (!std::isfinite(a)) {
+        //    std::cerr << idIN << " : " << "Uh oh! " << detF << " =?= " << J << std::endl;
+        //    exit(0);
+        //}
+
+        //check that F*F^T = B?
+        /*
+        MaterialTensor FFt = tmpF * tmpF.transpose();
+        std::cout << idIN << " : " << J << " =?= " << detF << std::endl;
+        std::cout << idIN << " : " << J*J << " =?= " << B.det() << std::endl;
+        std::cout << idIN << " : " << B(0,0) << " =?= " << FFt(0,0) << std::endl;
+        std::cout << idIN << " : " << B(0,1) << " =?= " << FFt(0,1) << std::endl;
+        std::cout << idIN << " : " << B(1,1) << " =?= " << FFt(1,1) << std::endl;
+         */
+    }
+
     return;
 }
 

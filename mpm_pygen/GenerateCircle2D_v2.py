@@ -15,13 +15,12 @@ else:
 print "files named"
 
 #grid properties
-#Ly = Lx = Lz = 0.4
-Lx = 0.036
-Ly = 0.03
+Lx = 3.0
+Ly = 3.0
 Lz = 1.0
 #Ne = 40
-Nx = 144
-Ny = 120
+Nx = 100
+Ny = 100
 Nz = 1
 lmpp = 2
 Lz = 1.0*lmpp

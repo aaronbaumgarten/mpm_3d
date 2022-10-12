@@ -1414,6 +1414,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
         //do nothing
     } else if (POSITIONRULE == AVAV) {
         //do something!
+        MaterialTensor tmpT;
 
         //iterate counter
         skip_counter += 1;
@@ -1817,6 +1818,12 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         }
                     }
                     //mx_t[tmp_id] = m(tmp_id)*x_t[tmp_id];
+
+                    //assign material model stress
+                    tmpT = T[tmp_id];
+
+                    //this is a hack...
+                    body->material->assignStress(job, body, tmpT, tmp_id, 22766);
 
                     if (p_d >= -2.2*r){
                         //point isn't interior enough
