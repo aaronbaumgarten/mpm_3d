@@ -1436,9 +1436,15 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
             KinematicVectorArray u_nodes = body->S*vu_points; //integrated u field at node
             MaterialTensorArray T_nodes = body->S*vT_points;  //integrated T field at node
             for (int i=0; i<body->nodes->x.size(); i++){
-                b_nodes[i] /= v_nodes(i);
-                u_nodes[i] /= v_nodes(i);
-                T_nodes[i] /= v_nodes(i);
+                if (v_nodes(i) > 0){
+                    b_nodes[i] /= v_nodes(i);
+                    u_nodes[i] /= v_nodes(i);
+                    T_nodes[i] /= v_nodes(i);
+                } else {
+                    b_nodes[i].setZero();
+                    u_nodes[i].setZero();
+                    T_nodes[i].setZero();
+                }
             }
 
             //step 0: create cell/point map

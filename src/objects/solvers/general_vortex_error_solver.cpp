@@ -48,7 +48,7 @@ void GeneralizedVortexErrorSolver::init(Job* job){
     if (file.is_open()){
         //success!
         //write file header
-        file << "t, ||u^* - u^Q||_L2, ||v^* - v^Q||_L2, ||a^* - a^Q||_L2\n";
+        file << "t, ||u^* - u^Q||_L2, ||rho * (v^* - v^Q)||_L2, ||rho * (a^* - a^Q)||_L2\n";
 
         file.close();
     } else {
@@ -518,7 +518,7 @@ void GeneralizedVortexErrorSolver::writeErrorInfo(Job* job){
     Eigen::VectorXd v_i = Eigen::VectorXd(job->grid->node_count);
 
     //initialize figures of merit\
-    //t, ||d^* - d^Q||_L2, ||v^* - v^Q||_L2, ||a^* - a^Q||_L2
+    //t, ||d^* - d^Q||_L2, ||rho * (v^* - v^Q)||_L2, ||rho * (a^* - a^Q)||_L2
     double u_L2 = 0;
     double v_L2 = 0;
     double a_L2 = 0;
@@ -538,7 +538,7 @@ void GeneralizedVortexErrorSolver::writeErrorInfo(Job* job){
     KinematicVector tmpVec = KinematicVector(job->JOB_TYPE);
     for (int p=0; p<job->bodies[0]->points->x.size(); p++){
         if (job->bodies[0]->points->active(p)){
-            //||d^* - d^Q||_L2
+            //||(d^* - d^Q)||_L2
             tmpDis = getDisplacement(job, job->bodies[0]->points->x[p]);
             tmpVec = (tmpDis - job->bodies[0]->points->u[p]);
             u_L2 += tmpVec.dot(tmpVec) * job->bodies[0]->points->v(p);
@@ -546,14 +546,16 @@ void GeneralizedVortexErrorSolver::writeErrorInfo(Job* job){
     }
     for (int i=0; i<V_i.rows(); i++){
         if (job->bodies[0]->nodes->m(i) > 0) {
-            //||v^* - v^Q||_L2
+            //||rho * (v^* - v^Q)||_L2
             tmpVel = getVelocity(job, job->bodies[0]->nodes->x[i]);
-            tmpVec = (tmpVel - job->bodies[0]->nodes->mx_t[i] / job->bodies[0]->nodes->m(i));
+            tmpVec = (job->bodies[0]->nodes->m(i) * tmpVel - job->bodies[0]->nodes->mx_t[i]) / V_i(i);
+            //v_L2 += tmpVec.dot(tmpVec) * V_i(i);
             v_L2 += tmpVec.dot(tmpVec) * V_i(i);
 
-            //||a^* - a^Q||_L2
+            //||rho * (a^* - a^Q)||_L2
             tmpAcc = getAcceleration(job, job->bodies[0]->nodes->x[i]);
-            tmpVec = (tmpAcc - job->bodies[0]->nodes->f[i] / job->bodies[0]->nodes->m(i));
+            tmpVec = (job->bodies[0]->nodes->m(i) * tmpAcc - job->bodies[0]->nodes->f[i]) / V_i(i);
+            //a_L2 += tmpVec.dot(tmpVec) * V_i(i);
             a_L2 += tmpVec.dot(tmpVec) * V_i(i);
         }
     }
@@ -561,6 +563,81 @@ void GeneralizedVortexErrorSolver::writeErrorInfo(Job* job){
     u_L2 = std::sqrt(u_L2);
     v_L2 = std::sqrt(v_L2);
     a_L2 = std::sqrt(a_L2);
+
+    //estimate diagonalization error
+    double aD_L2 = 0;
+    if (false) {
+        KinematicVectorArray a_M = KinematicVectorArray(job->grid->node_count, job->JOB_TYPE);
+        //generate 2D field of points evaluate integral expressions
+        //for now, hard-code (1600 points around each node, 2 elements in each direction)
+        int samples = 40;
+        double dx = 3.0 * 4.0 / (100.0 * samples);
+
+        std::cout << "Calculating exact lumped mass solution..." << std::endl;
+        KinematicVector tmpX = KinematicVector(job->JOB_TYPE);
+        std::vector<double> valvec = std::vector<double>(0);
+        std::vector<int> ivec = std::vector<int>(0);
+        for (int i=0; i<job->grid->node_count; i++){
+            //for each node, sum contribution from each sample point
+            for (int ii=0; ii<samples; ii++){
+                tmpX[0] = job->bodies[0]->nodes->x(i,0) - 3.0 * 2.0 / 100.0 + dx*(ii+0.5);
+                for (int jj=0; jj<samples; jj++){
+                    tmpX[1] = job->bodies[0]->nodes->x(i,1) - 3.0 * 2.0 / 100.0 + dx*(jj+0.5);
+
+                    //get basis function values and add to node sum
+                    //will duplicate work, but is simple to code
+                    valvec.clear();
+                    ivec.clear();
+                    job->grid->evaluateBasisFnValue(job, tmpX, ivec, valvec);
+
+                    for (int k=0; k<ivec.size(); k++){
+                        if (ivec[k] == i){
+                            a_M[i] += getAcceleration(job, tmpX)*dx*dx*valvec[k];
+                        }
+                    }
+                }
+            }
+            a_M[i] /= job->grid->nodeVolume(job, i); //hard code
+
+
+            tmpVec = (job->bodies[0]->nodes->m(i) * a_M[i] - job->bodies[0]->nodes->f[i]) / V_i(i);
+            aD_L2 += tmpVec.dot(tmpVec) * V_i(i);
+        }
+
+        /*
+        std::cout << "Calculating exact lumped mass solution..." << std::endl;
+        KinematicVector tmpX = KinematicVector(job->JOB_TYPE);
+        KinematicVector tmpXi = KinematicVector(job->JOB_TYPE);
+        std::vector<double> valvec = std::vector<double>(0);
+        std::vector<int> ivec = std::vector<int>(0);
+        for (int i = 0; i < job->grid->node_count; i++) {
+            tmpXi = job->bodies[0]->nodes->x(i);
+            //for each node, sum contribution from each sample point
+            for (int ii = 0; ii < samples; ii++) {
+                tmpX[0] = job->bodies[0]->nodes->x(i, 0) - 3.0 * 2.0 / 100.0 + dx * (ii + 0.5);
+                for (int jj = 0; jj < samples; jj++) {
+                    tmpX[1] = job->bodies[0]->nodes->x(i, 1) - 3.0 * 2.0 / 100.0 + dx * (jj + 0.5);
+
+                    //get basis function values and add to node sum
+                    //will duplicate work, but is simple to code
+                    valvec.clear();
+                    ivec.clear();
+                    job->grid->evaluateBasisFnValue(job, tmpX, ivec, valvec);
+
+                    for (int k = 0; k < ivec.size(); k++) {
+                        if (ivec[k] == i) {
+                            tmpVec = 1000 * (getAcceleration(job, tmpXi) - getAcceleration(job, tmpX)) * valvec[k];
+                            aD_L2 += tmpVec.dot(tmpVec) * dx * dx;
+                        }
+                    }
+                }
+            }
+        }
+        */
+        aD_L2 = std::sqrt(aD_L2);
+        std::cout << "aD_L2: " << aD_L2 << std::endl;
+        std::cout << "Calculated exact solution. Continuing." << std::endl;
+    }
 
     //open and write to file
     std::ofstream file (output_filename,std::ios::app);

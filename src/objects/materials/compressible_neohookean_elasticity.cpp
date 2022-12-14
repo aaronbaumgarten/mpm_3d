@@ -113,10 +113,12 @@ void CompressibleNeohookeanElasticity::assignStress(Job* job, Body* body, Materi
         //assign F
         F[idIN] = tmpF;
 
-        //if (!std::isfinite(a)) {
-        //    std::cerr << idIN << " : " << "Uh oh! " << detF << " =?= " << J << std::endl;
-        //    exit(0);
-        //}
+        /*
+        if (!std::isfinite(a)) {
+            std::cerr << idIN << " : " << "Uh oh! " << detF << " =?= " << J << std::endl;
+            exit(0);
+        }
+        */
 
         //check that F*F^T = B?
         /*
