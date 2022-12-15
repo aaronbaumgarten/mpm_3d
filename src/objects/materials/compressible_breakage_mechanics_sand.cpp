@@ -97,6 +97,41 @@ void CompressibleBreakageMechanicsSand::init(Job* job, Body* body){
         std::cout << "    B_0    = " << B_0 << " [--]\n";
         std::cout << "    phi_0  = " << phi_0 << " [--]\n";
 
+        //check for string flags
+        for (int s=0; s<str_props.size(); s++){
+            if (str_props[s].compare("ISOTHERMAL") == 0){
+                //isothermal simulation
+                is_adiabatic = false;
+            } else if (str_props[s].compare("INCOMPRESSIBLE") == 0){
+                //incompressible model
+                is_compressible = false;
+            } else if (str_props[s].compare("USE_ARTIFICIAL_VISCOSITY") == 0){
+                //artificial velocity
+                use_artificial_viscosity = true;
+            }
+        }
+
+        if (use_artificial_viscosity && fp64_props.size() > 20){
+            h_i = fp64_props[20];
+            std::cout << "  Using Artificial Viscosity:\n";
+            std::cout << "    h_i    = " << h_i << " [m]\n";
+        } else if (use_artificial_viscosity){
+            std::cout << "  *NOT* Using Artificial Viscosity! No h_i parameter defined.\n";
+        }
+
+        if (is_compressible){
+            std::cout << "  Using Compressible Model.\n";
+        } else {
+            std::cout << "  Using Incompressible Model.\n";
+        }
+
+        if (is_adiabatic){
+            std::cout << "  Using Adiabatic Model.\n";
+        } else {
+            std::cout << "  Using Isothermal Model.\n";
+        }
+
+
         /*
         std::cout << "Material properties ("
                   << "pr = " << pr << " Pa, "
@@ -133,6 +168,7 @@ void CompressibleBreakageMechanicsSand::init(Job* job, Body* body){
         //debug variables
         kVec = Eigen::VectorXd(body->points->x.size());
         yVec = Eigen::VectorXd(body->points->x.size());
+        lVec = Eigen::VectorXd(body->points->x.size());
 
         //fill Be, F with initial deformation
         for (int i=0; i<body->points->x.size(); i++){
@@ -157,7 +193,7 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
     int MaxIter = 50;
 
     //tensors for matrix calculation
-    MaterialTensor S, S0, Sn, L, D, W;
+    MaterialTensor S, s0, Sn, L, D, W;
     MaterialTensor Ben;
     MaterialTensor Ee, Ee0, Be0, BeRate, BeRate0;
 
@@ -169,10 +205,11 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
     double p, q, EB, evRate, esRate, BRate, phi_max;
     double lambda, lambdaA, lambdaB, lambdaC, lambdaMAX, lambdaMAXEST;
     double y, y0, yA, yB, yC;
+    double trDe, a, dadp, phiSTemp, JeTemp;
 
     //iteration variables
     int k;
-    bool tensileYield, compactionYield;
+    bool tensileYield, compactionYield, validB;
 
     for (int i=0;i<body->points->x.size();i++){
         if (body->points->active[i] == 0){
@@ -223,7 +260,7 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
 
         // Check for Yielding in Compaction
         phi_max = phi_u * std::pow(1.0 - mat_state.B, u);
-        if (mat_state.phiP > phi_max){
+        if (mat_state.phi > phi_max){
             // No Stresses in Under-Compacted State
             compactionYield = true;
         }
@@ -240,13 +277,16 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
             phiS(i) = 1.0 - mat_state.phi;
             // - energy is only thermal
             Es(i) = cv * Ts(i);
+            // - save deformation
+            F[i]       = mat_state.F;
 
             // Set Scalar Outputs and History Variables
             evDot(i) = D.trace();
             esDot(i) = std::sqrt(2.0 / 3.0 * D.deviator().dot(D.deviator()));
             BDot(i) = 0;
             yVec(i) = 0;
-            kVec(i) = 0;
+            kVec(i) = -1;
+            lVec(i) = 0;
 
         } else if (compactionYield) {
             // Material has Yielded in Under-Compacted State
@@ -259,24 +299,27 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
             phiS(i) = 1.0 - mat_state.phi;
             // - energy is only thermal
             Es(i) = cv * Ts(i);
+            // - save deformation
+            F[i]       = mat_state.F;
 
             // Set Scalar Outputs and History Variables
             evDot(i) = D.trace();
             esDot(i) = std::sqrt(2.0 / 3.0 * D.deviator().dot(D.deviator()));
             BDot(i) = 0;
             yVec(i) = 0;
-            kVec(i) = 0;
+            kVec(i) = -2;
+            lVec(i) = 0;
 
         } else {
             // Material is NOT in Tension or Under-Compacted
 
             // Estimate Stress State
             S = CauchyStressFromMaterialState(mat_state);
-            S = S - S.trace() / 3.0 * MaterialTensor::Identity();
+            s0 = S - S.trace() / 3.0 * MaterialTensor::Identity();
 
             // Estimate True P, Q
             p = -S.trace() / 3.0;
-            q = std::sqrt(3.0 / 2.0 * S0.dot(S0));
+            q = std::sqrt(3.0 / 2.0 * s0.dot(s0));
 
             // Get Relative Deformation Rates
             Rates = PlasticFlowRulesFromMaterialState(mat_state);
@@ -287,10 +330,21 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
             // Estimate Maximum Plastic Step Size
             BeRate = MaterialTensor();
             if (q > 0) {
-                BeRate = 3.0 / 2.0 * esRate / q * (T0 * Ben + Ben * T0) + 2.0 / 3.0 * evRate * Ben;
+                BeRate = 3.0 / 2.0 * esRate / q * (s0 * Ben + Ben * s0) + 2.0 / 3.0 * evRate * Ben;
             } else {
                 BeRate = 2.0 / 3.0 * evRate * Ben;
             }
+
+            /*
+            if (!std::isfinite(BeRate.det())){
+                std::cout << i << " : Uh oh!" << std::endl;
+                std::cout << evRate << ", " << esRate << std::endl;
+                std::cout << p << ", " << q << std::endl;
+                std::cout << Ben(0,0) << ", " << Ben(0,1) << ", " << Ben(0,2) << ", ";
+                std::cout << Ben(1,0) << ", " << Ben(1,1) << ", " << Ben(1,2) << ", ";
+                std::cout << Ben(2,0) << ", " << Ben(2,1) << ", " << Ben(2,2) << std::endl;
+            }
+             */
 
             lambdaMAX = 1e10; //a ludicrous number
             lambdaMAXEST = lambdaMAX;
@@ -304,6 +358,7 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
 
             // Check for Shearing Reversal
             BeRate0 = BeRate - BeRate.trace() / 3.0 * MaterialTensor::Identity();
+            Be0 = mat_state.Be - mat_state.Be.trace() / 3.0 * MaterialTensor::Identity();
             if (Be0.dot(BeRate0) > 0){
                 lambdaMAXEST = (Be0.dot(Be0)) / (Be0.dot(BeRate0));
             }
@@ -313,7 +368,7 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
 
             // Check for Over-Breakage
             if (BRate > 0){
-                lambdaMAXEST = (1 - mat_state.B) / BRate;
+                lambdaMAXEST = (1.0 - mat_state.B) / BRate;
             }
             if (lambdaMAXEST < lambdaMAX){
                 lambdaMAX = lambdaMAXEST;
@@ -369,23 +424,56 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
 
                 yB = YieldFunctionFromMaterialState(mat_stateB);
 
-                // Ensure Yield Function Values Differ
-                while (std::abs(yA) > AbsTOL && std::abs(yB) > AbsTOL && std::abs(yA - yB) < AbsTOL && k < MaxIter){
-                    // Increment Counter
-                    k++;
+                // Ensure yB is Valid
+                validB = false;
+                while (!validB && k<MaxIter){
 
-                    // Double lambdaB
-                    lambdaB *= 2.0;
+                    // Set Validity Flag
+                    validB = true;
 
-                    // Recompute Material State and Yield Function for B
-                    mat_stateB      = mat_state;
-                    mat_stateB.B    = mat_stateB.B      + lambdaB * BRate;
-                    mat_stateB.phiP = mat_stateB.phiP   + lambdaB * evRate * (1.0 - mat_stateB.phiP);
-                    mat_stateB.Be   = mat_stateB.Be     - lambdaB * BeRate;
-                    mat_stateB.phi  = PorosityFromMaterialState(mat_stateB);
+                    // Ensure Finite Yield Function Value
+                    if (!std::isfinite(yB)){
+                        // Increment Counter
+                        k++;
 
-                    yB = YieldFunctionFromMaterialState(mat_stateB);
+                        // Bisect Back
+                        lambdaB = 0.5 * (lambdaA + lambdaB);
 
+                        // Set Validity Flag
+                        validB = false;
+
+                        // Recompute Material State and Yield Function for B
+                        mat_stateB      = mat_state;
+                        mat_stateB.B    = mat_stateB.B      + lambdaB * BRate;
+                        mat_stateB.phiP = mat_stateB.phiP   + lambdaB * evRate * (1.0 - mat_stateB.phiP);
+                        mat_stateB.Be   = mat_stateB.Be     - lambdaB * BeRate;
+                        mat_stateB.phi  = PorosityFromMaterialState(mat_stateB);
+
+                        yB = YieldFunctionFromMaterialState(mat_stateB);
+
+                    }
+
+                    // Ensure Yield Function Values Differ
+                    if (std::abs(yA) > AbsTOL && std::abs(yB) > AbsTOL && std::abs(yA - yB) < AbsTOL && k < MaxIter){
+                        // Increment Counter
+                        k++;
+
+                        // Double lambdaB
+                        lambdaB *= 2.0;
+
+                        // Set Validity Flag
+                        validB = false;
+
+                        // Recompute Material State and Yield Function for B
+                        mat_stateB      = mat_state;
+                        mat_stateB.B    = mat_stateB.B      + lambdaB * BRate;
+                        mat_stateB.phiP = mat_stateB.phiP   + lambdaB * evRate * (1.0 - mat_stateB.phiP);
+                        mat_stateB.Be   = mat_stateB.Be     - lambdaB * BeRate;
+                        mat_stateB.phi  = PorosityFromMaterialState(mat_stateB);
+
+                        yB = YieldFunctionFromMaterialState(mat_stateB);
+
+                    }
                 }
 
                 // Find Plastic Step Length that Solves y = 0
@@ -487,7 +575,8 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
                               << ", esRate = " << esRate
                               << ", i = " << i << std::endl;
                 }
-                */
+                 */
+
                 
 
             } else {
@@ -501,6 +590,21 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
             mat_state.phi  = PorosityFromMaterialState(mat_state);
             mat_state.S    = CauchyStressFromMaterialState(mat_state);
 
+            // Compute Elastic Volumetric Strain-Rate
+            trDe = D.trace() - lambda * evRate;
+
+            // Add Artificial Viscosity in Compression
+            if (use_artificial_viscosity && trDe < 0){
+                phiSTemp = 1.0 - mat_state.phi;
+                JeTemp = std::sqrt(mat_state.Be.det());
+                a = std::pow(phiSTemp, b);
+                dadp = b * a / phiSTemp;
+                mat_state.S += rho_0 * C0 * h_i * trDe *
+                        (a + phiSTemp * dadp * (1.0 - JeTemp)) /
+                        (JeTemp + (a + phiSTemp * dadp) * (1 - JeTemp)) *
+                        MaterialTensor::Identity();
+            }
+
             // Compute Temperature/Energy Increment
             mat_state.Es += 0.5 * (Sn.dot(D) + mat_state.S.dot(D)) * job->dt / mat_state.rho;
             mat_state.Ts  = TemperatureFromMaterialState(mat_state);
@@ -509,6 +613,21 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
 
             // Final Stress Update
             body->points->T[i] = CauchyStressFromMaterialState(mat_state);
+
+            // Add Artificial Viscosity in Compression
+            if (use_artificial_viscosity && trDe < 0){
+
+                phiSTemp = 1.0 - mat_state.phi;
+                JeTemp = std::sqrt(mat_state.Be.det());
+                a = std::pow(phiSTemp, b);
+                dadp = b * a / phiSTemp;
+                body->points->T[i] += rho_0 * C0 * h_i * trDe *
+                               (a + phiSTemp * dadp * (1.0 - JeTemp)) /
+                               (JeTemp + (a + phiSTemp * dadp) * (1 - JeTemp)) *
+                               MaterialTensor::Identity();
+
+                //body->points->T[i] += rho_0 * C0 * h_i * D.trace() * MaterialTensor::Identity();
+            }
 
             // Porosity and Breakage
             B(i)    = mat_state.B;
@@ -519,12 +638,15 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
             F[i]       = mat_state.F;
             Be[i]      = mat_state.Be;
 
+
+
             // Set Scalar Outputs and History Variables
             evDot(i)    = lambda * evRate / job->dt;
             esDot(i)    = lambda * esRate / job->dt;
             BDot(i)     = lambda * BRate / job->dt;
             yVec(i)     = y;
             kVec(i)     = k;
+            lVec(i)     = lambda;
         }
 
     }
@@ -592,11 +714,11 @@ void CompressibleBreakageMechanicsSand::writeFrame(Job* job, Body* body, Seriali
     // Compute Stress Invaraints
     Eigen::VectorXd p = Eigen::VectorXd(body->points->x.size());
     Eigen::VectorXd q = Eigen::VectorXd(body->points->x.size());
-    MaterialTensor S0;
+    MaterialTensor s0;
     for (int i=0; i<body->points->x.size(); i++){
         p(i) = -body->points->T[i].trace()/3.0;
-        S0 = body->points->T[i] + p(i) * MaterialTensor::Identity();
-        q(i) = std::sqrt(3.0/2.0 * S0.dot(S0));
+        s0 = body->points->T[i] + p(i) * MaterialTensor::Identity();
+        q(i) = std::sqrt(3.0 / 2.0 * s0.dot(s0));
     }
 
     // Write Scalar Quantities
@@ -605,11 +727,14 @@ void CompressibleBreakageMechanicsSand::writeFrame(Job* job, Body* body, Seriali
     serializer->writeScalarArray(phiS, "phiS");
     serializer->writeScalarArray(phiP, "phiP");
     serializer->writeScalarArray(B, "B");
+    serializer->writeScalarArray(Es, "Es");
+    serializer->writeScalarArray(Ts, "Ts");
     serializer->writeScalarArray(evDot, "evDot");
     serializer->writeScalarArray(esDot, "esDot");
     serializer->writeScalarArray(BDot, "BDot");
     serializer->writeScalarArray(yVec, "yVec");
     serializer->writeScalarArray(kVec, "kVec");
+    serializer->writeScalarArray(lVec, "lVec");
     serializer->writeScalarArray(eve, "eve");
     serializer->writeScalarArray(ese, "ese");
     serializer->writeScalarArray(Je, "Je");
@@ -874,8 +999,8 @@ std::vector<double> CompressibleBreakageMechanicsSand::PlasticFlowRulesFromMater
 
     // Compute Pressure and Shear Stress in Deformed Reference Frame
     double p = -Sy.trace()/3.0;
-    MaterialTensor S0 = Sy + p*MaterialTensor::Identity();
-    double q = std::sqrt(3.0/2.0 * S0.dot(S0));
+    MaterialTensor s0 = Sy + p * MaterialTensor::Identity();
+    double q = std::sqrt(3.0 / 2.0 * s0.dot(s0));
 
     // Compute EB
     double EB = EBFromMaterialState(stateIN);
@@ -885,7 +1010,7 @@ std::vector<double> CompressibleBreakageMechanicsSand::PlasticFlowRulesFromMater
     double phi_max = phi_u * std::pow(1.0 - stateIN.B, u);
 
     // Compute Relative Porosity
-    double tau = (phi_max - stateIN.phi) / (phi_max - phi_min);
+    double tau = (phi_max - stateIN.phiP) / (phi_max - phi_min);
 
     // Compute Critical Porosity
     double tau_cs = std::sqrt(EB/Ec) * (1.0 - stateIN.B) / g;
@@ -894,17 +1019,18 @@ std::vector<double> CompressibleBreakageMechanicsSand::PlasticFlowRulesFromMater
     double tp = M_PI / 15.0 + std::asin(3.0 * M_0 / (6.0 + M_0));
 
     // Ensure Positive Pressure
-    if (p <= 0){
+    if (p <= AbsTOL){
         // Zero Pressure Yielding
         Rates[0] = 1; //evRate
         Rates[1] = 1; //esRate
         Rates[2] = 0; //BRate
     } else {
+
         // Dilation Angle
         double M_d = g * (tau - tau_cs) * (6.0 * std::sin(tp) / (3.0 - std::sin(tp)) - M_0);
 
         // Coupling Angle
-        double w = M_PI / 2.0 * (1 - tau);
+        double w = M_PI / 2.0 * (1.0 - tau);
 
         // Plasticity Rates
         // evRate
@@ -917,6 +1043,7 @@ std::vector<double> CompressibleBreakageMechanicsSand::PlasticFlowRulesFromMater
                    + q / ((M_0 + M_d)*p * (M_0 + M_d)*p);
         // BRate
         Rates[2] = (1.0 - stateIN.B) * (1.0 - stateIN.B) * std::cos(w) * std::cos(w) / Ec;
+
     }
 
     return Rates;
@@ -932,8 +1059,8 @@ double CompressibleBreakageMechanicsSand::YieldFunctionFromMaterialState(Materia
 
     // Compute Pressure and Shear Stress in Deformed Reference Frame
     double p = -Sy.trace()/3.0;
-    MaterialTensor S0 = Sy + p*MaterialTensor::Identity();
-    double q = std::sqrt(3.0/2.0 * S0.dot(S0));
+    MaterialTensor s0 = Sy + p * MaterialTensor::Identity();
+    double q = std::sqrt(3.0 / 2.0 * s0.dot(s0));
 
     // Compute EB
     double EB = EBFromMaterialState(stateIN);
@@ -943,7 +1070,7 @@ double CompressibleBreakageMechanicsSand::YieldFunctionFromMaterialState(Materia
     double phi_max = phi_u * std::pow(1.0 - stateIN.B, u);
 
     // Compute Relative Porosity
-    double tau = (phi_max - stateIN.phi) / (phi_max - phi_min);
+    double tau = (phi_max - stateIN.phiP) / (phi_max - phi_min);
 
     // Compute Critical Porosity
     double tau_cs = std::sqrt(EB/Ec) * (1.0 - stateIN.B) / g;
@@ -953,9 +1080,6 @@ double CompressibleBreakageMechanicsSand::YieldFunctionFromMaterialState(Materia
 
     // Dilation Angle
     double M_d = g * (tau - tau_cs) * (6.0 * std::sin(tp) / (3.0 - std::sin(tp)) - M_0);
-
-    // Coupling Angle
-    double w = M_PI / 2.0 * (1 - tau);
 
     // Yield f'n
     return EB * (1.0 - stateIN.B) * (1.0 - stateIN.B) / Ec + q * q / ((M_0 + M_d)*p * (M_0 + M_d)*p) - 1;

@@ -364,9 +364,13 @@ public:
     double pr, K, G, Ec, M_0, g, phi_l, phi_u, l, u, theta, rho_0;
     double C0, S0, G0, cv, b, T0;
 
+    //artificial viscosity properties
+    double h_i = 0;
+
     //simulation flags
     bool is_adiabatic = true;
     bool is_compressible = true;
+    bool use_artificial_viscosity = false;
 
     //history variables
     Eigen::VectorXd B, phiS, phiP;  //breakage measure, solid volume fraction, plastic porosity
@@ -383,7 +387,7 @@ public:
     Eigen::VectorXd evDot, esDot, BDot;
 
     //debug variables
-    Eigen::VectorXd kVec, yVec;
+    Eigen::VectorXd kVec, yVec, lVec;
 
     //state struct for computation
     struct MaterialState {
