@@ -23,109 +23,81 @@
 /*----------------------------------------------------------------------------*/
 //initialize assuming that general properties have been assigned correctly
 //fp64_props etc. have been filled by configuration object
-void CompressibleBreakageMechanicsSand::init(Job* job, Body* body){
-    if (fp64_props.size() < 20){
-        std::cout << fp64_props.size() << " != 20\n";
+void TillotsonEOSFluid::init(Job* job, Body* body){
+    if (fp64_props.size() < 14){
+        std::cout << fp64_props.size() << " != 14\n";
         fprintf(stderr, "%s:%s:", __FILE__, __func__);
 
-        std::cerr << "Need at least 20 properties defined:\n";
-        std::cerr << "    pr     [Pa]     Nonlinear Reference Pressure\n";
-        std::cerr << "    K      [--]     Nonlinear Bulk Modulus Coefficient\n";
-        std::cerr << "    G      [--]     Nonlinear Shear Modulus Coefficient\n";
-        std::cerr << "    Ec     [J/m^3]  Critical Breakage Energy\n";
-        std::cerr << "    M_0    [--]     Friction Angle\n";
-        std::cerr << "    g      [--]     Dilation Factor (0 to 1)\n";
-        std::cerr << "    phi_l  [--]     Lower Porosity Limit at (B=0)\n";
-        std::cerr << "    phi_u  [--]     Upper Porosity Limit at (B=0)\n";
-        std::cerr << "    l      [--]     Lower Porosity Power Law Rate\n";
-        std::cerr << "    u      [--]     Upper Porosity Power Law Rate\n";
-        std::cerr << "    theta  [--]     Grading Index\n";
-        std::cerr << "    rho_0  [kg/m^3] Reference Density of Constituent Solid\n";
-        std::cerr << "    C0     [m/s]    Bulk Sound Speed at Reference Density\n";
-        std::cerr << "    S0     [--]     Slope of Us--Up Curve\n";
-        std::cerr << "    G0     [--]     Gruneisen Parameter\n";
+        std::cerr << "Need at least 14 properties defined:\n";
+        std::cerr << "    r0     [kg/m^3] Reference Density\n";
+        std::cerr << "    rIV    [kg/m^3] Density of Incipient Vaporization\n";
+        std::cerr << "    a      [--]     (?)\n";
+        std::cerr << "    b      [--]     (?)\n";
+        std::cerr << "    A      [Pa]     First-Order Bulk Modulus\n";
+        std::cerr << "    B      [Pa]     Second-Order Bulk Modulus\n";
+        std::cerr << "    E0     [J/kg]   Reference Energy\n";
+        std::cerr << "    alfa   [--]     (?)\n";
+        std::cerr << "    beta   [--]     (?)\n";
+        std::cerr << "    EIV    [J/kg]   Energy of Incipient Vaporization\n";
+        std::cerr << "    ECV    [J/kg]   Energy of Complete Vaporization\n";
         std::cerr << "    cv     [J/kg*K] Heat Capacity at Constant Volume\n";
-        std::cerr << "    b      [--]     Porosity Function Power\n";
         std::cerr << "    T0     [K]      Reference Temperature\n";
-        std::cerr << "    B_0    [--]     Initial Value of Breakage\n";
-        std::cerr << "    phi_0  [--]     Initial Porosity\n";
+        std::cerr << "    eta    [Pa*s]   Viscosity\n";
 
         exit(0);
     } else {
-        pr      = fp64_props[0];
-        K       = fp64_props[1];
-        G       = fp64_props[2];
-        Ec      = fp64_props[3];
-        M_0     = fp64_props[4];
-        g       = fp64_props[5];
-        phi_l   = fp64_props[6];
-        phi_u   = fp64_props[7];
-        l       = fp64_props[8];
-        u       = fp64_props[9];
-        theta   = fp64_props[10];
+        r0      = fp64_props[0];
+        rIV     = fp64_props[1];
+        a       = fp64_props[2];
+        b       = fp64_props[3];
+        A       = fp64_props[4];
+        B       = fp64_props[5];
+        E0      = fp64_props[6];
+        alfa    = fp64_props[7];
+        beta    = fp64_props[8];
+        EIV     = fp64_props[9];
+        ECV     = fp64_props[10];
 
-        rho_0   = fp64_props[11];
-        C0      = fp64_props[12];
-        S0      = fp64_props[13];
-        G0      = fp64_props[14];
-        cv      = fp64_props[15];
-        b       = fp64_props[16];
-        T0      = fp64_props[17];
-
-        double B_0 = fp64_props[18];
-        double phi_0 = fp64_props[19];
+        cv      = fp64_props[11];
+        T0      = fp64_props[12];
+        eta     = fp64_props[13];
 
         std::cout << "Material Propoerties:\n";
-        std::cout << "    pr     = " << pr << " [Pa]\n";
-        std::cout << "    K      = " << K << " [--]\n";
-        std::cout << "    G      = " << G << " [--]\n";
-        std::cout << "    Ec     = " << Ec << " [J/m^3]\n";
-        std::cout << "    M_0    = " << M_0 << " [--]\n";
-        std::cout << "    g      = " << g << " [--]\n";
-        std::cout << "    phi_l  = " << phi_l << " [--]\n";
-        std::cout << "    phi_u  = " << phi_u << " [--]\n";
-        std::cout << "    l      = " << l << " [--]\n";
-        std::cout << "    u      = " << u << " [--]\n";
-        std::cout << "    theta  = " << theta << " [--]\n";
-        std::cout << "    rho_0  = " << rho_0 << " [kg/m^3]\n";
-        std::cout << "    C0     = " << C0 << " [m/s]\n";
-        std::cout << "    S0     = " << S0 << " [--]\n";
-        std::cout << "    G0     = " << G0 << " [--]\n";
-        std::cout << "    cv     = " << cv << " [J/kg*K]\n";
+
+
+        std::cout << "Need at least 14 properties defined:\n";
+        std::cout << "    r0     = " << r0 << " [kg/m^3]\n";
+        std::cout << "    rIV    = " << rIV << " [kg/m^3]\n";
+        std::cout << "    a      = " << a << " [--]\n";
         std::cout << "    b      = " << b << " [--]\n";
+        std::cout << "    A      = " << A << " [Pa]\n";
+        std::cout << "    B      = " << B << " [Pa]\n";
+        std::cout << "    E0     = " << E0 << " [J/kg]\n";
+        std::cout << "    alfa   = " << alfa << " [--]\n";
+        std::cout << "    beta   = " << beta << " [--]\n";
+        std::cout << "    EIV    = " << EIV << " [J/kg]\n";
+        std::cout << "    ECV    = " << ECV << " [J/kg]\n";
+        std::cout << "    cv     = " << cv << " [J/kg*K]\n";
         std::cout << "    T0     = " << T0 << " [K]\n";
-        std::cout << "    B_0    = " << B_0 << " [--]\n";
-        std::cout << "    phi_0  = " << phi_0 << " [--]\n";
+        std::cout << "    eta    = " << eta << " [Pa*s]\n";
 
         //check for string flags
         for (int s=0; s<str_props.size(); s++){
             if (str_props[s].compare("ISOTHERMAL") == 0){
                 //isothermal simulation
                 is_adiabatic = false;
-            } else if (str_props[s].compare("INCOMPRESSIBLE") == 0){
-                //incompressible model
-                is_compressible = false;
             } else if (str_props[s].compare("USE_ARTIFICIAL_VISCOSITY") == 0){
                 //artificial velocity
                 use_artificial_viscosity = true;
-            } else if (str_props[s].compare("USE_NEWTONS_METHOD") == 0){
-                //newtons method for porosity calculation
-                use_newtons_method = true;
             }
         }
 
-        if (use_artificial_viscosity && fp64_props.size() > 20){
-            h_i = fp64_props[20];
+        if (use_artificial_viscosity && fp64_props.size() > 14){
+            h_i = fp64_props[15];
             std::cout << "  Using Artificial Viscosity:\n";
             std::cout << "    h_i    = " << h_i << " [m]\n";
         } else if (use_artificial_viscosity){
             std::cout << "  *NOT* Using Artificial Viscosity! No h_i parameter defined.\n";
-        }
-
-        if (is_compressible){
-            std::cout << "  Using Compressible Model.\n";
-        } else {
-            std::cout << "  Using Incompressible Model.\n";
         }
 
         if (is_adiabatic){
@@ -134,56 +106,12 @@ void CompressibleBreakageMechanicsSand::init(Job* job, Body* body){
             std::cout << "  Using Isothermal Model.\n";
         }
 
-        if (use_newtons_method){
-            std::cout << "  Using Newton's Method for Porosity Computation.\n";
-        } else {
-            std::cout << "  Using Bisection Method for Porosity Computation.\n";
-        }
+        //initialize internal state
+        rho = r0 * Eigen::VectorXd::Ones(body->points->x.size());
+        J = Eigen::VectorXd::Ones(body->points->x.size());
 
-
-        /*
-        std::cout << "Material properties ("
-                  << "pr = " << pr << " Pa, "
-                  << "K = " << K << ", "
-                  << "G = " << G << ", "
-                  << "Ec = " << Ec << " Pa, "
-                  << "M_0 = " << M_0 << ", "
-                  << "gamma = " << g << ", "
-                  << "phi_l = " << phi_l << ", "
-                  << "phi_u = " << phi_u << ", "
-                  << "l = " << l << ", "
-                  << "u = " << u << ", "
-                  << "theta = " << theta << ", "
-                  << "rho_0 = " << rho_0 << " kg/m^3, "
-                  << "B_0 = " << B_0 << ", "
-                  << "phi_0 = " << phi_0
-                  << ").\n";
-                  */
-
-        //initialize B, phiS, phiP, Be, F
-        B = B_0 * Eigen::VectorXd::Ones(body->points->x.size());
-        phiS = (1 - phi_0) * Eigen::VectorXd::Ones(body->points->x.size());
-        phiP = phi_0 * Eigen::VectorXd::Ones(body->points->x.size());
-        Es = cv * T0 * Eigen::VectorXd::Ones(body->points->x.size());
-        Ts = T0 * Eigen::VectorXd::Ones(body->points->x.size());
-        Be = MaterialTensorArray(body->points->x.size());
-        F = MaterialTensorArray(body->points->x.size());
-
-        //initialize scalar outputs
-        evDot = Eigen::VectorXd(body->points->x.size());
-        esDot = Eigen::VectorXd(body->points->x.size());
-        BDot = Eigen::VectorXd(body->points->x.size());
-
-        //debug variables
-        kVec = Eigen::VectorXd(body->points->x.size());
-        yVec = Eigen::VectorXd(body->points->x.size());
-        lVec = Eigen::VectorXd(body->points->x.size());
-
-        //fill Be, F with initial deformation
-        for (int i=0; i<body->points->x.size(); i++){
-            Be(i) = MaterialTensor::Identity();
-            F(i) = MaterialTensor::Identity();
-        }
+        Ef = cv * T0 * Eigen::VectorXd::Ones(body->points->x.size());
+        Tf = T0 * Eigen::VectorXd::Ones(body->points->x.size());
 
         //compute cold energy reference states
         ComputeColdEnergyReferenceStates();
@@ -196,7 +124,7 @@ void CompressibleBreakageMechanicsSand::init(Job* job, Body* body){
 
 /*----------------------------------------------------------------------------*/
 //calculate stress state given prior state and strain-rate
-void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, int SPEC){
+void TillotsonEOSFluid::calculateStress(Job* job, Body* body, int SPEC){
     //convergence criteria
     double AbsTOL = 1e-7;
     int MaxIter = 50;
@@ -214,7 +142,7 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
     double p, q, EB, evRate, esRate, BRate, phi_max;
     double lambda, lambdaA, lambdaB, lambdaC, lambdaMAX, lambdaMAXEST;
     double y, y0, yA, yB, yC;
-    double trDe, a, dadp, phiSTemp, JeTemp, detBe;
+    double trDe, a, dadp, phiSTemp, JeTemp;
 
     //iteration variables
     int k;
@@ -262,20 +190,9 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
         mat_state.phi = PorosityFromMaterialState(mat_state);
 
         // Check for Yielding in Tension
-        if (mat_state.Be.trace() > 3){
-            // Estimate Stress State
-            S = CauchyStressFromMaterialState(mat_state);
-
-            if (S.trace() >= 0){
-                // No Stresses in Tension
-                tensileYield = true;
-            } else {
-                // No Contact Stresses, but MAYBE Granular Stresses
-                // Shear Deformations -> Zero
-                // Conserve Volumetric Deformations
-                detBe = mat_state.Be.det();
-                mat_state.Be = std::cbrt(detBe) * MaterialTensor::Identity();
-            }
+        if (mat_state.Be.trace() > 3 && mat_state.Be.det() > 1){
+            // No Stresses in Tension
+            tensileYield = true;
         }
 
         // Check for Yielding in Compaction
@@ -292,10 +209,9 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
             body->points->T[i].setZero();
             // - zero elastic strain
             Be[i].setIdentity();
-            mat_state.Be.setIdentity();
             // - porosity evolution continues
             phiP(i) += job->dt * D.trace() * (1 - phiP(i));
-            phiS(i) = 1.0 - PorosityFromMaterialState(mat_state);
+            phiS(i) = 1.0 - mat_state.phi;
             // - energy is only thermal
             Es(i) = cv * Ts(i);
             // - save deformation
@@ -315,10 +231,9 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
             body->points->T[i].setZero();
             // - zero elastic strain
             Be[i].setIdentity();
-            mat_state.Be.setIdentity();
             // - porosity evolution continues
             phiP(i) += job->dt * D.trace() * (1 - phiP(i));
-            phiS(i) = 1.0 - PorosityFromMaterialState(mat_state);
+            phiS(i) = 1.0 - mat_state.phi;
             // - energy is only thermal
             Es(i) = cv * Ts(i);
             // - save deformation
@@ -374,7 +289,7 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
             // Check for Plastic Compaction/Dilation
             if (BeRate.trace() < 0) {
                 lambdaMAX = (mat_state.Be.trace() - 3) / BeRate.trace();
-            } else if (BeRate.trace() > 0) {
+            } else {
                 lambdaMAX = mat_state.Be.trace() / BeRate.trace();
             }
 
@@ -391,16 +306,6 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
             // Check for Over-Breakage
             if (BRate > 0){
                 lambdaMAXEST = (1.0 - mat_state.B) / BRate;
-            }
-            if (lambdaMAXEST < lambdaMAX){
-                lambdaMAX = lambdaMAXEST;
-            }
-
-            // Check for Porosity Estimate
-            if (evRate > 0){
-                lambdaMAXEST = 1.0 / evRate;
-            } else if (evRate < 0) {
-                lambdaMAXEST = -mat_state.phiP / (evRate * (1.0 - mat_state.phiP));
             }
             if (lambdaMAXEST < lambdaMAX){
                 lambdaMAX = lambdaMAXEST;
@@ -432,7 +337,7 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
 
                 // Use Secant Method
                 lambdaA = lambda;               //Plastic Step Lengths
-                lambdaB = 1e-2 * lambdaMAX;
+                lambdaB = 1e-3 * lambdaMAX;
                 lambdaC = lambdaB;
                 yA = 1;                         //Yield Function Values
                 yB = 10;
@@ -486,7 +391,7 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
                     }
 
                     // Ensure Yield Function Values Differ
-                    if (std::abs(yA) > AbsTOL && std::abs(yB) > AbsTOL && std::abs(yA - yB) < AbsTOL){
+                    if (std::abs(yA) > AbsTOL && std::abs(yB) > AbsTOL && std::abs(yA - yB) < AbsTOL && k < MaxIter){
                         // Increment Counter
                         k++;
 
@@ -615,15 +520,6 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
                 // No Plastic Deformation
             }
 
-            // Bound Plastic Step Length
-            /*
-            if (lambda > lambdaMAX){
-                lambda = lambdaMAX;
-            } else if (lambda < 0){
-                lambda = 0;
-            }
-             */
-
             // Final State Update
             mat_state.B    = mat_state.B      + lambda * BRate;
             mat_state.phiP = mat_state.phiP   + lambda * evRate * (1.0 - mat_state.phiP);
@@ -698,8 +594,8 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
 
 /*----------------------------------------------------------------------------*/
 //define stress assignement for consistency with history dependent materials
-void CompressibleBreakageMechanicsSand::assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC){
-    std::cout << "WARNING: CompressibleBreakageMechanicsSand does not implement assignStress(). Assigning pressure instead." << std::endl;
+void TillotsonEOSFluid::assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC){
+    std::cout << "WARNING: TillotsonEOSFluid does not implement assignStress(). Assigning pressure instead." << std::endl;
     assignPressure(job, body, (-stressIN.trace()/3.0), idIN, SPEC);
     return;
 }
@@ -707,7 +603,7 @@ void CompressibleBreakageMechanicsSand::assignStress(Job* job, Body* body, Mater
 
 /*----------------------------------------------------------------------------*/
 //define pressure assignement for consistency with history dependent materials
-void CompressibleBreakageMechanicsSand::assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC){
+void TillotsonEOSFluid::assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC){
     MaterialTensor tmp = body->points->T[idIN];
     body->points->T[idIN] = tmp - (1.0/3.0 * tmp.trace() + pressureIN)*MaterialTensor::Identity();
 
@@ -736,7 +632,7 @@ void CompressibleBreakageMechanicsSand::assignPressure(Job* job, Body* body, dou
 
 /*----------------------------------------------------------------------------*/
 //frame and state writing
-void CompressibleBreakageMechanicsSand::writeFrame(Job* job, Body* body, Serializer* serializer){
+void TillotsonEOSFluid::writeFrame(Job* job, Body* body, Serializer* serializer){
 
     // Compute Material Strain
     MaterialTensor Ee = MaterialTensor();
@@ -836,11 +732,11 @@ void CompressibleBreakageMechanicsSand::writeFrame(Job* job, Body* body, Seriali
     return;
 }
 
-std::string CompressibleBreakageMechanicsSand::saveState(Job* job, Body* body, Serializer* serializer, std::string filepath){
+std::string TillotsonEOSFluid::saveState(Job* job, Body* body, Serializer* serializer, std::string filepath){
     return "err";
 }
 
-int CompressibleBreakageMechanicsSand::loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath){
+int TillotsonEOSFluid::loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath){
     return 0;
 }
 
@@ -848,12 +744,12 @@ int CompressibleBreakageMechanicsSand::loadState(Job* job, Body* body, Serialize
 /*----------------------------------------------------------------------------*/
 //Helper Functions
 
-void CompressibleBreakageMechanicsSand::ComputeColdEnergyReferenceStates(){
+void TillotsonEOSFluid::ComputeColdEnergyReferenceStates(){
 //Compute Reference Values for Cold Energy
 //  Compute discrete reference cold energy values between Jmin and Jmax to save computation time during simulation
 
     // State What You Are Doing
-    std::cout << "Computing cold energy curve for CompressibleBreakageMechanicsSand..." << std::endl;
+    std::cout << "Computing cold energy curve for TillotsonEOSFluid..." << std::endl;
 
     // Create Cold Energy References and Volumes
     int nBins = 100;
@@ -924,7 +820,7 @@ void CompressibleBreakageMechanicsSand::ComputeColdEnergyReferenceStates(){
 }
 
 
-double CompressibleBreakageMechanicsSand::EBFromMaterialState(MaterialState& stateIN){
+double TillotsonEOSFluid::EBFromMaterialState(MaterialState& stateIN){
 //Compute EB from Scalar Elastic Strains
 //  Returns the breakage energy value EB computed from Material State
 
@@ -947,7 +843,7 @@ double CompressibleBreakageMechanicsSand::EBFromMaterialState(MaterialState& sta
 }
 
 
-std::vector<double> CompressibleBreakageMechanicsSand::PQFromMaterialState(MaterialState& stateIN){
+std::vector<double> TillotsonEOSFluid::PQFromMaterialState(MaterialState& stateIN){
 //Compute P,Q from Scalar Elastic Strains
 //  Compute pressure and shear stress from material state
 
@@ -1029,7 +925,7 @@ std::vector<double> CompressibleBreakageMechanicsSand::PQFromMaterialState(Mater
     return pq;
 }
 
-std::vector<double> CompressibleBreakageMechanicsSand::PlasticFlowRulesFromMaterialState(MaterialState& stateIN){
+std::vector<double> TillotsonEOSFluid::PlasticFlowRulesFromMaterialState(MaterialState& stateIN){
 //Compute relative rates of deformation for ev, es, and B from material state and material deformation
 
     // Output Vector
@@ -1065,12 +961,8 @@ std::vector<double> CompressibleBreakageMechanicsSand::PlasticFlowRulesFromMater
         Rates[0] = 1; //evRate
         Rates[1] = 1; //esRate
         Rates[2] = 0; //BRate
-    } else if (!std::isfinite(tau)) {
-        // Handle B = 1 Case
-        Rates[0] = 1; //evRate
-        Rates[1] = 1; //esRate
-        Rates[2] = 0; //BRate
     } else {
+
         // Dilation Angle
         double M_d = g * (tau - tau_cs) * (6.0 * std::sin(tp) / (3.0 - std::sin(tp)) - M_0);
 
@@ -1080,12 +972,12 @@ std::vector<double> CompressibleBreakageMechanicsSand::PlasticFlowRulesFromMater
         // Plasticity Rates
         // evRate
         Rates[0] = -EB * (1.0 - stateIN.B) * (1.0 - stateIN.B) * std::sin(w) * std::sin(w) / Ec
-                * p / (p*p + q*q)
-                + q * M_d / ((M_0 + M_d)*p * (M_0 + M_d)*p);
+                   * p / (p*p + q*q)
+                   + q * M_d / ((M_0 + M_d)*p * (M_0 + M_d)*p);
         // esRate
         Rates[1] = EB * (1.0 - stateIN.B) * (1.0 - stateIN.B) * std::sin(w) * std::sin(w) / Ec
-                * q / (p*p + q*q)
-                + q / ((M_0 + M_d)*p * (M_0 + M_d)*p);
+                   * q / (p*p + q*q)
+                   + q / ((M_0 + M_d)*p * (M_0 + M_d)*p);
         // BRate
         Rates[2] = (1.0 - stateIN.B) * (1.0 - stateIN.B) * std::cos(w) * std::cos(w) / Ec;
 
@@ -1096,7 +988,7 @@ std::vector<double> CompressibleBreakageMechanicsSand::PlasticFlowRulesFromMater
 }
 
 
-double CompressibleBreakageMechanicsSand::YieldFunctionFromMaterialState(MaterialState& stateIN){
+double TillotsonEOSFluid::YieldFunctionFromMaterialState(MaterialState& stateIN){
 //Compute y from material state
 
     // Compute Material Stress State
@@ -1126,17 +1018,12 @@ double CompressibleBreakageMechanicsSand::YieldFunctionFromMaterialState(Materia
     // Dilation Angle
     double M_d = g * (tau - tau_cs) * (6.0 * std::sin(tp) / (3.0 - std::sin(tp)) - M_0);
 
-    // Handle B = 1
-    if (!std::isfinite(tau)){
-        M_d = 0;
-    }
-
     // Yield f'n
     return EB * (1.0 - stateIN.B) * (1.0 - stateIN.B) / Ec + q * q / ((M_0 + M_d)*p * (M_0 + M_d)*p) - 1;
 
 }
 
-MaterialTensor CompressibleBreakageMechanicsSand::CauchyStressFromMaterialState(MaterialState& stateIN){
+MaterialTensor TillotsonEOSFluid::CauchyStressFromMaterialState(MaterialState& stateIN){
     // Compute Cauchy Stress from Material State and Deformation
 
     // Strain Invaraints
@@ -1191,7 +1078,7 @@ MaterialTensor CompressibleBreakageMechanicsSand::CauchyStressFromMaterialState(
     return S;
 }
 
-MaterialTensor CompressibleBreakageMechanicsSand::YieldStressFromMaterialState(MaterialState& stateIN){
+MaterialTensor TillotsonEOSFluid::YieldStressFromMaterialState(MaterialState& stateIN){
     // Stress Conjugate to Plastic Deformation
     // This is NOT the Cauchy Stress, but is almost the Cauchy Stress
 
@@ -1246,7 +1133,7 @@ MaterialTensor CompressibleBreakageMechanicsSand::YieldStressFromMaterialState(M
     return S;
 }
 
-double CompressibleBreakageMechanicsSand::PorosityFromMaterialState(MaterialState &stateIN) {
+double TillotsonEOSFluid::PorosityFromMaterialState(MaterialState &stateIN) {
     // Estimate Porosity from Material Deformation
 
     // Elastic Volume Ratio
@@ -1256,14 +1143,14 @@ double CompressibleBreakageMechanicsSand::PorosityFromMaterialState(MaterialStat
     double J = 1.0;
     double a, phiSTemp;
     double phiA, phiB, phiC;
-    double yA, yB, yC, dydp;
+    double yA, yB, yC;
 
     // Bisection
     int n = 0;
     double A = (1.0/Je - 1.0);
     phiA = 0; yA = -1;
     phiB = 1; yB =  1;
-    phiC = 1; yC =  1; dydp = 1;
+    phiC = 1; yC =  1;
     if (is_compressible){
         // Use Compressible Model
 
@@ -1271,35 +1158,17 @@ double CompressibleBreakageMechanicsSand::PorosityFromMaterialState(MaterialStat
             //increment n
             n++;
 
-            if (use_newtons_method){
-                // Use Newton's Method
+            //set phiC to average of phiA and phiB
+            phiC = 0.5 * (phiA + phiB);
 
-                //evaluate yC
-                yC = phiC + A * std::pow(phiC, b + 1) - stateIN.rho / rho_0;
+            //evaluate yC
+            yC = phiC + A * std::pow(phiC, b+1) - stateIN.rho / rho_0;
 
-                //evalucate dy/dphi
-                dydp = (b + 1) * A * std::pow(phiC, b) + 1.0;
-
-                //update phiC
-                phiC -= yC / dydp;
-
+            // assign phiA, phiB
+            if (yC * yA > 0){
+                phiA = phiC; yA = yC;
             } else {
-                // Use Bisection
-
-                //set phiC to average of phiA and phiB
-                phiC = 0.5 * (phiA + phiB);
-
-                //evaluate yC
-                yC = phiC + A * std::pow(phiC, b + 1) - stateIN.rho / rho_0;
-
-                // assign phiA, phiB
-                if (yC * yA > 0) {
-                    phiA = phiC;
-                    yA = yC;
-                } else {
-                    phiB = phiC;
-                    yB = yC;
-                }
+                phiB = phiC; yB = yC;
             }
         }
 
@@ -1316,7 +1185,7 @@ double CompressibleBreakageMechanicsSand::PorosityFromMaterialState(MaterialStat
 }
 
 
-double CompressibleBreakageMechanicsSand::ContactEnergyFromMaterialState(MaterialState &stateIN) {
+double TillotsonEOSFluid::ContactEnergyFromMaterialState(MaterialState &stateIN) {
     // Compute Contact Strain Energy (J/kg) from Material Deformation
 
     // Strain Invaraints
@@ -1340,7 +1209,7 @@ double CompressibleBreakageMechanicsSand::ContactEnergyFromMaterialState(Materia
 }
 
 
-double CompressibleBreakageMechanicsSand::ColdEnergyFromMaterialState(MaterialState &stateIN) {
+double TillotsonEOSFluid::ColdEnergyFromMaterialState(MaterialState &stateIN) {
     // Compute Cold Energy (J/kg) from Material State
     double eC = 0;
 
@@ -1409,7 +1278,7 @@ double CompressibleBreakageMechanicsSand::ColdEnergyFromMaterialState(MaterialSt
 }
 
 
-double CompressibleBreakageMechanicsSand::TemperatureFromMaterialState(MaterialState &stateIN) {
+double TillotsonEOSFluid::TemperatureFromMaterialState(MaterialState &stateIN) {
     // Compute Temperature from Material State
 
     // Compute Contact Strain Energy

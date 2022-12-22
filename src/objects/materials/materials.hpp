@@ -371,6 +371,7 @@ public:
     bool is_adiabatic = true;
     bool is_compressible = true;
     bool use_artificial_viscosity = false;
+    bool use_newtons_method = false;
 
     //history variables
     Eigen::VectorXd B, phiS, phiP;  //breakage measure, solid volume fraction, plastic porosity
@@ -412,6 +413,61 @@ public:
     std::vector<double> PQFromMaterialState(MaterialState& stateIN);
     double YieldFunctionFromMaterialState(MaterialState& stateIN);
     double ContactEnergyFromMaterialState(MaterialState& stateIN);
+    double ColdEnergyFromMaterialState(MaterialState& stateIN);
+    double TemperatureFromMaterialState(MaterialState& stateIN);
+
+    void ComputeColdEnergyReferenceStates();
+
+    void init(Job* job, Body* body);
+    void calculateStress(Job* job, Body* body, int SPEC);
+    void assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC);
+    void assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
+class TillotsonEOSFluid : public Material {
+public:
+    TillotsonEOSFluid(){
+        object_name = "TillotsonEOSFluid";
+    }
+
+    //convergence criteria
+    double AbsTOL = 1e-7;
+    int MaxIter = 50;
+
+    //material properties
+    double r0, rIV, a, b, A, B, E0, alfa, beta, EIV, ECV, cv, T0, eta;
+
+    //artificial viscosity properties
+    double h_i = 0;
+
+    //simulation flags
+    bool is_adiabatic = true;
+    bool use_artificial_viscosity = false;
+
+    //history variables
+    Eigen::VectorXd rho, J;         //material density, volume ratio
+    Eigen::VectorXd Ef, Tf;         //specific internal energy, temperature
+
+    //cold energy function
+    double dJ, Jmax, Jmin;      //range of volume ratios for computation
+    std::vector<double> JVec;   //cold energy reference volume ratios
+    std::vector<double> eCVec;  //cold energy reconstruction
+
+    //state struct for computation
+    struct MaterialState {
+        double rho;         //Density
+        double Tf;          //Temperature
+        double Ef;          //Specific Internal Energy
+        MaterialTensor S;   //Cauchy Stress
+        MaterialTensor L;   //Velocity Gradient
+        double p;           //Pressure
+    };
+
+    MaterialTensor CauchyStressFromMaterialState(MaterialState& stateIN);
     double ColdEnergyFromMaterialState(MaterialState& stateIN);
     double TemperatureFromMaterialState(MaterialState& stateIN);
 
