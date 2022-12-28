@@ -439,7 +439,7 @@ public:
     int MaxIter = 50;
 
     //material properties
-    double r0, rIV, a, b, A, B, E0, alfa, beta, EIV, ECV, cv, T0, eta;
+    double r0, rIV, a, b, A, B, E0, alfa, beta, EIV, ECV, cv, T0, eta0, PCav;
 
     //artificial viscosity properties
     double h_i = 0;
@@ -453,8 +453,8 @@ public:
     Eigen::VectorXd Ef, Tf;         //specific internal energy, temperature
 
     //cold energy function
-    double dJ, Jmax, Jmin;      //range of volume ratios for computation
-    std::vector<double> JVec;   //cold energy reference volume ratios
+    double dr, rmax, rmin;      //range of densities for computation
+    std::vector<double> rVec;   //cold energy reference densities
     std::vector<double> eCVec;  //cold energy reconstruction
 
     //state struct for computation
@@ -468,6 +468,7 @@ public:
     };
 
     MaterialTensor CauchyStressFromMaterialState(MaterialState& stateIN);
+    double PressureFromMaterialState(MaterialState& stateIN);
     double ColdEnergyFromMaterialState(MaterialState& stateIN);
     double TemperatureFromMaterialState(MaterialState& stateIN);
 

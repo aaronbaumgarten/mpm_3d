@@ -373,4 +373,58 @@ public:
     virtual void updateStress(Job* job);
 };
 
+/*--------------------------------------------*/
+// Solver for Impact Into Mixtures
+
+class BarotropicViscousFluid;
+class TillotsonEOSFluid;
+class CompressibleBreakageMechanicsSand;
+
+class ExplicitMixtureSolver : public ExplicitUSL{
+public:
+    ExplicitMixtureSolver(){
+        object_name = "ExplicitMixtureSolver"; //set name of object from registry
+    }
+
+    // bodies
+    Body* fluid_body;
+    Body* granular_body;
+    Body* solid_body;
+
+    // fluid material model pointers
+    BarotropicViscousFluid* barotropic_viscous_fluid_model;
+    TillotsonEOSFluid* tillotson_eos_fluid_model;
+
+    // sand material model pointers
+    CompressibleBreakageMechanicsSand* compressible_breakage_mechanics_sand_model;
+
+    // porosity field
+    Eigen::VectorXd n;
+
+    // solid "true" density rate of change in solid material frame
+    Eigen::VectorXd drdt;
+
+    // fluid simulation flag
+    // 0 -- BarotropicViscousFluid
+    // 1 -- TillotsonEOSFluid
+    int fluid_model = 0;
+
+    // impact simulation flags
+    bool use_reflected_boundary = false;
+
+    virtual void init(Job* job);
+    virtual void step(Job* job);
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    virtual void mapPointsToNodes(Job* job);
+    virtual void generateBoundaryConditions(Job* job);
+    virtual void addBoundaryConditions(Job* job);
+    virtual void moveGrid(Job* job);
+    virtual void movePoints(Job* job);
+    virtual void calculateStrainRate(Job* job);
+    virtual void updateDensity(Job* job);
+    virtual void updateStress(Job* job);
+};
+
 #endif //MPM_V3_SOLVERS_HPP

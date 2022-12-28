@@ -11,5 +11,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/compressible_neohookean_elasticity.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/breakage_mechanics_sand.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/compressible_breakage_mechanics_sand.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/tillotson_eos_fluid.cpp
         PARENT_SCOPE
         )
