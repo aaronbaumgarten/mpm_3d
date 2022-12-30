@@ -387,7 +387,7 @@ public:
     }
 
     // input parameters
-    double grains_d;
+    double grains_d, rhof_0;
 
     // bodies
     Body *fluid_body;

@@ -29,22 +29,24 @@ void ExplicitMixtureSolver::init(Job* job){
     ExplicitUSL::init(job);
 
     //identify bodies
-    if (str_props.size() < 3 || fp64_props.size() < 1){
+    if (str_props.size() < 3 || fp64_props.size() < 2){
         std::cerr << str_props.size() << " ?= 3\n";
-        std::cerr << fp64_props.size() << " ?= 1\n";
+        std::cerr << fp64_props.size() << " ?= 2\n";
         fprintf(stderr, "%s:%s:", __FILE__, __func__);
 
         std::cerr << "ExplicitMixtureSolver needs at least 3 bodies defined by name.\n";
         std::cerr << "    granular_body:\n";
         std::cerr << "    fluid_body:\n";
         std::cerr << "    solid_body:\n";
-        std::cerr << "ExplicitMixtureSolver needs at least 1 material property defined.\n";
+        std::cerr << "ExplicitMixtureSolver needs at least 2 material properties defined.\n";
         std::cerr << "    grains_d:\n";
+        std::cerr << "    rhof_0:\n";
         exit(0);
     } else {
 
         //assign material property
-        grains_d = fp64_props[0];
+        grains_d    = fp64_props[0];
+        rhof_0      = fp64_props[1];
 
         //initialization boolean
         bool initilization_fail = false;
@@ -83,8 +85,9 @@ void ExplicitMixtureSolver::init(Job* job){
         std::cout << "    granular_body: " << granular_body->name << "\n";
         std::cout << "    fluid_body: "    << fluid_body->name << "\n";
         std::cout << "    solid_body: "    << solid_body->name << "\n";
-        std::cout << "ExplicitMixtureSolver has 1 material property!\n";
+        std::cout << "ExplicitMixtureSolver has 2 material properties!\n";
         std::cout << "    grains_d: "       << grains_d << "\n";
+        std::cout << "    rhof_0: "         << rhof_0 << "\n";
 
         //attempt to identify granular material model
         if (granular_body->material->object_name.compare("CompressibleBreakageMechanicsSand") == 0){
@@ -115,7 +118,7 @@ void ExplicitMixtureSolver::init(Job* job){
             std::cout << "   " << barotropic_viscous_fluid_model->object_name << " =? BarotropicViscousFluid\n";
         } else if (fluid_body->material->object_name.compare("TillotsonEOSFluid") == 0){
             //success!
-            fluid_model = 2;
+            fluid_model = 1;
 
             //attempt high risk of pointer to granular material model
             tillotson_eos_fluid_model = dynamic_cast<TillotsonEOSFluid*>(fluid_body->material.get());
@@ -240,15 +243,19 @@ void ExplicitMixtureSolver::addInteractionForces(Job *job) {
     // Porosity, Density, and Dr/Dt
     if (n.size() != fluid_body->nodes->x.size()){
         n.resize(fluid_body->nodes->x.size());
+        n.setOnes();
     }
     if (rho_f.size() != fluid_body->points->x.size()){
         rho_f.resize(fluid_body->points->x.size());
+        rho_f.setConstant(rhof_0);
     }
     if (drhos_dt.size() != granular_body->points->x.size()){
         drhos_dt.resize(granular_body->points->x.size());
+        drhos_dt.setZero();
     }
     if (drhof_dt.size() != fluid_body->points->x.size()){
         drhof_dt.resize(fluid_body->points->x.size());
+        drhof_dt.setZero();
     }
 
 
@@ -608,58 +615,206 @@ void ExplicitMixtureSolver::updateDensity(Job* job){
         }
     }
 
-
-
-
-    // 3 -- Apply Equivalent Strain-rate to Fluid
-
-    /*---------------------*/
-    // update fluid density
-    /*---------------------*/
-
     // interpolate n to fluid points
     Eigen::VectorXd n_p = fluid_body->S.operate(n, MPMSparseMatrixBase::TRANSPOSED);
 
     // calculate divergence of ((1-n)*vs + n*vw)
     Eigen::VectorXd pvec = fluid_body->gradS.dot(nMat, MPMSparseMatrixBase::TRANSPOSED);
 
-    //adjust pvec for axisym case
+    // adjust divergence for axisym case
     if (job->JOB_TYPE == job->JOB_AXISYM){
-        KinematicVectorArray tmpVec(body->points->x.size(),body->points->x.VECTOR_TYPE);
-        tmpVec = body->S.operate(nMat, MPMSparseMatrixBase::TRANSPOSED);
+        KinematicVectorArray tmpVec(fluid_body->points->x.size(),fluid_body->points->x.VECTOR_TYPE);
+        tmpVec = fluid_body->S.operate(nMat, MPMSparseMatrixBase::TRANSPOSED);
         for (int p=0; p<pvec.rows(); p++){
-            pvec(p) += tmpVec(p,0)/body->points->x(p,0);
+            pvec(p) += tmpVec(p,0)/fluid_body->points->x(p,0);
         }
     }
 
-    MaterialTensor tmpMat;
-    double eta; //fluid viscosity change w/ phi
+    // project drhos_dt onto fluid points
+    Eigen::VectorXd nodal_drhos_dt = granular_body->S * drhos_dt;
+    Eigen::VectorXd fluid_drhos_dt = fluid_body->S.operate(nodal_drhos_dt, MPMSparseMatrixBase::TRANSPOSED);
 
-    for (int i=0;i<body->points->x.size();i++) {
-        if (body->points->active[i] == 0) {
+    // compute drhof_dt
+    for (int i=0; i<fluid_body->points->x.size(); i++){
+        drhof_dt(i) = -rho_f(i) / n_p(i) * (pvec(i) + fluid_drhos_dt(i) * (1.0 - n_p(i)));
+    }
+
+
+    //--------------------------------------------
+    // 3 -- Apply Equivalent Strain-rate to Fluid
+    //--------------------------------------------
+
+    // update fluid density
+    for (int i=0; i<fluid_body->points->x.size(); i++){
+        if (fluid_body->points->active[i] == 0){
             continue;
         }
 
-        L = body->points->L(i);
-
-        //n*rho_dot/rho = -div((1-n)*v_s + n*v_w)
-        //n*v_dot/v = div((1-n)*v_s + n*v_w)
-        if (n_p(i) > 0 && n_p(i) < 1.0) {
-            J_tr(i) *= std::exp(job->dt * pvec(i) / n_p(i));
-        } else {
-            J_tr(i) *= std::exp(job->dt * L.trace());
-        }
+        rho_f(i) += job->dt * drhof_dt(i);
     }
 
     return;
 }
 
 void ExplicitMixtureSolver::updateStress(Job* job){
-    for (int b=0;b<job->bodies.size();b++){
-        if (job->activeBodies[b] == 0 || job->bodies[b]->activeMaterial == 0){
-            continue;
+
+    // Compute Stresses for KNOWN Materials
+
+    //--------------------------
+    // 1 -- Update Solid Stress
+    //--------------------------
+
+    solid_body->material->calculateStress(job, solid_body, Material::UPDATE);
+
+    //-----------------------------
+    // 2 -- Update Granular Stress
+    //-----------------------------
+
+    granular_body->material->calculateStress(job, granular_body, Material::UPDATE);
+
+    //--------------------------
+    // 3 -- Update Fluid Stress
+    //--------------------------
+
+    // compute stresses for the fluid directly!
+    if (fluid_model == 0){
+        // BarotropicViscousFluid
+        double trD;
+        MaterialTensor D;
+
+        // compute volume ratio
+        Eigen::VectorXd J = Eigen::VectorXd(fluid_body->points->x.size());
+        for (int i=0;i<J.size();i++){
+            J(i) = rhof_0 / rho_f(i);
         }
-        job->bodies[b]->material->calculateStress(job, job->bodies[b].get(), Material::UPDATE);
+
+        // interpolate n to fluid points
+        Eigen::VectorXd n_p = fluid_body->S.operate(n, MPMSparseMatrixBase::TRANSPOSED);
+
+        // compute stresses
+        for (int i=0;i<fluid_body->points->x.size();i++){
+            if (fluid_body->points->active[i] == 0){
+                continue;
+            }
+
+            D = 0.5 * (fluid_body->points->L[i] + fluid_body->points->L[i].transpose());
+            trD = D.trace();
+
+            //T = 2*mu*D_0 + K*log(J)*I
+            //mu = 1 + 5/2 * phiS
+            fluid_body->points->T[i] = 2 * (1.0 + 5.0/2.0 * (1.0 - n_p(i))) * barotropic_viscous_fluid_model->eta
+                    * (D - (trD/3.0)*MaterialTensor::Identity())
+                    + barotropic_viscous_fluid_model->K*std::log(J(i))*MaterialTensor::Identity();
+        }
+
+    } else if (fluid_model == 1){
+        //TillotsonEOSFluid
+
+        // interpolate n to fluid points
+        Eigen::VectorXd n_p = fluid_body->S.operate(n, MPMSparseMatrixBase::TRANSPOSED);
+
+        //true density rate and effective density
+        double trDp, rhoBar;
+
+        //material state for internal variables
+        TillotsonEOSFluid::MaterialState mat_state;
+
+        //tensors for matrix calculation
+        MaterialTensor S, Sn, L, D, D0, W;
+
+        //artificial viscosity
+        double C0 = std::sqrt(tillotson_eos_fluid_model->A/tillotson_eos_fluid_model->r0);
+
+        for (int i=0;i<fluid_body->points->x.size();i++){
+            if (fluid_body->points->active[i] == 0){
+                continue;
+            }
+
+            // Initialize Material State Structure
+            mat_state = TillotsonEOSFluid::MaterialState();
+            mat_state.rho  = rho_f(i);
+            rhoBar         = fluid_body->points->m(i) / fluid_body->points->v(i);
+            mat_state.Tf   = tillotson_eos_fluid_model->Tf(i);
+            mat_state.Ef   = tillotson_eos_fluid_model->Ef(i);
+            mat_state.S    = fluid_body->points->T[i];
+            mat_state.p    = -fluid_body->points->T[i].trace()/3.0;
+
+            // Strain-Rate
+            L = fluid_body->points->L[i];
+
+            // Stress Tensor
+            S = fluid_body->points->T[i];
+            Sn = S;
+
+            // Deformation and Spin Rate
+            D = 0.5*(L+L.transpose());
+            W = 0.5*(L-L.transpose());
+
+            // Microscopic Volumetric Strain-Rate
+            trDp = -drhof_dt(i) / rho_f(i);
+
+            // Estimate Pressure
+            mat_state.p = tillotson_eos_fluid_model->PressureFromMaterialState(mat_state);
+
+            // Estimate Material Stress
+            D0 = D - D.trace()/3.0 * MaterialTensor::Identity();
+            mat_state.S = 2.0 * (1.0 + 5.0/2.0 * (1.0 - n_p(i))) * tillotson_eos_fluid_model->eta0 * D0;
+            mat_state.S -= mat_state.p * MaterialTensor::Identity();
+
+            // Check for Cavitation
+            if (mat_state.p >= tillotson_eos_fluid_model->PCav) {
+
+                // Add Artificial Viscosity in Compression
+                if (tillotson_eos_fluid_model->use_artificial_viscosity && trDp < 0) {
+                    mat_state.S += tillotson_eos_fluid_model->r0 * C0 * tillotson_eos_fluid_model->h_i * trDp * MaterialTensor::Identity();
+                }
+
+                // Compute Temperature/Energy Increment
+                // Shear Contribution to Energy Rate
+                mat_state.Ef += 0.5 * (Sn.dot(D0) + mat_state.S.dot(D0)) * job->dt / rhoBar;
+                // Pressure Contribution to Energy Rate
+                mat_state.Ef += 0.5 * (Sn.trace() + mat_state.S.trace()) / 3.0 * trDp * job->dt / mat_state.rho;
+
+                //mat_state.Ef += 0.5 * (Sn.dot(D) + mat_state.S.dot(D)) * job->dt / mat_state.rho;
+                mat_state.Tf = tillotson_eos_fluid_model->TemperatureFromMaterialState(mat_state);
+
+                // Final Stress Update
+                mat_state.p = tillotson_eos_fluid_model->PressureFromMaterialState(mat_state);
+
+                // Estimate Material Stress
+                fluid_body->points->T[i] = 2.0 * (1.0 + 5.0/2.0 * (1.0 - n_p(i))) * tillotson_eos_fluid_model->eta0 * D0;
+                fluid_body->points->T[i] -= mat_state.p * MaterialTensor::Identity();
+
+                // Final State Updtae
+                tillotson_eos_fluid_model->Tf(i) = mat_state.Tf;
+                tillotson_eos_fluid_model->Ef(i) = mat_state.Ef;
+                tillotson_eos_fluid_model->rho(i) = rho_f(i);
+                tillotson_eos_fluid_model->J(i)   = tillotson_eos_fluid_model->r0 / mat_state.rho;
+
+                // Add Artificial Viscosity in Compression
+                if (tillotson_eos_fluid_model->use_artificial_viscosity && trDp < 0) {
+                    fluid_body->points->T[i] += tillotson_eos_fluid_model->r0 * C0 * tillotson_eos_fluid_model->h_i * trDp * MaterialTensor::Identity();
+                }
+
+            } else {
+
+                // Fluid has Cavitated
+
+                // Set Stress to Cavitation Pressure
+                fluid_body->points->T[i] = -tillotson_eos_fluid_model->PCav * MaterialTensor::Identity();
+
+                // Set Temperature to T0
+                tillotson_eos_fluid_model->Tf(i) = mat_state.Tf;
+                tillotson_eos_fluid_model->Ef(i) = 0.0;
+                tillotson_eos_fluid_model->rho(i) = mat_state.rho;
+                tillotson_eos_fluid_model->J(i) = tillotson_eos_fluid_model->r0 / mat_state.rho;
+            }
+        }
+
+    } else {
+        std::cerr << "Something has gone terribly wrong in ExplicitMixtureSolver!\n";
+        std::cerr << "    fluid_model = " << fluid_model << std::endl;
     }
+
     return;
 }
