@@ -386,23 +386,29 @@ public:
         object_name = "ExplicitMixtureSolver"; //set name of object from registry
     }
 
+    // input parameters
+    double grains_d;
+
     // bodies
-    Body* fluid_body;
-    Body* granular_body;
-    Body* solid_body;
+    Body *fluid_body;
+    Body *granular_body;
+    Body *solid_body;
 
     // fluid material model pointers
-    BarotropicViscousFluid* barotropic_viscous_fluid_model;
-    TillotsonEOSFluid* tillotson_eos_fluid_model;
+    BarotropicViscousFluid *barotropic_viscous_fluid_model;
+    TillotsonEOSFluid *tillotson_eos_fluid_model;
 
     // sand material model pointers
-    CompressibleBreakageMechanicsSand* compressible_breakage_mechanics_sand_model;
+    CompressibleBreakageMechanicsSand *compressible_breakage_mechanics_sand_model;
 
     // porosity field
     Eigen::VectorXd n;
 
+    // fluid density
+    Eigen::VectorXd rho_f;
+
     // solid "true" density rate of change in solid material frame
-    Eigen::VectorXd drdt;
+    Eigen::VectorXd drhos_dt, drhof_dt;
 
     // fluid simulation flag
     // 0 -- BarotropicViscousFluid
@@ -411,20 +417,22 @@ public:
 
     // impact simulation flags
     bool use_reflected_boundary = false;
+    bool is_adiabatic = true;
+    bool is_compressible = true;
 
+    // reflected boundary information
+    KinematicVector Lx;
+    bool reflected_boundary_initialized = false;
+
+    // standard functions
     virtual void init(Job* job);
     virtual void step(Job* job);
-    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
-    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
 
-    virtual void mapPointsToNodes(Job* job);
-    virtual void generateBoundaryConditions(Job* job);
-    virtual void addBoundaryConditions(Job* job);
-    virtual void moveGrid(Job* job);
-    virtual void movePoints(Job* job);
-    virtual void calculateStrainRate(Job* job);
-    virtual void updateDensity(Job* job);
-    virtual void updateStress(Job* job);
+    // adjusted solver functions
+    void addInteractionForces(Job* job);
+    virtual void updateDensity(Job* job);           //+ porosity and true fluid density
+    virtual void updateStress(Job* job);            //+ fluid density update
+
 };
 
 #endif //MPM_V3_SOLVERS_HPP
