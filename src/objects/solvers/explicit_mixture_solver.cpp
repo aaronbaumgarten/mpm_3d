@@ -60,7 +60,7 @@ void ExplicitMixtureSolver::init(Job* job){
                     break;
                 }
             }
-            if (bodyIDs[i] <= 0){
+            if (bodyIDs[i] < 0){
                 std::cerr << "Uh oh! [" << i << "]" << std::endl;
                 initilization_fail = true;
                 break;
@@ -72,6 +72,13 @@ void ExplicitMixtureSolver::init(Job* job){
             std::cerr << "    granular_body: " << str_props[0] << "\n";
             std::cerr << "    fluid_body: " << str_props[1] << "\n";
             std::cerr << "    solid_body: " << str_props[2] << "\n";
+
+            std::cerr << "Names: ";
+            for (int b = 0; b<job->bodies.size(); b++){
+                std::cerr << job->bodies[b]->name << ", ";
+            }
+            std::cerr << "\n";
+
             exit(0);
         }
 
@@ -376,9 +383,9 @@ void ExplicitMixtureSolver::addInteractionForces(Job *job) {
     //calculate force contribution
     // SUBTRACT from solid
     // ADD to fluid
-    KinematicVectorArray fb_i = KinematicVectorArray(fluid_body->nodes->x.size());
+    KinematicVectorArray fb_i = KinematicVectorArray(fluid_body->nodes->x.size(), job->JOB_TYPE);
     for (int i=0; i<fluid_body->nodes->x.size(); i++){
-        fb_i[i] = (1.0 - n(i)) * gradP(i);
+        fb_i[i] = -(1.0 - n(i)) * gradP(i);
 
         granular_body->nodes->f(i)  -= fb_i[i];
         fluid_body->nodes->f(i)     += fb_i[i];
@@ -392,7 +399,19 @@ void ExplicitMixtureSolver::addInteractionForces(Job *job) {
 
     double m1, m2, eta_0, C;
     KinematicVector mv1i, mv2i, vCMi;
-    KinematicVectorArray fd_i = KinematicVectorArray(fluid_body->nodes->x.size());
+    KinematicVectorArray fd_i = KinematicVectorArray(fluid_body->nodes->x.size(), job->JOB_TYPE);
+
+    //get eta
+    if (fluid_model == 0){
+        //BarotropicViscousFluid
+        eta_0 = barotropic_viscous_fluid_model->eta;
+    } else if (fluid_model == 1){
+        //TillotsonEOSFluid
+        eta_0 = tillotson_eos_fluid_model->eta0;
+    } else {
+        std::cerr << "Something has gone terribly wrong in ExplicitMixtureSolver!\n";
+        std::cerr << "    fluid_model = " << fluid_model << std::endl;
+    }
 
     //calculate nodal momentum exchange
     for (int i = 0; i < n.rows(); i++) {
@@ -428,7 +447,7 @@ void ExplicitMixtureSolver::addInteractionForces(Job *job) {
     //--------------------------------------------------------
 
     //contact force vector
-    KinematicVectorArray fc_i = KinematicVectorArray(fluid_body->nodes->x.size());
+    KinematicVectorArray fc_i = KinematicVectorArray(fluid_body->nodes->x.size(), job->JOB_TYPE);
 
     //set friction coefficient to granular friction angle
     double mu_f = compressible_breakage_mechanics_sand_model->M_0 / std::sqrt(3.0);

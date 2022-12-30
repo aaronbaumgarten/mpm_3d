@@ -95,6 +95,7 @@ Registry<Solver>::Registry() {
     REGISTER(Solver, ShiftedTGVErrorSolver);
     REGISTER(Solver, ExplicitUSLwithVolumetricStrainSmoothing);
     REGISTER(Solver, GeneralizedVortexErrorSolver);
+    REGISTER(Solver, ExplicitMixtureSolver);
 }
 
 

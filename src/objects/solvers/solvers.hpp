@@ -413,7 +413,7 @@ public:
     // fluid simulation flag
     // 0 -- BarotropicViscousFluid
     // 1 -- TillotsonEOSFluid
-    int fluid_model = 0;
+    int fluid_model = -1;
 
     // impact simulation flags
     bool use_reflected_boundary = false;

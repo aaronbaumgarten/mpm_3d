@@ -7,5 +7,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/shifted_tgv_error_solver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/explicit_usl_with_volumetric_strain_smoothing.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/general_vortex_error_solver.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/explicit_mixture_solver.cpp
         PARENT_SCOPE
         )
