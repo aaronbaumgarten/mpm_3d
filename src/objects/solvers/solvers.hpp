@@ -404,10 +404,10 @@ public:
     // porosity field
     Eigen::VectorXd n;
 
-    // fluid density
-    Eigen::VectorXd rho_f;
+    // densities
+    Eigen::VectorXd rho_s, rho_f;
 
-    // solid "true" density rate of change in solid material frame
+    // density rates of change in material frames
     Eigen::VectorXd drhos_dt, drhof_dt;
 
     // fluid simulation flag

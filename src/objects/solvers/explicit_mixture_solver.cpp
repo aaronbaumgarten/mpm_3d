@@ -173,6 +173,7 @@ void ExplicitMixtureSolver::init(Job* job){
         //need to resize after simulation start
         n = Eigen::VectorXd(0);
         rho_f = Eigen::VectorXd(0);
+        rho_s = Eigen::VectorXd(0);
         drhos_dt = Eigen::VectorXd(0);
         drhof_dt = Eigen::VectorXd(0);
 
@@ -251,6 +252,10 @@ void ExplicitMixtureSolver::addInteractionForces(Job *job) {
     if (n.size() != fluid_body->nodes->x.size()){
         n.resize(fluid_body->nodes->x.size());
         n.setOnes();
+    }
+    if (rho_s.size() != granular_body->points->x.size()){
+        rho_s.resize(granular_body->points->x.size());
+        rho_s.setConstant(compressible_breakage_mechanics_sand_model->rho_0);
     }
     if (rho_f.size() != fluid_body->points->x.size()){
         rho_f.resize(fluid_body->points->x.size());
@@ -570,7 +575,7 @@ void ExplicitMixtureSolver::updateDensity(Job* job){
 
     // intermediate variables
     double b = compressible_breakage_mechanics_sand_model->b;
-    double a, dadp, Je, phiS, rho_s;
+    double a, dadp, Je, phiS;
     double trD, trDe;
 
     if (!is_compressible){
@@ -593,10 +598,10 @@ void ExplicitMixtureSolver::updateDensity(Job* job){
             dadp    = b * a / phiS;
 
             // Solid Constituent Density
-            rho_s   = compressible_breakage_mechanics_sand_model->rho_0 * (1.0 + a * (1.0/Je - 1.0));
+            rho_s(i)    = compressible_breakage_mechanics_sand_model->rho_0 * (1.0 + a * (1.0/Je - 1.0));
 
             // Solid Constituent Density Rate of Change
-            drhos_dt(i) = -rho_s * (phiS * dadp * (1.0 - Je) * trD + a * trDe) /
+            drhos_dt(i) = -rho_s(i) * (phiS * dadp * (1.0 - Je) * trD + a * trDe) /
                     (Je + a * (1.0 - Je) + phiS * dadp * (1.0 - Je));
         }
     }
@@ -649,13 +654,27 @@ void ExplicitMixtureSolver::updateDensity(Job* job){
         }
     }
 
-    // project drhos_dt onto fluid points
-    Eigen::VectorXd nodal_drhos_dt = granular_body->S * drhos_dt;
-    Eigen::VectorXd fluid_drhos_dt = fluid_body->S.operate(nodal_drhos_dt, MPMSparseMatrixBase::TRANSPOSED);
+    // project drhos_dt onto fluid points for computation
+    Eigen::VectorXd tmpGvec = Eigen::VectorXd(granular_body->points->x.size());
+    Eigen::VectorXd tmpNvec = Eigen::VectorXd(granular_body->nodes->x.size());
+    Eigen::VectorXd tmpFvec = Eigen::VectorXd(fluid_body->points->x.size());
+    for (int i=0; i<granular_body->points->x.size(); i++){
+        tmpGvec(i) = drhos_dt(i) / rho_s(i) * granular_body->points->v(i);
+    }
+    tmpNvec = granular_body->S * tmpGvec;
+    Eigen::VectorXd Vs = granular_body->S * granular_body->points->v;
+    for (int i=0; i<granular_body->nodes->x.size(); i++){
+        if (Vs(i) > 0) {
+            tmpNvec(i) *= (1.0 - n(i)) / Vs(i);
+        } else {
+            tmpNvec(i) = 0;
+        }
+    }
+    tmpFvec = fluid_body->S.operate(tmpNvec, MPMSparseMatrixBase::TRANSPOSED);
 
     // compute drhof_dt
     for (int i=0; i<fluid_body->points->x.size(); i++){
-        drhof_dt(i) = -rho_f(i) / n_p(i) * (pvec(i) + fluid_drhos_dt(i) * (1.0 - n_p(i)));
+        drhof_dt(i) = -rho_f(i) / n_p(i) * (pvec(i) + tmpFvec(i));
     }
 
 
