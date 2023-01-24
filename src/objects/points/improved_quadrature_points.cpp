@@ -1414,6 +1414,7 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
         //do nothing
     } else if (POSITIONRULE == AVAV) {
         //do something!
+        MaterialTensor tmpT;
 
         //iterate counter
         skip_counter += 1;
@@ -1435,9 +1436,15 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
             KinematicVectorArray u_nodes = body->S*vu_points; //integrated u field at node
             MaterialTensorArray T_nodes = body->S*vT_points;  //integrated T field at node
             for (int i=0; i<body->nodes->x.size(); i++){
-                b_nodes[i] /= v_nodes(i);
-                u_nodes[i] /= v_nodes(i);
-                T_nodes[i] /= v_nodes(i);
+                if (v_nodes(i) > 0){
+                    b_nodes[i] /= v_nodes(i);
+                    u_nodes[i] /= v_nodes(i);
+                    T_nodes[i] /= v_nodes(i);
+                } else {
+                    b_nodes[i].setZero();
+                    u_nodes[i].setZero();
+                    T_nodes[i].setZero();
+                }
             }
 
             //step 0: create cell/point map
@@ -1817,6 +1824,12 @@ void ImprovedQuadraturePoints::updateIntegrators(Job* job, Body* body){
                         }
                     }
                     //mx_t[tmp_id] = m(tmp_id)*x_t[tmp_id];
+
+                    //assign material model stress
+                    tmpT = T[tmp_id];
+
+                    //this is a hack...
+                    body->material->assignStress(job, body, tmpT, tmp_id, 22766);
 
                     if (p_d >= -2.2*r){
                         //point isn't interior enough

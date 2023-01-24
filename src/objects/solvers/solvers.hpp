@@ -282,6 +282,66 @@ public:
     virtual void calculateAcceleration(Job* job);
 };
 
+class GeneralizedVortexErrorSolver : public Solver{
+public:
+    GeneralizedVortexErrorSolver(){
+        object_name = "GeneralizedVortexErrorSolver"; //set name of object from registry
+    }
+
+    //domain should be 3m x 3m w/ 3m x 3m solid square
+    double a = 0.75;    //inner radii
+    double b = 1.25;    //outer radii
+    double density = 1000;
+
+    //material parameters
+    double E = 1e3;
+    double nu = 0.3;
+    double G = E / (2.0 * (1.0 + nu));
+    double K = E / (3.0 * (1.0 - 2 * nu));
+
+    //simulation parameters
+    double A = 1.0;
+    double B = 1.0;
+
+    //need to create and write an output file
+    std::string output_filename;
+
+    //for some math, need domain size
+    double x0 = 1.5;
+    double y0 = 1.5;
+    KinematicVector Lx;
+
+    virtual void init(Job* job);
+    virtual void step(Job* job);
+    virtual std::string saveState(Job* job, Serializer* serializer, std::string filepath);
+    virtual int loadState(Job* job, Serializer* serializer, std::string fullpath);
+
+    virtual double alpha(double r, double t);
+    virtual double dalpha_dr(double r, double t);
+    virtual double d2alpha_dr2(double r, double t);
+    virtual double dalpha_dt(double r, double t);
+    virtual double d2alpha_dt2(double r, double t);
+
+    virtual KinematicVector getDisplacement(Job* job, KinematicVector const &x);
+    virtual KinematicVector getVelocity(Job* job, KinematicVector const &x);
+    virtual KinematicVector getAcceleration(Job* job, KinematicVector const &x);
+    virtual KinematicVector getBodyForce(Job* job, KinematicVector const &x);
+    virtual MaterialTensor getStress(Job* job, KinematicVector const &x);
+    virtual void setGridLengths(Job* job);
+    virtual void setInitialVelocity(Job* job);
+
+    virtual void createMappings(Job *job);
+    virtual void mapPointsToNodes(Job* job);
+    virtual void addBoundaryConditions(Job* job);
+    virtual void moveGrid(Job* job);
+    virtual void movePoints(Job* job);
+    virtual void calculateStrainRate(Job* job);
+    virtual void updateDensity(Job* job);
+    virtual void updateStress(Job* job);
+    virtual void addLoads(Job* job);
+    virtual void writeErrorInfo(Job* job);
+};
+
 class ExplicitUSLwithVolumetricStrainSmoothing : public ExplicitUSL{
 public:
     ExplicitUSLwithVolumetricStrainSmoothing(){
@@ -311,6 +371,68 @@ public:
     virtual void init(Job* job);
     virtual void updateDensity(Job* job);
     virtual void updateStress(Job* job);
+};
+
+/*--------------------------------------------*/
+// Solver for Impact Into Mixtures
+
+class BarotropicViscousFluid;
+class TillotsonEOSFluid;
+class CompressibleBreakageMechanicsSand;
+
+class ExplicitMixtureSolver : public ExplicitUSL{
+public:
+    ExplicitMixtureSolver(){
+        object_name = "ExplicitMixtureSolver"; //set name of object from registry
+    }
+
+    // input parameters
+    double grains_d, rhof_0;
+
+    // bodies
+    Body *fluid_body;
+    Body *granular_body;
+    Body *solid_body;
+
+    // fluid material model pointers
+    BarotropicViscousFluid *barotropic_viscous_fluid_model;
+    TillotsonEOSFluid *tillotson_eos_fluid_model;
+
+    // sand material model pointers
+    CompressibleBreakageMechanicsSand *compressible_breakage_mechanics_sand_model;
+
+    // porosity field
+    Eigen::VectorXd n;
+
+    // densities
+    Eigen::VectorXd rho_s, rho_f;
+
+    // density rates of change in material frames
+    Eigen::VectorXd drhos_dt, drhof_dt;
+
+    // fluid simulation flag
+    // 0 -- BarotropicViscousFluid
+    // 1 -- TillotsonEOSFluid
+    int fluid_model = -1;
+
+    // impact simulation flags
+    bool use_reflected_boundary = false;
+    bool is_adiabatic = true;
+    bool is_compressible = true;
+
+    // reflected boundary information
+    KinematicVector Lx;
+    bool reflected_boundary_initialized = false;
+
+    // standard functions
+    virtual void init(Job* job);
+    virtual void step(Job* job);
+
+    // adjusted solver functions
+    void addInteractionForces(Job* job);
+    virtual void updateDensity(Job* job);           //+ porosity and true fluid density
+    virtual void updateStress(Job* job);            //+ fluid density update
+
 };
 
 #endif //MPM_V3_SOLVERS_HPP

@@ -2395,6 +2395,11 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
 
                     n_bar = n_q(q_list[q]);
 
+                    if (n_bar < 0.2){
+                        //something wrong at boundary...
+                        n_bar = n_minus;
+                    }
+
                     //estimate L
                     for (int ii=0; ii<GRID_DIM; ii++){
                         for (int jj=0; jj<GRID_DIM; jj++){
@@ -2439,6 +2444,10 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     p_plus = bc_info[f].vector*rho_plus;
 
                     n_bar = n_q(q_list[q]);
+
+                    if (n_bar < 0.2){
+                        n_bar = n_plus;
+                    }
 
                     //estimate L
                     for (int ii=0; ii<GRID_DIM; ii++){

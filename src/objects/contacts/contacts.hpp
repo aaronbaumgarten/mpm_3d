@@ -72,6 +72,8 @@ public:
         object_name = "SlurryMixture";
     }
 
+    bool USE_CARMAN_KOZENY = false;
+
     double grains_rho = 2500; //kg/m^3
     double grains_d = 0.001; //m
     double eta_0 = 8.9e-4; //Pa*s

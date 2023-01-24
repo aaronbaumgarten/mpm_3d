@@ -16,12 +16,12 @@ print "files named"
 
 #grid properties
 #Ly = Lx = Lz = 0.4
-Lx = 0.1
-Ly = 0.1
+Lx = 2.0
+Ly = 0.01
 Lz = 1.0
 #Ne = 40
-Nx = 50
-Ny = 50
+Nx = 200
+Ny = 1
 Nz = 1
 lmpp = 2
 Lz = 1.0*lmpp
@@ -32,12 +32,12 @@ print "grid created"
 g = -9.81
 
 # free block properties
-block_properties = { 'rho': 1000 }
-block_width = 0.1
-block_height = 0.08
+block_properties = { 'rho': 998 }
+block_width = 0.5
+block_height = 0.01
 block_depth = 1.0
 hx = Lx/Nx
-block_primitive = Primitives3d.Box(0, block_width,
+block_primitive = Primitives3d.Box(block_width, 2*block_width,
                                    0, block_height,
                                  0, 1.0,
                                  )

@@ -298,4 +298,190 @@ public:
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
 };
 
+
+class BreakageMechanicsSand : public Material {
+public:
+    BreakageMechanicsSand(){
+        object_name = "BreakageMechanicsSand";
+    }
+
+    //material properties
+    double pr, K, G, Ec, M_0, g, phi_l, phi_u, l, u, theta, rho_0;
+
+    //additional material properties
+    double e0 = 0.001;          //regularization strain for low pressures
+
+    //history variables
+    Eigen::VectorXd B, phi;     //breakage measure, internal porosity
+    MaterialTensorArray Be;     //elastic left cauchy-green tensor
+
+    //scalar outputs
+    Eigen::VectorXd evDot, esDot, BDot;
+
+    //debug variables
+    Eigen::VectorXd kVec, yVec;
+
+    //state struct for computation
+    struct MaterialState {
+        double B;       //Breakage
+        double rho;     //Effective Density
+        double phi;     //Porosity
+        double phiP;    //Plastic Porosity
+        double ev;      //Volumetric Strain (Elastic)
+        double es;      //Shear Strain (Elastic)
+    };
+
+    //computational crutches apadted from MATLAB
+    double CriticalStatePorosityFromMaterialState(MaterialState mat_state);
+    double EBFromMaterialState(MaterialState mat_state);
+    double FFromMaterialState(MaterialState mat_state);
+    std::vector<double> PQFromMaterialState(MaterialState mat_state);
+    std::vector<double> RelativePlasticityRatesFromMaterialStateandDeformation(MaterialState mat_state, MaterialTensor Be);
+    double YieldFunctionFromMaterialStateandDeformation(MaterialState mat_state, MaterialTensor Be);
+    MaterialTensor CauchyStressFromMaterialStateandDeformation(MaterialState mat_state, MaterialTensor Be);
+
+    void init(Job* job, Body* body);
+    void calculateStress(Job* job, Body* body, int SPEC);
+    void assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC);
+    void assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
+class CompressibleBreakageMechanicsSand : public Material {
+public:
+    CompressibleBreakageMechanicsSand(){
+        object_name = "CompressibleBreakageMechanicsSand";
+    }
+
+    //convergence criteria
+    double AbsTOL = 1e-7;
+    int MaxIter = 50;
+
+    //material properties
+    double pr, K, G, Ec, M_0, g, phi_l, phi_u, l, u, theta, rho_0;
+    double C0, S0, G0, cv, b, T0;
+
+    //artificial viscosity properties
+    double h_i = 0;
+
+    //simulation flags
+    bool is_adiabatic = true;
+    bool is_compressible = true;
+    bool use_artificial_viscosity = false;
+    bool use_newtons_method = false;
+
+    //history variables
+    Eigen::VectorXd B, phiS, phiP;  //breakage measure, solid volume fraction, plastic porosity
+    Eigen::VectorXd Es, Ts;         //specific internal energy, temperature
+    MaterialTensorArray F;          //deformation gradient
+    MaterialTensorArray Be;         //elastic left cauchy-green tensor
+
+    //cold energy function
+    double dJ, Jmax, Jmin;  //range of volume ratios for computation
+    std::vector<double> JVec; //cold energy reference volume ratios
+    std::vector<double> eCVec; //cold energy reconstruction
+
+    //scalar outputs
+    Eigen::VectorXd evDot, esDot, BDot;
+
+    //debug variables
+    Eigen::VectorXd kVec, yVec, lVec;
+
+    //state struct for computation
+    struct MaterialState {
+        double B;           //Breakage
+        double phi;         //Porosity
+        double phiP;        //Plastic Porosity
+        double rho;         //Effective Density
+        MaterialTensor F;   //Deformation Gradient
+        MaterialTensor Be;  //Elastic Left Cauchy-Green Tensor
+        MaterialTensor S;   //Cauchy Stress
+        MaterialTensor Sy;  //Yield Stress
+        double Ts;          //Temperature
+        double Es;          //Specific Internal Energy
+    };
+
+    //computational crutches adapted from MATLAB (see pg 53 nb #14)
+    MaterialTensor YieldStressFromMaterialState(MaterialState& stateIN);
+    MaterialTensor CauchyStressFromMaterialState(MaterialState& stateIN);
+    double PorosityFromMaterialState(MaterialState& stateIN);
+    double EBFromMaterialState(MaterialState& stateIN);
+    std::vector<double> PlasticFlowRulesFromMaterialState(MaterialState& stateIN);
+    std::vector<double> PQFromMaterialState(MaterialState& stateIN);
+    double YieldFunctionFromMaterialState(MaterialState& stateIN);
+    double ContactEnergyFromMaterialState(MaterialState& stateIN);
+    double ColdEnergyFromMaterialState(MaterialState& stateIN);
+    double TemperatureFromMaterialState(MaterialState& stateIN);
+
+    void ComputeColdEnergyReferenceStates();
+
+    void init(Job* job, Body* body);
+    void calculateStress(Job* job, Body* body, int SPEC);
+    void assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC);
+    void assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
+class TillotsonEOSFluid : public Material {
+public:
+    TillotsonEOSFluid(){
+        object_name = "TillotsonEOSFluid";
+    }
+
+    //convergence criteria
+    double AbsTOL = 1e-7;
+    int MaxIter = 50;
+
+    //material properties
+    double r0, rIV, a, b, A, B, E0, alfa, beta, EIV, ECV, cv, T0, eta0, PCav;
+
+    //artificial viscosity properties
+    double h_i = 0;
+
+    //simulation flags
+    bool is_adiabatic = true;
+    bool use_artificial_viscosity = false;
+
+    //history variables
+    Eigen::VectorXd rho, J;         //material density, volume ratio
+    Eigen::VectorXd Ef, Tf;         //specific internal energy, temperature
+
+    //cold energy function
+    double dr, rmax, rmin;      //range of densities for computation
+    std::vector<double> rVec;   //cold energy reference densities
+    std::vector<double> eCVec;  //cold energy reconstruction
+
+    //state struct for computation
+    struct MaterialState {
+        double rho;         //Density
+        double Tf;          //Temperature
+        double Ef;          //Specific Internal Energy
+        MaterialTensor S;   //Cauchy Stress
+        MaterialTensor L;   //Velocity Gradient
+        double p;           //Pressure
+    };
+
+    MaterialTensor CauchyStressFromMaterialState(MaterialState& stateIN);
+    double PressureFromMaterialState(MaterialState& stateIN);
+    double ColdEnergyFromMaterialState(MaterialState& stateIN);
+    double TemperatureFromMaterialState(MaterialState& stateIN);
+
+    void ComputeColdEnergyReferenceStates();
+
+    void init(Job* job, Body* body);
+    void calculateStress(Job* job, Body* body, int SPEC);
+    void assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC);
+    void assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
 #endif //MPM_V3_MATERIALS_HPP

@@ -94,6 +94,8 @@ Registry<Solver>::Registry() {
     REGISTER(Solver, TGVErrorSolver);
     REGISTER(Solver, ShiftedTGVErrorSolver);
     REGISTER(Solver, ExplicitUSLwithVolumetricStrainSmoothing);
+    REGISTER(Solver, GeneralizedVortexErrorSolver);
+    REGISTER(Solver, ExplicitMixtureSolver);
 }
 
 
@@ -176,6 +178,9 @@ Registry<Material>::Registry() {
     REGISTER(Material, SlurryGranularPhase_wUnderCompaction);
     REGISTER(Material, Fish);
     REGISTER(Material, CompressibleNeohookeanElasticity);
+    REGISTER(Material, BreakageMechanicsSand);
+    REGISTER(Material, CompressibleBreakageMechanicsSand);
+    REGISTER(Material, TillotsonEOSFluid);
 }
 
 

@@ -40,8 +40,9 @@
 //read point data from file
 void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
     //for now, only implement 3D version
-    if (job->JOB_TYPE != 3) {
-        std::cerr << "ERROR: GmshPoints is only implemented for 3D!" << std::endl;
+    // May 18, 2022: attempting to implement 2D point generation
+    if (job->JOB_TYPE != 3 && job->JOB_TYPE != 2) {
+        std::cerr << "ERROR: GmshPoints is only implemented for 2D/3D!" << std::endl;
         exit(0);
     }
 
@@ -204,6 +205,11 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
     KinematicVectorArray x_n;
     Eigen::MatrixXi nodeIDs;
     int npe = 4;
+    
+    //assign npe for 2D
+    if (job->JOB_TYPE == 2){
+        npe = 3;
+    }
 
     int len;
     //std::string line; //read line
@@ -292,7 +298,7 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
                             }
 
                             lvec = Parser::splitString(line, ' ');
-                            //check that element type is tetrahedron
+                            //check that element type is tetrahedron (or triangle in 2D)
                             if (std::stoi(lvec[1]) == 4) {
                                 i++; //increment i
                                 len = std::stoi(lvec[2]); //num tags
@@ -300,6 +306,12 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
                                 nodeIDs(i, 1) = std::stoi(lvec[4 + len]) - 1;
                                 nodeIDs(i, 2) = std::stoi(lvec[5 + len]) - 1;
                                 nodeIDs(i, 3) = std::stoi(lvec[6 + len]) - 1;
+                            } else if (std::stoi(lvec[1]) == 2 && job->JOB_TYPE == 2){
+                                i++; //increment i
+                                len = std::stoi(lvec[2]); //num tags
+                                nodeIDs(i, 0) = std::stoi(lvec[3 + len]) - 1;
+                                nodeIDs(i, 1) = std::stoi(lvec[4 + len]) - 1;
+                                nodeIDs(i, 2) = std::stoi(lvec[5 + len]) - 1;
                             }
                         }
 
@@ -335,6 +347,16 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
                                     nodeIDs(i, 2) = std::stoi(lvec[3]) - 1;
                                     nodeIDs(i, 3) = std::stoi(lvec[4]) - 1;
                                 }
+                            } else if (block_type == 2 && job->JOB_TYPE == 2){
+                                for (int k = 0; k < block_length; k++) {
+                                    std::getline(fin, line);
+                                    lvec = Parser::splitString(line, ' ');
+
+                                    i++; //increment i
+                                    nodeIDs(i, 0) = std::stoi(lvec[1]) - 1;
+                                    nodeIDs(i, 1) = std::stoi(lvec[2]) - 1;
+                                    nodeIDs(i, 2) = std::stoi(lvec[3]) - 1;
+                                }
                             } else {
                                 //read through block and continue
                                 for (int k=0; k<block_length; k++){
@@ -365,10 +387,14 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
     //create point initialization lists
     //m, v, x, x_t, a
     std::vector<double> vIN;
-    KinematicVectorArray xIN;
-    KinematicVectorArray x_tIN;
-    KinematicTensor A, Ainv;
+    KinematicVectorArray xIN = KinematicVectorArray(0, job->JOB_TYPE);
+    KinematicVectorArray x_tIN = KinematicVectorArray(0, job->JOB_TYPE);
+    KinematicTensor A = KinematicTensor(job->JOB_TYPE);
+    KinematicTensor Ainv = KinematicTensor(job->JOB_TYPE);
     KinematicVector avec, bvec, cvec;
+    avec = KinematicVector(job->JOB_TYPE);
+    bvec = KinematicVector(job->JOB_TYPE);
+    cvec = KinematicVector(job->JOB_TYPE);
     double v_e, vTMP;
     KinematicVector x_tTMP = KinematicVector(job->JOB_TYPE);
     x_tTMP.setZero();
@@ -378,32 +404,125 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
 
     //check if n-point grid quadrature points are in parts of body
     for (int e = 0; e < element_count; e++){
-        avec = x_n(nodeIDs(e,1)) - x_n(nodeIDs(e,0));
-        bvec = x_n(nodeIDs(e,2)) - x_n(nodeIDs(e,0));
-        cvec = x_n(nodeIDs(e,3)) - x_n(nodeIDs(e,0));
+        if (job->JOB_TYPE == 3){
+            avec = x_n(nodeIDs(e,1)) - x_n(nodeIDs(e,0));
+            bvec = x_n(nodeIDs(e,2)) - x_n(nodeIDs(e,0));
+            cvec = x_n(nodeIDs(e,3)) - x_n(nodeIDs(e,0));
 
-        //volume of element
-        v_e = (avec.dot((bvec.cross(cvec))))/6.0;
+            //volume of element
+            v_e = (avec.dot((bvec.cross(cvec))))/6.0;
 
-        //mapping from xi to x
-        A(0,0) = avec(0); A(1,0) = avec(1); A(2,0) = avec(2);
-        A(0,1) = bvec(0); A(1,1) = bvec(1); A(2,1) = bvec(2);
-        A(0,2) = cvec(0); A(1,2) = cvec(1); A(2,2) = cvec(2);
+            //mapping from xi to x
+            A(0,0) = avec(0); A(1,0) = avec(1); A(2,0) = avec(2);
+            A(0,1) = bvec(0); A(1,1) = bvec(1); A(2,1) = bvec(2);
+            A(0,2) = cvec(0); A(1,2) = cvec(1); A(2,2) = cvec(2);
 
-        //mapping from x to xi
-        Ainv = A.inverse();
+            //mapping from x to xi
+            Ainv = A.inverse();
 
-        //check middle tet
-        for (int i=1; i<=lmpp; i++){
-            for (int j=1; j<=lmpp; j++){
-                for (int k=1; k<=lmpp; k++){
-                    if (i + j + k <= (lmpp+1)){
-                        //n-point quadrature location
-                        Xi(0) = i - 0.5;
-                        Xi(1) = j - 0.5;
-                        Xi(2) = k - 0.5;
+            //check middle tet
+            for (int i=1; i<=lmpp; i++){
+                for (int j=1; j<=lmpp; j++){
+                    for (int k=1; k<=lmpp; k++){
+                        if (i + j + k <= (lmpp+1)){
+                            //n-point quadrature location
+                            Xi(0) = i - 0.5;
+                            Xi(1) = j - 0.5;
+                            Xi(2) = k - 0.5;
+                            Xi /= lmpp;
+
+                            //map to x
+                            X = x_n(nodeIDs(e,0)) + A*Xi;
+
+                            //check if any part
+                            for (int p=0; p<part_list.size(); p++){
+                                if (part_list[p]->encompasses(X)){
+                                    //add point to list
+                                    xIN.push_back(X);
+                                    x_tIN.push_back(x_tTMP);
+
+                                    vTMP = 2.0*v_e/(lmpp*lmpp*lmpp);
+                                    vIN.push_back(vTMP);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            //check edge tets
+            for (int i=0; i<=lmpp; i++){
+                for (int j=0; j<=lmpp; j++){
+                    for (int k=0; k<lmpp; k++){
+                        if ((lmpp - i - j - k)%2 == 1){
+                            for (int ii=-1; ii<2; ii+=2){
+                                if (i == 0){
+                                    //skip -1
+                                    ii = 1;
+                                }
+                                for (int jj=-1; jj<2; jj+=2){
+                                    if (j == 0){
+                                        //skip -1
+                                        jj = 1;
+                                    }
+                                    for (int kk=-1; kk<2; kk+=2){
+                                        if (k == 0){
+                                            //skip -1
+                                            kk = 1;
+                                        }
+                                        //add points in octagon
+                                        //n-point quadrature location
+                                        Xi(0) = i + ii/4.0;
+                                        Xi(1) = j + jj/4.0;
+                                        Xi(2) = k + kk/4.0;
+                                        Xi /= lmpp;
+
+                                        //map to x
+                                        X = x_n(nodeIDs(e,0)) + A*Xi;
+
+                                        //check if any part
+                                        for (int p=0; p<part_list.size(); p++){
+                                            if (part_list[p]->encompasses(X)){
+                                                //add point to list
+                                                xIN.push_back(X);
+                                                x_tIN.push_back(x_tTMP);
+
+                                                vTMP = v_e/(lmpp*lmpp*lmpp);
+                                                vIN.push_back(vTMP);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (job->JOB_TYPE == 2){
+            avec = x_n(nodeIDs(e,1)) - x_n(nodeIDs(e,0));
+            bvec = x_n(nodeIDs(e,2)) - x_n(nodeIDs(e,0));
+
+            //volume of element
+            v_e = (avec.cross(bvec)).norm()/2.0;
+
+            //mapping from xi to x
+            A(0,0) = avec(0); A(1,0) = avec(1);
+            A(0,1) = bvec(0); A(1,1) = bvec(1);
+
+            //mapping from x to xi
+            Ainv = A.inverse();
+
+            //check left-handed triangles
+            for (int i=1; i<=lmpp; i++){
+                for (int j=1; j<=lmpp; j++){
+                    if (i + j <= (lmpp+1)){
+                        //centroid position
+                        Xi(0) = i - 2.0/3.0;
+                        Xi(1) = j - 2.0/3.0;
                         Xi /= lmpp;
-
+                        
                         //map to x
                         X = x_n(nodeIDs(e,0)) + A*Xi;
 
@@ -414,7 +533,7 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
                                 xIN.push_back(X);
                                 x_tIN.push_back(x_tTMP);
 
-                                vTMP = 2.0*v_e/(lmpp*lmpp*lmpp);
+                                vTMP = v_e/(lmpp*lmpp);
                                 vIN.push_back(vTMP);
                                 break;
                             }
@@ -422,51 +541,29 @@ void GmshPoints::readFromFile(Job *job, Body *body, std::string fileIN) {
                     }
                 }
             }
-        }
+            
+            //check right-handed triangles
+            for (int i=1; i<=lmpp; i++){
+                for (int j=1; j<=lmpp; j++){
+                    if (i + j <= lmpp){
+                        //centroid position
+                        Xi(0) = i - 1.0/3.0;
+                        Xi(1) = j - 1.0/3.0;
+                        Xi /= lmpp;
+                        
+                        //map to x
+                        X = x_n(nodeIDs(e,0)) + A*Xi;
 
-        //check edge tets
-        for (int i=0; i<=lmpp; i++){
-            for (int j=0; j<=lmpp; j++){
-                for (int k=0; k<lmpp; k++){
-                    if ((lmpp - i - j - k)%2 == 1){
-                        for (int ii=-1; ii<2; ii+=2){
-                            if (i == 0){
-                                //skip -1
-                                ii = 1;
-                            }
-                            for (int jj=-1; jj<2; jj+=2){
-                                if (j == 0){
-                                    //skip -1
-                                    jj = 1;
-                                }
-                                for (int kk=-1; kk<2; kk+=2){
-                                    if (k == 0){
-                                        //skip -1
-                                        kk = 1;
-                                    }
-                                    //add points in octagon
-                                    //n-point quadrature location
-                                    Xi(0) = i + ii/4.0;
-                                    Xi(1) = j + jj/4.0;
-                                    Xi(2) = k + kk/4.0;
-                                    Xi /= lmpp;
+                        //check if any part
+                        for (int p=0; p<part_list.size(); p++){
+                            if (part_list[p]->encompasses(X)){
+                                //add point to list
+                                xIN.push_back(X);
+                                x_tIN.push_back(x_tTMP);
 
-                                    //map to x
-                                    X = x_n(nodeIDs(e,0)) + A*Xi;
-
-                                    //check if any part
-                                    for (int p=0; p<part_list.size(); p++){
-                                        if (part_list[p]->encompasses(X)){
-                                            //add point to list
-                                            xIN.push_back(X);
-                                            x_tIN.push_back(x_tTMP);
-
-                                            vTMP = v_e/(lmpp*lmpp*lmpp);
-                                            vIN.push_back(vTMP);
-                                            break;
-                                        }
-                                    }
-                                }
+                                vTMP = v_e/(lmpp*lmpp);
+                                vIN.push_back(vTMP);
+                                break;
                             }
                         }
                     }

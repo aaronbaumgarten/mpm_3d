@@ -46,8 +46,8 @@ void LaunchedBody::init(Job* job){
         double height = 0;
         double pressure;
         for (int i=0; i < points->x.size(); i++){
-            if (points->x(i,job->DIM - 1) > height){
-                height = points->x(i,job->DIM - 1);
+            if (points->x(i,job->grid->GRID_DIM - 1) > height){
+                height = points->x(i,job->grid->GRID_DIM - 1);
             }
         }
 
@@ -56,9 +56,9 @@ void LaunchedBody::init(Job* job){
         //velocity direction given by angle 'up' from x-axis
         for (int i = 0; i < points->x.size(); i++) {
             points->x_t(i,0) = launch_speed*std::cos(launch_angle*pi/180.0);
-            points->x_t(i,job->DIM-1) = launch_speed*std::sin(launch_angle*pi/180.0);
+            points->x_t(i,job->grid->GRID_DIM-1) = launch_speed*std::sin(launch_angle*pi/180.0);
             points->mx_t(i,0) = points->m(i) * points->x_t(i,0);
-            points->mx_t(i,job->DIM-1) = points->m(i) * points->x_t(i,job->DIM-1);
+            points->mx_t(i,job->grid->GRID_DIM-1) = points->m(i) * points->x_t(i,job->grid->GRID_DIM-1);
         }
     }
 

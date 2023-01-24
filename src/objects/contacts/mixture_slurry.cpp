@@ -36,14 +36,14 @@ void SlurryMixture::init(Job* job) {
         eta_0 = fp64_props[2];
         fluid_rho = fp64_props[3];
 
-        if (int_props.size() == 1){
+        if (int_props.size() == 1) {
             spec_override = int_props[0];
-        } else if (int_props.size() == 3){
+        } else if (int_props.size() == 3) {
             spec_override = int_props[2];
         }
 
         //set body ids by name
-        if (str_props.size() == 2) {
+        if (str_props.size() >= 2) {
             for (int i = 0; i < bodyIDs.size(); i++) {
                 for (int b = 0; b < job->bodies.size(); b++) {
                     if (str_props[i].compare(job->bodies[b]->name) == 0) {
@@ -73,6 +73,21 @@ void SlurryMixture::init(Job* job) {
 
         solid_body_id = bodyIDs[0];
         fluid_body_id = bodyIDs[1];
+
+        // Parse Input Strings for Simulation Flags
+        for (int i = 0; i < str_props.size(); i++) {
+            std::vector<std::string> options = {"USE_CARMAN_KOZENY"};
+            switch (Parser::findStringID(options, str_props[i])) {
+                case 0:
+                    //USE_CARMAN_KOZENY
+                    USE_CARMAN_KOZENY = true;
+                    std::cout << "MixtureSlurry using Carman-Kozeny drag formula." << std::endl;
+                    break;
+                default:
+                    //do nothing
+                    break;
+            }
+        }
 
         V.resize(job->bodies[fluid_body_id]->nodes->x.size());
         n.resize(job->bodies[solid_body_id]->nodes->x.size());
@@ -104,8 +119,11 @@ void SlurryMixture::generateRules(Job* job){
             //n = 1 - phi
             n(i) = 1 - (nval(i) / (job->grid->nodeVolume(job, i) * grains_rho));
 
-            if (n(i) < 0.2) {
+            /*if (n(i) < 0.2) {
                 n(i) = 0.2; //keep packing from overestimates...
+            }*/
+            if (n(i) < 1e-2){
+                n(i) = 1e-2; //keep packing from overestimates...
             }
         }
 
@@ -122,8 +140,11 @@ void SlurryMixture::generateRules(Job* job){
             //n = 1 - phi
             n(i) = 1 - (job->bodies[solid_body_id]->nodes->m(i) / (job->grid->nodeVolume(job, i) * grains_rho));
 
-            if (n(i) < 0.2) {
+            /*if (n(i) < 0.2) {
                 n(i) = 0.2; //keep packing from overestimates...
+            }*/
+            if (n(i) < 1e-2){
+                n(i) = 1e-2; //keep packing from overestimates...
             }
         }
 
@@ -182,11 +203,14 @@ void SlurryMixture::applyRules(Job* job, int SPEC){
 
             //permeability
             Re = (mv1i/m1 - mv2i/m2).norm() * n(i) * fluid_rho * grains_d / eta_0;
-            //Beetstra
-            if (Re == 0){
+            if (USE_CARMAN_KOZENY){
+                C = V(i) * 180.0 * (1 - n(i)) * (1 - n(i)) * eta_0 / (n(i) * grains_d * grains_d);
+            } else if (Re == 0){
+                //Beetstra
                 C = V(i) * 18.0 * (1 - n(i)) * eta_0 / (grains_d * grains_d) *
                     (10.0 * (1 - n(i)) / n(i) + n(i) * n(i) * n(i) * (1.0 + 1.5 * std::sqrt(1 - n(i))));
             } else {
+                //Beetstra
                 C = V(i) * 18.0 * (1 - n(i)) * eta_0 / (grains_d * grains_d) *
                     (10.0 * (1 - n(i)) / n(i) + n(i) * n(i) * n(i) * (1.0 + 1.5 * std::sqrt(1 - n(i))) +
                      0.413 * Re / (24.0 * n(i)) *
