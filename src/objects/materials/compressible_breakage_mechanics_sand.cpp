@@ -75,7 +75,7 @@ void CompressibleBreakageMechanicsSand::init(Job* job, Body* body){
         double B_0 = fp64_props[18];
         double phi_0 = fp64_props[19];
 
-        std::cout << "Material Propoerties:\n";
+        std::cout << "Material Properties:\n";
         std::cout << "    pr     = " << pr << " [Pa]\n";
         std::cout << "    K      = " << K << " [--]\n";
         std::cout << "    G      = " << G << " [--]\n";
@@ -290,9 +290,10 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
             // Material has Yielded in Tension
             // - no stress
             body->points->T[i].setZero();
-            // - zero elastic strain
-            Be[i].setIdentity();
-            mat_state.Be.setIdentity();
+            // - zero stress elastic strain
+            JeTemp = ComputeElasticDeformationForZeroStress(mat_state);
+            Be[i] = std::cbrt(JeTemp * JeTemp) * MaterialTensor::Identity();
+            mat_state.Be = Be[i];
             // - porosity evolution continues
             phiP(i) += job->dt * D.trace() * (1 - phiP(i));
             phiS(i) = 1.0 - PorosityFromMaterialState(mat_state);
@@ -313,9 +314,10 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
             // Material has Yielded in Under-Compacted State
             // - no stress
             body->points->T[i].setZero();
-            // - zero elastic strain
-            Be[i].setIdentity();
-            mat_state.Be.setIdentity();
+            // - zero stress elastic strain
+            JeTemp = ComputeElasticDeformationForZeroStress(mat_state);
+            Be[i] = std::cbrt(JeTemp * JeTemp) * MaterialTensor::Identity();
+            mat_state.Be = Be[i];
             // - porosity evolution continues
             phiP(i) += job->dt * D.trace() * (1 - phiP(i));
             phiS(i) = 1.0 - PorosityFromMaterialState(mat_state);
@@ -1277,7 +1279,7 @@ double CompressibleBreakageMechanicsSand::PorosityFromMaterialState(MaterialStat
                 //evaluate yC
                 yC = phiC + A * std::pow(phiC, b + 1) - stateIN.rho / rho_0;
 
-                //evalucate dy/dphi
+                //evaluate dy/dphi
                 dydp = (b + 1) * A * std::pow(phiC, b) + 1.0;
 
                 //update phiC
@@ -1429,6 +1431,61 @@ double CompressibleBreakageMechanicsSand::TemperatureFromMaterialState(MaterialS
         stateIN.Es = psiC + eC + cv * T0;
         stateIN.Ts = T0;
         return T0;
+    }
+
+}
+
+
+double CompressibleBreakageMechanicsSand::ComputeElasticDeformationForZeroStress(MaterialState& stateIN){
+    // Compute Elastic Deformation (Je) For Zero Stress
+
+    // Initialize Variables for Bisection
+    double JeA, JeB, JeC, yA, yB, yC;
+    MaterialState stateA, stateB, stateC;
+    std::vector<double> pq;
+
+    // Set Up Bisection
+    JeA = std::sqrt(stateIN.Be.det());
+    stateA = stateIN;
+    stateA.Be = std::cbrt(JeA * JeA) * MaterialTensor::Identity();
+    pq = PQFromMaterialState(stateA);   yA = pq[2];
+
+    JeB = 1.0;
+    stateB = stateIN;
+    stateB.Be = std::cbrt(JeB * JeB) * MaterialTensor::Identity();
+    pq = PQFromMaterialState(stateB);   yB = pq[2];
+
+    JeC = JeB;
+    stateC = stateIN;
+    stateC.Be = std::cbrt(JeC * JeC) * MaterialTensor::Identity();
+    pq = PQFromMaterialState(stateC);   yC = pq[2];
+
+    // Bisection Loop
+    int n = 0;
+    while (std::abs(yC) > AbsTOL && n < MaxIter){
+        // Increment n
+        n++;
+
+        // Set JeC to Average of JeA and JeB
+        JeC = 0.5 * (JeA + JeB);
+
+        // Evaluate yC
+        stateC = stateIN;
+        stateC.Be = std::cbrt(JeC * JeC) * MaterialTensor::Identity();
+        pq = PQFromMaterialState(stateC);   yC = pq[2];
+
+        // Assign JeA, JeB
+        if (yC * yA > 0){
+            JeA = JeC; yA = yC;
+        } else {
+            JeB = JeC; yB = yC;
+        }
+    }
+
+    if (!std::isfinite(JeC)) {
+        return 1.0;
+    } else {
+        return JeC;
     }
 
 }

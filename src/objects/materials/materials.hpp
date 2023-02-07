@@ -416,6 +416,7 @@ public:
     double ColdEnergyFromMaterialState(MaterialState& stateIN);
     double TemperatureFromMaterialState(MaterialState& stateIN);
 
+    double ComputeElasticDeformationForZeroStress(MaterialState& stateIN);
     void ComputeColdEnergyReferenceStates();
 
     void init(Job* job, Body* body);
