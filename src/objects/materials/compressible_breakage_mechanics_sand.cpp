@@ -280,7 +280,8 @@ void CompressibleBreakageMechanicsSand::calculateStress(Job* job, Body* body, in
 
         // Check for Yielding in Compaction
         phi_max = phi_u * std::pow(1.0 - mat_state.B, u);
-        if (mat_state.phi > phi_max){
+        if ((1.0 - mat_state.rho / rho_0) > phi_max){
+            // Less Strict Than (mat_state.phi > phi_max)
             // No Stresses in Under-Compacted State
             compactionYield = true;
         }
@@ -980,11 +981,11 @@ std::vector<double> CompressibleBreakageMechanicsSand::PQFromMaterialState(Mater
     qBAR = (stateIN.rho/rho_0) * (1.0 - theta * stateIN.B) * pr *
             3.0 * G * (A * ese + std::sqrt(3.0 * G * K) * ese * ese / 4.0);
 
-    // Zero Out Stresses for Positive Volumetric Strain
-    if (eve > 0){
-        pBAR = 0;
-        qBAR = 0;
-    }
+    // Zero Out Stresses for Positive Volumetric Strain?
+    // if (eve > 0){
+    //     pBAR = 0;
+    //     qBAR = 0;
+    // }
 
     // Compute Constituent Pressure
     double J = 1.0;
@@ -1013,10 +1014,10 @@ std::vector<double> CompressibleBreakageMechanicsSand::PQFromMaterialState(Mater
         pSTAR = pH * (1.0 - G0/2.0 * (1.0 - J)) +
                 rho_0 * G0 * (eC + cv * (stateIN.Ts - T0));
 
-        // Only Consider Positive Pressures
-        if (pSTAR < 0){
-            pSTAR = 0.0;
-        }
+        // Only Consider Positive Pressures?
+        // if (pSTAR < 0){
+        //     pSTAR = 0.0;
+        // }
 
     } else {
         // Use Incompressible Model
@@ -1168,7 +1169,7 @@ MaterialTensor CompressibleBreakageMechanicsSand::CauchyStressFromMaterialState(
     // Compute Constituent Pressure Term
     double J = 1.0;
     double a, dadp, phiSTemp;
-    if (is_compressible){
+    if (is_compressible && pSTAR > 0){
         // Use Compressible Model
 
         // Compute Porosity
@@ -1223,7 +1224,7 @@ MaterialTensor CompressibleBreakageMechanicsSand::YieldStressFromMaterialState(M
 
     // Compute Constituent Pressure Term
     double a, dadp, phiSTemp;
-    if (is_compressible){
+    if (is_compressible && pSTAR > 0){
         // Use Compressible Model
 
         // Compute Porosity
@@ -1260,12 +1261,23 @@ double CompressibleBreakageMechanicsSand::PorosityFromMaterialState(MaterialStat
     double phiA, phiB, phiC;
     double yA, yB, yC, dydp;
 
-    // Bisection
+    // Bisection Parameters
     int n = 0;
     double A = (1.0/Je - 1.0);
     phiA = 0; yA = -1;
     phiB = 1; yB =  1;
     phiC = 1; yC =  1; dydp = 1;
+
+    // Check for Monotonicity
+    bool is_monotonic = (Je <= 1.0);
+
+    // If Je > 1, Then Choose New phiB, phiC
+    if (Je > 1.0){
+        phiB = std::pow(-1.0 / (A * (b + 1.0)), 1.0/b);
+        phiC = phiB;
+    }
+
+    // Bisection or Newton's Method
     if (is_compressible){
         // Use Compressible Model
 
@@ -1273,7 +1285,7 @@ double CompressibleBreakageMechanicsSand::PorosityFromMaterialState(MaterialStat
             //increment n
             n++;
 
-            if (use_newtons_method){
+            if (use_newtons_method && is_monotonic){
                 // Use Newton's Method
 
                 //evaluate yC
@@ -1284,6 +1296,13 @@ double CompressibleBreakageMechanicsSand::PorosityFromMaterialState(MaterialStat
 
                 //update phiC
                 phiC -= yC / dydp;
+
+                //ensure phiC physical
+                if (phiC > 1.0){
+                    phiC = 1.0;
+                } else if (phiC < 0.0){
+                    phiC = 0.0;
+                }
 
             } else {
                 // Use Bisection
@@ -1439,13 +1458,17 @@ double CompressibleBreakageMechanicsSand::TemperatureFromMaterialState(MaterialS
 double CompressibleBreakageMechanicsSand::ComputeElasticDeformationForZeroStress(MaterialState& stateIN){
     // Compute Elastic Deformation (Je) For Zero Stress
 
+    // Ah! If a is small, the changes in Je must be LARGE to allow small changes in J
+    // For now, do not compute zero-stress configuration
+    return 1.0;
+
     // Initialize Variables for Bisection
     double JeA, JeB, JeC, yA, yB, yC;
     MaterialState stateA, stateB, stateC;
     std::vector<double> pq;
 
     // Set Up Bisection
-    JeA = std::sqrt(stateIN.Be.det());
+    JeA = Jmax; //std::sqrt(stateIN.Be.det());
     stateA = stateIN;
     stateA.Be = std::cbrt(JeA * JeA) * MaterialTensor::Identity();
     pq = PQFromMaterialState(stateA);   yA = pq[2];
@@ -1476,9 +1499,9 @@ double CompressibleBreakageMechanicsSand::ComputeElasticDeformationForZeroStress
 
         // Assign JeA, JeB
         if (yC * yA > 0){
-            JeA = JeC; yA = yC;
+            JeA = JeC; yA = yC; stateA = stateC;
         } else {
-            JeB = JeC; yB = yC;
+            JeB = JeC; yB = yC; stateB = stateC;
         }
     }
 
