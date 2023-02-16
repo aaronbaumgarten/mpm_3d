@@ -255,10 +255,10 @@ int FVMSlurryFluidPhase::calculatePorosity(Job* job, FiniteVolumeDriver* driver)
         if (m1 > 0){
             driver->fluid_body->n(i) = 1.0 - (m1 / (job->grid->nodeVolume(job,i)*solid_rho));
 
-            if (driver->fluid_body->n(i) < 0.2){
+            if (driver->fluid_body->n(i) < 1e-2){
                 //if porosity drops below 0.2, non-physical
                 //std::cout << "WARNING: Porosity over-estimate!" << std::endl;
-                driver->fluid_body->n(i) = 0.2;
+                driver->fluid_body->n(i) = 1e-2;
             }
         } else {
             driver->fluid_body->n(i) = 1.0;

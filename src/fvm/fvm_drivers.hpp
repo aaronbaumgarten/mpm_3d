@@ -77,10 +77,13 @@ public:
         object_name = "FVMVariableStepDriver"; //set object name here
     }
 
+    bool USE_THERMAL_FLOOR = false;
     bool USE_ARTIFICIAL_VISCOSITY = false;
     double dt0; //baseline time increment
     double lambda; //element quality (1.0 = perfect scaling, 0.0 = terrible scaling)
     double eta; //fluid viscosity
+    double T_floor; //thermal floor
+    double cv_floor; //heat capacity for thermal floor
 
     //initialize from job
     virtual void init(Job* job);

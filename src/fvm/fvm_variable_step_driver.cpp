@@ -57,24 +57,42 @@ void FVMVariableStepDriver::init(Job* job){
         dt0 = job->dt;
         lambda = 0.5;
         eta = 0;
+        T_floor = 0;
+        cv_floor = 0;
     } else if (fp64_props.size() == 2+GRID_DIM) {
         dt0 = job->dt;
         lambda = fp64_props[1+GRID_DIM];
         eta = 0;
-    } else if (fp64_props.size() > 2+GRID_DIM) {
+        T_floor = 0;
+        cv_floor = 0;
+    } else if (fp64_props.size() <= 4+GRID_DIM) {
         dt0 = job->dt;
         lambda = fp64_props[1+GRID_DIM];
         eta = fp64_props[2+GRID_DIM];
+        T_floor = 0;
+        cv_floor = 0;
+    } else if (fp64_props.size() > 4+GRID_DIM) {
+        dt0 = job->dt;
+        lambda = fp64_props[1+GRID_DIM];
+        eta = fp64_props[2+GRID_DIM];
+        T_floor = fp64_props[3+GRID_DIM];
+        cv_floor = fp64_props[4+GRID_DIM];
     }
 
     //loop over str-props and assign relevant flags
-    std::vector<std::string> options = {"USE_ARTIFICIAL_VISCOSITY"};
+    std::vector<std::string> options = {"USE_ARTIFICIAL_VISCOSITY", "USE_THERMAL_FLOOR"};
     for (int i=0; i<str_props.size(); i++){
         switch (Parser::findStringID(options, str_props[i])){
             case 0:
                 //USE_ARTIFICIAL_VISCOSITY
                 USE_ARTIFICIAL_VISCOSITY = true;
                 std::cout << "Using artificial viscosity." << std::endl;
+                break;
+            case 1:
+                //USE_THERMAL_FLOOR
+                USE_THERMAL_FLOOR = true;
+                std::cout << "Using thermal floor. WARNING: energy WILL be inserted into simulation. T = " << T_floor;
+                std::cout << " [K]. cv = " << cv_floor << " J/kg*K." << std::endl;
                 break;
             default:
                 //do nothing
@@ -167,6 +185,30 @@ void FVMVariableStepDriver::run(Job* job) {
                 if (dts < job->dt){
                     job->dt = dts;
                 }
+            }
+
+            //check thermal floor
+            if (TYPE == THERMAL && USE_THERMAL_FLOOR && fluid_material->getTemperature(job,
+                                                                                       this,
+                                                                                       fluid_body->rho(e),
+                                                                                       fluid_body->p(e),
+                                                                                       fluid_body->rhoE(e),
+                                                                                       fluid_body->n_e(e)) <= T_floor){
+
+                //Highlight Error
+                std::cout << std::endl;
+                std::cout << "    Thermal Floor: [" << e << "]: " << fluid_material->getTemperature(job,
+                                                                                                    this,
+                                                                                                    fluid_body->rho(e),
+                                                                                                    fluid_body->p(e),
+                                                                                                    fluid_body->rhoE(e),
+                                                                                                    fluid_body->n_e(e));
+                std::cout << " --> " << T_floor << std::endl;
+
+                //Assign New Temperature
+                fluid_body->rhoE(e) = fluid_body->rho(e) * cv_floor * T_floor
+                                            + 0.5*fluid_body->p[e].dot(fluid_body->p[e])/fluid_body->rho(e);
+
             }
 
             if (!failed && (fluid_material->getTemperature(job,
