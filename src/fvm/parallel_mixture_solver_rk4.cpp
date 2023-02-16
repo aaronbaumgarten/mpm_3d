@@ -200,6 +200,43 @@ void ParallelMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
         job->bodies[solid_body_id]->nodes->f[i] += (f_i[i] - f_d[i])*job->grid->nodeVolume(job,i);
     }
 
+    /*-----------------------------*/
+    /* Ensure Thermal Floor is Set */
+    /*-----------------------------*/
+
+    //if using Thermal Floor:
+    double tmpT;
+    if (driver->TYPE == driver->THERMAL && USE_THERMAL_FLOOR){
+        // loop over elements
+        for (int e=0; e<driver->fluid_grid->element_count; e++) {
+
+            //check thermal floor
+            tmpT = driver->fluid_material->getTemperature(job,
+                                                          driver,
+                                                          driver->fluid_body->rho(e),
+                                                          driver->fluid_body->p(e),
+                                                          driver->fluid_body->rhoE(e),
+                                                          driver->fluid_body->n_e(e));
+            if (tmpT <= T_floor || !std::isfinite(tmpT)) {
+
+                //Highlight Error
+                std::cout << std::endl;
+                std::cout << "    Thermal Floor: [" << e << "]: " << driver->fluid_material->getTemperature(job,
+                                                                                                            driver,
+                                                                                                            driver->fluid_body->rho(e),
+                                                                                                            driver->fluid_body->p(e),
+                                                                                                            driver->fluid_body->rhoE(e),
+                                                                                                            driver->fluid_body->n_e(e));
+                std::cout << " --> " << T_floor << std::endl;
+
+                //Assign New Temperature
+                driver->fluid_body->rhoE(e) = driver->fluid_body->rho(e) * cv_floor * T_floor
+                                              + 0.5 * driver->fluid_body->p[e].dot(driver->fluid_body->p[e]) / driver->fluid_body->rho(e);
+
+            }
+        }
+    }
+
     /*-----------------------*/
     /* Estimate Drag at t+dt */
     /*-----------------------*/

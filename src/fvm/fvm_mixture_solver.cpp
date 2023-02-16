@@ -52,7 +52,7 @@ void FVMMixtureSolver::init(Job* job, FiniteVolumeDriver* driver){
         exit(0);
     } else {
         //set body ids by name
-        if (str_props.size() == 1){
+        if (str_props.size() >= 1){
             for (int b = 0; b < job->bodies.size(); b++) {
                 if (str_props[0].compare(job->bodies[b]->name) == 0){
                     solid_body_id = b;

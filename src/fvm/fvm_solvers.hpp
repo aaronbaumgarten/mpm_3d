@@ -178,6 +178,10 @@ public:
     KinematicVectorArray first_drag_correction; //drag correction component from t = t_n
     KinematicVectorArray second_drag_correction; //drag correction component form t = t_star;
 
+    // Thermal Floor for FORCING Stability
+    bool USE_THERMAL_FLOOR = false;
+    double T_floor, cv_floor;
+
     Eigen::VectorXd F(Job* job, FiniteVolumeDriver* driver, const Eigen::VectorXd& u);          //calculate flux function value
 
     void convertVectorToStateSpace(Job* job, FiniteVolumeDriver* driver,

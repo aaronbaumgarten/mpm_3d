@@ -60,6 +60,24 @@ void FVMMixtureSolverRK4::init(Job* job, FiniteVolumeDriver* driver){
     job->bodies[solid_body_id]->generateMap(job, cpdi_spec);
     job->bodies[solid_body_id]->nodes->m = job->bodies[solid_body_id]->S * job->bodies[solid_body_id]->points->m;
 
+    //loop over str-props and assign relevant flags
+    std::vector<std::string> options = {"USE_THERMAL_FLOOR"};
+    for (int i=0; i<str_props.size(); i++){
+        switch (Parser::findStringID(options, str_props[i])){
+            case 0:
+                //USE_THERMAL_FLOOR
+                USE_THERMAL_FLOOR = true;
+                T_floor = fp64_props[0];
+                cv_floor = fp64_props[1];
+                std::cout << "Using thermal floor. WARNING: energy WILL be inserted into simulation. T = " << T_floor;
+                std::cout << " [K]. cv = " << cv_floor << " J/kg*K." << std::endl;
+                break;
+            default:
+                //do nothing
+                break;
+        }
+    }
+
     //done
     std::cout << "FiniteVolumeSolver initialized." << std::endl;
 
@@ -221,6 +239,43 @@ void FVMMixtureSolverRK4::step(Job* job, FiniteVolumeDriver* driver){
         job->bodies[solid_body_id]->nodes->f[i] += (f_i[i] - f_d[i])*job->grid->nodeVolume(job,i);
     }
 
+    /*-----------------------------*/
+    /* Ensure Thermal Floor is Set */
+    /*-----------------------------*/
+
+    //if using Thermal Floor:
+    double tmpT;
+    if (driver->TYPE == driver->THERMAL && USE_THERMAL_FLOOR){
+        // loop over elements
+        for (int e=0; e<driver->fluid_grid->element_count; e++) {
+
+            //check thermal floor
+            tmpT = driver->fluid_material->getTemperature(job,
+                                                          driver,
+                                                          driver->fluid_body->rho(e),
+                                                          driver->fluid_body->p(e),
+                                                          driver->fluid_body->rhoE(e),
+                                                          driver->fluid_body->n_e(e));
+            if (tmpT <= T_floor || !std::isfinite(tmpT)) {
+
+                //Highlight Error
+                std::cout << std::endl;
+                std::cout << "    Thermal Floor: [" << e << "]: " << driver->fluid_material->getTemperature(job,
+                                                                                                            driver,
+                                                                                                            driver->fluid_body->rho(e),
+                                                                                                            driver->fluid_body->p(e),
+                                                                                                            driver->fluid_body->rhoE(e),
+                                                                                                            driver->fluid_body->n_e(e));
+                std::cout << " --> " << T_floor << std::endl;
+
+                //Assign New Temperature
+                driver->fluid_body->rhoE(e) = driver->fluid_body->rho(e) * cv_floor * T_floor
+                                              + 0.5 * driver->fluid_body->p[e].dot(driver->fluid_body->p[e]) / driver->fluid_body->rho(e);
+
+            }
+        }
+    }
+
     /*-----------------------*/
     /* Estimate Drag at t+dt */
     /*-----------------------*/
@@ -331,6 +386,39 @@ Eigen::VectorXd FVMMixtureSolverRK4::F(Job* job, FiniteVolumeDriver* driver, con
                               driver->fluid_body->rho,
                               driver->fluid_body->p,
                               driver->fluid_body->rhoE);
+
+    //if using Thermal Floor:
+    double tmpT;
+    if (driver->TYPE == driver->THERMAL && USE_THERMAL_FLOOR){
+        // loop over elements
+        for (int e=0; e<driver->fluid_grid->element_count; e++) {
+
+            //check thermal floor
+            tmpT = driver->fluid_material->getTemperature(job,
+                                                       driver,
+                                                       driver->fluid_body->rho(e),
+                                                       driver->fluid_body->p(e),
+                                                       driver->fluid_body->rhoE(e),
+                                                       driver->fluid_body->n_e(e));
+            if (tmpT <= T_floor || !std::isfinite(tmpT)) {
+
+                //Highlight Error
+                std::cout << std::endl;
+                std::cout << "    Thermal Floor: [" << e << "]: " << driver->fluid_material->getTemperature(job,
+                                                                                                            driver,
+                                                                                                            driver->fluid_body->rho(e),
+                                                                                                            driver->fluid_body->p(e),
+                                                                                                            driver->fluid_body->rhoE(e),
+                                                                                                            driver->fluid_body->n_e(e));
+                std::cout << " --> " << T_floor << std::endl;
+
+                //Assign New Temperature
+                driver->fluid_body->rhoE(e) = driver->fluid_body->rho(e) * cv_floor * T_floor
+                                                    + 0.5 * driver->fluid_body->p[e].dot(driver->fluid_body->p[e]) / driver->fluid_body->rho(e);
+
+            }
+        }
+    }
 
     //calculate fluxes
     driver->fluid_grid->constructDensityField(job, driver);
