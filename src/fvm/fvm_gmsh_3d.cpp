@@ -1804,6 +1804,25 @@ void FVMGmsh3D::cSOPF(Job *job, FiniteVolumeDriver *driver, int k_begin, int k_e
                 //flow too slow, too low porosity, or trans/supersonic
                 //do nothing
             }
+
+            // ensure updated fields are physical
+            if (USE_PHYSICALITY_CHECK){
+                //check that reconstructed density and momentum result in positive temp
+                for (int n=0; n<npe; n++){
+                    //p(x) = grad(p) * (x - x_0)
+                    rho = driver->fluid_body->rho(e) + driver->fluid_body->rho_x[e].dot(x_n[nodeIDs(e,n)] - x_e[e]);
+                    p = driver->fluid_body->p(e) + driver->fluid_body->p_x[e]*(x_n[nodeIDs(e,n)] - x_e[e]);
+                    rhoE = driver->fluid_body->rhoE(e) + driver->fluid_body->rhoE_x[e].dot(x_n[nodeIDs(e,n)] - x_e[e]);
+                    //check for undershoot
+                    tmp_val = rho * rhoE - 0.5*(p.dot(p));
+                    if (tmp_val <= 0 || !std::isfinite(tmp_val)){
+                        //limit gradients and don't calculate grad(rhoE)
+                        driver->fluid_body->rho_x[e].setZero();
+                        driver->fluid_body->p_x[e].setZero();
+                        driver->fluid_body->rhoE_x[e].setZero();
+                    }
+                }
+            }
         }
     } else {
         //do nothing
