@@ -81,6 +81,7 @@ Registry<Driver>::Registry() {
     REGISTER(Driver, FVMVariableStepDriver);
     REGISTER(Driver, FVMNumericalDampingDriver);
     REGISTER(Driver, ChuteFlowDriver);
+    REGISTER(Driver, FVMBolideImpactDriver);
 }
 
 

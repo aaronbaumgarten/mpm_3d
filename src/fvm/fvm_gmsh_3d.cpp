@@ -21,6 +21,7 @@
 #include "mpm_objects.hpp"
 #include "fvm_objects.hpp"
 #include "fvm_grids.hpp"
+#include "fvm_drivers.hpp"
 #include "threadpool.hpp"
 #include "../objects/grids/grids.hpp"
 
@@ -98,7 +99,9 @@ void FVMGmsh3D::init(Job* job, FiniteVolumeDriver* driver){
                 tmp_bc_info[i].tag != DAMPED_WALL &&
                 tmp_bc_info[i].tag != STAGNATION_INLET &&
                 tmp_bc_info[i].tag != PULSE_STAGNATION_INLET &&
-                tmp_bc_info[i].tag != RAMP_STAGNATION_INLET){
+                tmp_bc_info[i].tag != RAMP_STAGNATION_INLET &&
+                tmp_bc_info[i].tag != BOLIDE_PRESSURE_OUTLET &&
+                tmp_bc_info[i].tag != BOLIDE_SUPERSONIC_INLET){
                 std::cerr << "ERROR: Boundary tag " << tmp_bc_info[i].tag << " not defined for FVMGmsh3D grid object! Exiting." << std::endl;
                 exit(0);
             }
@@ -230,6 +233,17 @@ void FVMGmsh3D::init(Job* job, FiniteVolumeDriver* driver){
                     std::cout << ", T* = " << tmp_bc_info[i].values[1] << std::endl;
                     break;
 
+                case BOLIDE_PRESSURE_OUTLET:
+
+                    //for readability, take in one unused property
+                    fp64_iterator++;
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : BOLIDE_PRESSURE_OUTLET : ";
+                    std::cout << "P = " << FVMBolideImpactDriver::getAmbientPressure(FVMBolideImpactDriver::H) << ", ";
+                    std::cout << "T = " << FVMBolideImpactDriver::getAmbientTemperature(FVMBolideImpactDriver::H) << std::endl;
+                    break;
+
                 case DAMPED_OUTLET:
                     //first property is density
                     if (fp64_props.size() > fp64_iterator) {
@@ -316,6 +330,18 @@ void FVMGmsh3D::init(Job* job, FiniteVolumeDriver* driver){
                     std::cout << EIGEN_MAP_OF_KINEMATIC_VECTOR(tmp_bc_info[i].vector).transpose();
                     std::cout << ", rho = " << tmp_bc_info[i].values[0];
                     std::cout << ", T = " << tmp_bc_info[i].values[1] << std::endl;
+                    break;
+
+                case BOLIDE_SUPERSONIC_INLET:
+
+                    //for readability, take in one unused property
+                    fp64_iterator++;
+
+                    //print boundary condition info
+                    std::cout << " - " << i << " : BOLIDE_SUPERSONIC_INLET : ";
+                    std::cout << "u = " << FVMBolideImpactDriver::getVelocity() << ", ";
+                    std::cout << "rho = " << FVMBolideImpactDriver::getAmbientDensity(FVMBolideImpactDriver::H) << ", ";
+                    std::cout << "T = " << FVMBolideImpactDriver::getAmbientTemperature(FVMBolideImpactDriver::H) << std::endl;
                     break;
 
                 case SUPERSONIC_OUTLET:

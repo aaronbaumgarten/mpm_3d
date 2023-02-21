@@ -62,6 +62,8 @@ public:
     static const int STAGNATION_INLET       = 13;
     static const int PULSE_STAGNATION_INLET = 14;
     static const int RAMP_STAGNATION_INLET  = 15;
+    static const int BOLIDE_PRESSURE_OUTLET = 16;
+    static const int BOLIDE_SUPERSONIC_INLET = 17;
 
     //Harten entropy correction scale
     static constexpr double delta = 0.2; //0.1;

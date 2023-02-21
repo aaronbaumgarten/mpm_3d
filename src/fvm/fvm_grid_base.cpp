@@ -22,6 +22,7 @@
 #include "mpm_objects.hpp"
 #include "fvm_objects.hpp"
 #include "fvm_grids.hpp"
+#include "fvm_drivers.hpp"
 
 #include "objects/solvers/solvers.hpp"
 
@@ -836,8 +837,9 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
             //face is interior to domain; no BCs (or periodic)
 
             //different flux functions for different simulation TYPES
-            if (driver->TYPE == FiniteVolumeDriver::INCOMPRESSIBLE){
-                std::cerr << "FVMGridBase does not have INCOMPRESSIBLE flux function implemented. Exiting." << std::endl;
+            if (driver->TYPE == FiniteVolumeDriver::INCOMPRESSIBLE) {
+                std::cerr << "FVMGridBase does not have INCOMPRESSIBLE flux function implemented. Exiting."
+                          << std::endl;
                 exit(0);
             } else if (driver->TYPE == FiniteVolumeDriver::ISOTHERMAL) {
                 //loop over quadrature points
@@ -874,13 +876,14 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     //approximate Roe advective rate
                     u_bar = (std::sqrt(rho_plus) * u_plus + std::sqrt(rho_minus) * u_minus) /
                             (std::sqrt(rho_plus) + std::sqrt(rho_minus));
-                    rho_bar = 0.25 * (std::sqrt(rho_plus) + std::sqrt(rho_minus))*(std::sqrt(rho_plus) + std::sqrt(rho_minus));
+                    rho_bar = 0.25 * (std::sqrt(rho_plus) + std::sqrt(rho_minus)) *
+                              (std::sqrt(rho_plus) + std::sqrt(rho_minus));
                     n_bar = n_q(q_list[q]);
 
 
                     c = driver->fluid_material->getSpeedOfSound(job, driver,
-                                                                n_bar*rho_bar,
-                                                                n_bar*rho_bar*u_bar,
+                                                                n_bar * rho_bar,
+                                                                n_bar * rho_bar * u_bar,
                                                                 0.0,
                                                                 n_bar);
 
@@ -900,8 +903,9 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     a_2 = (rho_plus - rho_minus) - a_1;
 
                     //flux in n direction
-                    flux = w_q(q_list[q]) * 0.5 * n_bar * (rho_plus * u_plus.dot(normal) + rho_minus * u_minus.dot(normal)
-                                                           - a_1 * lambda_1 - a_2 * lambda_2);
+                    flux = w_q(q_list[q]) * 0.5 * n_bar *
+                           (rho_plus * u_plus.dot(normal) + rho_minus * u_minus.dot(normal)
+                            - a_1 * lambda_1 - a_2 * lambda_2);
 
                     //add flux to element integrals
                     result(e_minus) -= flux;
@@ -928,7 +932,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus] * x;
                     u_minus = p_minus / rho_minus;
                     rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
-                    E_minus = rhoE_minus/rho_minus;
+                    E_minus = rhoE_minus / rho_minus;
                     n_minus = driver->fluid_body->n_e(e_minus);
 
                     //scale A properties
@@ -937,11 +941,11 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     rhoE_minus /= n_minus;
 
                     P_minus = driver->fluid_material->getPressure(job, driver,
-                                                                  n_bar*rho_minus,
-                                                                  n_bar*p_minus,
-                                                                  n_bar*rhoE_minus,
+                                                                  n_bar * rho_minus,
+                                                                  n_bar * p_minus,
+                                                                  n_bar * rhoE_minus,
                                                                   n_bar); //n_q(q_list[q]));
-                    H_minus = E_minus + P_minus/rho_minus;
+                    H_minus = E_minus + P_minus / rho_minus;
 
                     //relative position to centroid of B
                     x = x_q[q_list[q]] - x_e[e_plus];
@@ -951,7 +955,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus] * x;
                     u_plus = p_plus / rho_plus;
                     rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
-                    E_plus = rhoE_plus/rho_plus;
+                    E_plus = rhoE_plus / rho_plus;
                     n_plus = driver->fluid_body->n_e(e_plus);
 
                     //scale B properties
@@ -960,24 +964,24 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     rhoE_plus /= n_plus;
 
                     P_plus = driver->fluid_material->getPressure(job, driver,
-                                                                 n_bar*rho_plus,
-                                                                 n_bar*p_plus,
-                                                                 n_bar*rhoE_plus,
+                                                                 n_bar * rho_plus,
+                                                                 n_bar * p_plus,
+                                                                 n_bar * rhoE_plus,
                                                                  n_bar); //n_q(q_list[q]));
-                    H_plus = E_plus + P_plus/rho_plus;
+                    H_plus = E_plus + P_plus / rho_plus;
 
                     //approximate Roe advective rate
-                    w_1_bar = (std::sqrt(rho_plus) + std::sqrt(rho_minus))/2.0;
-                    rho_bar = w_1_bar*w_1_bar;
+                    w_1_bar = (std::sqrt(rho_plus) + std::sqrt(rho_minus)) / 2.0;
+                    rho_bar = w_1_bar * w_1_bar;
                     u_bar = (std::sqrt(rho_plus) * u_plus + std::sqrt(rho_minus) * u_minus) / (2.0 * w_1_bar);
                     u_bar_squared = u_bar.dot(u_bar);
                     H_bar = (std::sqrt(rho_plus) * H_plus + std::sqrt(rho_minus) * H_minus) / (2.0 * w_1_bar);
 
                     c = driver->fluid_material->getSpeedOfSoundFromEnthalpy(job,
                                                                             driver,
-                                                                            n_bar*rho_bar,
-                                                                            n_bar*rho_bar*u_bar,
-                                                                            n_bar*rho_bar*H_bar,
+                                                                            n_bar * rho_bar,
+                                                                            n_bar * rho_bar * u_bar,
+                                                                            n_bar * rho_bar * H_bar,
                                                                             n_bar);
 
                     //roe eigenvalues
@@ -994,33 +998,36 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     }
 
                     //calculate Roe eigenvector coefficients
-                    a_3 = ((H_bar - u_bar_squared)*(rho_plus - rho_minus)
-                            + u_bar.dot(p_plus - p_minus)
-                            - (rhoE_plus - rhoE_minus)) / (H_bar - 0.5*u_bar_squared);
+                    a_3 = ((H_bar - u_bar_squared) * (rho_plus - rho_minus)
+                           + u_bar.dot(p_plus - p_minus)
+                           - (rhoE_plus - rhoE_minus)) / (H_bar - 0.5 * u_bar_squared);
 
                     //a_1 = 0.5*((rho_plus - rho_minus)
                     //            - a_3
                     //            - (p_plus - p_minus - u_bar*(rho_plus - rho_minus)).dot(normal) / c);
-                    a_2 = 0.5 / c * ((p_plus - p_minus).dot(normal) - (rho_plus - rho_minus)*(u_bar.dot(normal) - c) - c*a_3);
+                    a_2 = 0.5 / c *
+                          ((p_plus - p_minus).dot(normal) - (rho_plus - rho_minus) * (u_bar.dot(normal) - c) - c * a_3);
 
                     a_1 = (rho_plus - rho_minus) - a_3 - a_2;
 
                     //flux in n direction
-                    flux = w_q(q_list[q]) * 0.5 * n_bar * (rho_plus * u_plus.dot(normal) + rho_minus * u_minus.dot(normal)
-                                                           - a_1 * lambda_1 - a_2 * lambda_2 - a_3*lambda_3);
+                    flux = w_q(q_list[q]) * 0.5 * n_bar *
+                           (rho_plus * u_plus.dot(normal) + rho_minus * u_minus.dot(normal)
+                            - a_1 * lambda_1 - a_2 * lambda_2 - a_3 * lambda_3);
 
                     //add flux to element integrals
                     result(e_minus) -= flux;
                     result(e_plus) += flux;
                 }
             } else {
-                std::cerr << "FVMGridBase does not have flux function implemented for TYPE " << driver->TYPE << "! Exiting." << std::endl;
+                std::cerr << "FVMGridBase does not have flux function implemented for TYPE " << driver->TYPE
+                          << "! Exiting." << std::endl;
                 exit(0);
             }
         } else if (bc_info[f].tag == VELOCITY_INLET) {
             //face has prescribed velocity
             //reconstruct density field at quadrature points
-            for (int q=0; q<q_list.size(); q++){
+            for (int q = 0; q < q_list.size(); q++) {
                 if (e_minus > -1) {
                     //relative position from centroid of A
                     x = x_q[q_list[q]] - x_e[e_minus];
@@ -1043,25 +1050,25 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                     result(e_plus) += flux;
                 }
             }
-        } else if (bc_info[f].tag == VELOCITY_DENSITY_INLET){
+        } else if (bc_info[f].tag == VELOCITY_DENSITY_INLET) {
             //density and velocity given
-            for (int q=0; q<q_list.size(); q++){
+            for (int q = 0; q < q_list.size(); q++) {
                 //flux = rho * u.dot(n)
                 flux = n_q(q_list[q]) * bc_info[f].values[0] * w_q(q_list[q]) * bc_info[f].vector.dot(normal);
 
                 //check which side of face has valid element
-                if (e_minus > -1){
+                if (e_minus > -1) {
                     result(e_minus) -= flux;
                 }
 
-                if (e_plus > -1){
+                if (e_plus > -1) {
                     result(e_plus) += flux;
                 }
             }
-        } else if(bc_info[f].tag == VELOCITY_TEMP_INLET){
+        } else if (bc_info[f].tag == VELOCITY_TEMP_INLET) {
             //velocity and temperature given
             //reconstruct density field at quadrature points
-            for (int q=0; q<q_list.size(); q++){
+            for (int q = 0; q < q_list.size(); q++) {
                 if (e_minus > -1) {
                     //relative position from centroid of A
                     x = x_q[q_list[q]] - x_e[e_minus];
@@ -1094,10 +1101,12 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                                                                                        n_q(q_list[q]));         //use quadrature porosity here
 
                 //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
-                if (USE_HYDROSTATIC_CORRECTION){
+                if (USE_HYDROSTATIC_CORRECTION) {
                     rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
                                                                                            bc_info[f].values[0]
-                                                                                           + rho_bar*driver->gravity.dot(x_q[q_list[q]]),
+                                                                                           + rho_bar *
+                                                                                             driver->gravity.dot(
+                                                                                                     x_q[q_list[q]]),
                                                                                            bc_info[f].values[1],
                                                                                            n_q(q_list[q]));
                 }
@@ -1108,7 +1117,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
 
                     //calculate A properties
                     rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
-                    u_minus = driver->fluid_body->p(e_minus) + driver->fluid_body->p_x[e_minus]*x;
+                    u_minus = driver->fluid_body->p(e_minus) + driver->fluid_body->p_x[e_minus] * x;
                     u_minus /= rho_minus;
                     flux = rho_bar * w_q(q_list[q]) * u_minus.dot(normal);
                     result(e_minus) -= flux;
@@ -1120,7 +1129,7 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
 
                     //calculate B properties
                     rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
-                    u_plus = driver->fluid_body->p(e_plus) + driver->fluid_body->p_x[e_plus]*x;
+                    u_plus = driver->fluid_body->p(e_plus) + driver->fluid_body->p_x[e_plus] * x;
                     u_plus /= rho_plus;
                     flux = rho_bar * w_q(q_list[q]) * u_plus.dot(normal);
                     result(e_plus) += flux;
@@ -1136,13 +1145,62 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
                                                                                        n_q(q_list[q]));      //use quadrature porosity
 
                 //if hydrostatic flag is set, use vertical position of quadrature point to adjust pressure and density
-                if (USE_HYDROSTATIC_CORRECTION){
+                if (USE_HYDROSTATIC_CORRECTION) {
                     rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
                                                                                            bc_info[f].values[0]
-                                                                                           + rho_bar*driver->gravity.dot(x_q[q_list[q]]),
+                                                                                           + rho_bar *
+                                                                                             driver->gravity.dot(
+                                                                                                     x_q[q_list[q]]),
                                                                                            bc_info[f].values[1],
                                                                                            n_q(q_list[q]));
                 }
+
+                if (e_minus > -1) {
+                    //relative position from centroid of A
+                    x = x_q[q_list[q]] - x_e[e_minus];
+
+                    //calculate A properties
+                    rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
+                    u_minus = driver->fluid_body->p(e_minus) + driver->fluid_body->p_x[e_minus] * x;
+                    u_minus /= rho_minus;
+                    rho_minus /= driver->fluid_body->n_e(e_minus);
+                    if (u_minus.dot(normal) < 0) {
+                        //flow direction is into A
+                        flux = rho_bar * w_q(q_list[q]) * u_minus.dot(normal);
+                    } else {
+                        //flow direction is out of A
+                        flux = n_q(q_list[q]) * rho_minus * w_q(q_list[q]) * u_minus.dot(normal);
+                    }
+                    result(e_minus) -= flux;
+                }
+
+                if (e_plus > -1) {
+                    //relative position from centroid of B
+                    x = x_q[q_list[q]] - x_e[e_plus];
+
+                    //calculate B properties
+                    rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
+                    u_plus = driver->fluid_body->p(e_plus) + driver->fluid_body->p_x[e_plus] * x;
+                    u_plus /= rho_plus;
+                    rho_plus /= driver->fluid_body->n_e(e_plus);
+                    if (u_plus.dot(normal) > 0) {
+                        //flow direction is into B
+                        flux = rho_bar * w_q(q_list[q]) * u_plus.dot(normal);
+                    } else {
+                        //flow direction is out of B
+                        flux = n_q(q_list[q]) * rho_plus * w_q(q_list[q]) * u_plus.dot(normal);
+                    }
+                    result(e_plus) += flux;
+                }
+            }
+        } else if (bc_info[f].tag == BOLIDE_PRESSURE_OUTLET){
+            //face has prescribed pressure (and temperature)
+            //reconstruct density and velocity (but adjust if flow direction changes)
+            for (int q = 0; q < q_list.size(); q++) {
+                rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                       FVMBolideImpactDriver::getAmbientPressure(FVMBolideImpactDriver::H),
+                                                                                       FVMBolideImpactDriver::getAmbientTemperature(FVMBolideImpactDriver::H),
+                                                                                       n_q(q_list[q]));      //use quadrature porosity
 
                 if (e_minus > -1) {
                     //relative position from centroid of A
@@ -1192,6 +1250,23 @@ Eigen::VectorXd FVMGridBase::calculateElementMassFluxes(Job* job, FiniteVolumeDr
             for (int q=0; q<q_list.size(); q++){
                 //flux = rho * u.dot(n)
                 flux = n_q(q_list[q]) * bc_info[f].values[0] * w_q(q_list[q]) * bc_info[f].vector.dot(normal);
+
+                //check which side of face has valid element
+                if (e_minus > -1){
+                    result(e_minus) -= flux;
+                }
+
+                if (e_plus > -1){
+                    result(e_plus) += flux;
+                }
+            }
+        } else if (bc_info[f].tag == BOLIDE_SUPERSONIC_INLET){
+            //density and velocity given
+            for (int q=0; q<q_list.size(); q++){
+                //flux = rho * u.dot(n)
+                //flux = n_q(q_list[q]) * bc_info[f].values[0] * w_q(q_list[q]) * bc_info[f].vector.dot(normal);
+                flux = n_q(q_list[q]) * FVMBolideImpactDriver::getAmbientDensity(FVMBolideImpactDriver::H)
+                        * w_q(q_list[q]) * FVMBolideImpactDriver::V * normal(1);
 
                 //check which side of face has valid element
                 if (e_minus > -1){
@@ -2377,6 +2452,114 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
                     result(e_plus) += flux;
                 }
             }
+        } else if (bc_info[f].tag == BOLIDE_PRESSURE_OUTLET) {
+            //face has prescribed pressure (and temperature)
+            //reconstruct density and velocity (but adjust if flow direction changes)
+            for (int q = 0; q < q_list.size(); q++) {
+                rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                       FVMBolideImpactDriver::getAmbientPressure(FVMBolideImpactDriver::H),
+                                                                                       FVMBolideImpactDriver::getAmbientTemperature(FVMBolideImpactDriver::H),
+                                                                                       n_q(q_list[q]));         //ok to use quad value here
+
+                if (e_minus > -1) {
+                    //relative position from centroid of A
+                    x = x_q[q_list[q]] - x_e[e_minus];
+
+                    //calculate A properties
+                    rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
+                    p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus] * x;
+                    rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x(e_minus).dot(x);
+                    u_minus = p_minus / rho_minus;
+                    n_minus = driver->fluid_body->n_e(e_minus);
+
+                    //tau_minus = 0
+                    P_minus = FVMBolideImpactDriver::getAmbientPressure(FVMBolideImpactDriver::H);
+
+                    if (u_minus.dot(normal) > 0) {
+                        //flow out of A
+                        flux = w_q(q_list[q]) * (n_q(q_list[q]) * rho_minus / n_minus * u_minus * u_minus.dot(normal)
+                                                 + n_q(q_list[q])*P_minus * normal);
+                    } else {
+                        //flow direction is into A
+                        //estimate Mach number
+                        c = driver->fluid_material->getSpeedOfSound(job,driver,rho_minus,p_minus,rhoE_minus,n_minus);
+                        M = u_minus.norm()/c;
+
+                        //estimate local pressure
+                        P_minus = driver->fluid_material->getPressureFromStagnationProperties(job,
+                                                                                              driver,
+                                                                                              P_minus,
+                                                                                              M);
+
+                        //estimate local temperature
+                        theta_minus = driver->fluid_material->getTemperatureFromStagnationProperties(job,
+                                                                                                     driver,
+                                                                                                     FVMBolideImpactDriver::getAmbientTemperature(FVMBolideImpactDriver::H),
+                                                                                                     M);
+                        //estimate local density
+                        rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job,
+                                                                                               driver,
+                                                                                               P_minus,
+                                                                                               theta_minus,
+                                                                                               n_q(q_list[q]));
+
+                        //flow into A
+                        flux = w_q(q_list[q]) * (rho_bar * u_minus * u_minus.dot(normal)
+                                                 + n_q(q_list[q])*P_minus * normal);
+                    }
+
+                    result(e_minus) -= flux;
+                }
+
+                if (e_plus > -1) {
+                    //relative position from centroid of B
+                    x = x_q[q_list[q]] - x_e[e_plus];
+
+                    //calculate B properties
+                    rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
+                    p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus] * x;
+                    rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x(e_plus).dot(x);
+                    u_plus = p_plus / rho_plus;
+                    n_plus = driver->fluid_body->n_e(e_plus);
+
+                    //tau_minus = 0
+                    P_plus = FVMBolideImpactDriver::getAmbientPressure(FVMBolideImpactDriver::H);
+
+                    if (u_plus.dot(normal) < 0) {
+                        //flow out of B
+                        flux = w_q(q_list[q]) * (n_q(q_list[q])*rho_plus/n_plus * u_plus * u_plus.dot(normal)
+                                                 + n_q(q_list[q])*P_plus * normal);
+                    } else {
+                        //flow into B
+                        //estimate Mach number
+                        c = driver->fluid_material->getSpeedOfSound(job,driver,rho_plus,p_plus,rhoE_plus,n_plus);
+                        M = u_plus.norm()/c;
+
+                        //estimate local pressure
+                        P_plus = driver->fluid_material->getPressureFromStagnationProperties(job,
+                                                                                             driver,
+                                                                                             P_plus,
+                                                                                             M);
+
+                        //estimate local temperature
+                        theta_plus = driver->fluid_material->getTemperatureFromStagnationProperties(job,
+                                                                                                    driver,
+                                                                                                    FVMBolideImpactDriver::getAmbientTemperature(FVMBolideImpactDriver::H),
+                                                                                                    M);
+                        //estimate local density
+                        rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job,
+                                                                                               driver,
+                                                                                               P_plus,
+                                                                                               theta_plus,
+                                                                                               n_q(q_list[q]));
+
+                        flux = w_q(q_list[q]) * (rho_bar * u_plus * u_plus.dot(normal)
+                                                 + n_q(q_list[q])*P_plus * normal);
+                    }
+
+                    result(e_plus) += flux;
+                }
+            }
         } else if (bc_info[f].tag == ADIABATIC_WALL ||
                    bc_info[f].tag == THERMAL_WALL ||
                    bc_info[f].tag == DAMPED_WALL){
@@ -2540,6 +2723,28 @@ KinematicVectorArray FVMGridBase::calculateElementMomentumFluxes(Job* job, Finit
 
                 flux = w_q(q_list[q]) * (n_q(q_list[q]) * bc_info[f].values[0] * bc_info[f].vector * bc_info[f].vector.dot(normal)
                                          + n_q(q_list[q])*P_minus * normal);
+
+                //check which side of face has valid element
+                if (e_minus > -1) {
+                    result(e_minus) -= flux;
+                }
+
+                if (e_plus > -1) {
+                    result(e_plus) += flux;
+                }
+            }
+        } else if (bc_info[f].tag == BOLIDE_SUPERSONIC_INLET) {
+            //density and velocity given (and temperature if thermal)
+            for (int q = 0; q < q_list.size(); q++) {
+                //neglect shear stress at inlet
+                P_minus = FVMBolideImpactDriver::getAmbientPressure(FVMBolideImpactDriver::H);
+
+                //flux = w_q(q_list[q]) * (n_q(q_list[q]) * bc_info[f].values[0] * bc_info[f].vector * bc_info[f].vector.dot(normal)
+                //                         + n_q(q_list[q])*P_minus * normal);
+                flux.setZero();
+                flux(1) = w_q(q_list[q]) * (n_q(q_list[q]) * FVMBolideImpactDriver::getAmbientDensity(FVMBolideImpactDriver::H)
+                            * FVMBolideImpactDriver::V * FVMBolideImpactDriver::V *normal(1));
+                flux +=  w_q(q_list[q]) * n_q(q_list[q]) * P_minus * normal;
 
                 //check which side of face has valid element
                 if (e_minus > -1) {
@@ -3755,6 +3960,88 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
                     result(e_plus) += flux;
                 }
             }
+        } else if (bc_info[f].tag == BOLIDE_PRESSURE_OUTLET) {
+            //face has prescribed pressure (and temperature)
+            //reconstruct density and velocity (but adjust if flow direction changes)
+            for (int q = 0; q < q_list.size(); q++) {
+                rho_bar = driver->fluid_material->getDensityFromPressureAndTemperature(job, driver,
+                                                                                       FVMBolideImpactDriver::getAmbientPressure(FVMBolideImpactDriver::H),
+                                                                                       FVMBolideImpactDriver::getAmbientTemperature(FVMBolideImpactDriver::H),
+                                                                                       n_q(q_list[q]));
+
+                if (e_minus > -1) {
+                    //relative position from centroid of A
+                    x = x_q[q_list[q]] - x_e[e_minus];
+
+                    //calculate A properties
+                    rho_minus = driver->fluid_body->rho(e_minus) + driver->fluid_body->rho_x[e_minus].dot(x);
+                    p_minus = driver->fluid_body->p[e_minus] + driver->fluid_body->p_x[e_minus] * x;
+                    rhoE_minus = driver->fluid_body->rhoE(e_minus) + driver->fluid_body->rhoE_x[e_minus].dot(x);
+                    n_minus = driver->fluid_body->n_e(e_minus);
+                    n_bar = n_q(q_list[q]);
+
+                    u_minus = p_minus / rho_minus;
+
+                    //tau_minus = 0
+                    P_minus = FVMBolideImpactDriver::getAmbientPressure(FVMBolideImpactDriver::H);
+
+                    //calculate energy for inflow
+                    rhoE_bar = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver,
+                                                                                                   P_minus,
+                                                                                                   FVMBolideImpactDriver::getAmbientTemperature(FVMBolideImpactDriver::H),
+                                                                                                   n_minus); //n_q(q_list[q]));
+
+
+                    rhoE_bar += 0.5 * rho_minus * u_minus.dot(u_minus);
+
+                    if (u_minus.dot(normal) > 0) {
+                        //flow out of A
+                        flux = w_q(q_list[q]) * (n_bar * rhoE_minus/n_minus * u_minus.dot(normal)
+                                                 + n_bar * P_minus * u_minus.dot(normal));
+                    } else {
+                        //flow into A
+                        flux = w_q(q_list[q]) * (n_bar * rhoE_bar/n_minus * u_minus.dot(normal)
+                                                 + n_bar * P_minus * u_minus.dot(normal));
+                    }
+
+                    result(e_minus) -= flux;
+                }
+
+                if (e_plus > -1) {
+                    //relative position from centroid of B
+                    x = x_q[q_list[q]] - x_e[e_plus];
+
+                    //calculate B properties
+                    rho_plus = driver->fluid_body->rho(e_plus) + driver->fluid_body->rho_x[e_plus].dot(x);
+                    p_plus = driver->fluid_body->p[e_plus] + driver->fluid_body->p_x[e_plus] * x;
+                    rhoE_plus = driver->fluid_body->rhoE(e_plus) + driver->fluid_body->rhoE_x[e_plus].dot(x);
+                    n_plus = driver->fluid_body->n_e(e_plus);
+                    n_bar = n_q(q_list[q]);
+                    u_plus = p_plus / rho_plus;
+
+                    //tau_minus = 0
+                    P_plus = FVMBolideImpactDriver::getAmbientPressure(FVMBolideImpactDriver::H);
+
+                    //calculate energy for inflow
+                    rhoE_bar = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver,
+                                                                                                   P_plus,
+                                                                                                   FVMBolideImpactDriver::getAmbientTemperature(FVMBolideImpactDriver::H),
+                                                                                                   n_plus); //n_q(q_list[q]));
+                    rhoE_bar += 0.5 * rho_plus * u_plus.dot(u_plus);
+
+                    if (u_plus.dot(normal) < 0) {
+                        //flow out of B
+                        flux = w_q(q_list[q]) * (n_bar * rhoE_plus / n_plus * u_plus.dot(normal)
+                                                 + n_bar * P_plus * u_plus.dot(normal));
+                    } else {
+                        //flow into A
+                        flux = w_q(q_list[q]) * (n_bar * rhoE_bar / n_plus * u_plus.dot(normal)
+                                                 + n_bar * P_plus * u_plus.dot(normal));
+                    }
+
+                    result(e_plus) += flux;
+                }
+            }
         } else if (bc_info[f].tag == ADIABATIC_WALL || bc_info[f].tag == SYMMETRIC_WALL ||
                    bc_info[f].tag == DAMPED_WALL) {
             //nothing to do right now
@@ -3839,6 +4126,33 @@ Eigen::VectorXd FVMGridBase::calculateElementEnergyFluxes(Job* job, FiniteVolume
 
                 flux = w_q(q_list[q]) * n_q(q_list[q]) * (rhoE_bar * bc_info[f].vector.dot(normal)
                                                           + P_minus * bc_info[f].vector.dot(normal));
+
+                //check which side of face has valid element
+                if (e_minus > -1) {
+                    result(e_minus) -= flux;
+                }
+
+                if (e_plus > -1) {
+                    result(e_plus) += flux;
+                }
+            }
+        } else if (bc_info[f].tag == BOLIDE_SUPERSONIC_INLET) {
+            //density and velocity given (and temperature if thermal)
+            //don't worry about heat flux for now
+            for (int q = 0; q < q_list.size(); q++) {
+                //neglect shear stress at inlet
+                P_minus = FVMBolideImpactDriver::getAmbientPressure(FVMBolideImpactDriver::H);
+
+                rhoE_bar = driver->fluid_material->getInternalEnergyFromPressureAndTemperature(job, driver,
+                                                                                               P_minus,
+                                                                                               FVMBolideImpactDriver::getAmbientTemperature(FVMBolideImpactDriver::H),
+                                                                                               1.0);
+                rhoE_bar += 0.5 * FVMBolideImpactDriver::getAmbientDensity(FVMBolideImpactDriver::H)
+                            * FVMBolideImpactDriver::V * FVMBolideImpactDriver::V;
+
+
+                flux = w_q(q_list[q]) * n_q(q_list[q]) * (rhoE_bar * FVMBolideImpactDriver::V * normal(1)
+                                                                      + P_minus * FVMBolideImpactDriver::V * normal(1));
 
                 //check which side of face has valid element
                 if (e_minus > -1) {
@@ -4611,6 +4925,10 @@ void FVMGridBase::calculateFaceIntegrandsForBuoyantForce(Job *job,
                                                                                         rhoE,
                                                                                         n); //n_q(q_list[q]));
                     }
+                } else if (bc_info[f].tag == BOLIDE_PRESSURE_OUTLET) {
+                    //face has prescribed pressure
+                    P = FVMBolideImpactDriver::getAmbientPressure(FVMBolideImpactDriver::H);
+
                 } else if (bc_info[f].tag == ADIABATIC_WALL ||
                            bc_info[f].tag == DAMPED_WALL ||
                            bc_info[f].tag == SYMMETRIC_WALL ||
@@ -4633,6 +4951,12 @@ void FVMGridBase::calculateFaceIntegrandsForBuoyantForce(Job *job,
                     rho = n*bc_info[f].values[0];
                     p = rho*bc_info[f].vector;
                     P = driver->fluid_material->getPressureFromDensityAndTemperature(job,driver,rho,bc_info[f].values[1],n);
+                } else if (bc_info[f].tag == BOLIDE_SUPERSONIC_INLET) {
+                    n = n_q[tmp_q];
+                    rho = n*FVMBolideImpactDriver::getAmbientDensity(FVMBolideImpactDriver::H);
+                    p.setZero();
+                    p(1) = rho*FVMBolideImpactDriver::V;
+                    P = FVMBolideImpactDriver::getAmbientPressure(FVMBolideImpactDriver::H);
                 } else if (bc_info[f].tag == SUPERSONIC_OUTLET) {
                     //fill in pressure
                     P = driver->fluid_material->getPressure(job,

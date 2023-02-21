@@ -119,4 +119,36 @@ public:
 
 };
 
+class FVMBolideImpactDriver : public FVMVariableStepDriver{
+public:
+    FVMBolideImpactDriver(){
+        FVMVariableStepDriver::object_name = "FVMBolideImpactDriver";
+        object_name = "FVMBolideImpactDriver"; //set object name here
+    }
+
+    //static variables
+    static double H;// = 0;        //Height in Meters
+    static double V;// = 11e3;     //Velocity in Meters/Second
+    static double Y0;// = 0;       //Initial Leading Position of Projectile in Meters
+
+    //constant variables
+    static constexpr int bmax = 7;
+    static constexpr double Hb[8] = {0, 11e3, 20e3, 32e3, 47e3, 51e3, 71e3, 85e3};                     //Heights of Model in Meters
+    static constexpr double Lb[8] = {-6.5e-3, 0.0, 1.0e-3, 2.8e-3, 0.0, -2.8e-3, -2.0e-3, 0.0};        //Gradients of Model in Kelvin per Meter
+    static constexpr double Tb[8] = {288.15, 216.65, 216.65, 228.65, 270.65, 270.65, 214.65, 186.65};  //Thermal Layers of Model in Kelvin
+    static constexpr double Pb[8] = {101325, 22632, 5474.9, 802.135, 102.488, 61.8581, 3.6561, 0.3358}; //Pressure Payers of Model in Pascal
+    static constexpr double g0 = 9.80665;      //Gravitational Acceleration in Meters per Second per Second
+    static constexpr double R  = 287.053;      //Atmospheric Gas Constant Joules per Kilogram per Kelvin
+
+    //static functions
+    static double getAmbientPressure(double h);     //Function Returns Ambient Pressure from Standard Atmosphere Model
+    static double getAmbientTemperature(double h);  //Function Returns Ambient Temperature from Standard Atmosphere Model
+    static double getAmbientDensity(double h);      //Function Returns Ambient Density from Standard Atmosphere Model
+    static double getVelocity();                    //Function Returns Velocity
+
+    //initialization and running functions
+    virtual void init(Job* job);
+    virtual void run(Job* job);
+};
+
 #endif //MPM_V3_FVM_DRIVERS_HPP
