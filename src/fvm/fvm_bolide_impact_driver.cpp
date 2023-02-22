@@ -362,7 +362,7 @@ void FVMBolideImpactDriver::run(Job* job) {
 
         //SECOND: Determine Velocity of Leading Material Point
         if (YMin_Set) {
-            YDot = job->bodies[0]->points->x_t(YMinID, 0);
+            YDot = job->bodies[0]->points->x_t(YMinID, 1);
         }
 
         //THIRD: Adjust Reference Frame of Solution Fields to New Velocity
