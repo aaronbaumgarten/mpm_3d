@@ -141,8 +141,8 @@ double FVMBolideImpactDriver::getAmbientPressure(double h) {
     bool success = false;
 
     // Standard Atmosphere Model (1976)
-    for (int i=0; i<=bmax; i++){
-        if (!success && h < Hb[i]){
+    for (int i=0; i<bmax; i++){
+        if (!success && h < Hb[i+1]){
             // Determine Temperature
             T = Tb[i] + Lb[i] * (h - Hb[i]);
 
@@ -171,8 +171,8 @@ double FVMBolideImpactDriver::getAmbientTemperature(double h){
     bool success = false;
 
     // Standard Atmosphere Model (1976)
-    for (int i=0; i<=bmax; i++){
-        if (!success && h < Hb[i]){
+    for (int i=0; i<bmax; i++){
+        if (!success && h < Hb[i+1]){
             T = Tb[i] + Lb[i] * (h - Hb[i]);
             success = true;
         }
@@ -234,6 +234,7 @@ void FVMBolideImpactDriver::run(Job* job) {
     double H0 = H;  //initial height
     double cosTHETA = std::sqrt(0.5); //cosine of inclination angle
     double YMin = Y0;  //minimum bolide point y-position
+    double YMax = Y0;  //maximum bolide point y-position (for radius calculation)
     double YDot = 0;   //y-velocity of leading bolide point
     double YTmp = 0;
     int YMinID  = 0;   //ID of point with minimum y-position
@@ -245,16 +246,43 @@ void FVMBolideImpactDriver::run(Job* job) {
             if (!YMin_Set){
                 //Initialize YMin
                 YMin = job->bodies[0]->points->x(i,1);
+                YMax = job->bodies[0]->points->x(i,1);
                 YMin_Set = true;
             } else {
                 YTmp = job->bodies[0]->points->x(i,1);
                 if (YTmp < YMin){
                     YMin = YTmp;
+                } else if (YTmp > YMax){
+                    YMax = YTmp;
                 }
             }
         }
     }
     Y0 = YMin;
+
+    // Compute Radius and Centroid of Bolide
+    double R0 = (YMax - YMin) / 2.0;
+    double YMed = (YMax + YMin) / 2.0;
+    KinematicVector X0 = KinematicVector(job->JOB_TYPE);
+    KinematicVector XTmp = KinematicVector(job->JOB_TYPE);
+    X0.setZero(); X0(1) = YMed;
+
+    // Set Initial Conditions
+    if (true){
+        for (int e=0; e<fluid_grid->element_count; e++){
+            XTmp = fluid_grid->getElementCentroid(job, e);
+            // Check That Element is Outside of Bolide
+            if ((XTmp - X0).dot(XTmp - X0) > 2.25*R0*R0) {
+                // Subtract Kinetic Energy From Total Energy
+                fluid_body->rhoE(e) -= 0.5 * fluid_body->p(e).dot(fluid_body->p(e)) / fluid_body->rho(e);
+                // Update Momentum
+                fluid_body->p(e, 1) = fluid_body->rho(e) * V;
+                // Add Kinetic Energy To Total Energy
+                fluid_body->rhoE(e) += 0.5 * fluid_body->p(e).dot(fluid_body->p(e)) / fluid_body->rho(e);
+            }
+        }
+    }
+
 
     //create new output file
     //open and clear file
