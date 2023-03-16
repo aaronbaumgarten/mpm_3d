@@ -182,6 +182,7 @@ Registry<Material>::Registry() {
     REGISTER(Material, CompressibleNeohookeanElasticity);
     REGISTER(Material, BreakageMechanicsSand);
     REGISTER(Material, CompressibleBreakageMechanicsSand);
+    REGISTER(Material, CompressibleBreakageMechanicsRestart);
     REGISTER(Material, TillotsonEOSFluid);
 }
 

@@ -531,7 +531,7 @@ void FVMBolideRestartDriver::restart(Job* job) {
         std::cout << "    Complete.\n";
 
         //Close File
-        pin.close();
+        vin.close();
     }
 
     return;

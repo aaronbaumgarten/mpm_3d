@@ -429,6 +429,19 @@ public:
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
 };
 
+class CompressibleBreakageMechanicsRestart : public CompressibleBreakageMechanicsSand {
+public:
+    CompressibleBreakageMechanicsRestart(){
+        object_name = "CompressibleBreakageMechanicsRestart";
+    }
+
+    //filename to restart simulation from
+    std::string point_file;
+
+    // function to initialize internal variables
+    void init(Job* job, Body* body);
+};
+
 class TillotsonEOSFluid : public Material {
 public:
     TillotsonEOSFluid(){
