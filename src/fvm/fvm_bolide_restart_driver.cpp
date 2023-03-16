@@ -34,6 +34,9 @@
 
 /*----------------------------------------------------------------------------*/
 
+bool USE_LEADING_EDGE_VELOCITY = false;
+bool USE_LEADING_EDGE_POSITION = true;
+
 void FVMBolideRestartDriver::init(Job* job){
 
     //call finite volume driver initializer
@@ -88,12 +91,13 @@ void FVMBolideRestartDriver::init(Job* job){
         eta = fp64_props[4 + GRID_DIM];
     }
 
-    if (str_props.size() < 2){
-        std::cerr << "FVMBolideRestartDriver requires 2 input files in order to restart. " << str_props.size() << " given. Exiting." << std::endl;
+    if (str_props.size() < 3){
+        std::cerr << "FVMBolideRestartDriver requires 3 input files in order to restart. " << str_props.size() << " given. Exiting." << std::endl;
         exit(0);
     } else {
-        point_file = str_props[0];
-        volume_file = str_props[1];
+        //str_props[0] is configuration file
+        point_file = str_props[1];
+        volume_file = str_props[2];
         std::cout << "FVMBolideRestartDriver restarting simulation using data from:\n";
         std::cout << "    Points: " << point_file << "\n";
         std::cout << "    Volumes: " << volume_file << "\n";
@@ -144,7 +148,7 @@ void FVMBolideRestartDriver::restart(Job* job) {
     }
     std::ifstream vin(volume_file);
     if (!vin.is_open()){
-        std::cerr << "ERROR: Unable to open volume restart file: " << point_file << ". Exiting." << std::endl;
+        std::cerr << "ERROR: Unable to open volume restart file: " << volume_file << ". Exiting." << std::endl;
         exit(0);
     }
 
@@ -569,7 +573,7 @@ void FVMBolideRestartDriver::run(Job* job) {
     generateGravity(job);
     applyGravity(job);
 
-    //bolide simulation variables
+    //restarted bolide simulation variables
     double dV = 0;  //total change in velocity
     double KE = 0;  //total kinetic energy (in Earth Ref. Frame)
     double M = 0;   //total bolide mass
@@ -582,6 +586,9 @@ void FVMBolideRestartDriver::run(Job* job) {
     double YMin = FVMBolideImpactDriver::Y0;  //minimum bolide point y-position
     double YMax = FVMBolideImpactDriver::Y0;  //maximum bolide point y-position (for radius calculation)
     double YDot = 0;   //y-velocity of leading bolide point
+    double VTarget = 0; //target bolide velocity based on position in reference frame
+    double YMinLE = 0; //minimum bolide leading edge position
+    double YMaxLE = 0; //maximum bolide leading edge position
     double YTmp = 0;
     int YMinID  = 0;   //ID of point with minimum y-position
 
@@ -606,30 +613,13 @@ void FVMBolideRestartDriver::run(Job* job) {
     }
     FVMBolideImpactDriver::Y0 = YMin;
 
-    // Compute Radius and Centroid of Bolide
-    double R0 = (YMax - YMin) / 2.0;
-    double YMed = (YMax + YMin) / 2.0;
-    KinematicVector X0 = KinematicVector(job->JOB_TYPE);
-    KinematicVector XTmp = KinematicVector(job->JOB_TYPE);
-    X0.setZero(); X0(1) = YMed;
-
-    // Set Initial Conditions
-    if (true){
-        for (int e=0; e<fluid_grid->element_count; e++){
-            XTmp = fluid_grid->getElementCentroid(job, e);
-            // Check That Element is Outside of Bolide
-            if ((XTmp - X0).dot(XTmp - X0) > 2.25*R0*R0) {
-                // Subtract Kinetic Energy From Total Energy
-                fluid_body->rhoE(e) -= 0.5 * fluid_body->p(e).dot(fluid_body->p(e)) / fluid_body->rho(e);
-                // Update Momentum
-                fluid_body->p(e, 1) = fluid_body->rho(e) * FVMBolideImpactDriver::V;
-                // Add Kinetic Energy To Total Energy
-                fluid_body->rhoE(e) += 0.5 * fluid_body->p(e).dot(fluid_body->p(e)) / fluid_body->rho(e);
-            }
-        }
+    if (USE_LEADING_EDGE_POSITION){
+        //Redefine YMin, YMax to be limits of leading edge position
+        YMinLE = FVMBolideImpactDriver::Y0 / 2.0;
+        YMaxLE = FVMBolideImpactDriver::Y0 * 3.0 / 2.0;
     }
 
-    // Compute Initial Kinetic Energy
+    // Compute Restarted Kinetic Energy
     KinematicVector vTMP = KinematicVector(job->JOB_TYPE);
     for (int i=0; i<job->bodies[0]->points->x.size(); i++){
         if (job->bodies[0]->points->active(i) == 1) {
@@ -641,7 +631,6 @@ void FVMBolideRestartDriver::run(Job* job) {
     }
     KE0 = KE;
     tmpt = job->t;
-
 
     //create new output file
     //open and clear file
@@ -724,36 +713,84 @@ void FVMBolideRestartDriver::run(Job* job) {
             }
         }
 
-        //SECOND: Determine Velocity of Leading Material Point
-        if (YMin_Set) {
-            YDot = job->bodies[0]->points->x_t(YMinID, 1);
-        }
+        //SECOND + THIRD: Update Reference Frame
+        if (USE_LEADING_EDGE_VELOCITY) {
+            //SECOND: Determine Velocity of Leading Material Point
+            if (YMin_Set) {
+                YDot = job->bodies[0]->points->x_t(YMinID, 1);
+            }
 
-        //THIRD: Adjust Reference Frame of Solution Fields to New Velocity
-        if (YMin_Set){
-            // (1) Adjust Material Point Velocities and Momenta
-            for (int i=0; i<job->bodies[0]->points->x.size(); i++){
-                if (job->bodies[0]->points->active(i)){
-                    job->bodies[0]->points->x_t(i,1) -= YDot;
-                    job->bodies[0]->points->mx_t(i) = job->bodies[0]->points->m(i) * job->bodies[0]->points->x_t(i);
+            //THIRD: Adjust Reference Frame of Solution Fields to New Velocity
+            if (YMin_Set) {
+                // (1) Adjust Material Point Velocities and Momenta
+                for (int i = 0; i < job->bodies[0]->points->x.size(); i++) {
+                    if (job->bodies[0]->points->active(i)) {
+                        job->bodies[0]->points->x_t(i, 1) -= YDot;
+                        job->bodies[0]->points->mx_t(i) = job->bodies[0]->points->m(i) * job->bodies[0]->points->x_t(i);
+                    }
                 }
+
+                // (2) Adjust Fluid Momenta and Energies
+                for (int e = 0; e < fluid_grid->element_count; e++) {
+                    // Subtract Kinetic Energy From Total Energy
+                    fluid_body->rhoE(e) -= 0.5 * fluid_body->p(e).dot(fluid_body->p(e)) / fluid_body->rho(e);
+                    // Update Momentum
+                    fluid_body->p(e, 1) -= fluid_body->rho(e) * YDot;
+                    // Add Kinetic Energy To Total Energy
+                    fluid_body->rhoE(e) += 0.5 * fluid_body->p(e).dot(fluid_body->p(e)) / fluid_body->rho(e);
+                }
+
+                // (3) Adjust Velocity BC
+                FVMBolideImpactDriver::V -= YDot;
+                dV -= YDot;
+            }
+        } else if (USE_LEADING_EDGE_POSITION){
+            //SECOND: Determine Frame Velocity Using Leading Material Point
+            if (YMin_Set) {
+                if (YMin >= FVMBolideImpactDriver::Y0) {
+                    // Bolide is Behind Y0, Reference Frame Needs to Be Slower than V0
+                    VTarget = V0 * (YMaxLE - YMin) / (YMaxLE - FVMBolideImpactDriver::Y0);
+                } else if (YMin < FVMBolideImpactDriver::Y0) {
+                    // Bolide is Ahead of Y0, Reference Frame Needs to Be Faster than V0
+                    VTarget = V0 * (2.0 - (YMin - YMinLE) / (FVMBolideImpactDriver::Y0 - YMinLE));
+                }
+
+                // Bound VTarget
+                if (VTarget < 0) {
+                    VTarget = 0;
+                } else if (VTarget > 2.0 * V0) {
+                    VTarget = 2.0 * V0;
+                }
+
+                // Determine Needed Change in Reference Frame Velocity
+                YDot = VTarget - FVMBolideImpactDriver::V;
             }
 
-            // (2) Adjust Fluid Momenta and Energies
-            for (int e=0; e<fluid_grid->element_count; e++){
-                // Subtract Kinetic Energy From Total Energy
-                fluid_body->rhoE(e) -= 0.5 * fluid_body->p(e).dot(fluid_body->p(e)) / fluid_body->rho(e);
-                // Update Momentum
-                fluid_body->p(e,1) -= fluid_body->rho(e) * YDot;
-                // Add Kinetic Energy To Total Energy
-                fluid_body->rhoE(e) += 0.5 * fluid_body->p(e).dot(fluid_body->p(e)) / fluid_body->rho(e);
-            }
+            //THIRD: Adjust Reference Frame of Solution Fields to New Velocity
+            if (YMin_Set) {
+                // (1) Adjust Material Point Velocities and Momenta
+                for (int i = 0; i < job->bodies[0]->points->x.size(); i++) {
+                    if (job->bodies[0]->points->active(i)) {
+                        job->bodies[0]->points->x_t(i, 1) += YDot;
+                        job->bodies[0]->points->mx_t(i) = job->bodies[0]->points->m(i) * job->bodies[0]->points->x_t(i);
+                    }
+                }
 
-            // (3) Adjust Velocity BC
-            FVMBolideImpactDriver::V -= YDot;
-            dV -= YDot;
+                // (2) Adjust Fluid Momenta and Energies
+                for (int e = 0; e < fluid_grid->element_count; e++) {
+                    // Subtract Kinetic Energy From Total Energy
+                    fluid_body->rhoE(e) -= 0.5 * fluid_body->p(e).dot(fluid_body->p(e)) / fluid_body->rho(e);
+                    // Update Momentum
+                    fluid_body->p(e, 1) += fluid_body->rho(e) * YDot;
+                    // Add Kinetic Energy To Total Energy
+                    fluid_body->rhoE(e) += 0.5 * fluid_body->p(e).dot(fluid_body->p(e)) / fluid_body->rho(e);
+                }
+
+                // (3) Adjust Velocity BC
+                FVMBolideImpactDriver::V += YDot;
+                dV += YDot;
+            }
         }
-
 
         //FOURTH: check time increment for stability
         job->dt = dt0;

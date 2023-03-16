@@ -831,7 +831,7 @@ int TetrahedralGridLinear::whichElement(Job* job, KinematicVector& xIN, int& ele
 bool TetrahedralGridLinear::inDomain(Job* job, KinematicVector& xIN){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "inDomain failed");
 
-    if (whichSearchCell(xIN) == -1){
+    if (whichSearchCell(xIN) == -1 || whichElement(job,xIN) < 0){
         return false;
     } else {
         return true;
