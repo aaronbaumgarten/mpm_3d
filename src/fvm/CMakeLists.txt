@@ -25,5 +25,6 @@ set(SOURCE_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_carman_kozeny_fluid.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_numerical_damping_driver.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fvm_bolide_impact_driver.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/fvm_bolide_restart_driver.cpp
         PARENT_SCOPE
         )

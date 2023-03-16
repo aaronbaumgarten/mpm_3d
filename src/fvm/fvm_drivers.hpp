@@ -151,4 +151,21 @@ public:
     virtual void run(Job* job);
 };
 
+class FVMBolideRestartDriver : public FVMBolideImpactDriver{
+public:
+    FVMBolideRestartDriver(){
+        FVMVariableStepDriver::object_name = "FVMBolideRestartDriver";
+        FVMBolideImpactDriver::object_name = "FVMBolideRestartDriver";
+        object_name = "FVMBolideRestartDriver"; //set object name here
+    }
+
+    //filenames to read data from
+    std::string point_file, volume_file;
+
+    //initialization and running functions
+    virtual void init(Job* job);
+    virtual void restart(Job* job);
+    virtual void run(Job* job);
+};
+
 #endif //MPM_V3_FVM_DRIVERS_HPP
