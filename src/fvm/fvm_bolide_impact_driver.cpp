@@ -230,6 +230,12 @@ void FVMBolideImpactDriver::run(Job* job) {
     applyGravity(job);
 
     //bolide simulation variables
+    double dV = 0;  //total change in velocity
+    double KE = 0;  //total kinetic energy (in Earth Ref. Frame)
+    double M = 0;   //total bolide mass
+    double tmpKE, tmpt, KE0;
+    double dKE = 0; //total change in kinetic energy
+    double dKEdt = 0; //rate of change in kinetic energy
     double V0 = V;  //initial velocity
     double H0 = H;  //initial height
     double cosTHETA = std::sqrt(0.5); //cosine of inclination angle
@@ -283,6 +289,19 @@ void FVMBolideImpactDriver::run(Job* job) {
         }
     }
 
+    // Compute Initial Kinetic Energy
+    KinematicVector vTMP = KinematicVector(job->JOB_TYPE);
+    for (int i=0; i<job->bodies[0]->points->x.size(); i++){
+        if (job->bodies[0]->points->active(i) == 1) {
+            vTMP = job->bodies[0]->points->x_t[i];
+            vTMP[1] -= V;
+            KE += 0.5 * job->bodies[0]->points->m(i) * vTMP.dot(vTMP);
+            M += job->bodies[0]->points->m(i);
+        }
+    }
+    KE0 = KE;
+    tmpt = job->t;
+
 
     //create new output file
     //open and clear file
@@ -293,7 +312,7 @@ void FVMBolideImpactDriver::run(Job* job) {
     if (file.is_open()){
         //success!
         //write file header
-        file << "Time [s], Time Increment [s], Velocity [km/s], Altitude [km], Pressure [Pa], Temperature [K], Density [kg/m^3], Leading Edge Position [m]\n";
+        file << "Time [s], Time Increment [s], Velocity [km/s], Altitude [km], Pressure [Pa], Temperature [K], Density [kg/m^3], Leading Edge Position [m], Kinetic Energy [J], Change in Velocity [km/s], Change in Kinetic Energy [J], Rate of Change of Kinetic Energy [J/s], Bolide Mass [kg]\n";
         file << job->t << ", ";
         file << job->dt << ", ";
         file << (V/1e3) << ", ";
@@ -301,7 +320,12 @@ void FVMBolideImpactDriver::run(Job* job) {
         file << getAmbientPressure(H) << ", ";
         file << getAmbientTemperature(H) << ", ";
         file << getAmbientDensity(H) << ", ";
-        file << YMin << "\n";
+        file << YMin << ", ";
+        file << KE << ", ";
+        file << (dV/1e3) << ", ";
+        file << dKE << ", ";
+        file << dKEdt << ", ";
+        file << M << "\n";
         file.close();
     } else {
         std::cerr << "ERROR! Cannot open " << output_filename << "! Exiting." << std::endl;
@@ -387,6 +411,7 @@ void FVMBolideImpactDriver::run(Job* job) {
 
             // (3) Adjust Velocity BC
             V -= YDot;
+            dV -= YDot;
         }
 
 
@@ -478,18 +503,37 @@ void FVMBolideImpactDriver::run(Job* job) {
             //call fvm serializer to write frame as well:
             serializer->writeFrame(job,this);
 
+            //compute KE, dKE, dKEdt
+            tmpKE = KE; KE = 0; M = 0;
+            for (int i=0; i<job->bodies[0]->points->x.size(); i++){
+                if (job->bodies[0]->points->active(i) == 1) {
+                    vTMP = job->bodies[0]->points->x_t[i];
+                    vTMP[1] -= V;
+                    KE += 0.5 * job->bodies[0]->points->m(i) * vTMP.dot(vTMP);
+                    M += job->bodies[0]->points->m(i);
+                }
+            }
+            dKE = KE - KE0;
+            dKEdt = (KE - tmpKE) / (job->t + job->dt - tmpt);
+            tmpt = job->t + job->dt;
+
             //write bolide simulation data
             file.open(output_filename,std::ios::app);
             if (file.is_open()){
                 //success!
-                file << job->t << ", ";
+                file << job->t + job->dt << ", ";
                 file << job->dt << ", ";
                 file << (V/1e3) << ", ";
                 file << (H/1e3) << ", ";
                 file << getAmbientPressure(H) << ", ";
                 file << getAmbientTemperature(H) << ", ";
                 file << getAmbientDensity(H) << ", ";
-                file << YMin << "\n";
+                file << YMin  << ", ";
+                file << KE << ", ";
+                file << (dV/1e3) << ", ";
+                file << dKE << ", ";
+                file << dKEdt << ", ";
+                file << M << "\n";
                 file.close();
             } else {
                 std::cerr << "ERROR! Cannot open " << output_filename << "! Exiting." << std::endl;
