@@ -574,6 +574,7 @@ void FVMBolideRestartDriver::run(Job* job) {
     applyGravity(job);
 
     //restarted bolide simulation variables
+    KinematicVector xTMP = KinematicVector(job->JOB_TYPE);
     double dV = 0;  //total change in velocity
     double KE = 0;  //total kinetic energy (in Earth Ref. Frame)
     double M = 0;   //total bolide mass
@@ -691,6 +692,16 @@ void FVMBolideRestartDriver::run(Job* job) {
 
     //run simulation until stop_time
     while (job->t <= stop_time){
+
+        //ZERO: Ensure Material Points are Active
+        for (int i=0; i<job->bodies[0]->points->x.size(); i++){
+            if (job->bodies[0]->points->active(i)){
+                xTMP = job->bodies[0]->points->x[i];
+                if (job->grid->whichElement(job, xTMP) < 0){
+                    job->bodies[0]->points->active(i) = 0;
+                }
+            }
+        }
 
         //FIRST: Identify Leading Material Point
         bool YMin_Set = false;
