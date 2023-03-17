@@ -131,11 +131,11 @@ void CompressibleBreakageMechanicsRestart::init(Job* job, Body* body){
                                 break;
                             case 2:
                                 //phiP
-                                phiP(i) = std::stoi(line);
+                                phiP(i) = std::stod(line);
                                 break;
                             case 3:
                                 //Es
-                                Es(i) = std::stoi(line);
+                                Es(i) = std::stod(line);
                                 break;
                             default:
                                 //do nothing
