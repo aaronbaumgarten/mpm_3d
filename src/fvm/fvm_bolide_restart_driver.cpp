@@ -479,7 +479,7 @@ void FVMBolideRestartDriver::restart(Job* job) {
                                 break;
                             case 2:
                                 //porosity
-                                fluid_body->n_e(i) = std::stoi(line);
+                                fluid_body->n_e(i) = std::stod(line);
                                 break;
                             default:
                                 //do nothing

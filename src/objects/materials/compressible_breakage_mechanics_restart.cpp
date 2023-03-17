@@ -95,7 +95,7 @@ void CompressibleBreakageMechanicsRestart::init(Job* job, Body* body){
             std::cout << "    Found POINT_DATA.\n";
 
             // Keywords
-            std::vector<std::string> scalar_tags = {"B","phiS","phiP","Es"};
+            std::vector<std::string> scalar_tags = {"B","phiS","phiP","Es","Ts"};
             std::vector<std::string> vector_tags = {};
             std::vector<std::string> tensor_tags = {"F","Be"};
 
@@ -136,6 +136,10 @@ void CompressibleBreakageMechanicsRestart::init(Job* job, Body* body){
                             case 3:
                                 //Es
                                 Es(i) = std::stod(line);
+                                break;
+                            case 4:
+                                //Ts
+                                Ts(i) = std::stod(line);
                                 break;
                             default:
                                 //do nothing
