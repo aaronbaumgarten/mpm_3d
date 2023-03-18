@@ -831,7 +831,7 @@ int TetrahedralGridLinear::whichElement(Job* job, KinematicVector& xIN, int& ele
 bool TetrahedralGridLinear::inDomain(Job* job, KinematicVector& xIN){
     assert(xIN.VECTOR_TYPE == Lx.VECTOR_TYPE && "inDomain failed");
 
-    if (whichSearchCell(xIN) == -1){ // || whichElement(job,xIN) < 0){
+    if (whichSearchCell(xIN) == -1 || whichElement(job,xIN) < 0){
         return false;
     } else {
         return true;
@@ -970,22 +970,22 @@ void TetrahedralGridLinear::evaluateBasisFnGradient(Job* job,
 
     //fill shape function vals
     tmpVec(0) = -1; tmpVec(1) = -1; tmpVec(2) = -1;
-    tmpVec = map*tmpVec;
+    tmpVec = inv_map.transpose()*tmpVec; //map*tmpVec;
     nID.push_back(nodeIDs(elementID,0));
     nGRAD.push_back(tmpVec);
 
     tmpVec(0) = 1; tmpVec(1) = 0; tmpVec(2) = 0;
-    tmpVec = map*tmpVec;
+    tmpVec = inv_map.transpose()*tmpVec; //map*tmpVec;
     nID.push_back(nodeIDs(elementID,1));
     nGRAD.push_back(tmpVec);
 
     tmpVec(0) = 0; tmpVec(1) = 1; tmpVec(2) = 0;
-    tmpVec = map*tmpVec;
+    tmpVec = inv_map.transpose()*tmpVec; //map*tmpVec;
     nID.push_back(nodeIDs(elementID,2));
     nGRAD.push_back(tmpVec);
 
     tmpVec(0) = 0; tmpVec(1) = 0; tmpVec(2) = 1;
-    tmpVec = map*tmpVec;
+    tmpVec = inv_map.transpose()*tmpVec; //map*tmpVec;
     nID.push_back(nodeIDs(elementID,3));
     nGRAD.push_back(tmpVec);
 
