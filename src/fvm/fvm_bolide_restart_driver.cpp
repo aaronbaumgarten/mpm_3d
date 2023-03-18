@@ -694,6 +694,7 @@ void FVMBolideRestartDriver::run(Job* job) {
     while (job->t <= stop_time){
 
         //ZERO: Ensure Material Points are Active
+        /*
         for (int i=0; i<job->bodies[0]->points->x.size(); i++){
             if (job->bodies[0]->points->active(i)){
                 xTMP = job->bodies[0]->points->x[i];
@@ -702,6 +703,7 @@ void FVMBolideRestartDriver::run(Job* job) {
                 }
             }
         }
+         */
 
         //FIRST: Identify Leading Material Point
         bool YMin_Set = false;
