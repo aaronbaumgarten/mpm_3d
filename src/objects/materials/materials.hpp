@@ -429,6 +429,85 @@ public:
     int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
 };
 
+class CompressibleDamageMechanicsSandstone : public Material {
+public:
+    CompressibleDamageMechanicsSandstone(){
+        object_name = "CompressibleDamageMechanicsSandstone";
+    }
+
+    //convergence criteria
+    double AbsTOL = 1e-7;
+    int MaxIter = 50;
+
+    //material properties
+    double pr, Kg, Gg, Kd, Gd, EBc, EDc, c, M_0, g, phi_l, phi_u, l, u, theta, rho_0;
+    double C0, S0, G0, cv, b, T0;
+
+    //artificial viscosity properties
+    double h_i = 0;
+
+    //simulation flags
+    bool is_adiabatic = true;
+    bool is_compressible = true;
+    bool use_artificial_viscosity = false;
+    bool use_newtons_method = false;
+
+    //history variables
+    Eigen::VectorXd B, D, phiS, phiP;   //breakage measure, damage measure solid volume fraction, plastic porosity
+    Eigen::VectorXd Es, Ts;             //specific internal energy, temperature
+    MaterialTensorArray F;              //deformation gradient
+    MaterialTensorArray Be;             //elastic left cauchy-green tensor
+
+    //cold energy function
+    double dJ, Jmax, Jmin;  //range of volume ratios for computation
+    std::vector<double> JVec; //cold energy reference volume ratios
+    std::vector<double> eCVec; //cold energy reconstruction
+
+    //scalar outputs
+    Eigen::VectorXd evDot, esDot, BDot, DDot;
+
+    //debug variables
+    Eigen::VectorXd kVec, y1Vec, y2Vec, y3Vec, lVec;
+
+    //state struct for computation
+    struct MaterialState {
+        double B;           //Breakage
+        double D;           //Breakage
+        double phi;         //Porosity
+        double phiP;        //Plastic Porosity
+        double rho;         //Effective Density
+        MaterialTensor F;   //Deformation Gradient
+        MaterialTensor Be;  //Elastic Left Cauchy-Green Tensor
+        MaterialTensor S;   //Cauchy Stress
+        MaterialTensor Sy;  //Yield Stress
+        double Ts;          //Temperature
+        double Es;          //Specific Internal Energy
+    };
+
+    //computational crutches adapted from MATLAB (see pg 53 nb #14)
+    MaterialTensor YieldStressFromMaterialState(MaterialState& stateIN);
+    MaterialTensor CauchyStressFromMaterialState(MaterialState& stateIN);
+    double PorosityFromMaterialState(MaterialState& stateIN);
+    std::vector<double> EDEBFromMaterialState(MaterialState& stateIN);
+    std::vector<double> PlasticFlowRulesFromMaterialState(MaterialState& stateIN);
+    std::vector<double> PQFromMaterialState(MaterialState& stateIN);
+    std::vector<double> YieldFunctionsFromMaterialState(MaterialState& stateIN);
+    double StrainEnergyFromMaterialState(MaterialState& stateIN);
+    double ColdEnergyFromMaterialState(MaterialState& stateIN);
+    double TemperatureFromMaterialState(MaterialState& stateIN);
+
+    void ComputeColdEnergyReferenceStates();
+
+    void init(Job* job, Body* body);
+    void calculateStress(Job* job, Body* body, int SPEC);
+    void assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC);
+    void assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC);
+
+    void writeFrame(Job* job, Body* body, Serializer* serializer);
+    std::string saveState(Job* job, Body* body, Serializer* serializer, std::string filepath);
+    int loadState(Job* job, Body* body, Serializer* serializer, std::string fullpath);
+};
+
 class CompressibleBreakageMechanicsRestart : public CompressibleBreakageMechanicsSand {
 public:
     CompressibleBreakageMechanicsRestart(){
