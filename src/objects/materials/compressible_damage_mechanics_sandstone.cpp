@@ -1425,6 +1425,9 @@ std::vector<double> CompressibleDamageMechanicsSandstone::YieldFunctionsFromMate
     y[1] = y2;
     y[2] = y3;
 
+    // Return Something
+    return y;
+
 }
 
 MaterialTensor CompressibleDamageMechanicsSandstone::CauchyStressFromMaterialState(MaterialState& stateIN){
