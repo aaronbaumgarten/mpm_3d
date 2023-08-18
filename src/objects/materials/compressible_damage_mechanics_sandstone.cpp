@@ -209,7 +209,7 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
     MaterialState mat_state, mat_stateA, mat_stateB, mat_stateC;
 
     //scalars for matrix calculation
-    std::vector<double> pq, Rates, ys, EDEB;
+    std::vector<double> Rates, ys;
     double p, q, EB, ED, evRate, esRate, BRate, DRate, phi_max;
     double lambda, lambdaA, lambdaB, lambdaC, lambdaMAX, lambdaMAXEST;
     double y, y0, yA, yB, yC;
@@ -1234,7 +1234,7 @@ std::vector<double> CompressibleDamageMechanicsSandstone::PlasticFlowRulesFromMa
 //Compute relative rates of deformation for ev, es, and B from material state and material deformation
 
     // Output Vector
-    std::vector<double> Rates(3);
+    std::vector<double> Rates(4);
 
     // Compute Material Stress State
     MaterialTensor Sy = YieldStressFromMaterialState(stateIN);
