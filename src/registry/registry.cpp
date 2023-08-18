@@ -184,6 +184,7 @@ Registry<Material>::Registry() {
     REGISTER(Material, CompressibleBreakageMechanicsSand);
     REGISTER(Material, CompressibleBreakageMechanicsRestart);
     REGISTER(Material, TillotsonEOSFluid);
+    REGISTER(Material, CompressibleDamageMechanicsSandstone);
 }
 
 

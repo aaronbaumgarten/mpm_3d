@@ -472,7 +472,7 @@ public:
     //state struct for computation
     struct MaterialState {
         double B;           //Breakage
-        double D;           //Breakage
+        double D;           //Damage
         double phi;         //Porosity
         double phiP;        //Plastic Porosity
         double rho;         //Effective Density

@@ -201,7 +201,7 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
     int MaxIter = 50;
 
     //tensors for matrix calculation
-    MaterialTensor S, s0, Sn, L, D, W;
+    MaterialTensor S, s0, Sn, L, DTensor, W;
     MaterialTensor Ben;
     MaterialTensor Ee, Ee0, Be0, BeRate, BeRate0;
 
@@ -249,7 +249,7 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
         Sn = S;
 
         // Deformation and Spin Rate
-        D = 0.5*(L+L.transpose());
+        DTensor = 0.5*(L+L.transpose());
         W = 0.5*(L-L.transpose());
 
         // Deformation at n
@@ -281,44 +281,278 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
             compactionYield = true;
         }
 
+        // Get Relative Deformation Rates
+        Rates = PlasticFlowRulesFromMaterialState(mat_state);
+        evRate = Rates[0];
+        esRate = Rates[1];
+        DRate = Rates[2];
+        BRate = Rates[3];
+
+        // Assign Plasticity Multiplier
+        lambda = 0;
+
+        // Estimate Maximum Plastic Step Size
+        BeRate = MaterialTensor();
+        if (q > 0) {
+            BeRate = 3.0 / 2.0 * esRate / q * (s0 * Ben + Ben * s0) + 2.0 / 3.0 * evRate * Ben;
+        } else {
+            BeRate = 2.0 / 3.0 * evRate * Ben;
+        }
+
+        lambdaMAX = 1e10; //a ludicrous number
+        lambdaMAXEST = lambdaMAX;
+
+        // Check for Plastic Compaction/Dilation
+        if (BeRate.trace() < 0) {
+            lambdaMAX = (mat_state.Be.trace() - 3) / BeRate.trace();
+        } else if (BeRate.trace() > 0) {
+            lambdaMAX = mat_state.Be.trace() / BeRate.trace();
+        }
+
+        // Check for Shearing Reversal
+        BeRate0 = BeRate - BeRate.trace() / 3.0 * MaterialTensor::Identity();
+        Be0 = mat_state.Be - mat_state.Be.trace() / 3.0 * MaterialTensor::Identity();
+        if (Be0.dot(BeRate0) > 0){
+            lambdaMAXEST = (Be0.dot(Be0)) / (Be0.dot(BeRate0));
+        }
+        if (lambdaMAXEST < lambdaMAX){
+            lambdaMAX = lambdaMAXEST;
+        }
+
+        // Check for Over-Breakage
+        if (BRate > 0){
+            lambdaMAXEST = (1.0 - mat_state.B) / BRate;
+        }
+        if (lambdaMAXEST < lambdaMAX){
+            lambdaMAX = lambdaMAXEST;
+        }
+
+        // Check for Over-Damage
+        if (DRate > 0 && mat_state.D < 1){
+            lambdaMAXEST = (1.0 - mat_state.D) / DRate;
+        }
+        if (lambdaMAXEST < lambdaMAX){
+            lambdaMAX = lambdaMAXEST;
+        }
+
+        // Check for Porosity Estimate
+        if (evRate > 0){
+            lambdaMAXEST = 1.0 / evRate;
+        } else if (evRate < 0) {
+            lambdaMAXEST = -mat_state.phiP / (evRate * (1.0 - mat_state.phiP));
+        }
+        if (lambdaMAXEST < lambdaMAX){
+            lambdaMAX = lambdaMAXEST;
+        }
+
         // Update Material State
         if (tensileYield){
             // Material has Yielded in Tension
 
-            YOU ARE HERE
+            // No Deviatoric Stresses
+            mat_state.Be = mat_state.Be.trace()/3.0 * MaterialTensor::Identity();
+            BeRate = BeRate.trace()/3.0 * MaterialTensor::Identity();
+            BRate = 0;
 
-            // - no stress
-            body->points->T[i].setZero();
-            // - zero stress elastic strain
-            JeTemp = ComputeElasticDeformationForZeroStress(mat_state);
-            Be[i] = std::cbrt(JeTemp * JeTemp) * MaterialTensor::Identity();
-            mat_state.Be = Be[i];
-            // - porosity evolution continues
-            phiP(i) += job->dt * D.trace() * (1 - phiP(i));
-            phiS(i) = 1.0 - PorosityFromMaterialState(mat_state);
-            // - energy is only thermal
-            Es(i) = cv * Ts(i);
-            // - save deformation
+            // Use Bisection Method
+            k = 0; lambda = 0;
+            lambdaA = lambda;
+            lambdaB = lambdaMAX;
+            lambdaC = lambdaB;
+            yA = 1;
+            yB = 10;
+            yC = 100;
+
+            // Compute Material State and Yield Function for A
+            mat_stateA      = mat_state;
+            mat_stateA.D    = mat_stateA.D      + lambdaA * DRate;
+            mat_stateA.B    = mat_stateA.B      + lambdaA * BRate;
+            mat_stateA.phiP = mat_stateA.phiP   + lambdaA * evRate * (1.0 - mat_stateA.phiP);
+            mat_stateA.Be   = mat_stateA.Be     - lambdaA * BeRate;
+            mat_stateA.phi  = PorosityFromMaterialState(mat_stateA);
+
+
+            ys = YieldFunctionsFromMaterialState(mat_stateA);
+            yA = ys[1]; //y2
+
+            // Compute Material State and Yield Function for B
+            mat_stateB      = mat_state;
+            mat_stateB.D    = mat_stateB.D      + lambdaB * DRate;
+            mat_stateB.B    = mat_stateB.B      + lambdaB * BRate;
+            mat_stateB.phiP = mat_stateB.phiP   + lambdaB * evRate * (1.0 - mat_stateB.phiP);
+            mat_stateB.Be   = mat_stateB.Be     - lambdaB * BeRate;
+            mat_stateB.phi  = PorosityFromMaterialState(mat_stateB);
+
+            ys = YieldFunctionsFromMaterialState(mat_stateB);
+            yB = ys[1]; //y2
+
+            // Find Plastic Step Length that Solves y = 0
+            while (std::abs(yA) > AbsTOL && std::abs(yB) > AbsTOL && k < MaxIter) {
+
+                // Increment k
+                k++;
+
+                // Choose Bisection or Secant Method
+                if (k > MaxIter / 2.0 && yA * yB < 0){
+                    // Recursive Relation for Bisection Method
+                    lambdaC = 0.5 * (lambdaA + lambdaB);
+                } else {
+                    // Recursive Relation for Secant Method
+                    lambdaC = (lambdaA * yB - lambdaB * yA) / (yB - yA);
+                }
+
+                // If yA and yB Equal, Secant Method and Bisection Will Fail
+                if (std::abs(yA) > AbsTOL && std::abs(yB) > AbsTOL && std::abs(yA - yB) < AbsTOL){
+                    // Double Larger Lambda
+                    lambdaC = 2.0 * std::max(lambdaA, lambdaB);
+                }
+
+                // Ensure lambdaC Bounded Below
+                if (lambdaC < 0){
+                    lambdaC = 0;
+                }
+
+                // If lambdaC == lambdaB == 0, then Secant Method Fails
+                if (lambdaC == lambdaB && lambdaC == 0){
+                    // Double Larger Lambda
+                    lambdaC = 2.0 * lambdaA;
+                }
+
+                // Ensure lambdaC Bounded Above
+                if (lambdaC > lambdaMAX){
+                    lambdaC = lambdaMAX;
+                }
+
+                // Compute Material State and Yield Function for C
+                mat_stateC      = mat_state;
+                mat_stateC.D    = mat_stateC.D      + lambdaC * DRate;
+                mat_stateC.B    = mat_stateC.B      + lambdaC * BRate;
+                mat_stateC.phiP = mat_stateC.phiP   + lambdaC * evRate * (1.0 - mat_stateC.phiP);
+                mat_stateC.Be   = mat_stateC.Be     - lambdaC * BeRate;
+                mat_stateC.phi  = PorosityFromMaterialState(mat_stateC);
+
+                ys = YieldFunctionsFromMaterialState(mat_stateC);
+                yC = ys[1]; //y2
+
+                // Update Guesses
+                if (yA * yC < 0){
+                    lambdaA = lambdaA;
+                    yA = yA;
+                    lambdaB = lambdaC;
+                    yB = yC;
+                } else {
+                    lambdaA = lambdaB;
+                    yA = yB;
+                    lambdaB = lambdaC;
+                    yB = yC;
+                }
+
+            }
+
+            // Converged or Reached MaxIter
+            if (std::abs(yA) < std::abs(yC)){
+                lambda = lambdaA;
+                y = yA;
+            } else {
+                lambda = lambdaC;
+                y = yC;
+            }
+
+            // Check for Valid Final State
+            if (!std::isfinite(y)){
+                // this implies y = yC and yC is not finite
+                // need to check yA
+                if ((std::abs(y0) < std::abs(yA)) || !std::isfinite(yA)){
+                    // either y0 is less than yA or yA is not finite
+                    lambda = 0;
+                    y = y0;
+                } else {
+                    // yA is finite and less than y0
+                    lambda = lambdaA;
+                    y = yA;
+                }
+            }
+
+            // Final State Update
+            mat_state.D    = mat_state.D      + lambda * DRate;
+            mat_state.B    = mat_state.B      + lambda * BRate;
+            mat_state.phiP = mat_state.phiP   + lambda * evRate * (1.0 - mat_state.phiP);
+            mat_state.Be   = mat_state.Be     - lambda * BeRate;
+            mat_state.phi  = PorosityFromMaterialState(mat_state);
+            mat_state.S    = CauchyStressFromMaterialState(mat_state);
+
+            // Compute Elastic Volumetric Strain-Rate
+            trDe = DTensor.trace() - lambda * evRate;
+
+            // Add Artificial Viscosity in Compression
+            if (use_artificial_viscosity && trDe < 0){
+                phiSTemp = 1.0 - mat_state.phi;
+                JeTemp = std::sqrt(mat_state.Be.det());
+                a = std::pow(phiSTemp, b);
+                dadp = b * a / phiSTemp;
+                mat_state.S += rho_0 * C0 * h_i * trDe *
+                               (a + phiSTemp * dadp * (1.0 - JeTemp)) /
+                               (JeTemp + (a + phiSTemp * dadp) * (1 - JeTemp)) *
+                               MaterialTensor::Identity();
+            }
+
+            // Compute Temperature/Energy Increment
+            mat_state.Es += 0.5 * (Sn.dot(DTensor) + mat_state.S.dot(DTensor)) * job->dt / mat_state.rho;
+            mat_state.Ts  = TemperatureFromMaterialState(mat_state);
+
+            ys = YieldFunctionsFromMaterialState(mat_state);
+            y1 = ys[0]; y2 = ys[1]; y3 = ys[2];
+
+            // Final Stress Update
+            body->points->T[i] = CauchyStressFromMaterialState(mat_state);
+
+            // Add Artificial Viscosity in Compression
+            if (use_artificial_viscosity && trDe < 0){
+
+                phiSTemp = 1.0 - mat_state.phi;
+                JeTemp = std::sqrt(mat_state.Be.det());
+                a = std::pow(phiSTemp, b);
+                dadp = b * a / phiSTemp;
+                body->points->T[i] += rho_0 * C0 * h_i * trDe *
+                                      (a + phiSTemp * dadp * (1.0 - JeTemp)) /
+                                      (JeTemp + (a + phiSTemp * dadp) * (1 - JeTemp)) *
+                                      MaterialTensor::Identity();
+
+                //body->points->T[i] += rho_0 * C0 * h_i * DTensor.trace() * MaterialTensor::Identity();
+            }
+
+            // Porosity and Breakage
+            D(i)    = mat_state.D;
+            B(i)    = mat_state.B;
+            phiS(i)    = 1.0 - mat_state.phi;
+            phiP(i)    = mat_state.phiP;
+            Es(i)      = mat_state.Es;
+            Ts(i)      = mat_state.Ts;
             F[i]       = mat_state.F;
+            Be[i]      = mat_state.Be;
+
+
 
             // Set Scalar Outputs and History Variables
-            evDot(i) = D.trace();
-            esDot(i) = std::sqrt(2.0 / 3.0 * D.deviator().dot(D.deviator()));
-            BDot(i) = 0;
-            yVec(i) = 0;
-            kVec(i) = -1;
-            lVec(i) = 0;
+            evDot(i)    = lambda * evRate / job->dt;
+            esDot(i)    = lambda * esRate / job->dt;
+            BDot(i)     = lambda * BRate / job->dt;
+            DDot(i)     = lambda * DRate / job->dt;
+            y1Vec(i)     = y1;
+            y2Vec(i)     = y2;
+            y3Vec(i)     = y3;
+            kVec(i)     = k;
+            lVec(i)     = lambda;
 
         } else if (compactionYield) {
             // Material has Yielded in Under-Compacted State
             // - no stress
             body->points->T[i].setZero();
             // - zero stress elastic strain
-            JeTemp = ComputeElasticDeformationForZeroStress(mat_state);
-            Be[i] = std::cbrt(JeTemp * JeTemp) * MaterialTensor::Identity();
+            Be[i] = MaterialTensor::Identity();
             mat_state.Be = Be[i];
             // - porosity evolution continues
-            phiP(i) += job->dt * D.trace() * (1 - phiP(i));
+            phiP(i) += job->dt * DTensor.trace() * (1 - phiP(i));
             phiS(i) = 1.0 - PorosityFromMaterialState(mat_state);
             // - energy is only thermal
             Es(i) = cv * Ts(i);
@@ -326,10 +560,13 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
             F[i]       = mat_state.F;
 
             // Set Scalar Outputs and History Variables
-            evDot(i) = D.trace();
-            esDot(i) = std::sqrt(2.0 / 3.0 * D.deviator().dot(D.deviator()));
+            evDot(i) = DTensor.trace();
+            esDot(i) = std::sqrt(2.0 / 3.0 * DTensor.deviator().dot(DTensor.deviator()));
             BDot(i) = 0;
-            yVec(i) = 0;
+            DDot(i) = 0;
+            y1Vec(i) = y1;
+            y2Vec(i) = y2;
+            y3Vec(i) = 0;
             kVec(i) = -2;
             lVec(i) = 0;
 
@@ -348,7 +585,8 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
             Rates = PlasticFlowRulesFromMaterialState(mat_state);
             evRate = Rates[0];
             esRate = Rates[1];
-            BRate = Rates[2];
+            DRate = Rates[2];
+            BRate = Rates[3];
 
             // Estimate Maximum Plastic Step Size
             BeRate = MaterialTensor();
@@ -357,17 +595,6 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
             } else {
                 BeRate = 2.0 / 3.0 * evRate * Ben;
             }
-
-            /*
-            if (!std::isfinite(BeRate.det())){
-                std::cout << i << " : Uh oh!" << std::endl;
-                std::cout << evRate << ", " << esRate << std::endl;
-                std::cout << p << ", " << q << std::endl;
-                std::cout << Ben(0,0) << ", " << Ben(0,1) << ", " << Ben(0,2) << ", ";
-                std::cout << Ben(1,0) << ", " << Ben(1,1) << ", " << Ben(1,2) << ", ";
-                std::cout << Ben(2,0) << ", " << Ben(2,1) << ", " << Ben(2,2) << std::endl;
-            }
-             */
 
             lambdaMAX = 1e10; //a ludicrous number
             lambdaMAXEST = lambdaMAX;
@@ -397,30 +624,27 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
                 lambdaMAX = lambdaMAXEST;
             }
 
+            // Check for Over-Damage
+            if (DRate > 0 && mat_state.D < 1){
+                lambdaMAXEST = (1.0 - mat_state.D) / DRate;
+            }
+            if (lambdaMAXEST < lambdaMAX){
+                lambdaMAX = lambdaMAXEST;
+            }
+
             // Check for Porosity Estimate
             if (evRate > 0){
                 lambdaMAXEST = 1.0 / evRate;
             } else if (evRate < 0) {
                 lambdaMAXEST = -mat_state.phiP / (evRate * (1.0 - mat_state.phiP));
             }
-            if (lambdaMAXEST < lambdaMAX){
+            if (lambdaMAXEST < lambdaMAX) {
                 lambdaMAX = lambdaMAXEST;
             }
-            
-            // Check for Valid Limits
-            /*
-            if (lambdaMAX < 0){
-                std::cout << "Hmmm... lambdaMAX = " << lambdaMAX
-                          << ", evRate = " << evRate
-                          << ", esRate = " << esRate
-                          << ", BRate = " << BRate
-                          << ", i = " << i << std::endl;
-            }
-            */
 
             // Compute Yield Function Value
-            y = YieldFunctionFromMaterialState(mat_state);
-            y0 = y;
+            ys = YieldFunctionsFromMaterialState(mat_state);
+            y0 = ys[0]; //y1
 
             // Initial Guess for Plastic Deformation
             lambda = 0;
@@ -429,7 +653,7 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
             k = 0;
 
             // Check if Material has Yielded
-            if (y > 0){
+            if (y0 > 0){
 
                 // Use Secant Method
                 lambdaA = lambda;               //Plastic Step Lengths
@@ -441,21 +665,25 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
 
                 // Compute Material State and Yield Function for A
                 mat_stateA      = mat_state;
+                mat_stateA.D    = mat_stateA.D      + lambdaA * DRate;
                 mat_stateA.B    = mat_stateA.B      + lambdaA * BRate;
                 mat_stateA.phiP = mat_stateA.phiP   + lambdaA * evRate * (1.0 - mat_stateA.phiP);
                 mat_stateA.Be   = mat_stateA.Be     - lambdaA * BeRate;
                 mat_stateA.phi  = PorosityFromMaterialState(mat_stateA);
 
-                yA = YieldFunctionFromMaterialState(mat_stateA);
+                ys = YieldFunctionsFromMaterialState(mat_stateA);
+                yA = ys[0]; //y1
 
                 // Compute Material State and Yield Function for B
                 mat_stateB      = mat_state;
+                mat_stateB.D    = mat_stateB.D      + lambdaB * DRate;
                 mat_stateB.B    = mat_stateB.B      + lambdaB * BRate;
                 mat_stateB.phiP = mat_stateB.phiP   + lambdaB * evRate * (1.0 - mat_stateB.phiP);
                 mat_stateB.Be   = mat_stateB.Be     - lambdaB * BeRate;
                 mat_stateB.phi  = PorosityFromMaterialState(mat_stateB);
 
-                yB = YieldFunctionFromMaterialState(mat_stateB);
+                ys = YieldFunctionsFromMaterialState(mat_stateB);
+                yB = ys[0]; //y1
 
                 // Ensure yB is Valid
                 validB = false;
@@ -477,12 +705,14 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
 
                         // Recompute Material State and Yield Function for B
                         mat_stateB      = mat_state;
+                        mat_stateB.D    = mat_stateB.D      + lambdaB * DRate;
                         mat_stateB.B    = mat_stateB.B      + lambdaB * BRate;
                         mat_stateB.phiP = mat_stateB.phiP   + lambdaB * evRate * (1.0 - mat_stateB.phiP);
                         mat_stateB.Be   = mat_stateB.Be     - lambdaB * BeRate;
                         mat_stateB.phi  = PorosityFromMaterialState(mat_stateB);
 
-                        yB = YieldFunctionFromMaterialState(mat_stateB);
+                        ys = YieldFunctionsFromMaterialState(mat_stateB);
+                        yB = ys[0]; //y1
 
                     }
 
@@ -499,12 +729,14 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
 
                         // Recompute Material State and Yield Function for B
                         mat_stateB      = mat_state;
+                        mat_stateB.D    = mat_stateB.D      + lambdaB * DRate;
                         mat_stateB.B    = mat_stateB.B      + lambdaB * BRate;
                         mat_stateB.phiP = mat_stateB.phiP   + lambdaB * evRate * (1.0 - mat_stateB.phiP);
                         mat_stateB.Be   = mat_stateB.Be     - lambdaB * BeRate;
                         mat_stateB.phi  = PorosityFromMaterialState(mat_stateB);
 
-                        yB = YieldFunctionFromMaterialState(mat_stateB);
+                        ys = YieldFunctionsFromMaterialState(mat_stateB);
+                        yB = ys[0]; //y1
 
                     }
                 }
@@ -548,12 +780,14 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
 
                     // Compute Material State and Yield Function for C
                     mat_stateC      = mat_state;
+                    mat_stateC.D    = mat_stateC.D      + lambdaC * DRate;
                     mat_stateC.B    = mat_stateC.B      + lambdaC * BRate;
                     mat_stateC.phiP = mat_stateC.phiP   + lambdaC * evRate * (1.0 - mat_stateC.phiP);
                     mat_stateC.Be   = mat_stateC.Be     - lambdaC * BeRate;
                     mat_stateC.phi  = PorosityFromMaterialState(mat_stateC);
 
-                    yC = YieldFunctionFromMaterialState(mat_stateC);
+                    ys = YieldFunctionsFromMaterialState(mat_stateC);
+                    yC = ys[0]; //y1
 
 
                     // Update Guesses
@@ -594,46 +828,20 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
                         y = yA;
                     }
                 }
-                
-                // Check for Maximum Iterations
-                /*
-                if (k >= MaxIter && std::abs(y) > 1e3 * AbsTOL){
-                    std::cout << "MaxIter Reached: yA = " << yA
-                              << ", yB = " << yB 
-                              << ", lambdaA = " << lambdaA
-                              << ", lambdaB = " << lambdaB
-                              << ", lambdaMAX = " << lambdaMAX
-                              << ", BRate = " << BRate
-                              << ", evRate = " << evRate
-                              << ", esRate = " << esRate
-                              << ", i = " << i << std::endl;
-                }
-                 */
-
-                
-
             } else {
                 // No Plastic Deformation
             }
 
-            // Bound Plastic Step Length
-            /*
-            if (lambda > lambdaMAX){
-                lambda = lambdaMAX;
-            } else if (lambda < 0){
-                lambda = 0;
-            }
-             */
-
             // Final State Update
             mat_state.B    = mat_state.B      + lambda * BRate;
+            mat_state.D    = mat_state.D      + lambda * DRate;
             mat_state.phiP = mat_state.phiP   + lambda * evRate * (1.0 - mat_state.phiP);
             mat_state.Be   = mat_state.Be     - lambda * BeRate;
             mat_state.phi  = PorosityFromMaterialState(mat_state);
             mat_state.S    = CauchyStressFromMaterialState(mat_state);
 
             // Compute Elastic Volumetric Strain-Rate
-            trDe = D.trace() - lambda * evRate;
+            trDe = DTensor.trace() - lambda * evRate;
 
             // Add Artificial Viscosity in Compression
             if (use_artificial_viscosity && trDe < 0){
@@ -648,10 +856,10 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
             }
 
             // Compute Temperature/Energy Increment
-            mat_state.Es += 0.5 * (Sn.dot(D) + mat_state.S.dot(D)) * job->dt / mat_state.rho;
+            mat_state.Es += 0.5 * (Sn.dot(DTensor) + mat_state.S.dot(DTensor)) * job->dt / mat_state.rho;
             mat_state.Ts  = TemperatureFromMaterialState(mat_state);
 
-            y = YieldFunctionFromMaterialState(mat_state);
+            ys = YieldFunctionsFromMaterialState(mat_state);
 
             // Final Stress Update
             body->points->T[i] = CauchyStressFromMaterialState(mat_state);
@@ -668,10 +876,11 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
                                (JeTemp + (a + phiSTemp * dadp) * (1 - JeTemp)) *
                                MaterialTensor::Identity();
 
-                //body->points->T[i] += rho_0 * C0 * h_i * D.trace() * MaterialTensor::Identity();
+                //body->points->T[i] += rho_0 * C0 * h_i * DTensor.trace() * MaterialTensor::Identity();
             }
 
             // Porosity and Breakage
+            D(i)    = mat_state.D;
             B(i)    = mat_state.B;
             phiS(i)    = 1.0 - mat_state.phi;
             phiP(i)    = mat_state.phiP;
@@ -685,8 +894,11 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
             // Set Scalar Outputs and History Variables
             evDot(i)    = lambda * evRate / job->dt;
             esDot(i)    = lambda * esRate / job->dt;
+            DDot(i)     = lambda * DRate / job->dt;
             BDot(i)     = lambda * BRate / job->dt;
-            yVec(i)     = y;
+            y1Vec(i)     = ys[0];
+            y2Vec(i)     = ys[1];
+            y3Vec(i)     = ys[2];
             kVec(i)     = k;
             lVec(i)     = lambda;
         }
@@ -700,8 +912,7 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
 /*----------------------------------------------------------------------------*/
 //define stress assignement for consistency with history dependent materials
 void CompressibleDamageMechanicsSandstone::assignStress(Job* job, Body* body, MaterialTensor& stressIN, int idIN, int SPEC){
-    std::cout << "WARNING: CompressibleDamageMechanicsSandstone does not implement assignStress(). Assigning pressure instead." << std::endl;
-    assignPressure(job, body, (-stressIN.trace()/3.0), idIN, SPEC);
+    std::cout << "WARNING: CompressibleDamageMechanicsSandstone does not implement assignStress()." << std::endl;
     return;
 }
 
@@ -709,28 +920,7 @@ void CompressibleDamageMechanicsSandstone::assignStress(Job* job, Body* body, Ma
 /*----------------------------------------------------------------------------*/
 //define pressure assignement for consistency with history dependent materials
 void CompressibleDamageMechanicsSandstone::assignPressure(Job* job, Body* body, double pressureIN, int idIN, int SPEC){
-    MaterialTensor tmp = body->points->T[idIN];
-    body->points->T[idIN] = tmp - (1.0/3.0 * tmp.trace() + pressureIN)*MaterialTensor::Identity();
-
-    // Approximate Pressure Assignment
-    double rho = body->points->m(idIN) / body->points->v(idIN);
-    double ev = -std::sqrt(pressureIN * rho_0 * 4 / (K * K * pr * rho * (1.0 - theta * B(idIN))));
-    Be(idIN) = (2.0 / 3.0 * ev + 1) * MaterialTensor::Identity();
-
-    // Create MaterialState Structure
-    MaterialState mat_state = MaterialState();
-    mat_state.B = B(idIN);
-    mat_state.phi = 1.0 - phiS(idIN);
-    mat_state.phiP = phiP(idIN);
-    mat_state.rho = rho;
-    mat_state.Be = Be[idIN];
-    mat_state.F  = F[idIN];
-    mat_state.Ts = Ts[idIN];
-    mat_state.Es = Es[idIN];
-
-    // Compute Stress
-    body->points->T[idIN] = CauchyStressFromMaterialState(mat_state);
-
+    std::cout << "WARNING: CompressibleDamageMechanicsSandstone does not implement assignPressure()." << std::endl;
     return;
 }
 
@@ -768,13 +958,16 @@ void CompressibleDamageMechanicsSandstone::writeFrame(Job* job, Body* body, Seri
     serializer->writeScalarArray(q, "q");
     serializer->writeScalarArray(phiS, "phiS");
     serializer->writeScalarArray(phiP, "phiP");
+    serializer->writeScalarArray(D, "D");
     serializer->writeScalarArray(B, "B");
     serializer->writeScalarArray(Es, "Es");
     serializer->writeScalarArray(Ts, "Ts");
     serializer->writeScalarArray(evDot, "evDot");
     serializer->writeScalarArray(esDot, "esDot");
     serializer->writeScalarArray(BDot, "BDot");
-    serializer->writeScalarArray(yVec, "yVec");
+    serializer->writeScalarArray(y1Vec, "y1Vec");
+    serializer->writeScalarArray(y2Vec, "y2Vec");
+    serializer->writeScalarArray(y3Vec, "y3Vec");
     serializer->writeScalarArray(kVec, "kVec");
     serializer->writeScalarArray(lVec, "lVec");
     serializer->writeScalarArray(eve, "eve");
@@ -1124,13 +1317,10 @@ std::vector<double> CompressibleDamageMechanicsSandstone::PlasticFlowRulesFromMa
         // esRate
         Rates[1] = EB * (1.0 - stateIN.B) * (1.0 - stateIN.B) * std::sin(w) * std::sin(w) / EBc
                    * q / (p*p + q*q)
-                   + q * q * q / ((M_0 + M_d) * p * (M_0 + M_d) * p) / (q * q + ED * ED);
+                   + q / ((M_0 + M_d) * (p + c*(1 - stateIN.D)) * (M_0 + M_d) * (p + c*(1 - stateIN.D)));
 
         // DRate
         Rates[2] = (1.0 - stateIN.D) * (1.0 - stateIN.D) / EDc;
-        if (q > 0){
-            Rates[2] += q * q * ED / ((M_0 + M_d) * p * (M_0 + M_d) * p) / (q * q + ED * ED);
-        }
 
         // BRate
         Rates[3] = (1.0 - stateIN.B) * (1.0 - stateIN.B) * std::cos(w) * std::cos(w) / EBc;
@@ -1143,6 +1333,10 @@ std::vector<double> CompressibleDamageMechanicsSandstone::PlasticFlowRulesFromMa
         Rates[1] = 0; //esRate
         Rates[2] = 0; //DRate
         Rates[3] = 0; //BRate
+    }
+
+    if (ED < 0){
+        Rates[2] = 0; //DRate
     }
 
     // Correct for Degenerate Case
