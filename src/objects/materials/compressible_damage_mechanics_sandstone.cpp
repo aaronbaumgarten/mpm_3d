@@ -281,6 +281,15 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
             compactionYield = true;
         }
 
+
+        // Estimate Stress State
+        S = CauchyStressFromMaterialState(mat_state);
+        s0 = S - S.trace() / 3.0 * MaterialTensor::Identity();
+
+        // Estimate True P, Q
+        p = -S.trace() / 3.0;
+        q = std::sqrt(3.0 / 2.0 * s0.dot(s0));
+
         // Get Relative Deformation Rates
         Rates = PlasticFlowRulesFromMaterialState(mat_state);
         evRate = Rates[0];
@@ -346,6 +355,7 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
         }
 
         // Check for Valid Limits
+        /*
         if (lambdaMAX < 0){
             std::cout << "Hmmm...\n"
                       << "    " << "lambdaMAX = " << lambdaMAX << "\n"
@@ -362,6 +372,7 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
                       << "    " << Ben(2,0) << ", " << Ben(2,1) << ", " << Ben(2,2) << "\n"
                       << "    " << "i = " << i << std::endl;
         }
+         */
 
         // Update Material State
         if (tensileYield){
@@ -777,6 +788,14 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
                         y = yA;
                     }
                 }
+
+                // Stabilize Search:
+                if ((std::abs(y0) < std::abs(y))){
+                    // Don't Take Inelastic Step if Yield F'n Value WORSE!
+                    lambda = 0;
+                    y = y0;
+                }
+
             } else {
                 // No Plastic Deformation
             }
@@ -853,7 +872,7 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
         }
 
         // Check for Maximum Iterations
-
+        /*
         if (k >= MaxIter && std::abs(yA) > 1e3 * AbsTOL){
             std::cout << "MaxIter Reached: yA = " << yA
                       << ", yB = " << yB
@@ -866,6 +885,7 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
                       << ", esRate = " << esRate
                       << ", i = " << i << std::endl;
         }
+         */
 
 
     }
@@ -1273,6 +1293,11 @@ std::vector<double> CompressibleDamageMechanicsSandstone::PlasticFlowRulesFromMa
 
         // Coupling Angle
         double w = M_PI / 2.0 * (1.0 - tau);
+        if (tau > 1.0){
+            w = 0.0;
+        } else if (tau < 0.0){
+            w = M_PI / 2.0;
+        }
 
         // Plasticity Rates
         // evRate
