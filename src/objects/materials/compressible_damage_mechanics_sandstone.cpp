@@ -303,7 +303,7 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
         lambdaMAXEST = lambdaMAX;
 
         // Check for Plastic Compaction/Dilation
-        if (BeRate.trace() < 0) {
+        if (BeRate.trace() < 0 && mat_state.Be.trace() < 3) {
             lambdaMAX = (mat_state.Be.trace() - 3) / BeRate.trace();
         } else if (BeRate.trace() > 0) {
             lambdaMAX = mat_state.Be.trace() / BeRate.trace();
@@ -343,6 +343,24 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
         }
         if (lambdaMAXEST < lambdaMAX){
             lambdaMAX = lambdaMAXEST;
+        }
+
+        // Check for Valid Limits
+        if (lambdaMAX < 0){
+            std::cout << "Hmmm...\n"
+                      << "    " << "lambdaMAX = " << lambdaMAX << "\n"
+                      << "    " << "D = " << mat_state.D << "\n"
+                      << "    " << "B = " << mat_state.B << "\n"
+                      << "    " << "phiP = " << mat_state.phiP << "\n"
+                      << "    " << "evRate = " << evRate << "\n"
+                      << "    " << "esRate = " << esRate << "\n"
+                      << "    " << "DRate = " << DRate << "\n"
+                      << "    " << "BRate = " << BRate << "\n"
+                      << "    " << "Be.trace() = " << mat_state.Be.trace() << "\n"
+                      << "    " << Ben(0,0) << ", " << Ben(0,1) << ", " << Ben(0,2) << ", "
+                      << "    " << Ben(1,0) << ", " << Ben(1,1) << ", " << Ben(1,2) << ", "
+                      << "    " << Ben(2,0) << ", " << Ben(2,1) << ", " << Ben(2,2) << "\n"
+                      << "    " << "i = " << i << std::endl;
         }
 
         // Update Material State
@@ -572,75 +590,6 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
 
         } else {
             // Material is NOT in Tension or Under-Compacted
-
-            // Estimate Stress State
-            S = CauchyStressFromMaterialState(mat_state);
-            s0 = S - S.trace() / 3.0 * MaterialTensor::Identity();
-
-            // Estimate True P, Q
-            p = -S.trace() / 3.0;
-            q = std::sqrt(3.0 / 2.0 * s0.dot(s0));
-
-            // Get Relative Deformation Rates
-            Rates = PlasticFlowRulesFromMaterialState(mat_state);
-            evRate = Rates[0];
-            esRate = Rates[1];
-            DRate = Rates[2];
-            BRate = Rates[3];
-
-            // Estimate Maximum Plastic Step Size
-            BeRate = MaterialTensor();
-            if (q > 0) {
-                BeRate = 3.0 / 2.0 * esRate / q * (s0 * Ben + Ben * s0) + 2.0 / 3.0 * evRate * Ben;
-            } else {
-                BeRate = 2.0 / 3.0 * evRate * Ben;
-            }
-
-            lambdaMAX = 1e10; //a ludicrous number
-            lambdaMAXEST = lambdaMAX;
-
-            // Check for Plastic Compaction/Dilation
-            if (BeRate.trace() < 0) {
-                lambdaMAX = (mat_state.Be.trace() - 3) / BeRate.trace();
-            } else if (BeRate.trace() > 0) {
-                lambdaMAX = mat_state.Be.trace() / BeRate.trace();
-            }
-
-            // Check for Shearing Reversal
-            BeRate0 = BeRate - BeRate.trace() / 3.0 * MaterialTensor::Identity();
-            Be0 = mat_state.Be - mat_state.Be.trace() / 3.0 * MaterialTensor::Identity();
-            if (Be0.dot(BeRate0) > 0){
-                lambdaMAXEST = (Be0.dot(Be0)) / (Be0.dot(BeRate0));
-            }
-            if (lambdaMAXEST < lambdaMAX){
-                lambdaMAX = lambdaMAXEST;
-            }
-
-            // Check for Over-Breakage
-            if (BRate > 0){
-                lambdaMAXEST = (1.0 - mat_state.B) / BRate;
-            }
-            if (lambdaMAXEST < lambdaMAX){
-                lambdaMAX = lambdaMAXEST;
-            }
-
-            // Check for Over-Damage
-            if (DRate > 0 && mat_state.D < 1){
-                lambdaMAXEST = (1.0 - mat_state.D) / DRate;
-            }
-            if (lambdaMAXEST < lambdaMAX){
-                lambdaMAX = lambdaMAXEST;
-            }
-
-            // Check for Porosity Estimate
-            if (evRate > 0){
-                lambdaMAXEST = 1.0 / evRate;
-            } else if (evRate < 0) {
-                lambdaMAXEST = -mat_state.phiP / (evRate * (1.0 - mat_state.phiP));
-            }
-            if (lambdaMAXEST < lambdaMAX) {
-                lambdaMAX = lambdaMAXEST;
-            }
 
             // Compute Yield Function Value
             ys = YieldFunctionsFromMaterialState(mat_state);
@@ -902,6 +851,22 @@ void CompressibleDamageMechanicsSandstone::calculateStress(Job* job, Body* body,
             kVec(i)     = k;
             lVec(i)     = lambda;
         }
+
+        // Check for Maximum Iterations
+
+        if (k >= MaxIter && std::abs(yA) > 1e3 * AbsTOL){
+            std::cout << "MaxIter Reached: yA = " << yA
+                      << ", yB = " << yB
+                      << ", lambdaA = " << lambdaA
+                      << ", lambdaB = " << lambdaB
+                      << ", lambdaMAX = " << lambdaMAX
+                      << ", DRate = " << DRate
+                      << ", BRate = " << BRate
+                      << ", evRate = " << evRate
+                      << ", esRate = " << esRate
+                      << ", i = " << i << std::endl;
+        }
+
 
     }
 
