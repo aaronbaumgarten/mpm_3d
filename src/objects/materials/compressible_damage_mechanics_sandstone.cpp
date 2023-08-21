@@ -130,7 +130,7 @@ void CompressibleDamageMechanicsSandstone::init(Job* job, Body* body){
         }
 
         if (use_artificial_viscosity && fp64_props.size() > 25){
-            h_i = fp64_props[26];
+            h_i = fp64_props[25];
             std::cout << "  Using Artificial Viscosity:\n";
             std::cout << "    h_i    = " << h_i << " [m]\n";
         } else if (use_artificial_viscosity){
