@@ -949,6 +949,7 @@ void CompressibleDamageMechanicsSandstone::writeFrame(Job* job, Body* body, Seri
     serializer->writeScalarArray(Ts, "Ts");
     serializer->writeScalarArray(evDot, "evDot");
     serializer->writeScalarArray(esDot, "esDot");
+    serializer->writeScalarArray(DDot, "DDot");
     serializer->writeScalarArray(BDot, "BDot");
     serializer->writeScalarArray(y1Vec, "y1Vec");
     serializer->writeScalarArray(y2Vec, "y2Vec");
